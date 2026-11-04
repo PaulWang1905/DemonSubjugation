@@ -183,9 +183,21 @@ export interface SaveStorage {
   has(path: string): boolean;
 }
 
+/**
+ * Supplies glyphs when the HZK16 / ASC16 font files are not available.
+ * `hzk(n)` returns the 32 bytes of GB2312 glyph n (row-major 94x94 grid
+ * starting at 0xA1A1), `asc(c)` the 16 bytes of ASCII character c.
+ */
+export interface FontFallback {
+  hzk(glyph: number): ArrayLike<number>;
+  asc(code: number): ArrayLike<number>;
+}
+
 export interface Platform {
   /** Read-only game resources keyed by file name: "DAT.LIB", "HZK16", "ASC16". */
   rom: Map<string, Int8Array>;
+  /** Used for text when HZK16 / ASC16 are missing from `rom`. */
+  fontFallback?: FontFallback;
   /** Persistent storage for "sav/..." paths. */
   saves: SaveStorage;
   exit(): void;

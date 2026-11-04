@@ -2,29 +2,62 @@
 // ASC16 bitmap fonts.
 import { Global } from "../Global";
 import { Bitmap, Canvas, Rect } from "../../graphics";
-import { File, gbkBytes } from "../../java";
+import { gbkBytes, getPlatform } from "../../java";
 
-let mHZKBuf: Int8Array | null = null;
-let mASCBuf: Int8Array | null = null;
+/** Byte source for a bitmap font: a loaded file or the platform fallback. */
+interface FontSource {
+  byte(offset: number): number;
+}
+
+let hzkSource: FontSource | null = null;
+let ascSource: FontSource | null = null;
 const mPixels = new Uint32Array(16 * 16);
 const mBmpHzk = Bitmap.createBitmap(16, 16);
 const mBmpAsc = Bitmap.createBitmap(8, 16);
+const BLANK: FontSource = { byte: () => 0 };
 
-function hzk(): Int8Array {
-  if (!mHZKBuf) mHZKBuf = File.contentsOf("HZK16");
-  return mHZKBuf;
-}
-function asc(): Int8Array {
-  if (!mASCBuf) mASCBuf = File.contentsOf("ASC16");
-  return mASCBuf;
+function fileSource(name: string): FontSource | null {
+  const p = getPlatform();
+  const buf = p.rom.get(name);
+  return buf ? { byte: (o) => buf[o] ?? 0 } : null;
 }
 
-function fillGlyph(src: Int8Array, offset: number, rows: number, bytesPerRow: number): void {
+function cachedSource(glyphBytes: number, render: (glyph: number) => ArrayLike<number>): FontSource {
+  const cache = new Map<number, ArrayLike<number>>();
+  return {
+    byte(o: number): number {
+      const g = Math.floor(o / glyphBytes);
+      let bytes = cache.get(g);
+      if (!bytes) {
+        bytes = render(g);
+        cache.set(g, bytes);
+      }
+      return bytes[o - g * glyphBytes] ?? 0;
+    },
+  };
+}
+
+function hzk(): FontSource {
+  if (!hzkSource) {
+    const fb = getPlatform().fontFallback;
+    hzkSource = fileSource("HZK16") ?? (fb ? cachedSource(32, (g) => fb.hzk(g)) : BLANK);
+  }
+  return hzkSource;
+}
+function asc(): FontSource {
+  if (!ascSource) {
+    const fb = getPlatform().fontFallback;
+    ascSource = fileSource("ASC16") ?? (fb ? cachedSource(16, (c) => fb.asc(c)) : BLANK);
+  }
+  return ascSource;
+}
+
+function fillGlyph(src: FontSource, offset: number, rows: number, bytesPerRow: number): void {
   const fg = Global.fgColor;
   const bg = Global.bgColor;
   const n = rows * bytesPerRow;
   for (let i = 0; i < n; i++) {
-    const t = src[offset + i] | 0;
+    const t = src.byte(offset + i) | 0;
     const k = i << 3;
     for (let b = 0; b < 8; b++) {
       mPixels[k | b] = (t & (0x80 >> b)) !== 0 ? fg : bg;
@@ -51,8 +84,8 @@ function toBytes(text: string | Int8Array): Int8Array {
 export const TextRender = {
   /** Drop cached fonts (used when another game is loaded). */
   reset(): void {
-    mHZKBuf = null;
-    mASCBuf = null;
+    hzkSource = null;
+    ascSource = null;
   },
 
   drawText(canvas: Canvas, text: string | Int8Array, x: number, y: number): void {

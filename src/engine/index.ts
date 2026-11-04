@@ -11,7 +11,9 @@ import { registerResources } from "./fmj/registry";
 import { SaveLoadGame } from "./fmj/scene/SaveLoadGame";
 import { ScriptResources } from "./fmj/script/ScriptResources";
 import { ScriptVM } from "./fmj/script/ScriptVM";
-import { setPlatform, type SaveStorage } from "./java";
+import { setPlatform, type FontFallback, type SaveStorage } from "./java";
+
+export type { FontFallback };
 
 export { EngineSettings };
 
@@ -37,10 +39,10 @@ export const TICK_MS = Global.delta;
 export interface EngineResources {
   /** The game archive (DAT.LIB, or a renamed *.lib from another BBK game). */
   datLib: Uint8Array;
-  /** 16x16 GB2312 font. */
-  hzk16: Uint8Array;
-  /** 8x16 ASCII font. */
-  asc16: Uint8Array;
+  /** 16x16 GB2312 font (optional: see EngineOptions.fontFallback). */
+  hzk16?: Uint8Array | null;
+  /** 8x16 ASCII font (optional). */
+  asc16?: Uint8Array | null;
 }
 
 export interface EngineOptions {
@@ -48,6 +50,8 @@ export interface EngineOptions {
   saves: SaveStorage;
   onExit?: () => void;
   random?: () => number;
+  /** Glyphs for text when a font file is missing; without it text is blank. */
+  fontFallback?: FontFallback;
 }
 
 function asInt8(u: Uint8Array): Int8Array {
@@ -93,11 +97,16 @@ export interface Engine {
 export function createEngine(opts: EngineOptions): Engine {
   registerResources();
   setPlatform({
-    rom: new Map([
-      ["DAT.LIB", asInt8(opts.resources.datLib)],
-      ["HZK16", asInt8(opts.resources.hzk16)],
-      ["ASC16", asInt8(opts.resources.asc16)],
-    ]),
+    rom: new Map(
+      [
+        ["DAT.LIB", opts.resources.datLib],
+        ["HZK16", opts.resources.hzk16],
+        ["ASC16", opts.resources.asc16],
+      ]
+        .filter((e): e is [string, Uint8Array] => e[1] instanceof Uint8Array && e[1].length > 0)
+        .map(([k, v]) => [k, asInt8(v)] as [string, Int8Array]),
+    ),
+    fontFallback: opts.fontFallback,
     saves: opts.saves,
     exit: () => opts.onExit?.(),
     random: opts.random ?? Math.random,

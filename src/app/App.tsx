@@ -89,12 +89,10 @@ export function App() {
     setPlaying({ id: p.id, name: p.name, fileName: "playtest", size: p.data.byteLength, addedAt: Date.now(), data: p.data });
   }, []);
 
-  const fontPair = useMemo(
-    () => (fonts.hzk16 && fonts.asc16 ? { hzk16: fonts.hzk16, asc16: fonts.asc16 } : null),
-    [fonts],
-  );
+  // Uploaded fonts are optional: the player falls back to the device's fonts.
+  const fontPair = useMemo(() => ({ hzk16: fonts.hzk16, asc16: fonts.asc16 }), [fonts]);
 
-  const showPlayer = !!(playing && fontPair);
+  const showPlayer = !!playing;
   return (
     <>
       {!showPlayer && (
@@ -109,10 +107,10 @@ export function App() {
       )}
       {/* The editor stays mounted so an open project survives tab switches and playtests. */}
       <div hidden={showPlayer || tab !== "editor"}>
-        <Editor fontsReady={!!fontPair} onPlaytest={onPlaytest} />
+        <Editor fontsReady onPlaytest={onPlaytest} />
       </div>
       {showPlayer ? (
-        <Player key={playing!.id + (playtestFrom ? playing!.addedAt : "")} game={playing!} fonts={fontPair!} onExit={onExit} />
+        <Player key={playing!.id + (playtestFrom ? playing!.addedAt : "")} game={playing!} fonts={fontPair} onExit={onExit} />
       ) : (
         tab === "play" && (
           <Library

@@ -6,8 +6,10 @@ format), written in TypeScript with a React shell and deployable as a static
 site on Vercel.
 
 **No game content is included.** The engine plays resource archives that you
-import yourself in the browser: a game archive (`DAT.LIB` or any `*.lib`) plus
-the two system fonts `HZK16` and `ASC16`. Imported files are stored in the
+import yourself in the browser: a game archive (`DAT.LIB` or any `*.lib`).
+The original bitmap fonts `HZK16` and `ASC16` are optional: without them, text
+is drawn with the fonts installed on the player's device (each character is
+rendered once to a 1-bit 16x16 glyph and cached). Imported files are stored in the
 browser (IndexedDB) and are never uploaded anywhere. Only use resources you have
 the right to use.
 

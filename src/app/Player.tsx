@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createDeviceFont } from "./deviceFont";
 import { createEngine, EngineSettings, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, type Engine, type EngineKey } from "../engine";
 import { exportSaves, importSaves, savesFor } from "../storage/saves";
 import type { StoredGame } from "../storage/db";
@@ -8,7 +9,8 @@ import { applyPalette, PALETTES } from "./palettes";
 
 interface Props {
   game: StoredGame;
-  fonts: { hzk16: ArrayBuffer; asc16: ArrayBuffer };
+  /** Uploaded font files; when missing, the device's own fonts are used. */
+  fonts: { hzk16: ArrayBuffer | null; asc16: ArrayBuffer | null };
   onExit: () => void;
 }
 
@@ -55,9 +57,10 @@ export function Player({ game, fonts, onExit }: Props) {
       engine = createEngine({
         resources: {
           datLib: new Uint8Array(game.data),
-          hzk16: new Uint8Array(fonts.hzk16),
-          asc16: new Uint8Array(fonts.asc16),
+          hzk16: fonts.hzk16 ? new Uint8Array(fonts.hzk16) : null,
+          asc16: fonts.asc16 ? new Uint8Array(fonts.asc16) : null,
         },
+        fontFallback: fonts.hzk16 && fonts.asc16 ? undefined : createDeviceFont(),
         saves: savesFor(game.id),
         onExit,
       });

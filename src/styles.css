@@ -853,3 +853,7 @@ footer {
   margin: 2px 0 0;
   color: var(--muted);
 }
+
+.chip.soft {
+  color: var(--muted);
+}

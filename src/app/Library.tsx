@@ -20,7 +20,6 @@ function size(n: number): string {
 export function Library({ games, fonts, persistent, busy, messages, onImport, onPlay, onDelete }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
-  const fontsReady = fonts.HZK16 && fonts.ASC16;
 
   return (
     <div className="library">
@@ -30,8 +29,8 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
         </h1>
         <p>
           A browser port of the engine behind the BBK electronic-dictionary RPGs (伏魔记 and the many community games made
-          for it). <strong>No game data is included</strong>: import a game archive and the two system fonts you have the
-          right to use. Files stay in this browser and are never uploaded.
+          for it). <strong>No game data is included</strong>: import a game archive you have the right to use (the
+          original bitmap fonts are optional). Files stay in this browser and are never uploaded.
         </p>
       </section>
 
@@ -69,7 +68,7 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
             Game archive: <code>DAT.LIB</code> or any <code>*.lib</code>
           </li>
           <li>
-            Fonts: <code>HZK16</code> (16×16 GB2312) and <code>ASC16</code> (8×16 ASCII)
+            Optional fonts: <code>HZK16</code> (16×16 GB2312) and <code>ASC16</code> (8×16 ASCII)
           </li>
           <li>
             Also accepted: hex-encoded <code>*.lib.js</code> / <code>rom.js</code> bundles from fmj.kt web builds
@@ -86,11 +85,18 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
       </section>
 
       <section className="status">
-        <h2>Fonts</h2>
+        <h2>
+          Fonts <span className="muted small">(optional)</span>
+        </h2>
         <div className="chips">
-          <span className={`chip ${fonts.HZK16 ? "ok" : ""}`}>{fonts.HZK16 ? "✓" : "✗"} HZK16</span>
-          <span className={`chip ${fonts.ASC16 ? "ok" : ""}`}>{fonts.ASC16 ? "✓" : "✗"} ASC16</span>
+          <span className={`chip ${fonts.HZK16 ? "ok" : "soft"}`}>{fonts.HZK16 ? "✓ HZK16" : "HZK16 not added"}</span>
+          <span className={`chip ${fonts.ASC16 ? "ok" : "soft"}`}>{fonts.ASC16 ? "✓ ASC16" : "ASC16 not added"}</span>
         </div>
+        <p className="muted small">
+          {fonts.HZK16 && fonts.ASC16
+            ? "Games use the original bitmap fonts."
+            : "Games are playable without these files: text is drawn with your device's own fonts. Add HZK16 and ASC16 for the original look."}
+        </p>
         {!persistent && <p className="muted">Browser storage is unavailable, so imported files last for this tab only.</p>}
       </section>
 
@@ -109,9 +115,7 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
                   </span>
                 </div>
                 <div className="row">
-                  <button onClick={() => onPlay(g)} disabled={!fontsReady} title={fontsReady ? "" : "Import HZK16 and ASC16 first"}>
-                    Play
-                  </button>
+                  <button onClick={() => onPlay(g)}>Play</button>
                   <button className="ghost danger" onClick={() => onDelete(g)}>
                     Remove
                   </button>
