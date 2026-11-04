@@ -36,7 +36,8 @@ export class ActionMagicAttackAll extends ActionMultiTarget {
     this.magic.use(a, this.mTargets);
     // fmj.kt showed two placeholder numbers here; show each target's real loss.
     this.mTargets.forEach((t, i) => {
-      if (t.isVisiable) this.mRaiseAnis.push(new RaiseAnimation(t.combatX, t.combatY, t.hp - before[i], 0));
+      const missed = this.magic.missed.has(t);
+      if (t.isVisiable) this.mRaiseAnis.push(new RaiseAnimation(t.combatX, t.combatY, t.hp - before[i], 0, missed));
     });
   }
 

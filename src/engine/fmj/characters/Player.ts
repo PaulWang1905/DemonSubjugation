@@ -29,6 +29,14 @@ export class Player extends FightingCharacter implements Coder {
   readonly equipmentsArray: (GoodsEquipment | null)[] = [null, null, null, null, null, null, null, null];
   privateLearntMagics: BaseMagic[] = [];
 
+  get isPlayer(): boolean {
+    return true;
+  }
+
+  /** Stats before the last level-up, for the level-up screen (not saved). */
+  levelBefore: { hp: number; maxHP: number; mp: number; maxMP: number; attack: number; defend: number; speed: number; lingli: number; luck: number } | null =
+    null;
+
   drawHead(canvas: Canvas, x: number, y: number): void {
     this.mImgHead?.draw(canvas, 1, x, y);
   }

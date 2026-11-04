@@ -225,6 +225,16 @@ export function systemResources(opts: SystemOptions): LibEntry[] {
     out.push(pic(2, 12, m));
   }
 
+  // --- PIC 2-18: MISS (shown when an attack or spell is dodged) -----------
+  {
+    const label = "MISS";
+    const w = textWidth(label) + 4;
+    const p = new Pix(w, 9, T);
+    p.fill(0, 0, w, 9, W).rect(0, 0, w, 9);
+    p.text(label, 2, 2);
+    out.push(pic(2, 18, [p]));
+  }
+
   // --- PIC 2-15 / 2-16: save and load screens -----------------------------
   ["SAVE GAME", "LOAD GAME"].forEach((label, k) => {
     const p = new Pix(160, 96, W);

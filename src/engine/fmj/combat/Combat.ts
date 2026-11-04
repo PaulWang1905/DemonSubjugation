@@ -1,5 +1,6 @@
 // Port of fmj/combat/Combat.kt — battle controller (random and scripted fights).
 import { EngineSettings } from "../config/EngineSettings";
+import * as OriginalRules from "./OriginalRules";
 import { Global, ScreenViewType } from "../Global";
 import { FightingCharacter } from "../characters/FightingCharacter";
 import type { Monster } from "../characters/Monster";
@@ -157,6 +158,7 @@ export class Combat extends BaseScreen implements CombatUICallBack {
 
     for (const p of this.mPlayerList) {
       if (p.hp <= 0) p.hp = 1;
+      p.defending = false;
       p.setFrameByState();
     }
     for (const m of this.mMonsterList) m.hp = m.maxHP;
@@ -201,8 +203,11 @@ export class Combat extends BaseScreen implements CombatUICallBack {
     this.mCombatUI.reset();
     this.mIsAutoAttack = false;
 
-    // Recover a little after the fight.
-    for (const p of this.mPlayerList) {
+    // Recover a little after the fight. With the original rules this
+    // happened on victory already; fallen members are left with 1 HP.
+    if (EngineSettings.originalDamageFormula) {
+      for (const p of this.mPlayerList) if (p.hp <= 0) p.hp = 1;
+    } else for (const p of this.mPlayerList) {
       if (p.hp <= 0) p.hp = 1;
       if (p.mp <= 0) p.mp = 1;
       p.hp = p.hp + Math.trunc((p.maxHP - p.hp) / 10);
@@ -250,6 +255,7 @@ export class Combat extends BaseScreen implements CombatUICallBack {
           } else if (this.isAnyPlayerAlive) {
             ++this.mRoundCnt;
             this.updateFighterState();
+            for (const p of this.mPlayerList) p.defending = false;
             this.mCombatState = CombatState.SelectAction;
             this.mCurSelActionPlayerIndex = this.firstAlivePlayerIndex;
             this.mCombatUI.setCurrentPlayerIndex(this.mCurSelActionPlayerIndex);
@@ -285,45 +291,63 @@ export class Combat extends BaseScreen implements CombatUICallBack {
     Player.sMoney += this.mWinMoney;
 
     const lvuplist: Player[] = [];
-    for (const p of this.mPlayerList) {
-      if (!p.isAlive) continue;
-      if (p.level >= p.levelupChain.maxLevel) break; // max level (original behaviour)
-      const nextExp = p.levelupChain.getNextLevelExp(p.level);
-      const exp = this.mWinExp + p.currentExp;
-      if (exp < nextExp) {
-        p.currentExp = exp;
-      } else {
-        const cl = p.level;
-        const c = p.levelupChain;
-        p.currentExp = exp - nextExp;
-        p.level = cl + 1;
-        p.maxHP = p.maxHP + c.getMaxHP(cl + 1) - c.getMaxHP(cl);
-        p.hp = p.maxHP;
-        p.maxMP = p.maxMP + c.getMaxMP(cl + 1) - c.getMaxMP(cl);
-        p.mp = p.maxMP;
-        p.attack = p.attack + c.getAttack(cl + 1) - c.getAttack(cl);
-        p.defend = p.defend + c.getDefend(cl + 1) - c.getDefend(cl);
-        if (p.magicChain) p.magicChain.learnNum = c.getLearnMagicNum(cl + 1);
-        p.speed = p.speed + c.getSpeed(cl + 1) - c.getSpeed(cl);
-        p.lingli = p.lingli + c.getLingli(cl + 1) - c.getLingli(cl);
-        p.luck = p.luck + c.getLuck(cl + 1) - c.getLuck(cl);
-        lvuplist.push(p);
-      }
-    }
-
-    // Drop chance from the best luck in the party.
-    let ppt = 10;
-    for (const p of this.mPlayerList) if (p.luck > ppt) ppt = p.luck;
-    ppt -= 10;
-    if (ppt > 100) ppt = 100;
-    else if (ppt < 0) ppt = 10;
-
     const gm = new GoodsManage();
-    for (const m of this.mMonsterList) {
-      const g = m.dropGoods;
-      if (g != null && sRandom.nextInt(101) < ppt) {
-        gm.addGoods(g.type, g.index, g.goodsNum);
-        Player.sGoodsList.addGoods(g.type, g.index, g.goodsNum);
+    if (EngineSettings.originalDamageFormula) {
+      // Original engine: recover 15-24% of what is missing, share the
+      // experience among those standing, level up (possibly several levels).
+      for (const p of OriginalRules.recoverAfterVictory(this.mPlayerList)) {
+        if (OriginalRules.gainExperience(p, this.mWinExp)) lvuplist.push(p);
+      }
+      // each defeated enemy may leave one of its item
+      const leader = this.mPlayerList[0];
+      for (const m of this.mMonsterList) {
+        if (!m.isVisiable) continue;
+        const g = m.dropGoods;
+        if (g != null && OriginalRules.drops(leader, m)) {
+          gm.addGoods(g.type, g.index, 1);
+          Player.sGoodsList.addGoods(g.type, g.index, 1);
+        }
+      }
+    } else {
+      for (const p of this.mPlayerList) {
+        if (!p.isAlive) continue;
+        if (p.level >= p.levelupChain.maxLevel) break; // max level (original behaviour)
+        const nextExp = p.levelupChain.getNextLevelExp(p.level);
+        const exp = this.mWinExp + p.currentExp;
+        if (exp < nextExp) {
+          p.currentExp = exp;
+        } else {
+          const cl = p.level;
+          const c = p.levelupChain;
+          p.currentExp = exp - nextExp;
+          p.level = cl + 1;
+          p.maxHP = p.maxHP + c.getMaxHP(cl + 1) - c.getMaxHP(cl);
+          p.hp = p.maxHP;
+          p.maxMP = p.maxMP + c.getMaxMP(cl + 1) - c.getMaxMP(cl);
+          p.mp = p.maxMP;
+          p.attack = p.attack + c.getAttack(cl + 1) - c.getAttack(cl);
+          p.defend = p.defend + c.getDefend(cl + 1) - c.getDefend(cl);
+          if (p.magicChain) p.magicChain.learnNum = c.getLearnMagicNum(cl + 1);
+          p.speed = p.speed + c.getSpeed(cl + 1) - c.getSpeed(cl);
+          p.lingli = p.lingli + c.getLingli(cl + 1) - c.getLingli(cl);
+          p.luck = p.luck + c.getLuck(cl + 1) - c.getLuck(cl);
+          lvuplist.push(p);
+        }
+      }
+
+      // Drop chance from the best luck in the party.
+      let ppt = 10;
+      for (const p of this.mPlayerList) if (p.luck > ppt) ppt = p.luck;
+      ppt -= 10;
+      if (ppt > 100) ppt = 100;
+      else if (ppt < 0) ppt = 10;
+
+      for (const m of this.mMonsterList) {
+        const g = m.dropGoods;
+        if (g != null && sRandom.nextInt(101) < ppt) {
+          gm.addGoods(g.type, g.index, g.goodsNum);
+          Player.sGoodsList.addGoods(g.type, g.index, g.goodsNum);
+        }
       }
     }
     const gl: BaseGoods[] = [...gm.goodsList, ...gm.equipList];
@@ -441,8 +465,11 @@ export class Combat extends BaseScreen implements CombatUICallBack {
   onFlee(): void {
     this.mCombatUI.reset();
     for (let i = this.mCurSelActionPlayerIndex; i < this.mPlayerList.length; i++) {
-      if (this.mPlayerList[i].isAlive && sRandom.nextBoolean() && sIsRandomFight) {
-        // 50% chance to escape
+      const p = this.mPlayerList[i];
+      const escapes = EngineSettings.originalDamageFormula
+        ? OriginalRules.fleeSucceeds(p, this.mMonsterList.find((m) => m.isVisiable) ?? this.mMonsterList[0])
+        : sRandom.nextBoolean(); // fmj.kt: 50% chance
+      if (p.isAlive && escapes && sIsRandomFight) {
         this.mActionQueue.push(
           new ActionFlee(this.mPlayerList[i], true, () => {
             this.mIsWin = true;
@@ -593,7 +620,7 @@ export class Combat extends BaseScreen implements CombatUICallBack {
       c == null ||
       !c.mMonsterType ||
       c.mMonsterType.length === 0 ||
-      sRandom.nextInt(COMBAT_PROBABILITY) !== 0
+      !(EngineSettings.originalDamageFormula ? OriginalRules.encounter() : sRandom.nextInt(COMBAT_PROBABILITY) === 0)
     ) {
       sIsFighting = false;
       return false;

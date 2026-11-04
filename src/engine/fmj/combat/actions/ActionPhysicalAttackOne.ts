@@ -7,7 +7,7 @@ import type { Canvas } from "../../../graphics";
 import { random } from "../../../java";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
 import { ActionSingleTarget } from "./ActionSingleTarget";
-import { CalcDamage } from "./CalcDamage";
+import { guarded, MISS, physicalOnEnemy, physicalOnPlayer } from "../OriginalRules";
 
 const TOTAL_FRAME = 5;
 
@@ -31,7 +31,14 @@ export class ActionPhysicalAttackOne extends ActionSingleTarget {
     this.dy = (t.combatY - a.combatY) / TOTAL_FRAME;
     let damage: number;
     if (EngineSettings.originalDamageFormula) {
-      damage = CalcDamage.originalPhysicalDamage(a.attack, t.defend, t instanceof Player);
+      damage =
+        t instanceof Player
+          ? physicalOnPlayer(a, t, guarded(t, t.defending, t.hasAilment))
+          : physicalOnEnemy(a, t);
+      if (damage === MISS) {
+        this.mRaiseAni = new RaiseAnimation(t.combatLeft, t.combatTop, 0, 0, true);
+        return;
+      }
     } else {
       damage = a.attack - t.defend;
       if (damage <= 0) damage = 1;

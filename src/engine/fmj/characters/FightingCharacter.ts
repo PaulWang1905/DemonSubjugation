@@ -84,6 +84,19 @@ export abstract class FightingCharacter extends Character {
     return true;
   }
 
+  /** True for party members (overridden by Player). */
+  get isPlayer(): boolean {
+    return false;
+  }
+
+  /** Chose Defend this round (cleared when the next round starts). */
+  defending = false;
+
+  /** Poisoned, confused, sealed or asleep. */
+  get hasAilment(): boolean {
+    return (this.mDebuff & 0x0f) !== 0;
+  }
+
   hasDebuff(mask: number): boolean {
     return (this.mDebuff & mask) !== 0;
   }

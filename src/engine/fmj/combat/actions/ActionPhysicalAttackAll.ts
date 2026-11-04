@@ -7,7 +7,7 @@ import type { Canvas } from "../../../graphics";
 import { random } from "../../../java";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
 import { ActionMultiTarget } from "./ActionMultiTarget";
-import { CalcDamage } from "./CalcDamage";
+import { guarded, MISS, physicalOnEnemy, physicalOnPlayer } from "../OriginalRules";
 
 const TOTAL_FRAME = 5;
 
@@ -31,7 +31,14 @@ export class ActionPhysicalAttackAll extends ActionMultiTarget {
       if (!fc.isAlive) continue;
       let damage: number;
       if (EngineSettings.originalDamageFormula) {
-        damage = CalcDamage.originalPhysicalDamage(a.attack, fc.defend, fc instanceof Player);
+        damage =
+          fc instanceof Player
+            ? physicalOnPlayer(a, fc, guarded(fc, fc.defending, fc.hasAilment))
+            : physicalOnEnemy(a, fc);
+        if (damage === MISS) {
+          this.mRaiseAnis.push(new RaiseAnimation(fc.combatX, fc.combatY, 0, 0, true));
+          continue;
+        }
       } else {
         damage = a.attack - fc.defend;
         if (damage <= 0) damage = 1;

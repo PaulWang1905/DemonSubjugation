@@ -6,6 +6,7 @@ import { ActionSingleTarget } from "./ActionSingleTarget";
 export class ActionDefend extends ActionSingleTarget {
   constructor(fc: FightingCharacter) {
     super(fc, fc);
+    fc.defending = true;
   }
   get isTargetAlive(): boolean {
     return true;

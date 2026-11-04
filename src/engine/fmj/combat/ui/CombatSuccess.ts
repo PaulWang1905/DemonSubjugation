@@ -25,6 +25,30 @@ export class LevelupScreen extends BaseScreen {
     const lc = p.levelupChain;
     const curl = p.level;
     const n = (v: number, x: number, y: number) => Util.drawSmallNum(canvas, v, x, y);
+    const b = p.levelBefore;
+    if (b) {
+      // before -> after, for any number of levels gained at once
+      p.levelBefore = null;
+      n(b.hp, 37, 9);
+      n(b.maxHP, 56, 9);
+      n(p.hp, 86, 9);
+      n(p.maxHP, 105, 9);
+      n(b.mp, 37, 21);
+      n(b.maxMP, 56, 21);
+      n(p.mp, 86, 21);
+      n(p.maxMP, 105, 21);
+      n(b.attack, 47, 33);
+      n(p.attack, 96, 33);
+      n(b.defend, 47, 45);
+      n(p.defend, 96, 45);
+      n(b.speed, 47, 57);
+      n(p.speed, 96, 57);
+      n(b.lingli, 47, 69);
+      n(p.lingli, 96, 69);
+      n(b.luck, 47, 81);
+      n(p.luck, 96, 81);
+      return;
+    }
     n(p.hp, 37, 9);
     p.hp = p.maxHP;
     n(p.maxHP - (lc.getMaxHP(curl) - lc.getMaxHP(curl - 1)), 56, 9);

@@ -46,7 +46,8 @@ export class ActionMagicAttackOne extends ActionSingleTarget {
     if (this.magic instanceof MagicAttack) this.magic.use(a, t);
     this.mAniX = t.combatX;
     this.mAniY = t.combatY - Math.trunc(t.fightingSprite!.height / 2);
-    this.mRaiseAni = new RaiseAnimation(t.combatX, t.combatY, t.hp - ohp, 0);
+    const missed = this.magic instanceof MagicAttack && this.magic.missed.has(t);
+    this.mRaiseAni = new RaiseAnimation(t.combatX, t.combatY, t.hp - ohp, 0, missed);
 
     if (this.magic instanceof MagicSpecial) {
       const it = this.steal(a);

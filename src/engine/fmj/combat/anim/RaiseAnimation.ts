@@ -3,7 +3,21 @@ import { FightingCharacter } from "../../characters/FightingCharacter";
 import { Util } from "../../graphics/Util";
 import { DatLib, ResType } from "../../lib/DatLib";
 import type { ResSrs } from "../../lib/ResSrs";
-import type { Bitmap, Canvas } from "../../../graphics";
+import { Bitmap, Canvas } from "../../../graphics";
+import { Global } from "../../Global";
+import { TextRender } from "../../graphics/TextRender";
+import type { ResImage } from "../../lib/ResImage";
+
+/** The original MISS picture (system picture 2-18), or "MISS" drawn as text. */
+function missBitmap(): Bitmap {
+  const img = DatLib.getRes(ResType.PIC, 2, 18, true) as ResImage | null;
+  const b = img?.getBitmap(0);
+  if (b && b.width > 1) return b;
+  const bmp = Bitmap.createBitmap(32, 16);
+  bmp.buffer.fill(Global.COLOR_TRANSP);
+  TextRender.drawText(new Canvas(bmp), "MISS", 0, 0);
+  return bmp;
+}
 
 export class RaiseAnimation {
   private dy = 0;
@@ -18,9 +32,10 @@ export class RaiseAnimation {
     private readonly y: number,
     hitpoint: number,
     buff: number,
+    miss = false,
   ) {
-    this.raiseNum = Util.getSmallSignedNumBitmap(hitpoint);
-    this.bShowNum = hitpoint !== 0;
+    this.raiseNum = miss ? missBitmap() : Util.getSmallSignedNumBitmap(hitpoint);
+    this.bShowNum = miss || hitpoint !== 0;
     const F = FightingCharacter;
     const table: [number, number][] = [
       [F.BUFF_MASK_DU, 243],

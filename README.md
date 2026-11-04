@@ -200,8 +200,13 @@ Deliberate changes:
   so scripts that use them no longer abort.
 - `DELETEGOODS` reads its jump address from the right operand (fork fix).
 - `GAMESAVE` only closes its own screen, and cancelling it resumes the script (fork fix).
-- Physical damage uses the formula recovered from the original engine (fork),
-  switchable back to fmj.kt's simplified formula under *Controls & options*.
+- **Original battle rules** (on by default, under *Controls & options*): hit
+  and miss, physical and spell damage, defending, fleeing, the encounter rate,
+  recovery after a win, levelling and drops follow the original engine as
+  reconstructed in [fmj-engine](https://gitee.com/BA4988/fmj-engine). Turning
+  the option off restores fmj.kt's simplified rules. See
+  [docs/original-engine-alignment.md](docs/original-engine-alignment.md) for
+  the comparison and what still differs.
 - Healing magic now works in battle (fmj.kt's overload was never called).
 - Thrown weapons and party-wide medicine apply their effect (TODOs in fmj.kt).
 - Combined attacks deal their magic's damage (fmj.kt only played the animation).
@@ -225,6 +230,9 @@ menu, and the show-position opcodes.
   GPL-2.0, which this port is a derivative of.
 - Fixes and extra opcodes from
   [erduoniba/baye-fmj-app](https://github.com/erduoniba/baye-fmj-app).
+- Battle rules checked against [BA4988/fmj-engine](https://gitee.com/BA4988/fmj-engine),
+  a GPL-2.0 C reconstruction of the original engine (no code copied; the
+  formulas are re-implemented).
 - Earlier lineage: the Android, Java and C# ports listed in those projects.
 
 This project is licensed under the **GNU General Public License v2.0** (see
