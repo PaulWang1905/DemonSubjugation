@@ -1650,3 +1650,43 @@ footer {
   cursor: default;
   user-select: none;
 }
+
+/* press-and-hold ring on the game screen */
+
+.bezel canvas {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.hold-ring {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  pointer-events: none;
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.35));
+}
+
+.hold-ring circle {
+  fill: none;
+  stroke-width: 5;
+}
+
+.hold-ring .track {
+  stroke: rgb(255 255 255 / 0.45);
+}
+
+.hold-ring .fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 113.1;
+  stroke-dashoffset: 113.1;
+  animation: hold-fill linear forwards;
+}
+
+@keyframes hold-fill {
+  to {
+    stroke-dashoffset: 0;
+  }
+}

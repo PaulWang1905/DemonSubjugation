@@ -31,12 +31,11 @@ the right to use.
   cover keeps the covering pixels. **Pixel (original)** keeps the 16×16
   bitmap text, using HZK16/ASC16 when added.
 - Keyboard controls and an on-screen keypad for phones; 1×/2×/4× speed.
-- **Hidden debug menu** for testing: type ↑ ↑ ↓ ↓ ← → ← → B A with the game
-  keys (B = Esc, A = Enter; the touch keypad works too), or tap the game's name
-  in the player five times. The game pauses while it is open. It edits party
-  stats, money, items, spells and story flags, and has switches for no random
-  battles, walking through walls and an always-full party, plus "win this
-  battle".
+- **Hidden debug menu** for testing: press and hold the game screen for two
+  seconds (mouse or finger; a ring fills while you hold). The game pauses while
+  it is open. It edits party stats, money, items, spells and story flags, and
+  has switches for no random battles, walking through walls and an always-full
+  party, plus "win this battle".
 - Save slots are kept per game in `localStorage` and can be exported or imported
   as JSON.
 - Also imports the hex-encoded `*.lib.js` / `rom.js` bundles used by the fmj.kt web

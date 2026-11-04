@@ -5,7 +5,8 @@ import { exportSaves, importSaves, savesFor } from "../storage/saves";
 import type { StoredGame } from "../storage/db";
 import { KEY_HELP, KEYMAP } from "./keys";
 import { Keypad } from "./Keypad";
-import { DebugMenu, SECRET } from "./DebugMenu";
+import { DebugMenu } from "./DebugMenu";
+import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { HiresText, hiresScale, type TextStyle } from "./hiresText";
 
@@ -54,8 +55,8 @@ export function Player({ game, fonts, onExit }: Props) {
   textRef.current = textMode;
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
-  // The hidden debug menu: the secret code on the game keys, or five quick
-  // taps on the game's name. The game is paused while it is open.
+  // The hidden debug menu: press and hold the game screen. The game is paused
+  // while it is open.
   const [debugOpen, setDebugOpen] = useState(false);
   const debugRef = useRef(false);
   debugRef.current = debugOpen;
@@ -65,13 +66,10 @@ export function Player({ game, fonts, onExit }: Props) {
     pressed.current.clear();
     setDebugOpen(true);
   }, []);
-  const recent = useRef<EngineKey[]>([]);
-  const taps = useRef<number[]>([]);
-  // Keys the game has seen pressed: only their releases are passed on. B and
-  // A that complete the code are kept from the game (so typing it does not
-  // open the in-game menu), and so is the Esc that closes the debug menu.
+  const hold = useLongPress(openDebug);
+  // Keys the game has seen pressed: only their releases are passed on, so the
+  // Esc that closes the debug menu does not reach the game.
   const pressed = useRef(new Set<EngineKey>());
-  const endsWith = (r: EngineKey[], n: number) => r.length >= n && SECRET.slice(0, n).every((x, i) => r[r.length - n + i] === x);
   const speedRef = useRef(speed);
   const paletteRef = useRef(paletteId);
   speedRef.current = speed;
@@ -152,8 +150,6 @@ export function Player({ game, fonts, onExit }: Props) {
 
   const keyDown = useCallback((k: EngineKey) => {
     if (debugRef.current) return;
-    const r = recent.current;
-    if ((k === SECRET[8] && endsWith(r, 8)) || (k === SECRET[9] && endsWith(r, 9))) return;
     pressed.current.add(k);
     try {
       engineRef.current?.keyDown(k);
@@ -170,24 +166,7 @@ export function Player({ game, fonts, onExit }: Props) {
         setError(String((e as Error).stack ?? e));
       }
     }
-    // Releases, not presses, so held keys that auto-repeat count once.
-    const r = [...recent.current, k].slice(-SECRET.length);
-    recent.current = r;
-    if (r.length === SECRET.length && r.every((x, i) => x === SECRET[i])) {
-      recent.current = [];
-      openDebug();
-    }
-  }, [openDebug]);
-
-  const tapTitle = () => {
-    const now = Date.now();
-    taps.current = [...taps.current.filter((t) => now - t < 1500), now];
-    if (taps.current.length >= 5) {
-      taps.current = [];
-      if (debugRef.current) setDebugOpen(false);
-      else openDebug();
-    }
-  };
+  }, []);
 
   // Keyboard input. Auto-repeat keydowns are passed through, which is how
   // holding a direction keeps walking.
@@ -276,7 +255,7 @@ export function Player({ game, fonts, onExit }: Props) {
         <button className="ghost" onClick={onExit} title="Back to library">
           ← Library
         </button>
-        <span className="title" title={game.fileName} onClick={tapTitle}>
+        <span className="title" title={game.fileName}>
           {game.name}
         </span>
         <div className="spacer" />
@@ -337,7 +316,9 @@ export function Player({ game, fonts, onExit }: Props) {
             ref={canvasRef}
             style={{ width: SCREEN_WIDTH * scale, height: SCREEN_HEIGHT * scale }}
             aria-label="Game screen"
+            {...hold.bind}
           />
+          {hold.ring}
           {error && (
             <div className="crash" role="alert">
               <strong>The engine stopped.</strong>

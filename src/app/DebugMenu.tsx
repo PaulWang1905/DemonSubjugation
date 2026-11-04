@@ -1,8 +1,5 @@
 import { useMemo, useState } from "react";
-import { Keys, STAT_KEYS, STAT_MAX, type CheatSwitches, type Engine, type EngineKey, type StatKey } from "../engine";
-
-/** ↑ ↑ ↓ ↓ ← → ← → B A, with B = Cancel and A = Confirm. */
-export const SECRET: EngineKey[] = [Keys.UP, Keys.UP, Keys.DOWN, Keys.DOWN, Keys.LEFT, Keys.RIGHT, Keys.LEFT, Keys.RIGHT, Keys.CANCEL, Keys.ENTER];
+import { STAT_KEYS, STAT_MAX, type CheatSwitches, type Engine, type StatKey } from "../engine";
 
 const STAT_LABELS: Record<StatKey, string> = {
   level: "Level",
