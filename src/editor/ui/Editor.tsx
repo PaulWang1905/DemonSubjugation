@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { inspectDatLib } from "../../engine";
 import { deleteProject, listProjects, putProject, type StoredProject } from "../../storage/db";
 import { assemble } from "../format/gut";
-import { encodeMap } from "../format/encode";
+import {
+  encodeGoods, encodeLevelChain, encodeMagic, encodeMagicChain, encodeMap, encodeMonster, encodeNpc, encodePlayer, encodeSceneObj,
+} from "../format/encode";
 import { findEntry, putEntry, readLib, writeLib, type LibArchive } from "../format/lib";
 import { blankProject } from "../template/blank";
 import { lanternPath, lanternPathSources } from "../template/demo";
@@ -137,6 +139,62 @@ export function Editor({ fontsReady, onPlaytest }: Props) {
     setVersion((v) => v + 1);
   };
 
+  /** Create a new record with sensible defaults and select it. */
+  const addRecord = (what: string) => {
+    if (!cur) return;
+    const a = cur.archive;
+    const [kind, sub] = what.split(":");
+    let resType = 0;
+    let type = 0;
+    let data: Uint8Array;
+    const idx = (rt: number, t: number) => nextIndex(a, rt, t);
+    let index = 0;
+    switch (kind) {
+      case "player":
+        [resType, type, index] = [3, 1, idx(3, 1)];
+        data = encodePlayer({ index, name: `Hero ${index}`, walkSprite: 1, magicChain: 1, magicsKnown: 1, level: 1, maxHP: 60, maxMP: 10, attack: 10, defend: 5, speed: 10, lingli: 5, luck: 10 });
+        break;
+      case "npc":
+        [resType, type, index] = [3, 2, idx(3, 2)];
+        data = encodeNpc({ index, name: `NPC ${index}`, sprite: 1 });
+        break;
+      case "monster":
+        [resType, type, index] = [3, 3, idx(3, 3)];
+        data = encodeMonster({ index, name: `Monster ${index}`, sprite: 1, level: 1, maxHP: 30, attack: 8, defend: 3, speed: 6, money: 5, exp: 5 });
+        break;
+      case "object":
+        [resType, type, index] = [3, 4, idx(3, 4)];
+        data = encodeSceneObj({ index, name: `Object ${index}`, sprite: 1 });
+        break;
+      case "item": {
+        type = Number(sub);
+        [resType, index] = [6, idx(6, type)];
+        const icon = a.entries.find((e) => e.resType === 9 && e.type === type)?.index ?? 1;
+        data = encodeGoods({ type, index, name: `Item ${index}`, icon, description: "A new item.", buy: 10, sell: 5, hp: type === 9 ? 30 : undefined });
+        break;
+      }
+      case "magic":
+        type = Number(sub);
+        [resType, index] = [4, idx(4, type)];
+        data = encodeMagic({ type: type as 1 | 2 | 3 | 4 | 5, index, name: `Spell ${index}`, description: "A new spell.", cost: 3, animation: 1, hp: type === 1 ? 20 : type === 3 ? 30 : type === 4 ? 50 : 0 });
+        break;
+      case "chain":
+        [resType, type, index] = [12, 1, idx(12, 1)];
+        data = encodeMagicChain(index, []);
+        break;
+      case "levels":
+        [resType, type, index] = [12, 2, idx(12, 2)];
+        data = encodeLevelChain(index, Array.from({ length: 10 }, (_, i) => ({ maxHP: 60 + i * 12, maxMP: 10 + i * 3, attack: 10 + i * 3, defend: 5 + i * 2, nextExp: 15 + i * i * 10, speed: 10 + i, lingli: 5 + i, luck: 10 + i, magics: 1 })));
+        break;
+      default:
+        return;
+    }
+    putEntry(a, { resType, type, index, data });
+    setSelected(`${resType}-${type}-${index}`);
+    persist(cur);
+    setVersion((v) => v + 1);
+  };
+
   const addMap = () => {
     if (!cur) return;
     const index = nextIndex(cur.archive, 2, 1);
@@ -250,6 +308,43 @@ export function Editor({ fontsReady, onPlaytest }: Props) {
         <button className="ghost" onClick={addMap}>
           + Map
         </button>
+        <select
+          className="add-menu"
+          value=""
+          onChange={(e) => {
+            try {
+              addRecord(e.target.value);
+            } catch (err) {
+              alert((err as Error).message);
+            }
+          }}
+        >
+          <option value="">+ Add…</option>
+          <optgroup label="Characters">
+            <option value="player">Party member</option>
+            <option value="npc">NPC</option>
+            <option value="monster">Monster</option>
+            <option value="object">Object (chest, sign…)</option>
+          </optgroup>
+          <optgroup label="Items">
+            {["Hat", "Clothes", "Shoes", "Armour", "Bracers", "Accessory", "Weapon", "Thrown weapon", "Medicine", "Revival", "Elixir", "Stimulant", "Escape item", "Story item"].map((n, i) => (
+              <option key={n} value={`item:${i + 1}`}>
+                {n}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Magic">
+            {["Attack", "Enhance", "Restore", "Revive", "Steal"].map((n, i) => (
+              <option key={n} value={`magic:${i + 1}`}>
+                {n} spell
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Tables">
+            <option value="chain">Spell list</option>
+            <option value="levels">Level table</option>
+          </optgroup>
+        </select>
         <button
           className="ghost"
           onClick={() => {

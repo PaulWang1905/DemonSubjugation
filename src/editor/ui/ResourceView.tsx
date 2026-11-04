@@ -2,7 +2,10 @@ import { useMemo } from "react";
 import { decodeImage, decodeSrsImages, KIND_NAMES, resourceName, subTypeName } from "../format/decode";
 import type { LibArchive, LibEntry } from "../format/lib";
 import { FrameStrip } from "./FrameStrip";
+import { fieldsFor } from "../format/schema";
+import { FieldForm } from "./FieldForm";
 import { MapEditor } from "./MapEditor";
+import { LevelTableEditor, MagicChainEditor } from "./TableEditors";
 import { ScriptEditor } from "./ScriptEditor";
 
 interface Props {
@@ -55,14 +58,24 @@ export function ResourceView({ archive, entry, source, onChange }: Props) {
             </>
           );
         }
-        default:
-          return (
-            <>
-              <p className="muted">A form editor for this kind of resource is coming next. Raw data ({entry.data.length} bytes):</p>
-              <pre className="hex">{hex(entry.data, 160)}</pre>
-            </>
-          );
+        case 12:
+          if (entry.type === 1) return <MagicChainEditor archive={archive} entry={entry} onChange={onChange} />;
+          if (entry.type === 2) return <LevelTableEditor archive={archive} entry={entry} onChange={onChange} />;
+          break;
+        case 3:
+        case 4:
+        case 6: {
+          const fields = fieldsFor(entry.resType, entry.type);
+          if (fields) return <FieldForm archive={archive} entry={entry} fields={fields} onChange={onChange} />;
+          break;
+        }
       }
+      return (
+        <>
+          <p className="muted">No form for this kind of resource yet. Raw data ({entry.data.length} bytes):</p>
+          <pre className="hex">{hex(entry.data, 160)}</pre>
+        </>
+      );
     } catch (e) {
       return <p className="error">Cannot show this resource: {(e as Error).message}</p>;
     }
