@@ -1,0 +1,326 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createEngine, EngineSettings, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, type Engine, type EngineKey } from "../engine";
+import { exportSaves, importSaves, savesFor } from "../storage/saves";
+import type { StoredGame } from "../storage/db";
+import { KEY_HELP, KEYMAP } from "./keys";
+import { Keypad } from "./Keypad";
+import { applyPalette, PALETTES } from "./palettes";
+
+interface Props {
+  game: StoredGame;
+  fonts: { hzk16: ArrayBuffer; asc16: ArrayBuffer };
+  onExit: () => void;
+}
+
+function pref<T extends string>(key: string, fallback: T): T {
+  try {
+    return (localStorage.getItem("fmj-react:" + key) as T) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function setPref(key: string, v: string): void {
+  try {
+    localStorage.setItem("fmj-react:" + key, v);
+  } catch {
+    /* ignore */
+  }
+}
+
+const SPEEDS = [1, 2, 4];
+
+export function Player({ game, fonts, onExit }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const screenRef = useRef<HTMLDivElement>(null);
+  const engineRef = useRef<Engine | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [generation, setGeneration] = useState(0);
+  const [speed, setSpeed] = useState(() => Number(pref("speed", "1")) || 1);
+  const [paletteId, setPaletteId] = useState<string>(() => pref<string>("palette", "lcd"));
+  const [scale, setScale] = useState(3);
+  const [showPad, setShowPad] = useState(() => pref("keypad", matchMedia("(pointer: coarse)").matches ? "on" : "off") === "on");
+  const [originalFormula, setOriginalFormula] = useState(() => pref("originalDamage", "on") === "on");
+  const [notice, setNotice] = useState<string | null>(null);
+  const speedRef = useRef(speed);
+  const paletteRef = useRef(paletteId);
+  speedRef.current = speed;
+  paletteRef.current = paletteId;
+  EngineSettings.originalDamageFormula = originalFormula;
+
+  // Boot the engine and run the fixed-step loop (the original ticks every 40 ms).
+  useEffect(() => {
+    setError(null);
+    let engine: Engine;
+    try {
+      engine = createEngine({
+        resources: {
+          datLib: new Uint8Array(game.data),
+          hzk16: new Uint8Array(fonts.hzk16),
+          asc16: new Uint8Array(fonts.asc16),
+        },
+        saves: savesFor(game.id),
+        onExit,
+      });
+    } catch (e) {
+      setError(String((e as Error).stack ?? e));
+      return;
+    }
+    engineRef.current = engine;
+    const ctx = canvasRef.current!.getContext("2d")!;
+    const image = ctx.createImageData(SCREEN_WIDTH, SCREEN_HEIGHT);
+    let frame = engine.render();
+    let raf = 0;
+    let last = performance.now();
+    let acc = 0;
+    let stopped = false;
+
+    const loop = (now: number) => {
+      if (stopped) return;
+      acc += Math.min(now - last, 250) * speedRef.current;
+      last = now;
+      try {
+        let steps = 0;
+        while (acc >= TICK_MS && steps < 40) {
+          engine.update(TICK_MS);
+          acc -= TICK_MS;
+          steps++;
+        }
+        frame = engine.render();
+      } catch (e) {
+        stopped = true;
+        console.error(e);
+        setError(String((e as Error).stack ?? e));
+        return;
+      }
+      const pal = PALETTES.find((p) => p.id === paletteRef.current) ?? PALETTES[0];
+      applyPalette(frame, image.data, pal);
+      ctx.putImageData(image, 0, 0);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(raf);
+      engineRef.current = null;
+    };
+  }, [game, fonts, onExit, generation]);
+
+  const keyDown = useCallback((k: EngineKey) => {
+    try {
+      engineRef.current?.keyDown(k);
+    } catch (e) {
+      setError(String((e as Error).stack ?? e));
+    }
+  }, []);
+  const keyUp = useCallback((k: EngineKey) => {
+    try {
+      engineRef.current?.keyUp(k);
+    } catch (e) {
+      setError(String((e as Error).stack ?? e));
+    }
+  }, []);
+
+  // Keyboard input. Auto-repeat keydowns are passed through, which is how
+  // holding a direction keeps walking.
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest?.("input, select, textarea")) return;
+      const k = KEYMAP[e.code];
+      if (k === undefined || e.ctrlKey || e.metaKey || e.altKey) return;
+      e.preventDefault();
+      keyDown(k);
+    };
+    const up = (e: KeyboardEvent) => {
+      const k = KEYMAP[e.code];
+      if (k === undefined) return;
+      e.preventDefault();
+      keyUp(k);
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
+  }, [keyDown, keyUp]);
+
+  // Integer scaling keeps the 160x96 pixels crisp.
+  useEffect(() => {
+    const el = screenRef.current;
+    if (!el) return;
+    const fit = () => {
+      const w = el.clientWidth;
+      const h = document.fullscreenElement ? window.innerHeight - 24 : Math.max(window.innerHeight * 0.62, 200);
+      const s = Math.max(1, Math.min(Math.floor(w / SCREEN_WIDTH), Math.floor(h / SCREEN_HEIGHT), 8));
+      setScale(s);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    window.addEventListener("resize", fit);
+    document.addEventListener("fullscreenchange", fit);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", fit);
+      document.removeEventListener("fullscreenchange", fit);
+    };
+  }, []);
+
+  const flash = (msg: string) => {
+    setNotice(msg);
+    window.setTimeout(() => setNotice(null), 2500);
+  };
+
+  const downloadSaves = () => {
+    const blob = new Blob([exportSaves(game.id)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${game.name}-saves.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const uploadSaves = (file: File | undefined) => {
+    if (!file) return;
+    file
+      .text()
+      .then((t) => {
+        const n = importSaves(game.id, t);
+        flash(`Imported ${n} save slot${n === 1 ? "" : "s"}. Load them from the title menu.`);
+      })
+      .catch((e) => flash(`Could not import saves: ${(e as Error).message}`));
+  };
+
+  const toggleFullscreen = () => {
+    const el = document.querySelector(".player") as HTMLElement | null;
+    if (!document.fullscreenElement) el?.requestFullscreen?.().catch(() => {});
+    else document.exitFullscreen?.().catch(() => {});
+  };
+
+  return (
+    <div className="player">
+      <div className="toolbar">
+        <button className="ghost" onClick={onExit} title="Back to library">
+          ← Library
+        </button>
+        <span className="title" title={game.fileName}>
+          {game.name}
+        </span>
+        <div className="spacer" />
+        <label className="field">
+          <span className="lbl">Speed</span>
+          <select
+            value={speed}
+            onChange={(e) => {
+              setSpeed(Number(e.target.value));
+              setPref("speed", e.target.value);
+            }}
+          >
+            {SPEEDS.map((s) => (
+              <option key={s} value={s}>
+                {s}×
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="lbl">Screen</span>
+          <select
+            value={paletteId}
+            onChange={(e) => {
+              setPaletteId(e.target.value);
+              setPref("palette", e.target.value);
+            }}
+          >
+            {PALETTES.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button className="ghost" onClick={toggleFullscreen} title="Fullscreen" aria-label="Fullscreen">
+          ⛶
+        </button>
+      </div>
+
+      <div className="screen-wrap" ref={screenRef}>
+        <div className="bezel" style={{ width: SCREEN_WIDTH * scale + 16 }}>
+          <canvas
+            ref={canvasRef}
+            width={SCREEN_WIDTH}
+            height={SCREEN_HEIGHT}
+            style={{ width: SCREEN_WIDTH * scale, height: SCREEN_HEIGHT * scale }}
+            aria-label="Game screen"
+          />
+          {error && (
+            <div className="crash" role="alert">
+              <strong>The engine stopped.</strong>
+              <p>This archive may use something the engine does not support yet.</p>
+              <pre>{error.split("\n").slice(0, 6).join("\n")}</pre>
+              <div className="row">
+                <button onClick={() => setGeneration((g) => g + 1)}>Restart</button>
+                <button className="ghost" onClick={onExit}>
+                  Back to library
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {notice && <div className="notice">{notice}</div>}
+
+      {showPad && <Keypad onDown={keyDown} onUp={keyUp} />}
+
+      <details className="extras">
+        <summary>Controls &amp; options</summary>
+        <div className="extras-grid">
+          <table className="keys">
+            <tbody>
+              {KEY_HELP.map(([what, keys]) => (
+                <tr key={what}>
+                  <th>{what}</th>
+                  <td>{keys}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="opts">
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={showPad}
+                onChange={(e) => {
+                  setShowPad(e.target.checked);
+                  setPref("keypad", e.target.checked ? "on" : "off");
+                }}
+              />
+              On-screen keypad
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={originalFormula}
+                onChange={(e) => {
+                  setOriginalFormula(e.target.checked);
+                  setPref("originalDamage", e.target.checked ? "on" : "off");
+                }}
+              />
+              Original damage formula
+            </label>
+            <div className="row">
+              <button className="ghost" onClick={downloadSaves}>
+                Export saves
+              </button>
+              <label className="button ghost">
+                Import saves
+                <input type="file" accept=".json,application/json" hidden onChange={(e) => uploadSaves(e.target.files?.[0])} />
+              </label>
+            </div>
+          </div>
+        </div>
+      </details>
+    </div>
+  );
+}

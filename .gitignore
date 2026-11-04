@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.vercel
+# Never commit game resources: users import their own.
+*.LIB
+*.lib
+HZK16
+ASC16
+/fixtures/private/
