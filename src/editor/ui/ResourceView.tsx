@@ -1,10 +1,11 @@
 import { useMemo } from "react";
-import { decodeImage, decodeSrsImages, KIND_NAMES, resourceName, subTypeName } from "../format/decode";
+import { decodeSrsImages, KIND_NAMES, resourceName, subTypeName } from "../format/decode";
 import type { LibArchive, LibEntry } from "../format/lib";
 import { FrameStrip } from "./FrameStrip";
 import { fieldsFor } from "../format/schema";
 import { FieldForm } from "./FieldForm";
 import { MapEditor } from "./MapEditor";
+import { PixelEditor } from "./PixelEditor";
 import { LevelTableEditor, MagicChainEditor } from "./TableEditors";
 import { ScriptEditor } from "./ScriptEditor";
 
@@ -45,18 +46,17 @@ export function ResourceView({ archive, entry, source, onChange }: Props) {
         case 9:
         case 10:
         case 11: {
-          const { frames } = decodeImage(entry.data);
-          const f = frames[0];
-          return (
-            <>
-              <p className="muted">
-                {frames.length} frame(s), {f?.width}×{f?.height} pixels.
-                {entry.resType === 8 && (entry.type === 1 || entry.type === 2) && " Frames 1-3 face north, 4-6 east, 7-9 south, 10-12 west."}
-                {entry.resType === 7 && " Frame N is tile N-1 in the map editor."}
-              </p>
-              <FrameStrip frames={frames} scale={entry.resType === 11 && f?.width > 100 ? 2 : 3} />
-            </>
-          );
+          const hint =
+            entry.resType === 8 && (entry.type === 1 || entry.type === 2)
+              ? "Frames 1-3 face north, 4-6 east, 7-9 south, 10-12 west (left foot, standing, right foot)."
+              : entry.resType === 7
+                ? "Frame N is tile N-1 in the map editor. Tiles are 16×16."
+                : entry.resType === 11 && entry.type === 3
+                  ? "Battle frames: 1 idle, 2-5 attack, 6-8 cast, 9 guard, 10 hit, 11 weak, 12 knocked out."
+                  : entry.resType === 8 && entry.type === 4
+                    ? "Objects show frame step+1 (chests: 1 closed, 2 open)."
+                    : undefined;
+          return <PixelEditor entry={entry} onChange={onChange} hint={hint} />;
         }
         case 12:
           if (entry.type === 1) return <MagicChainEditor archive={archive} entry={entry} onChange={onChange} />;

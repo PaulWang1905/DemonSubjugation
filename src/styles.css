@@ -977,3 +977,89 @@ footer {
   width: 64px;
   text-align: right;
 }
+
+/* pixel editor */
+
+.pixel-editor:focus {
+  outline: none;
+}
+
+.pixel-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 1000px) {
+  .pixel-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pixel-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pixel-side input[type="number"] {
+  width: 60px;
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.pixel-side fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.swatch {
+  padding: 4px 10px;
+}
+
+.swatch.sel {
+  outline: 2px solid var(--accent);
+}
+
+.swatch:not(.sel) {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+.chipc {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+
+.chipc.c2 {
+  background: repeating-conic-gradient(#ccc 0 25%, #eee 0 50%) 0 0 / 6px 6px;
+}
+
+.frames figure {
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.frames figure.sel {
+  outline: 2px solid var(--accent);
+}
+
+.res-list .item.sel .muted {
+  color: inherit;
+  opacity: 0.85;
+}

@@ -43,6 +43,11 @@ The **Editor** tab builds games in the same format:
 - **Script editor**: the story scripts as readable text with labels (see the
   built-in instruction reference). Errors point at the line. Your own text and
   labels are kept with the project.
+- **Forms** for party members, NPCs, objects, monsters, all item and magic
+  kinds, spell lists and level tables (only the edited bytes change).
+- **Pixel editor** for tiles, sprites, portraits, icons and pictures: pen,
+  fill, picker, undo/redo, frames, resize, PNG import (also slicing a sheet
+  into frames) and export.
 - **Playtest** runs the project in the engine; **Export .lib** downloads it.
 - Projects are saved automatically in the browser (IndexedDB).
 
@@ -70,8 +75,10 @@ Script example:
   startchapter 1, 2
 ```
 
-Still to come: forms for characters, items, magic and level tables, a pixel
-image editor, and translatable engine interface text.
+The engine's own menus come in Chinese and English; the language follows the
+game title by default and can be changed in the player's options.
+
+Still to come: an animation editor, map-editor undo and adding new tilesets.
 
 ## Controls
 

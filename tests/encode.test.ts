@@ -120,3 +120,17 @@ describe("editor decoders", () => {
     expect(m).toEqual({ type: 1, index: 4, tileset: 2, name: "Glade", width: 2, height: 1, cells });
   });
 });
+
+import { floodFill, resizeFrame, rgbaToFrame, sliceSheet } from "../src/editor/ui/pixels";
+describe("pixel helpers", () => {
+  it("convert PNG pixels, slice sheets, fill and resize", () => {
+    // 4x2 RGBA: black, white, transparent, dark grey / white x4
+    const rgba = [0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 0, 60, 60, 60, 255, ...Array(16).fill(255)];
+    const f = rgbaToFrame(rgba, 4, 2);
+    expect([...f.pixels]).toEqual([1, 0, 2, 1, 0, 0, 0, 0]);
+    expect(sliceSheet(f, 2, 2).map((p) => [...p.pixels])).toEqual([[1, 0, 0, 0], [2, 1, 0, 0]]);
+    expect([...floodFill(f, 0, 1, 1).pixels]).toEqual([1, 1, 2, 1, 1, 1, 1, 1]);
+    const r = resizeFrame(f, 5, 1, 2);
+    expect([...r.pixels]).toEqual([1, 0, 2, 1, 2]);
+  });
+});
