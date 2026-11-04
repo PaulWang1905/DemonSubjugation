@@ -8,6 +8,7 @@
 // fmj.kt; their decoders come from the erduoniba/baye-fmj-app fork so scripts
 // that use them no longer abort.
 import { Global, ScreenViewType } from "../Global";
+import { T } from "../i18n";
 import type { Character } from "../characters/Character";
 import { stateFromInt } from "../characters/Character";
 import { Direction } from "../characters/Direction";
@@ -499,7 +500,7 @@ export class ScriptVM extends Control {
         console.warn("cmd_gaingoods: missing goods", g2(code, start), g2(code, start + 2));
         return makeCommand(4, () => null);
       }
-      const msg = "获得:" + goods.name;
+      const msg = T.gotColon + goods.name;
       return makeCommand(4, () => {
         goods.goodsNum = 1;
         Player.sGoodsList.addGoods(goods.type, goods.index);
@@ -623,7 +624,7 @@ export class ScriptVM extends Control {
           onKeyDown() {},
           draw(canvas: Canvas) {
             TextRender.drawText(canvas, playerName, 0, 0);
-            TextRender.drawText(canvas, "学会了魔法:", 0, 16);
+            TextRender.drawText(canvas, T.learnedMagic, 0, 16);
             TextRender.drawText(canvas, magic.magicName, 0, 16 * 2);
           },
         };
@@ -694,7 +695,7 @@ export class ScriptVM extends Control {
         const player = scene().getPlayer(actor);
         if (!player || toLevel <= player.level) return null;
         player.levelUp(toLevel);
-        const msgScreen = new MsgScreen(vm, player.name + "修行提升");
+        const msgScreen = new MsgScreen(vm, T.levelUp(player.name));
         const levelupScreen = new LevelupScreen(vm, player);
         let exit = false;
         let keydown = false;

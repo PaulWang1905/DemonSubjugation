@@ -1,5 +1,6 @@
 // Port of fmj/views/ScreenSaveLoadGame.kt
 import { Global, ScreenViewType } from "../Global";
+import { T } from "../i18n";
 import { TextRender } from "../graphics/TextRender";
 import { DatLib, ResType } from "../lib/DatLib";
 import type { ResImage } from "../lib/ResImage";
@@ -24,7 +25,7 @@ export class ScreenSaveLoadGame extends BaseScreen {
     [68, 74],
   ];
   private index = 0;
-  private readonly mEmpty = "空档案    ";
+  private readonly mEmpty = T.emptySlot;
   private readonly mText = [this.mEmpty, this.mEmpty, this.mEmpty];
   private readonly mHeadImgs: ResImage[][] = [[], [], []];
   private readonly mImgBg: ResImage;
@@ -115,7 +116,7 @@ export class ScreenSaveLoadGame extends BaseScreen {
           file.createNewFile();
           done();
         } else {
-          this.pushScreen(new ScreenMessageBox(this, "覆盖原进度?", done));
+          this.pushScreen(new ScreenMessageBox(this, T.overwrite, done));
         }
       }
     }

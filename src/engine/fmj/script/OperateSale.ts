@@ -1,5 +1,6 @@
 // Port of fmj/script/OperateSale.kt — pawn shop driven by the SALE command.
 import { Global } from "../Global";
+import { T } from "../i18n";
 import { Player } from "../characters/Player";
 import { GoodsListMode, ScreenGoodsList, type OnGoodsSelectedListener } from "../gamemenu/ScreenGoodsList";
 import type { BaseGoods } from "../goods/BaseGoods";
@@ -36,10 +37,10 @@ class SaleGoodsScreen extends BaseScreen {
 
   draw(canvas: Canvas): void {
     canvas.drawBitmap(this.bmpBg, 12, 21);
-    TextRender.drawText(canvas, "金钱：" + this.money, 15, 24);
+    TextRender.drawText(canvas, T.moneyWide + this.money, 15, 24);
     TextRender.drawText(canvas, this.goods.name, 15, 40);
     TextRender.drawText(canvas, ": " + (this.goods.goodsNum - this.saleCnt), 93, 40);
-    TextRender.drawText(canvas, "卖出个数　：" + this.saleCnt, 15, 56);
+    TextRender.drawText(canvas, T.sellCount + this.saleCnt, 15, 56);
   }
 
   onKeyUp(key: number): void {
@@ -82,7 +83,7 @@ export class OperateSale extends Control implements Operate, OnGoodsSelectedList
 
   onItemSelected(goods: BaseGoods): void {
     if (goods instanceof GoodsDrama) {
-      this.showMessage("任务物品!", 1000);
+      this.showMessage(T.questItem, 1000);
     } else {
       this.pushScreen(new SaleGoodsScreen(this, goods, this));
     }

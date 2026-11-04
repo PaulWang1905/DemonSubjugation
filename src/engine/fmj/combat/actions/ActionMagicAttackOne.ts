@@ -1,5 +1,6 @@
 // Port of fmj/combat/actions/ActionMagicAttackOne.kt
 import type { FightingCharacter } from "../../characters/FightingCharacter";
+import { T } from "../../i18n";
 import { Player } from "../../characters/Player";
 import { Util } from "../../graphics/Util";
 import type { ResSrs } from "../../lib/ResSrs";
@@ -52,7 +53,7 @@ export class ActionMagicAttackOne extends ActionSingleTarget {
       if (it) {
         Player.sGoodsList.addGoods(it.type, it.index);
         let countdown = 1000;
-        const text = "获得 " + it.name;
+        const text = T.got + it.name;
         this.tip = {
           update(delta: number): boolean {
             countdown -= delta;

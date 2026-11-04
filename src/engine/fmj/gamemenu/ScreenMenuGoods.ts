@@ -1,5 +1,6 @@
 // Port of fmj/gamemenu/ScreenMenuGoods.kt — use / equip goods from the menu.
 import { Global } from "../Global";
+import { T } from "../i18n";
 import { Player } from "../characters/Player";
 import type { BaseGoods } from "../goods/BaseGoods";
 import type { GoodsEquipment } from "../goods/GoodsEquipment";
@@ -15,7 +16,7 @@ import { ScreenTakeMedicine } from "./ScreenTakeMedicine";
 
 export class ScreenMenuGoods extends BaseScreen implements OnGoodsSelectedListener {
   private readonly mFrameBmp = Util.getFrameBitmap(77 - 39 + 1, 77 - 39 + 1);
-  private readonly strs = ["使用", "装备"];
+  private readonly strs = T.useEquip;
   private mSelId = 0;
 
   constructor(readonly parent: GameNode) {
@@ -68,14 +69,14 @@ export class ScreenMenuGoods extends BaseScreen implements OnGoodsSelectedListen
     switch (goods.type) {
       case 8: // thrown weapons
       case 12: // stimulants
-        this.showMessage("战斗中才能使用!", 1000);
+        this.showMessage(T.battleOnly, 1000);
         break;
       case 13: // escape item: triggers event 255 of the running script
         this.game.triggerEvent(255);
         while (!(this.getCurScreen() instanceof ScreenMainGame)) this.popScreen();
         break;
       case 14: // story items
-        this.showMessage("当前无法使用!", 1000);
+        this.showMessage(T.cannotUseNow, 1000);
         break;
       case 9:
       case 10:
@@ -88,9 +89,9 @@ export class ScreenMenuGoods extends BaseScreen implements OnGoodsSelectedListen
   private equipSelected(goods: BaseGoods): void {
     const list = this.game.playerList.filter((p) => goods.canPlayerUse(p.index));
     if (list.length === 0) {
-      this.showMessage("不能装备!", 1000);
+      this.showMessage(T.cannotEquip, 1000);
     } else if (list.length === 1) {
-      if (list[0].hasEquipt(goods.type, goods.index)) this.showMessage("已装备!", 1000);
+      if (list[0].hasEquipt(goods.type, goods.index)) this.showMessage(T.alreadyEquipped, 1000);
       else this.pushScreen(new ScreenChgEquipment(this, list[0], goods as GoodsEquipment));
     } else {
       const bg = Util.getFrameBitmap(16 * 5 + 6, 6 + 16 * list.length);
@@ -108,7 +109,7 @@ export class ScreenMenuGoods extends BaseScreen implements OnGoodsSelectedListen
           onKeyUp(key) {
             if (key === Global.KEY_ENTER) {
               if (list[curSel].hasEquipt(goods.type, goods.index)) {
-                this.showMessage("已装备!", 1000);
+                this.showMessage(T.alreadyEquipped, 1000);
               } else {
                 this.popScreen();
                 this.pushScreen(new ScreenChgEquipment(this, list[curSel], goods as GoodsEquipment));

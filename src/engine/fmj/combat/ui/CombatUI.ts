@@ -1,5 +1,6 @@
 // Port of fmj/combat/ui/CombatUI.kt — the battle command menus.
 import { Global } from "../../Global";
+import { T } from "../../i18n";
 import { FightingCharacter } from "../../characters/FightingCharacter";
 import type { Monster } from "../../characters/Monster";
 import { Player } from "../../characters/Player";
@@ -323,8 +324,7 @@ class MenuCharacterSelect extends BaseScreen {
 /** Siege, items, defend, flee, status. */
 class MenuMisc extends BaseScreen {
   private readonly mBg = Util.getFrameBitmap(2 * 16 + 6, 5 * 16 + 6);
-  private readonly mText = gbkBytes("围攻道具防御逃跑状态");
-  private readonly mItemText = ["围攻", "道具", "防御", "逃跑", "状态"].map((s) => gbkBytes(s));
+  private readonly mItemText = T.battleMisc.map((s) => gbkBytes(s));
   private readonly mTextRect = new Rect(9 + 3, 4 + 3, 9 + 4 + 16 * 2, 4 + 3 + 16 * 5);
   private mCurSelIndex = 0;
 
@@ -339,7 +339,7 @@ class MenuMisc extends BaseScreen {
 
   draw(canvas: Canvas): void {
     canvas.drawBitmap(this.mBg, 9, 4);
-    TextRender.drawTextFrom(canvas, this.mText, 0, this.mTextRect);
+    this.mItemText.forEach((t, i) => TextRender.drawText(canvas, t, this.mTextRect.left, this.mTextRect.top + i * 16));
     TextRender.drawSelText(canvas, this.mItemText[this.mCurSelIndex], this.mTextRect.left, this.mTextRect.top + this.mCurSelIndex * 16);
   }
 
@@ -442,8 +442,7 @@ class MenuState extends BaseScreen {
 /** Items submenu: equip, throw, use. */
 class MenuGoods extends BaseScreen {
   private readonly mBg = Util.getFrameBitmap(16 * 2 + 6, 16 * 3 + 6);
-  private readonly mText = gbkBytes("装备投掷使用");
-  private readonly mItemText = ["装备", "投掷", "使用"].map((s) => gbkBytes(s));
+  private readonly mItemText = T.battleGoods.map((s) => gbkBytes(s));
   private readonly mTextRect = new Rect(29 + 3, 14 + 3, 29 + 3 + this.mBg.width, 14 + 3 + this.mBg.height);
   private mSelIndex = 0;
 
@@ -466,7 +465,7 @@ class MenuGoods extends BaseScreen {
 
   draw(canvas: Canvas): void {
     canvas.drawBitmap(this.mBg, 29, 14);
-    TextRender.drawTextFrom(canvas, this.mText, 0, this.mTextRect);
+    this.mItemText.forEach((t, i) => TextRender.drawText(canvas, t, this.mTextRect.left, this.mTextRect.top + i * 16));
     TextRender.drawSelText(canvas, this.mItemText[this.mSelIndex], this.mTextRect.left, this.mTextRect.top + 16 * this.mSelIndex);
   }
 
@@ -538,9 +537,9 @@ class MenuGoods extends BaseScreen {
   private equipSelected(goods: BaseGoods): void {
     const list = this.ui.mPlayerList.filter((p) => goods.canPlayerUse(p.index));
     if (list.length === 0) {
-      this.showMessage("不能装备!", 1000);
+      this.showMessage(T.cannotEquip, 1000);
     } else if (list.length === 1) {
-      if (list[0].hasEquipt(goods.type, goods.index)) this.showMessage("已装备!", 1000);
+      if (list[0].hasEquipt(goods.type, goods.index)) this.showMessage(T.alreadyEquipped, 1000);
       else this.pushScreen(new ScreenChgEquipment(this, list[0], goods as GoodsEquipment));
     } else {
       const bg = Util.getFrameBitmap(16 * 5 + 6, 6 + 16 * list.length);
@@ -556,7 +555,7 @@ class MenuGoods extends BaseScreen {
           onKeyUp(key) {
             if (key === Global.KEY_ENTER) {
               if (list[curSel].hasEquipt(goods.type, goods.index)) {
-                this.showMessage("已装备!", 1000);
+                this.showMessage(T.alreadyEquipped, 1000);
               } else {
                 this.popScreen();
                 this.pushScreen(new ScreenChgEquipment(this, list[curSel], goods as GoodsEquipment));

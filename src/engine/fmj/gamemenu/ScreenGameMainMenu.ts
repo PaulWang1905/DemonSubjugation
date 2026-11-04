@@ -1,5 +1,6 @@
 // Port of fmj/gamemenu/ScreenGameMainMenu.kt — in-game menu (status/magic/goods/system).
 import { Global } from "../Global";
+import { T } from "../i18n";
 import { Player } from "../characters/Player";
 import { TextRender } from "../graphics/TextRender";
 import { Util } from "../graphics/Util";
@@ -8,7 +9,6 @@ import { MagicRestore } from "../magic/MagicRestore";
 import { ScreenMagic } from "../magic/ScreenMagic";
 import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import { Rect, type Bitmap, type Canvas } from "../../graphics";
-import { gbkBytes } from "../../java";
 import { ScreenMenuGoods } from "./ScreenMenuGoods";
 import { ScreenMenuProperties } from "./ScreenMenuProperties";
 import { ScreenMenuSystem } from "./ScreenMenuSystem";
@@ -68,8 +68,7 @@ export class ScreenGameMainMenu extends BaseScreen {
   private readonly bmpFrame1 = Util.getFrameBitmap(93, 16 + 6);
   private readonly bmpFrame2 = Util.getFrameBitmap(32 + 6, 64 + 6);
   private readonly menuItemsRect: Rect;
-  private readonly menuItems = gbkBytes("属性魔法物品系统");
-  private readonly menuItemsS = ["属性", "魔法", "物品", "系统"];
+  private readonly menuItemsS = T.mainMenu;
   private mSelIndex = 0;
   private readonly screenSelectActor: SelectActorScreen;
 
@@ -89,9 +88,9 @@ export class ScreenGameMainMenu extends BaseScreen {
 
   draw(canvas: Canvas): void {
     canvas.drawBitmap(this.bmpFrame1, 9, 3);
-    TextRender.drawText(canvas, "金钱:" + Player.sMoney, 9 + 3, 3 + 3);
+    TextRender.drawText(canvas, T.money + Player.sMoney, 9 + 3, 3 + 3);
     canvas.drawBitmap(this.bmpFrame2, 9, 3 + 16 + 6 - 1);
-    TextRender.drawTextFrom(canvas, this.menuItems, 0, this.menuItemsRect);
+    this.menuItemsS.forEach((s, i) => TextRender.drawText(canvas, s, this.menuItemsRect.left, this.menuItemsRect.top + i * 16));
     TextRender.drawSelText(
       canvas,
       this.menuItemsS[this.mSelIndex],
@@ -135,7 +134,7 @@ export class ScreenGameMainMenu extends BaseScreen {
       if (magic instanceof MagicRestore) {
         this.pushScreen(new ScreenUseMagic(this, magic, this.game.playerList[id]));
       } else {
-        this.showMessage("此处无法使用!", 1000);
+        this.showMessage(T.cannotUseHere, 1000);
       }
     });
   }

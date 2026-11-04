@@ -1,5 +1,6 @@
 // Port of fmj/combat/ui/CombatSuccess.kt — post-battle rewards screens.
 import { Global } from "../../Global";
+import { T } from "../../i18n";
 import type { Player } from "../../characters/Player";
 import type { BaseGoods } from "../../goods/BaseGoods";
 import { TextRender } from "../../graphics/TextRender";
@@ -131,12 +132,12 @@ export class CombatSuccess {
     lvuplist: Player[],
   ) {
     const e = String(exp);
-    this.mMsgList.push(new MsgScreen(parent, 18, "获得经验     ".substring(0, 9 - e.length) + e));
+    this.mMsgList.push(new MsgScreen(parent, 18, T.expLine(e)));
     const m = String(money);
-    this.mMsgList.push(new MsgScreen(parent, 46, "战斗获得        ".substring(0, 10 - m.length) + m + "钱"));
+    this.mMsgList.push(new MsgScreen(parent, 46, T.moneyLine(m)));
 
     for (const p of lvuplist) {
-      this.mLvupList.push(new MsgScreen(parent, p.name + "修行提升"));
+      this.mLvupList.push(new MsgScreen(parent, T.levelUp(p.name)));
       this.mLvupList.push(new LevelupScreen(parent, p));
       const magicChain = p.magicChain;
       if (magicChain) {
@@ -163,7 +164,7 @@ export class CombatSuccess {
         this.mMsgList.push(this.mLvupList.shift()!);
       } else {
         const g = this.mGoodsList.shift()!;
-        this.mMsgList.push(new MsgScreen(this.parent, `得到 ${g.name} x${g.goodsNum}`));
+        this.mMsgList.push(new MsgScreen(this.parent, T.gotItem(g.name, g.goodsNum)));
       }
     }
     return false;

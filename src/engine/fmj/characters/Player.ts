@@ -1,5 +1,6 @@
 // Port of fmj/characters/Player.kt
 import type { GoodsEquipment } from "../goods/GoodsEquipment";
+import { T } from "../i18n";
 import { GoodsManage } from "../goods/GoodsManage";
 import { TextRender } from "../graphics/TextRender";
 import { Util } from "../graphics/Util";
@@ -144,25 +145,25 @@ export class Player extends FightingCharacter implements Coder {
   drawState(canvas: Canvas, page: number): void {
     canvas.drawLine(37, 10, 37, 87, Util.sBlackPaint);
     if (page === 0) {
-      TextRender.drawText(canvas, `等级   ${this.level}`, 41, 4);
-      TextRender.drawText(canvas, `生命   ${this.hp}/${this.maxHP}`, 41, 23);
-      TextRender.drawText(canvas, `真气   ${this.mp}/${this.maxMP}`, 41, 41);
-      TextRender.drawText(canvas, `攻击力 ${this.attack}`, 41, 59);
-      TextRender.drawText(canvas, `防御力 ${this.defend}`, 41, 77);
+      TextRender.drawText(canvas, `${T.statLevel}${this.level}`, 41, 4);
+      TextRender.drawText(canvas, `${T.statHP}${this.hp}/${this.maxHP}`, 41, 23);
+      TextRender.drawText(canvas, `${T.statMP}${this.mp}/${this.maxMP}`, 41, 41);
+      TextRender.drawText(canvas, `${T.statAttack}${this.attack}`, 41, 59);
+      TextRender.drawText(canvas, `${T.statDefend}${this.defend}`, 41, 77);
     } else if (page === 1) {
-      TextRender.drawText(canvas, "经验值", 41, 4);
+      TextRender.drawText(canvas, T.statExp, 41, 4);
       const w = Util.drawSmallNum(canvas, this.currentExp, 97, 4);
       TextRender.drawText(canvas, "/", 97 + w + 2, 4);
       Util.drawSmallNum(canvas, this.levelupChain.getNextLevelExp(this.level), 97 + w + 9, 10);
-      TextRender.drawText(canvas, `身法   ${this.speed}`, 41, 23);
-      TextRender.drawText(canvas, `灵力   ${this.lingli}`, 41, 41);
-      TextRender.drawText(canvas, `幸运   ${this.luck}`, 41, 59);
+      TextRender.drawText(canvas, `${T.statSpeed}${this.speed}`, 41, 23);
+      TextRender.drawText(canvas, `${T.statSpirit}${this.lingli}`, 41, 41);
+      TextRender.drawText(canvas, `${T.statLuck}${this.luck}`, 41, 59);
       let tmp = "";
-      if (this.hasBuff(FightingCharacter.BUFF_MASK_DU)) tmp += "毒";
-      if (this.hasBuff(FightingCharacter.BUFF_MASK_LUAN)) tmp += "乱";
-      if (this.hasBuff(FightingCharacter.BUFF_MASK_FENG)) tmp += "封";
-      if (this.hasBuff(FightingCharacter.BUFF_MASK_MIAN)) tmp += "眠";
-      TextRender.drawText(canvas, "免疫   " + (tmp.length > 0 ? tmp : "无"), 41, 77);
+      if (this.hasBuff(FightingCharacter.BUFF_MASK_DU)) tmp += T.stPoison;
+      if (this.hasBuff(FightingCharacter.BUFF_MASK_LUAN)) tmp += T.stConfuse;
+      if (this.hasBuff(FightingCharacter.BUFF_MASK_FENG)) tmp += T.stSeal;
+      if (this.hasBuff(FightingCharacter.BUFF_MASK_MIAN)) tmp += T.stSleep;
+      TextRender.drawText(canvas, T.statImmune + (tmp.length > 0 ? tmp : T.statNone), 41, 77);
     }
   }
 

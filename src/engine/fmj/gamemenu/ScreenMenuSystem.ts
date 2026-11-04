@@ -1,5 +1,6 @@
 // Port of fmj/gamemenu/ScreenMenuSystem.kt — load / save / settings / quit.
 import { Global, ScreenViewType } from "../Global";
+import { T } from "../i18n";
 import { TextRender } from "../graphics/TextRender";
 import { Util } from "../graphics/Util";
 import { BaseScreen, type GameNode } from "../views/BaseScreen";
@@ -9,7 +10,7 @@ import { Bitmap, Canvas, Paint } from "../../graphics";
 export class ScreenMenuSystem extends BaseScreen {
   private first = 0;
   private index = 0;
-  private readonly str = ["读入进度", "存储进度", "游戏设置", "结束游戏"];
+  private readonly str = T.systemMenu;
   private readonly strX = 42;
   private strY = 32;
   private selY = 32;
@@ -88,8 +89,8 @@ export class ScreenMenuSystem extends BaseScreen {
           this.pushScreen(new ScreenSaveLoadGame(this, SaveLoadOperate.LOAD));
           break;
         case 1:
-          if (Global.disableSave) this.showMessage("当前不能存档");
-          else if (this.game.mainScene.scriptProcess.prev != null) this.showMessage("副本中不能存档");
+          if (Global.disableSave) this.showMessage(T.cannotSave);
+          else if (this.game.mainScene.scriptProcess.prev != null) this.showMessage(T.cannotSaveHere);
           else this.pushScreen(new ScreenSaveLoadGame(this, SaveLoadOperate.SAVE));
           break;
         case 2:

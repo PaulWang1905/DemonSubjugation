@@ -1,5 +1,6 @@
 // Port of fmj/script/OperateBuy.kt — shop (buy) screen driven by the BUY command.
 import { Global } from "../Global";
+import { T } from "../i18n";
 import { Player } from "../characters/Player";
 import { GoodsListMode, ScreenGoodsList, type OnGoodsSelectedListener } from "../gamemenu/ScreenGoodsList";
 import type { BaseGoods } from "../goods/BaseGoods";
@@ -40,10 +41,10 @@ class BuyGoodsScreen extends BaseScreen {
   draw(canvas: Canvas): void {
     const g = this.goods!;
     canvas.drawBitmap(this.bmpBg, 12, 21);
-    TextRender.drawText(canvas, "金钱：" + this.money, 15, 24);
+    TextRender.drawText(canvas, T.moneyWide + this.money, 15, 24);
     TextRender.drawText(canvas, g.name, 15, 40);
     TextRender.drawText(canvas, ": " + g.goodsNum, 93, 40);
-    TextRender.drawText(canvas, "买入个数　：" + this.buyCnt, 15, 56);
+    TextRender.drawText(canvas, T.buyCount + this.buyCnt, 15, 56);
   }
 
   onKeyUp(key: number): void {
@@ -68,7 +69,7 @@ class BuyGoodsScreen extends BaseScreen {
         g.addGoodsNum(1);
         this.money -= g.buyPrice;
       } else {
-        this.showMessage("金钱不足!", 1000);
+        this.showMessage(T.noMoney, 1000);
       }
     } else if (key === Global.KEY_DOWN && this.buyCnt > 0) {
       --this.buyCnt;
@@ -116,7 +117,7 @@ export class OperateBuy extends Control implements Operate, OnGoodsSelectedListe
 
   onItemSelected(goods: BaseGoods): void {
     if (Player.sMoney < goods.buyPrice) {
-      this.showMessage("金钱不足!", 1000);
+      this.showMessage(T.noMoney, 1000);
     } else {
       this.mBuyScreen.init(goods);
       this.pushScreen(this.mBuyScreen);

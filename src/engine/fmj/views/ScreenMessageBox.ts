@@ -1,5 +1,6 @@
 // Port of fmj/views/ScreenMessageBox.kt — yes/no confirmation box.
 import { Global } from "../Global";
+import { T } from "../i18n";
 import { TextRender } from "../graphics/TextRender";
 import { Bitmap, Canvas, Paint, PaintStyle } from "../../graphics";
 import { BaseScreen, type GameNode } from "./BaseScreen";
@@ -51,11 +52,11 @@ export class ScreenMessageBox extends BaseScreen {
     canvas.drawBitmap(background(), 27, 15);
     TextRender.drawText(canvas, this.mMsg, 33, 23);
     if (this.index === 0) {
-      TextRender.drawSelText(canvas, "是 ", 45, 53);
-      TextRender.drawText(canvas, "否 ", 93, 53);
+      TextRender.drawSelText(canvas, T.yes, 45, 53);
+      TextRender.drawText(canvas, T.no, 93, 53);
     } else {
-      TextRender.drawText(canvas, "是 ", 45, 53);
-      TextRender.drawSelText(canvas, "否 ", 93, 53);
+      TextRender.drawText(canvas, T.yes, 45, 53);
+      TextRender.drawSelText(canvas, T.no, 93, 53);
     }
   }
 

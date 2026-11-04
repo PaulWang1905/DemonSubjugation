@@ -4,6 +4,9 @@ import { MainGame } from "./fmj/Game";
 import { Player } from "./fmj/characters/Player";
 import { Combat } from "./fmj/combat/Combat";
 import { EngineSettings } from "./fmj/config/EngineSettings";
+import { setUiLanguage, type UiLanguage } from "./fmj/i18n";
+
+export type { UiLanguage };
 import { TextRender } from "./fmj/graphics/TextRender";
 import { Util } from "./fmj/graphics/Util";
 import { DatLib } from "./fmj/lib/DatLib";
@@ -52,6 +55,16 @@ export interface EngineOptions {
   random?: () => number;
   /** Glyphs for text when a font file is missing; without it text is blank. */
   fontFallback?: FontFallback;
+  /** Language of the engine's own menus. "auto": English if the game title is ASCII. */
+  uiLanguage?: UiLanguage | "auto";
+}
+
+/** Guess the interface language from the archive's title ("LIB" + name). */
+export function detectUiLanguage(datLib: Uint8Array): UiLanguage {
+  let end = 3;
+  while (end < 12 && datLib[end] !== 0) end++;
+  const title = datLib.subarray(3, end);
+  return title.length > 0 && title.every((b) => b >= 0x20 && b < 0x7f) ? "en" : "zh";
 }
 
 function asInt8(u: Uint8Array): Int8Array {
@@ -112,6 +125,8 @@ export function createEngine(opts: EngineOptions): Engine {
     random: opts.random ?? Math.random,
   });
   resetStatics();
+  const lang = opts.uiLanguage ?? "auto";
+  setUiLanguage(lang === "auto" ? detectUiLanguage(opts.resources.datLib) : lang);
 
   const game = new MainGame();
   game.start();

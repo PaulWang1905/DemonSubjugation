@@ -1,5 +1,6 @@
 // Port of fmj/gamemenu/ScreenActorWearing.kt — equipment overview.
 import { Global } from "../Global";
+import { T } from "../i18n";
 import { Player } from "../characters/Player";
 import type { BaseGoods } from "../goods/BaseGoods";
 import type { GoodsEquipment } from "../goods/GoodsEquipment";
@@ -25,7 +26,7 @@ export class ScreenActorWearing extends BaseScreen {
     new Point(79, 2),
   ];
   private mEquipments: (GoodsEquipment | null)[];
-  private readonly mItemName = ["装饰", "装饰", "护腕", "脚蹬", "手持", "身穿", "肩披", "头戴"];
+  private readonly mItemName = T.slots;
   private mCurItem = 0;
   private mActorIndex = -1;
   private showingDesc = false;
@@ -128,7 +129,7 @@ export class ScreenActorWearing extends BaseScreen {
                   self.popScreen();
                   self.pushScreen(new ScreenChgEquipment(self, actor, goods as GoodsEquipment));
                 } else {
-                  self.showMessage("不能装备!", 1000);
+                  self.showMessage(T.cannotEquip, 1000);
                 }
               },
             },

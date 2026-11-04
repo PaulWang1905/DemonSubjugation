@@ -1,5 +1,6 @@
 // Port of fmj/gamemenu/ScreenMenuProperties.kt — status / equipment choice.
 import { Global } from "../Global";
+import { T } from "../i18n";
 import { TextRender } from "../graphics/TextRender";
 import { Util } from "../graphics/Util";
 import { BaseScreen, type GameNode } from "../views/BaseScreen";
@@ -9,7 +10,7 @@ import { ScreenActorWearing } from "./ScreenActorWearing";
 
 export class ScreenMenuProperties extends BaseScreen {
   private readonly mFrameBmp = Util.getFrameBitmap(77 - 39 + 1, 54 - 16 + 1);
-  private readonly strs = ["状态", "穿戴"];
+  private readonly strs = T.statusEquip;
   private mSelId = 0;
 
   constructor(readonly parent: GameNode) {

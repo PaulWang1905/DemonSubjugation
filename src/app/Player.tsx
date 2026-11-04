@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createDeviceFont } from "./deviceFont";
-import { createEngine, EngineSettings, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, type Engine, type EngineKey } from "../engine";
+import { createEngine, EngineSettings, type UiLanguage, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, type Engine, type EngineKey } from "../engine";
 import { exportSaves, importSaves, savesFor } from "../storage/saves";
 import type { StoredGame } from "../storage/db";
 import { KEY_HELP, KEYMAP } from "./keys";
@@ -43,6 +43,7 @@ export function Player({ game, fonts, onExit }: Props) {
   const [showPad, setShowPad] = useState(() => pref("keypad", matchMedia("(pointer: coarse)").matches ? "on" : "off") === "on");
   const [originalFormula, setOriginalFormula] = useState(() => pref("originalDamage", "on") === "on");
   const [notice, setNotice] = useState<string | null>(null);
+  const [uiLang, setUiLang] = useState<UiLanguage | "auto">(() => pref<string>("uiLanguage", "auto") as UiLanguage | "auto");
   const speedRef = useRef(speed);
   const paletteRef = useRef(paletteId);
   speedRef.current = speed;
@@ -61,6 +62,7 @@ export function Player({ game, fonts, onExit }: Props) {
           asc16: fonts.asc16 ? new Uint8Array(fonts.asc16) : null,
         },
         fontFallback: fonts.hzk16 && fonts.asc16 ? undefined : createDeviceFont(),
+        uiLanguage: uiLang,
         saves: savesFor(game.id),
         onExit,
       });
@@ -106,7 +108,7 @@ export function Player({ game, fonts, onExit }: Props) {
       cancelAnimationFrame(raf);
       engineRef.current = null;
     };
-  }, [game, fonts, onExit, generation]);
+  }, [game, fonts, onExit, generation, uiLang]);
 
   const keyDown = useCallback((k: EngineKey) => {
     try {
@@ -300,6 +302,20 @@ export function Player({ game, fonts, onExit }: Props) {
                 }}
               />
               On-screen keypad
+            </label>
+            <label className="field">
+              Menu language
+              <select
+                value={uiLang}
+                onChange={(e) => {
+                  setUiLang(e.target.value as UiLanguage | "auto");
+                  setPref("uiLanguage", e.target.value);
+                }}
+              >
+                <option value="auto">Auto (from the game title)</option>
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+              </select>
             </label>
             <label className="check">
               <input

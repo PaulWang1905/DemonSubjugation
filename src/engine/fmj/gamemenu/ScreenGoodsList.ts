@@ -1,5 +1,6 @@
 // Port of fmj/gamemenu/ScreenGoodsList.kt — scrolling goods list (buy/sell/use).
 import { Global } from "../Global";
+import { T } from "../i18n";
 import { Player } from "../characters/Player";
 import type { BaseGoods } from "../goods/BaseGoods";
 import { TextRender } from "../graphics/TextRender";
@@ -30,8 +31,8 @@ function bgImage(): Bitmap {
   const c = new Canvas(bmp);
   c.drawColor(Global.COLOR_WHITE);
   c.drawLines(pts, Util.sBlackPaint);
-  TextRender.drawText(c, "名:", 45, 23);
-  TextRender.drawText(c, "价:", 45, 40);
+  TextRender.drawText(c, T.goodsName, 45, 23);
+  TextRender.drawText(c, T.goodsPrice, 45, 40);
   bgImageCache = bmp;
   return bmp;
 }
@@ -81,7 +82,7 @@ export class ScreenGoodsList extends BaseScreen {
     while (this.curItemIndex >= this.goodsList.length) this.showPreItem();
 
     const g = this.goodsList[this.curItemIndex];
-    TextRender.drawText(canvas, this.mode === GoodsListMode.Buy ? "金钱:" + Player.sMoney : "数量:" + g.goodsNum, 60, 2);
+    TextRender.drawText(canvas, this.mode === GoodsListMode.Buy ? T.money + Player.sMoney : T.goodsCount + g.goodsNum, 60, 2);
     TextRender.drawText(canvas, g.name, 69, 23);
     TextRender.drawText(canvas, "" + (this.mode === GoodsListMode.Buy ? g.buyPrice : g.sellPrice), 69, 40);
     Util.drawTriangleCursor(canvas, 4, 8 + 23 * (this.curItemIndex - this.firstDisplayItemIndex));

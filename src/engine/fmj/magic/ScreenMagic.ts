@@ -1,5 +1,6 @@
 // Port of fmj/magic/ScreenMagic.kt — magic list screen.
 import { Global } from "../Global";
+import { T } from "../i18n";
 import { TextRender } from "../graphics/TextRender";
 import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import { Bitmap, Canvas, Paint, PaintStyle, Point, Rect } from "../../graphics";
@@ -80,7 +81,7 @@ export class ScreenMagic extends BaseScreen {
       TextRender.drawText(canvas, this.magics[this.mFirstItemIndex + 1].magicName, this.mRectTop.left + 1, this.mRectTop.top + 1 + 16);
     }
     this.mNextToDraw = TextRender.drawTextFrom(canvas, hlMagic.magicDescription, this.mToDraw, this.mRectDsp);
-    TextRender.drawText(canvas, "耗真气:" + hlMagic.costMp, this.mTextPos.x, this.mTextPos.y);
+    TextRender.drawText(canvas, T.mpCost + hlMagic.costMp, this.mTextPos.x, this.mTextPos.y);
     canvas.drawBitmap(this.mBmpCursor, 100, this.mFirstItemIndex === this.mCurItemIndex ? 10 : 26);
     canvas.drawBitmap(this.mFirstItemIndex === 0 ? this.mBmpMarker : this.mBmpMarker2, 135, 6);
     canvas.drawBitmap(this.mBmpMarker, 135, 6 + 8);
