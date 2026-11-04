@@ -24,6 +24,11 @@ export class ResMagicChain extends ResBase {
     }
   }
 
+  /** Number of magics in the chain. */
+  get size(): number {
+    return this.mMagics.length;
+  }
+
   getMagic(index: number): BaseMagic | undefined {
     return this.mMagics[index];
   }

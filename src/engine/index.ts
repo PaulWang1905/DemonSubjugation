@@ -15,6 +15,9 @@ import { SaveLoadGame } from "./fmj/scene/SaveLoadGame";
 import { ScriptResources } from "./fmj/script/ScriptResources";
 import { ScriptVM } from "./fmj/script/ScriptVM";
 import { setPlatform, type FontFallback, type SaveStorage } from "./java";
+import { createCheats, type Cheats } from "./cheats";
+
+export { STAT_KEYS, STAT_MAX, type Cheats, type CheatSwitches, type ItemInfo, type PartyMember, type StatKey } from "./cheats";
 
 export type { FontFallback };
 
@@ -120,6 +123,10 @@ export interface Engine {
    * later drawing covers (if any).
    */
   textLayer(): TextMark[];
+  /** Redraw the current frame without advancing the game (after cheat edits). */
+  redraw(): void;
+  /** Test tools for the debug menu. */
+  readonly cheats: Cheats;
   /** Compile every script in the archive; returns the failures. */
   checkScripts(): string[];
   readonly game: MainGame;
@@ -155,10 +162,21 @@ export function createEngine(opts: EngineOptions): Engine {
   game.draw();
   const frame = new Uint8ClampedArray(game.canvas.buffer.buffer);
 
+  // Debug switches are per session, never carried over from another game.
+  EngineSettings.noRandomBattles = false;
+  EngineSettings.walkThroughWalls = false;
+  EngineSettings.alwaysFull = false;
+  const cheats = createCheats(game);
+
   return {
     game,
+    cheats,
     update(delta = TICK_MS) {
       game.update(delta);
+      if (EngineSettings.alwaysFull) cheats.heal();
+      game.draw();
+    },
+    redraw() {
       game.draw();
     },
     render() {

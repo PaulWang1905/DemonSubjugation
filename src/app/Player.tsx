@@ -5,6 +5,7 @@ import { exportSaves, importSaves, savesFor } from "../storage/saves";
 import type { StoredGame } from "../storage/db";
 import { KEY_HELP, KEYMAP } from "./keys";
 import { Keypad } from "./Keypad";
+import { DebugMenu, SECRET } from "./DebugMenu";
 import { applyPalette, PALETTES } from "./palettes";
 import { HiresText, hiresScale, type TextStyle } from "./hiresText";
 
@@ -53,6 +54,24 @@ export function Player({ game, fonts, onExit }: Props) {
   textRef.current = textMode;
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
+  // The hidden debug menu: the secret code on the game keys, or five quick
+  // taps on the game's name. The game is paused while it is open.
+  const [debugOpen, setDebugOpen] = useState(false);
+  const debugRef = useRef(false);
+  debugRef.current = debugOpen;
+  // Let go of every key the game still thinks is held, then pause it.
+  const openDebug = useCallback(() => {
+    for (const k of pressed.current) engineRef.current?.keyUp(k);
+    pressed.current.clear();
+    setDebugOpen(true);
+  }, []);
+  const recent = useRef<EngineKey[]>([]);
+  const taps = useRef<number[]>([]);
+  // Keys the game has seen pressed: only their releases are passed on. B and
+  // A that complete the code are kept from the game (so typing it does not
+  // open the in-game menu), and so is the Esc that closes the debug menu.
+  const pressed = useRef(new Set<EngineKey>());
+  const endsWith = (r: EngineKey[], n: number) => r.length >= n && SECRET.slice(0, n).every((x, i) => r[r.length - n + i] === x);
   const speedRef = useRef(speed);
   const paletteRef = useRef(paletteId);
   speedRef.current = speed;
@@ -92,7 +111,7 @@ export function Player({ game, fonts, onExit }: Props) {
 
     const loop = (now: number) => {
       if (stopped) return;
-      acc += Math.min(now - last, 250) * speedRef.current;
+      acc = debugRef.current ? 0 : acc + Math.min(now - last, 250) * speedRef.current;
       last = now;
       try {
         let steps = 0;
@@ -132,6 +151,10 @@ export function Player({ game, fonts, onExit }: Props) {
   }, [game, fonts, onExit, generation, uiLang]);
 
   const keyDown = useCallback((k: EngineKey) => {
+    if (debugRef.current) return;
+    const r = recent.current;
+    if ((k === SECRET[8] && endsWith(r, 8)) || (k === SECRET[9] && endsWith(r, 9))) return;
+    pressed.current.add(k);
     try {
       engineRef.current?.keyDown(k);
     } catch (e) {
@@ -139,18 +162,42 @@ export function Player({ game, fonts, onExit }: Props) {
     }
   }, []);
   const keyUp = useCallback((k: EngineKey) => {
-    try {
-      engineRef.current?.keyUp(k);
-    } catch (e) {
-      setError(String((e as Error).stack ?? e));
+    if (debugRef.current) return;
+    if (pressed.current.delete(k)) {
+      try {
+        engineRef.current?.keyUp(k);
+      } catch (e) {
+        setError(String((e as Error).stack ?? e));
+      }
     }
-  }, []);
+    // Releases, not presses, so held keys that auto-repeat count once.
+    const r = [...recent.current, k].slice(-SECRET.length);
+    recent.current = r;
+    if (r.length === SECRET.length && r.every((x, i) => x === SECRET[i])) {
+      recent.current = [];
+      openDebug();
+    }
+  }, [openDebug]);
+
+  const tapTitle = () => {
+    const now = Date.now();
+    taps.current = [...taps.current.filter((t) => now - t < 1500), now];
+    if (taps.current.length >= 5) {
+      taps.current = [];
+      if (debugRef.current) setDebugOpen(false);
+      else openDebug();
+    }
+  };
 
   // Keyboard input. Auto-repeat keydowns are passed through, which is how
   // holding a direction keeps walking.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest?.("input, select, textarea")) return;
+      if (debugRef.current) {
+        if (e.code === "Escape") setDebugOpen(false);
+        return;
+      }
       const k = KEYMAP[e.code];
       if (k === undefined || e.ctrlKey || e.metaKey || e.altKey) return;
       e.preventDefault();
@@ -229,7 +276,7 @@ export function Player({ game, fonts, onExit }: Props) {
         <button className="ghost" onClick={onExit} title="Back to library">
           ← Library
         </button>
-        <span className="title" title={game.fileName}>
+        <span className="title" title={game.fileName} onClick={tapTitle}>
           {game.name}
         </span>
         <div className="spacer" />
@@ -308,6 +355,8 @@ export function Player({ game, fonts, onExit }: Props) {
       </div>
 
       {notice && <div className="notice">{notice}</div>}
+
+      {debugOpen && engineRef.current && <DebugMenu engine={engineRef.current} onClose={() => setDebugOpen(false)} />}
 
       {showPad && <Keypad onDown={keyDown} onUp={keyUp} />}
 

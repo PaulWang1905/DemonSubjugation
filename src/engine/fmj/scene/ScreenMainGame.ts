@@ -1,4 +1,5 @@
 // Port of fmj/scene/ScreenMainGame.kt — the map / exploration screen.
+import { EngineSettings } from "../config/EngineSettings";
 import { Global } from "../Global";
 import { Direction } from "../characters/Direction";
 import { NPC, type ICanWalk } from "../characters/NPC";
@@ -214,7 +215,12 @@ export class ScreenMainGame extends BaseScreen {
   }
 
   private canPlayerWalk(x: number, y: number): boolean {
-    return this.currentMap ? this.currentMap.canPlayerWalk(x, y) && this.getNpcFromPosInMap(x, y).isEmpty : false;
+    const m = this.currentMap;
+    if (!m) return false;
+    const ground = EngineSettings.walkThroughWalls
+      ? x >= 4 && x < m.mapWidth - 4 && y >= 3 && y < m.mapHeight - 2
+      : m.canPlayerWalk(x, y);
+    return ground && this.getNpcFromPosInMap(x, y).isEmpty;
   }
 
   private walkLeft(): void {

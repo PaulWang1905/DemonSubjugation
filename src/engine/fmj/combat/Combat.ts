@@ -1,4 +1,5 @@
 // Port of fmj/combat/Combat.kt — battle controller (random and scripted fights).
+import { EngineSettings } from "../config/EngineSettings";
 import { Global, ScreenViewType } from "../Global";
 import { FightingCharacter } from "../characters/FightingCharacter";
 import type { Monster } from "../characters/Monster";
@@ -587,6 +588,7 @@ export class Combat extends BaseScreen implements CombatUICallBack {
     const c = sInstance;
     if (
       globalDisableFighting ||
+      EngineSettings.noRandomBattles ||
       !sIsEnable ||
       c == null ||
       !c.mMonsterType ||

@@ -6,4 +6,11 @@ export const EngineSettings = {
    * simplified one.
    */
   originalDamageFormula: true,
+  // Test switches for the player's debug menu (off in normal play).
+  /** No random encounters while walking. */
+  noRandomBattles: false,
+  /** The player may walk onto blocked tiles (not through characters). */
+  walkThroughWalls: false,
+  /** Refill the party's HP and MP every tick. */
+  alwaysFull: false,
 };
