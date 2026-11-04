@@ -248,7 +248,7 @@ class MainMenu extends BaseScreen {
           this.pushScreen(new MenuMisc(this, ui));
           break;
         case 4: // combined attack
-          this.pushScreen(ui.selectMonster(this, (fc) => ui.actionSelected(new ActionCoopMagic(ui.mPlayerList, fc))));
+          this.pushScreen(ui.selectMonster(this, (fc) => ui.actionSelected(new ActionCoopMagic(ui.mPlayerList, fc, ui.currentPlayer))));
           break;
       }
     } else if (key === Global.KEY_CANCEL) {

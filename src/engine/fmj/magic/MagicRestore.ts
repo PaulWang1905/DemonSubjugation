@@ -18,6 +18,7 @@ export class MagicRestore extends BaseMagic {
    * BaseMagic) never reached, so healing spells did nothing in battle.
    */
   use(src: FightingCharacter, dst: FightingCharacter | FightingCharacter[]): void {
+    if (this.castOriginal(src, dst)) return;
     for (const d of Array.isArray(dst) ? dst : [dst]) this.useRestore(src as Player, d as Player);
   }
 

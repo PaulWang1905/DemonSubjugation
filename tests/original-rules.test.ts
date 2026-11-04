@@ -16,8 +16,27 @@ beforeEach(() => {
   setPlatform({ rom: new Map(), saves: memorySaves(), exit() {}, random: () => ((next.shift() ?? 0) + 0.5) / 0x10000 });
 });
 
-const fighter = (o: Partial<Record<"attack" | "defend" | "speed" | "lingli" | "luck" | "hp" | "mp", number>>) =>
-  ({ attack: 0, defend: 0, speed: 0, lingli: 0, luck: 0, hp: 999, mp: 999, ...o }) as unknown as FightingCharacter;
+type Stats = Partial<Record<"attack" | "defend" | "speed" | "lingli" | "luck" | "hp" | "mp" | "maxHP" | "maxMP" | "mIQ" | "immune", number>> & {
+  isPlayer?: boolean;
+};
+/** A stand-in fighter with the fields the rules read. */
+const fighter = (o: Stats) => {
+  const f = {
+    attack: 0, defend: 0, speed: 0, lingli: 0, luck: 0, hp: 999, mp: 999, maxHP: 999, maxMP: 999, mIQ: 0, immune: 0,
+    isPlayer: false, isVisiable: true, defending: false, attackStatusRounds: 0,
+    ostatus: new Uint8Array(7).fill(0xff),
+    odelta: { attack: 0, defend: 0, speed: 0 },
+    ...o,
+    get battleAttack(): number { return (this.attack + this.odelta.attack) & 0xffff; },
+    get battleDefend(): number { return (this.defend + this.odelta.defend) & 0xffff; },
+    get battleSpeed(): number { return (this.speed + this.odelta.speed) & 0xff; },
+    get immuneBits(): number { return this.immune; },
+    get hasAilment(): boolean { return [3, 4, 5, 6].some((i): boolean => this.ostatus[i] !== 0xff); },
+    get isAlive(): boolean { return this.hp > 0; },
+    get attackStatusBits(): number { return 0; },
+  };
+  return f as unknown as FightingCharacter & { mIQ: number };
+};
 
 describe("original battle rules", () => {
   it("player attacks: dodge by speed, attack / (def >> 3), plus rand % (atk >> 2)", () => {
@@ -128,5 +147,114 @@ describe("MISS picture", () => {
       expect(() => a.draw(c)).not.toThrow();
       expect(a.update(60)).toBe(true);
     }
+  });
+});
+
+describe("original statuses and enemy turns", () => {
+  it("sets status slots, respects immunity and counts them down", () => {
+    const f = fighter({ immune: 0x02 }); // immune to seal
+    expect(R.applyStatus(f, 0x08 | 0x02 | 0x01, 3)).toBe(0x08 | 0x01); // poison and sleep take hold
+    expect([R.isPoisoned(f), R.isSealed(f), R.isAsleep(f)]).toEqual([true, false, true]);
+    R.tickStatus(f);
+    R.tickStatus(f);
+    expect(R.isAsleep(f)).toBe(true);
+    R.tickStatus(f); // the third turn ends it
+    expect([R.isAsleep(f), R.isPoisoned(f)]).toEqual([false, false]);
+  });
+
+  it("poison takes a quarter of the current HP", () => {
+    const f = fighter({ hp: 81 });
+    R.applyStatus(f, 0x08, 2);
+    expect(R.poisonDamage(f)).toBe(20);
+  });
+
+  it("lands statuses when luck < rand % 90 or the roll is over 60", () => {
+    rolls(50);
+    expect(R.statusLands(fighter({ luck: 40 }))).toBe(true);
+    rolls(50);
+    expect(R.statusLands(fighter({ luck: 60 }))).toBe(false);
+    rolls(70);
+    expect(R.statusLands(fighter({ luck: 99 }))).toBe(true);
+  });
+
+  it("changes stats by percent and resets them when they run out", () => {
+    const p = fighter({ attack: 200, defend: 50, isPlayer: true });
+    expect(R.applyStatChange(p, [20, 0, 0], "+", 2)).toBe(0x40);
+    expect(p.battleAttack).toBe(240);
+    R.tickStatus(p);
+    R.tickStatus(p);
+    expect(p.battleAttack).toBe(200);
+    const e = fighter({ attack: 100, defend: 80 });
+    e.odelta.defend = 7;
+    R.applyStatChange(e, [50, 0, 0], "-", 3); // an enemy's other changes are reset (original)
+    expect([e.battleAttack, e.odelta.defend]).toEqual([50, 0]);
+  });
+
+  it("confused fighters hit themselves", () => {
+    rolls(5);
+    expect(R.confusedSelfHit(fighter({ attack: 40, defend: 16, isPlayer: true }))).toBe(Math.trunc(40 / 5) + (5 % 3));
+    rolls(5);
+    expect(R.confusedSelfHit(fighter({ attack: 40, defend: 16 }))).toBe(Math.trunc(40 / 3) + (5 % 11));
+  });
+
+  it("enemies attack or cast by their IQ", () => {
+    const party = [fighter({ isPlayer: true }), null, fighter({ isPlayer: true })];
+    const foes = [fighter({}), null, null];
+    const spells = [{ cost: 5, type: 1, forAll: false }, { cost: 5, type: 3, forAll: false }];
+    rolls(30); // 30 < 100 - 60: attack, target 30 % 3 = 0
+    expect(R.chooseEnemyAction(fighter({ mIQ: 60, mp: 99 }), spells, party, foes)).toEqual({ kind: "attack", target: 0 });
+    rolls(51); // 51 >= 40: spell 51 % 2 = 1 (restore) on its own side, slot 51 % 3 = 0
+    expect(R.chooseEnemyAction(fighter({ mIQ: 60, mp: 99 }), spells, party, foes)).toEqual({ kind: "magic", magicIndex: 1, target: 0 });
+    rolls(52); // spell 0 (attack) on party slot 52 % 3 = 1, empty, so the next one: 2
+    expect(R.chooseEnemyAction(fighter({ mIQ: 60, mp: 99 }), spells, party, foes)).toEqual({ kind: "magic", magicIndex: 0, target: 2 });
+    rolls(52); // not enough MP: attack instead
+    expect(R.chooseEnemyAction(fighter({ mIQ: 60, mp: 1 }), spells, party, foes)).toEqual({ kind: "attack", target: 2 });
+    const sealed = fighter({ mIQ: 100, mp: 99 });
+    R.applyStatus(sealed, 0x02, 3);
+    rolls(52);
+    expect(R.chooseEnemyAction(sealed, spells, party, foes).kind).toBe("attack");
+  });
+
+  it("puts restoring casters first at 1.5x speed (8-bit)", () => {
+    expect(R.turnPriority(fighter({ speed: 40 }), true)).toBe(60);
+    expect(R.turnPriority(fighter({ speed: 200 }), true)).toBe(300 & 0xff);
+  });
+
+  it("sums the group attack power by distance", () => {
+    const p = (attack: number) => fighter({ attack, isPlayer: true });
+    expect(R.groupAttackPower(0, [p(80), p(40), p(20)])).toBe(80 + 20 + 5);
+    // from the second member: itself, the third, then (index 3) wraps to the first at distance 4
+    expect(R.groupAttackPower(1, [p(80), p(40), p(20)])).toBe(40 + 10 + (80 >> 4));
+    expect(R.groupAttackPower(0, [p(80), p(40)])).toBe(80 + 20); // the empty slot ends the walk
+  });
+
+  it("casts attack spells with side effects, even on a dodge", () => {
+    const hero = fighter({ isPlayer: true, speed: 0, lingli: 0 });
+    const a = fighter({ hp: 100, luck: 0, speed: 99 }); // will dodge
+    const b = fighter({ hp: 100, luck: 0 });
+    R.setBattleSides([hero], [a, b]);
+    const raw = new Uint8Array(8);
+    raw[0] = 30; // 30 HP
+    raw[6] = (2 << 4) | 0x01; // sleep for 2 rounds
+    // rolls: damage a (dodge), damage b, then status rolls for each hit target
+    rolls(0, 40, 70, 70);
+    const res = R.castMagic(hero, { type: 1, costByte: 4, isForAll: true, raw }, [a, b]);
+    expect(res.get(a)).toEqual({ miss: true, bits: 0x01 });
+    expect(res.get(b)?.miss).toBe(false);
+    expect([a.hp, b.hp, hero.mp]).toEqual([100, 100 - (30 + ((40 % 30) >> 4)), 995]);
+    expect(R.isAsleep(a)).toBe(true);
+  });
+
+  it("revives only the fallen and heals only the standing", () => {
+    const caster = fighter({ isPlayer: true });
+    const down = fighter({ isPlayer: true, hp: 0, maxHP: 200 });
+    const up = fighter({ isPlayer: true, hp: 50, maxHP: 200 });
+    R.setBattleSides([caster, down, up], []);
+    const raw = new Uint8Array(8);
+    raw[0] = 50;
+    R.castMagic(caster, { type: 4, costByte: 0, isForAll: true, raw }, [caster, down, up]);
+    expect([down.hp, up.hp]).toEqual([100, 50]);
+    R.castMagic(caster, { type: 3, costByte: 0, isForAll: false, raw }, [up]);
+    expect(up.hp).toBe(100);
   });
 });

@@ -2,8 +2,6 @@
 import type { FightingCharacter } from "../characters/FightingCharacter";
 import { ResBase } from "../lib/ResBase";
 import { BaseMagic } from "./BaseMagic";
-import { EngineSettings } from "../config/EngineSettings";
-import { guarded, MISS, spellDamage } from "../combat/OriginalRules";
 
 export class MagicAttack extends BaseMagic {
   private mHp = 0; // >0: HP damage base, <0: HP drain base
@@ -23,33 +21,13 @@ export class MagicAttack extends BaseMagic {
   }
 
   /** Targets the last cast missed (original battle rules). */
-  readonly missed = new Set<FightingCharacter>();
+  get missed(): Set<FightingCharacter> {
+    return new Set([...this.lastResults].filter(([, r]) => r.miss).map(([fc]) => fc));
+  }
 
   use(src: FightingCharacter, dst: FightingCharacter | FightingCharacter[]): void {
+    if (this.castOriginal(src, dst)) return;
     src.mp = src.mp - this.costMp;
-    const targets = Array.isArray(dst) ? dst : [dst];
-    this.missed.clear();
-    if (!EngineSettings.originalDamageFormula) {
-      for (const fc of targets) fc.hp = fc.hp - this.mHp;
-      return;
-    }
-    // Original engine: spirit scaling, dodging, MP damage; a negative value
-    // drains, giving what it takes to the caster.
-    let drainedHp = 0;
-    let drainedMp = 0;
-    for (const fc of targets) {
-      if (!fc.isAlive) continue;
-      const r = spellDamage(src, fc, Math.abs(this.mHp), Math.abs(this.mMp), fc.isPlayer && guarded(fc, fc.defending, fc.hasAilment));
-      if (r.hp === MISS || r.mp === MISS) {
-        this.missed.add(fc);
-        continue;
-      }
-      fc.hp = fc.hp - r.hp;
-      fc.mp = fc.mp - r.mp;
-      if (this.mHp < 0) drainedHp += r.hp;
-      if (this.mMp < 0) drainedMp += r.mp;
-    }
-    if (drainedHp) src.hp = src.hp + drainedHp;
-    if (drainedMp) src.mp = src.mp + drainedMp;
+    for (const fc of Array.isArray(dst) ? dst : [dst]) fc.hp = fc.hp - this.mHp;
   }
 }

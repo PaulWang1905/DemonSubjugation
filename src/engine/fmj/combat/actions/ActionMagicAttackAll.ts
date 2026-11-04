@@ -5,6 +5,7 @@ import type { ResSrs } from "../../lib/ResSrs";
 import type { MagicAttack } from "../../magic/MagicAttack";
 import type { Canvas } from "../../../graphics";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
+import { raiseMask } from "../OriginalRules";
 import { ActionMultiTarget } from "./ActionMultiTarget";
 
 const STATE_PRE = 1;
@@ -36,8 +37,8 @@ export class ActionMagicAttackAll extends ActionMultiTarget {
     this.magic.use(a, this.mTargets);
     // fmj.kt showed two placeholder numbers here; show each target's real loss.
     this.mTargets.forEach((t, i) => {
-      const missed = this.magic.missed.has(t);
-      if (t.isVisiable) this.mRaiseAnis.push(new RaiseAnimation(t.combatX, t.combatY, t.hp - before[i], 0, missed));
+      const res = this.magic.lastResults.get(t);
+      if (t.isVisiable) this.mRaiseAnis.push(new RaiseAnimation(t.combatX, t.combatY, t.hp - before[i], raiseMask(res?.bits ?? 0), res?.miss));
     });
   }
 

@@ -5,6 +5,7 @@ import type { ResSrs } from "../../lib/ResSrs";
 import type { BaseMagic } from "../../magic/BaseMagic";
 import type { Canvas } from "../../../graphics";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
+import { raiseMask } from "../OriginalRules";
 import { ActionSingleTarget } from "./ActionSingleTarget";
 
 const STATE_PRE = 1;
@@ -27,6 +28,10 @@ export class ActionMagicHelpOne extends ActionSingleTarget {
     super(attacker, target);
   }
 
+  get quick(): boolean {
+    return this.magic.type === 3 || this.magic.type === 4;
+  }
+
   preproccess(): void {
     const t = this.mTarget;
     this.mAni = this.magic.magicAni!;
@@ -36,7 +41,8 @@ export class ActionMagicHelpOne extends ActionSingleTarget {
     this.mAniy = t.combatY;
     const ohp = t.hp;
     this.magic.use(this.mAttacker!, t);
-    this.mRaiseAni = new RaiseAnimation(t.combatX, t.combatTop, t.hp - ohp, 0);
+    const res = this.magic.lastResults.get(t);
+    this.mRaiseAni = new RaiseAnimation(t.combatX, t.combatTop, t.hp - ohp, raiseMask(res?.bits ?? 0));
   }
 
   update(delta: number): boolean {

@@ -10,6 +10,7 @@ import { MagicSpecial } from "../../magic/MagicSpecial";
 import type { Canvas } from "../../../graphics";
 import type { Animation } from "../anim/Animation";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
+import { raiseMask } from "../OriginalRules";
 import { ActionSingleTarget } from "./ActionSingleTarget";
 
 const STATE_PRE = 1; // wind-up
@@ -46,8 +47,8 @@ export class ActionMagicAttackOne extends ActionSingleTarget {
     if (this.magic instanceof MagicAttack) this.magic.use(a, t);
     this.mAniX = t.combatX;
     this.mAniY = t.combatY - Math.trunc(t.fightingSprite!.height / 2);
-    const missed = this.magic instanceof MagicAttack && this.magic.missed.has(t);
-    this.mRaiseAni = new RaiseAnimation(t.combatX, t.combatY, t.hp - ohp, 0, missed);
+    const res = this.magic.lastResults.get(t);
+    this.mRaiseAni = new RaiseAnimation(t.combatX, t.combatY, t.hp - ohp, raiseMask(res?.bits ?? 0), res?.miss);
 
     if (this.magic instanceof MagicSpecial) {
       const it = this.steal(a);

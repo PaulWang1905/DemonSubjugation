@@ -19,6 +19,12 @@ import { ActionCoopMagic } from "./actions/ActionCoopMagic";
 import { ActionFlee } from "./actions/ActionFlee";
 import { ActionPhysicalAttackAll } from "./actions/ActionPhysicalAttackAll";
 import { ActionPhysicalAttackOne } from "./actions/ActionPhysicalAttackOne";
+import { ActionMagicAttackAll } from "./actions/ActionMagicAttackAll";
+import { ActionMagicAttackOne } from "./actions/ActionMagicAttackOne";
+import { ActionMagicHelpAll } from "./actions/ActionMagicHelpAll";
+import { ActionMagicHelpOne } from "./actions/ActionMagicHelpOne";
+import { ActionConfused, ActionMonsterTurn, ActionSkipTurn, ActionTurnNumbers } from "./actions/ActionTurnSteps";
+import type { BaseMagic } from "../magic/BaseMagic";
 import { CombatSuccess } from "./ui/CombatSuccess";
 import { CombatUI, type CombatUICallBack } from "./ui/CombatUI";
 
@@ -162,6 +168,7 @@ export class Combat extends BaseScreen implements CombatUICallBack {
       p.setFrameByState();
     }
     for (const m of this.mMonsterList) m.hp = m.maxHP;
+    for (const fc of [...this.mPlayerList, ...this.mMonsterList]) fc.resetBattleStatus();
 
     this.mWinMoney = 0;
     this.mWinExp = 0;
@@ -181,6 +188,7 @@ export class Combat extends BaseScreen implements CombatUICallBack {
       this.setOriginalMonsterPos();
     }
 
+    OriginalRules.setBattleSides(this.mPlayerList, this.mMonsterList);
     this.mFlyPeach.start();
     this.mFlyPeach.setIteratorNum(5);
   }
@@ -198,6 +206,7 @@ export class Combat extends BaseScreen implements CombatUICallBack {
     }
 
     sIsFighting = false;
+    for (const p of this.mPlayerList) p.resetBattleStatus();
     this.mActionQueue.length = 0;
     this.mActionExecutor.reset();
     this.mCombatUI.reset();
@@ -404,6 +413,11 @@ export class Combat extends BaseScreen implements CombatUICallBack {
   }
 
   private generateMonstersActions(): void {
+    if (EngineSettings.originalDamageFormula) {
+      // decided when each enemy's turn comes, as on the device
+      for (const m of this.mMonsterList) if (m.isAlive) this.mActionQueue.push(new ActionMonsterTurn(m));
+      return;
+    }
     for (const m of this.mMonsterList) {
       if (m.isAlive) {
         const p = this.randomAlivePlayer;
@@ -418,9 +432,97 @@ export class Combat extends BaseScreen implements CombatUICallBack {
     }
   }
 
-  /** Sort by agility, highest first (stable). */
+  /** Sort by agility, highest first (stable: the party before enemies on ties). */
   private sortActionQueue(): void {
+    if (EngineSettings.originalDamageFormula) {
+      const key = (a: Action) => (a.attacker ? OriginalRules.turnPriority(a.attacker, a.quick) : a.priority);
+      this.mActionQueue.sort((a, b) => key(b) - key(a));
+      return;
+    }
     this.mActionQueue.sort((a, b) => b.priority - a.priority);
+  }
+
+  // --- original battle rules: each fighter's turn (_00224000) ------------
+
+  /**
+   * The action that actually runs when `action`'s turn comes: nothing if
+   * the fighter fell, the battle is decided, or it is asleep (a skipped
+   * turn); a self-hit when confused; the enemy's choice; a normal attack
+   * instead of a spell it cannot cast. Accessories' HP/MP come first.
+   */
+  startTurn(action: Action): Action | null {
+    if (action.aux || action.turnStarted) return action;
+    const fc = action.attacker;
+    if (!fc || !fc.isAlive) return null;
+    if (this.isAllMonsterDead || !this.isAnyPlayerAlive) {
+      this.mActionQueue.length = 0;
+      return null;
+    }
+    if (fc instanceof Player && !action.recovered) {
+      action.recovered = true;
+      const r = OriginalRules.turnRecovery(fc);
+      if (r.hp || r.mp) {
+        const before = fc.hp;
+        if (r.hp) fc.hp = Math.min(fc.maxHP, fc.hp + r.hp);
+        if (r.mp) fc.mp = Math.min(fc.maxMP, fc.mp + r.mp);
+        // show the numbers, then come back to this turn
+        this.mActionQueue.unshift(action);
+        return new ActionTurnNumbers(fc, fc.hp - before);
+      }
+    }
+    return this.decideTurn(action, fc);
+  }
+
+  private decideTurn(action: Action, fc: FightingCharacter): Action {
+    const asleep = OriginalRules.isAsleep(fc);
+    let next: Action = action;
+    if (asleep) next = new ActionSkipTurn(fc);
+    else if (OriginalRules.isConfused(fc)) next = new ActionConfused(fc);
+    else if (action instanceof ActionMonsterTurn) next = this.monsterAction(fc as Monster);
+    else if (fc instanceof Player) {
+      const magic = (action as unknown as { magic?: BaseMagic }).magic;
+      if (magic && (fc.mp < magic.costByte || OriginalRules.isSealed(fc))) {
+        // cannot cast: a normal attack instead (_0023C7F9)
+        const target = this.firstAliveMonster;
+        if (target) next = fc.hasAtbuff(FightingCharacter.BUFF_MASK_ALL) ? new ActionPhysicalAttackAll(fc, this.mMonsterList) : new ActionPhysicalAttackOne(fc, target);
+      }
+    }
+    next.turnStarted = true;
+    return next;
+  }
+
+  /** The enemy AI (_0022475F) turned into an action. */
+  private monsterAction(m: Monster): Action {
+    const magics = m.magicChain?.getAllLearntMagics() ?? [];
+    const party = [0, 1, 2].map((i) => (this.mPlayerList[i]?.isAlive ? this.mPlayerList[i] : null));
+    const foes = [0, 1, 2].map((i) => (this.mMonsterList[i]?.isAlive && this.mMonsterList[i].isVisiable ? this.mMonsterList[i] : null));
+    const c = OriginalRules.chooseEnemyAction(
+      m,
+      magics.map((g) => ({ cost: g.costByte, type: g.type, forAll: g.isForAll })),
+      party,
+      foes,
+    );
+    const anyPlayer = party.find((p) => p) ?? this.mPlayerList[0];
+    if (c.kind === "attack") return new ActionPhysicalAttackOne(m, party[c.target] ?? anyPlayer);
+    const g = magics[c.magicIndex];
+    const players = this.mPlayerList.filter((p) => p.isAlive);
+    const allies = this.mMonsterList.filter((x) => x.isAlive && x.isVisiable);
+    if (g.type === 1) {
+      return c.target === "all" ? new ActionMagicAttackAll(m, players, g as never) : new ActionMagicAttackOne(m, party[c.target] ?? anyPlayer, g);
+    }
+    if (g.type === 5) m.mp = m.mp - g.costByte; // only pays and shows its animation
+    return c.target === "all" ? new ActionMagicHelpAll(m, allies, g) : new ActionMagicHelpOne(m, foes[c.target] ?? m, g);
+  }
+
+  /** After a fighter's turn: poison, then count statuses down (_0023E1E4, _0023D52A). */
+  finishTurn(action: Action): Action | null {
+    if (action.aux) return null;
+    const fc = action.attacker;
+    if (!fc || fc.isVisiable === false) return null;
+    const poison = OriginalRules.poisonDamage(fc);
+    if (poison) fc.hp = fc.hp - poison;
+    OriginalRules.tickStatus(fc);
+    return poison ? new ActionTurnNumbers(fc, -poison) : null;
   }
 
   private isPlayerBehindDead(index: number): boolean {

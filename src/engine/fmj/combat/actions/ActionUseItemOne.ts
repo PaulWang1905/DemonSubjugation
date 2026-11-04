@@ -26,6 +26,10 @@ export class ActionUseItemOne extends ActionSingleTarget {
     super(attacker, target);
   }
 
+  get quick(): boolean {
+    return this.goods.type === 9 || this.goods.type === 10;
+  }
+
   preproccess(): void {
     const t = this.mTarget;
     let hp = 0;

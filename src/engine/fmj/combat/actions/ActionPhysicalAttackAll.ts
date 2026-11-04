@@ -7,7 +7,7 @@ import type { Canvas } from "../../../graphics";
 import { random } from "../../../java";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
 import { ActionMultiTarget } from "./ActionMultiTarget";
-import { guarded, MISS, physicalOnEnemy, physicalOnPlayer } from "../OriginalRules";
+import { attackStatuses, guarded, MISS, physicalOnEnemy, physicalOnPlayer, raiseMask } from "../OriginalRules";
 
 const TOTAL_FRAME = 5;
 
@@ -35,10 +35,11 @@ export class ActionPhysicalAttackAll extends ActionMultiTarget {
           fc instanceof Player
             ? physicalOnPlayer(a, fc, guarded(fc, fc.defending, fc.hasAilment))
             : physicalOnEnemy(a, fc);
-        if (damage === MISS) {
-          this.mRaiseAnis.push(new RaiseAnimation(fc.combatX, fc.combatY, 0, 0, true));
-          continue;
-        }
+        const miss = damage === MISS;
+        if (!miss) fc.hp = Math.max(0, fc.hp - damage);
+        const bits = attackStatuses(a, fc, miss);
+        this.mRaiseAnis.push(new RaiseAnimation(fc.combatX, fc.combatY, miss ? 0 : -damage, raiseMask(bits), miss));
+        continue;
       } else {
         damage = a.attack - fc.defend;
         if (damage <= 0) damage = 1;

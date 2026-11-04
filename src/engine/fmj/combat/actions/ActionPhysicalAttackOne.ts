@@ -7,7 +7,7 @@ import type { Canvas } from "../../../graphics";
 import { random } from "../../../java";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
 import { ActionSingleTarget } from "./ActionSingleTarget";
-import { guarded, MISS, physicalOnEnemy, physicalOnPlayer } from "../OriginalRules";
+import { attackStatuses, guarded, MISS, physicalOnEnemy, physicalOnPlayer, raiseMask } from "../OriginalRules";
 
 const TOTAL_FRAME = 5;
 
@@ -35,10 +35,11 @@ export class ActionPhysicalAttackOne extends ActionSingleTarget {
         t instanceof Player
           ? physicalOnPlayer(a, t, guarded(t, t.defending, t.hasAilment))
           : physicalOnEnemy(a, t);
-      if (damage === MISS) {
-        this.mRaiseAni = new RaiseAnimation(t.combatLeft, t.combatTop, 0, 0, true);
-        return;
-      }
+      const miss = damage === MISS;
+      if (!miss) t.hp = Math.max(0, t.hp - damage);
+      const bits = attackStatuses(a, t, miss);
+      this.mRaiseAni = new RaiseAnimation(t.combatLeft, t.combatTop, miss ? 0 : -damage, raiseMask(bits), miss);
+      return;
     } else {
       damage = a.attack - t.defend;
       if (damage <= 0) damage = 1;

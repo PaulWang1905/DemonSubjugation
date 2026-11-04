@@ -202,7 +202,9 @@ Deliberate changes:
 - `GAMESAVE` only closes its own screen, and cancelling it resumes the script (fork fix).
 - **Original battle rules** (on by default, under *Controls & options*): hit
   and miss, physical and spell damage, defending, fleeing, the encounter rate,
-  recovery after a win, levelling and drops follow the original engine as
+  turn order, enemy spells and AI, statuses (poison, confusion, seal, sleep,
+  stat changes with round counts), the group attack, recovery after a win,
+  levelling and drops follow the original engine as
   reconstructed in [fmj-engine](https://gitee.com/BA4988/fmj-engine). Turning
   the option off restores fmj.kt's simplified rules. See
   [docs/original-engine-alignment.md](docs/original-engine-alignment.md) for
@@ -220,9 +222,9 @@ Deliberate changes:
 - The importer rejects archives without a starting script (GUT 1-1), such as
   三国霸业 (Three Kingdoms Hegemony) files, which use a different engine.
 
-Not implemented yet (also missing upstream): music, buff/debuff round counting,
-enhancement and auxiliary magic effects in battle, the settings item of the system
-menu, and the show-position opcodes.
+Not implemented yet (also missing upstream): music, the settings item of the
+system menu, and the show-position opcodes. With the original battle rules
+off, buff/debuff rounds and enhancement magic still do nothing, as in fmj.kt.
 
 ## Credits and licence
 

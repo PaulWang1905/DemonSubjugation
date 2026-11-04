@@ -92,13 +92,67 @@ export abstract class FightingCharacter extends Character {
   /** Chose Defend this round (cleared when the next round starts). */
   defending = false;
 
+  // --- original battle rules ---------------------------------------------
+  /**
+   * The original engine's 7 status slots per fighter: rounds left for the
+   * attack, defence and speed changes, poison, confusion, seal and sleep;
+   * 0xff when not active. See combat/OriginalRules.ts.
+   */
+  readonly ostatus = new Uint8Array(7).fill(0xff);
+  /** Attack / defence / speed changes from spells (16-bit, 8-bit for speed). */
+  readonly odelta = { attack: 0, defend: 0, speed: 0 };
+  /** Rounds the statuses of a normal attack last. */
+  attackStatusRounds = 0;
+
+  /** Forget battle statuses (start and end of a battle). */
+  resetBattleStatus(): void {
+    this.ostatus.fill(0xff);
+    this.odelta.attack = 0;
+    this.odelta.defend = 0;
+    this.odelta.speed = 0;
+  }
+
+  /** Attack in battle, with spell changes (16-bit like the original). */
+  get battleAttack(): number {
+    return (this.attack + this.odelta.attack) & 0xffff;
+  }
+  get battleDefend(): number {
+    return (this.defend + this.odelta.defend) & 0xffff;
+  }
+  get battleSpeed(): number {
+    return (this.speed + this.odelta.speed) & 0xff;
+  }
+
   /** Poisoned, confused, sealed or asleep. */
   get hasAilment(): boolean {
-    return (this.mDebuff & 0x0f) !== 0;
+    return (this.mDebuff & 0x0f) !== 0 || this.ostatus[3] !== 0xff || this.ostatus[4] !== 0xff || this.ostatus[5] !== 0xff || this.ostatus[6] !== 0xff;
   }
 
   hasDebuff(mask: number): boolean {
-    return (this.mDebuff & mask) !== 0;
+    const F = FightingCharacter;
+    const s = this.ostatus;
+    const orig =
+      ((mask & F.BUFF_MASK_DU) !== 0 && s[3] !== 0xff) ||
+      ((mask & F.BUFF_MASK_LUAN) !== 0 && s[4] !== 0xff) ||
+      ((mask & F.BUFF_MASK_FENG) !== 0 && s[5] !== 0xff) ||
+      ((mask & F.BUFF_MASK_MIAN) !== 0 && s[6] !== 0xff);
+    return orig || (this.mDebuff & mask) !== 0;
+  }
+
+  /** Immunity bits (bit3 poison, bit2 confusion, bit1 seal, bit0 sleep). */
+  get immuneBits(): number {
+    const F = FightingCharacter;
+    let b = 0;
+    if (this.mBuff[0] > 0) b |= F.BUFF_MASK_DU;
+    if (this.mBuff[1] > 0) b |= F.BUFF_MASK_LUAN;
+    if (this.mBuff[2] > 0) b |= F.BUFF_MASK_FENG;
+    if (this.mBuff[3] > 0) b |= F.BUFF_MASK_MIAN;
+    return b;
+  }
+
+  /** Statuses this fighter's normal attack inflicts. */
+  get attackStatusBits(): number {
+    return this.mAtbuff & 0x0f;
   }
 
   hasAtbuff(mask: number): boolean {
@@ -148,6 +202,7 @@ export abstract class FightingCharacter extends Character {
   addAtbuff(mask: number, rounds: number): void {
     const F = FightingCharacter;
     this.mAtbuff |= mask;
+    this.attackStatusRounds = rounds;
     if ((mask & F.BUFF_MASK_DU) === F.BUFF_MASK_DU) this.mAtbuffRound[0] = rounds;
     if ((mask & F.BUFF_MASK_LUAN) === F.BUFF_MASK_LUAN) this.mAtbuffRound[1] = rounds;
     if ((mask & F.BUFF_MASK_FENG) === F.BUFF_MASK_FENG) this.mAtbuffRound[2] = rounds;

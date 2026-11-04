@@ -15,6 +15,12 @@ const arr = [
 export class Monster extends FightingCharacter {
   public mLastRound = 0;
   public mIQ = 0;
+  /** Raw immunity byte (the original also checks its buff bits). */
+  private mImmune = 0;
+
+  get immuneBits(): number {
+    return this.mImmune;
+  }
   money = 0;
   exp = 0;
   /** Stealable goods: type, id, num */
@@ -46,8 +52,10 @@ export class Monster extends FightingCharacter {
     this.magicChain = DatLib.getMlr(1, magicIndex, true);
     if (this.magicChain) this.magicChain.learnNum = buf[offset + 2] & 0xff;
     this.addBuff(buf[offset + 3] & 0xff);
+    this.mImmune = buf[offset + 3] & 0xff;
     this.mAtbuff = buf[offset + 4] & 0xff;
     this.mLastRound = buf[offset + 0x17] & 0xff;
+    this.attackStatusRounds = this.mLastRound;
     this.name = ResBase.getString(buf, offset + 6);
     this.level = buf[offset + 0x12] & 0xff;
     this.maxHP = g2(buf, offset + 0x18);

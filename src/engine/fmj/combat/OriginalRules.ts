@@ -4,7 +4,8 @@
 // EngineSettings.originalDamageFormula ("original battle rules") is on.
 //
 // The originals use one 16-bit random number per decision and 8/16-bit
-// unsigned arithmetic; both are kept so results match the device.
+// unsigned arithmetic; both are kept so results match the device, as are
+// the original's quirks (each noted where it happens).
 import type { FightingCharacter } from "../characters/FightingCharacter";
 import type { Monster } from "../characters/Monster";
 import type { Player } from "../characters/Player";
@@ -22,27 +23,27 @@ export function rand16(): number {
 }
 
 /** A player's normal attack on an enemy (_0022726A). */
-export function physicalOnEnemy(attacker: FightingCharacter, target: FightingCharacter): number {
+export function physicalOnEnemy(attacker: FightingCharacter, target: FightingCharacter, attack = attacker.battleAttack): number {
   const r = rand16();
-  let evade = u8(target.speed + 50);
-  const agi = u8(attacker.speed);
+  let evade = u8(target.battleSpeed + 50);
+  const agi = u8(attacker.battleSpeed);
   evade = evade > agi ? evade - agi : 10;
   if (r % 200 < evade) return MISS;
-  const div = target.defend >> 3 || 1;
-  let damage = Math.trunc(attacker.attack / div);
-  damage += mod(r, attacker.attack >> 2 || 10);
+  const div = target.battleDefend >> 3 || 1;
+  let damage = Math.trunc(attack / div);
+  damage += mod(r, attack >> 2 || 10);
   return u16(damage);
 }
 
 /** An enemy's normal attack on a player (_002264FA); guarded halves it. */
 export function physicalOnPlayer(attacker: FightingCharacter, target: FightingCharacter, guarded: boolean): number {
   const r = rand16();
-  let evade = u8(target.speed + 50);
-  const agi = u8(attacker.speed);
+  let evade = u8(target.battleSpeed + 50);
+  const agi = u8(attacker.battleSpeed);
   evade = evade > agi ? evade - agi : 10;
   if (r % 200 < evade) return MISS;
-  let damage = Math.trunc(attacker.attack / ((target.defend >> 3) + 1));
-  damage += mod(r, (attacker.attack >> 4) + 1);
+  let damage = Math.trunc(attacker.battleAttack / ((target.battleDefend >> 3) + 1));
+  damage += mod(r, (attacker.battleAttack >> 4) + 1);
   if (guarded) damage >>= 1;
   return u16(damage);
 }
@@ -72,8 +73,8 @@ export function spellDamage(
 ): { hp: number; mp: number } {
   const r = rand16();
   // the target dodges with speed + 20 against the caster's speed, out of 100
-  let evade = u16(target.speed + 20);
-  const agi = caster.speed;
+  let evade = u16(target.battleSpeed + 20);
+  const agi = caster.battleSpeed;
   evade = evade > agi ? evade - agi : 0;
   if (r % 100 < evade) return { hp: hpPower ? MISS : 0, mp: mpPower ? MISS : 0 };
   const scale = (p: number, isMp: boolean) => {
@@ -178,4 +179,354 @@ export function gainExperience(p: Player, exp: number): boolean {
   const learnt = c.getLearnMagicNum(level);
   if (p.magicChain && learnt > p.magicChain.learnNum) p.magicChain.learnNum = learnt;
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Statuses (_0023E7A1, _0023EA2F, _0023D52A, _0023E1E4, _0024314B)
+
+/** Status slots: attack, defence, speed change, poison, confusion, seal, sleep. */
+export const SLOT = { ATTACK: 0, DEFEND: 1, SPEED: 2, POISON: 3, CONFUSE: 4, SEAL: 5, SLEEP: 6 } as const;
+/** The status bit of each slot, as stored in spells and items. */
+export const SLOT_BITS = [0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01];
+
+const isOn = (fc: FightingCharacter, slot: number) => fc.ostatus[slot] !== 0xff;
+export const isAsleep = (fc: FightingCharacter) => isOn(fc, SLOT.SLEEP);
+export const isConfused = (fc: FightingCharacter) => isOn(fc, SLOT.CONFUSE);
+export const isSealed = (fc: FightingCharacter) => isOn(fc, SLOT.SEAL);
+export const isPoisoned = (fc: FightingCharacter) => isOn(fc, SLOT.POISON);
+
+/** Whether a status lands (_0024314B): r = rand % 90; lands if luck < r or r > 60. */
+export function statusLands(target: FightingCharacter): boolean {
+  const r = rand16() % 90;
+  return u8(target.luck) < r || r > 60;
+}
+
+/**
+ * Set the slots for `bits` to `rounds`, skipping what the target is immune
+ * to. Returns the bits that were set (for the status animations).
+ */
+export function applyStatus(target: FightingCharacter, bits: number, rounds: number): number {
+  let set = 0;
+  for (let i = 0; i < 7; i++) {
+    if (bits & SLOT_BITS[i] && !(SLOT_BITS[i] & target.immuneBits)) {
+      target.ostatus[i] = u8(rounds);
+      set |= SLOT_BITS[i];
+    }
+  }
+  return set;
+}
+
+export function clearStatus(target: FightingCharacter, bits: number): void {
+  for (let i = 0; i < 7; i++) if (bits & SLOT_BITS[i]) target.ostatus[i] = 0xff;
+}
+
+/** `value * pct / 100`, negative for a reduction (_00223988). */
+function change(value: number, pct: number, sign: "+" | "-"): number {
+  const v = Math.trunc((value * pct) / 100);
+  return sign === "-" ? -v : v;
+}
+
+/**
+ * Raise or lower attack, defence and speed by percentages for `rounds`
+ * rounds (_00223246 for the party, _002235D8 for enemies). Quirks kept: a
+ * party member's change applies even when immune to it (and then never
+ * runs out), and an enemy's unlisted changes are reset to 0.
+ */
+export function applyStatChange(target: FightingCharacter, pcts: [number, number, number], sign: "+" | "-", rounds: number): number {
+  const [at, df, sp] = pcts;
+  let bits = 0;
+  const d = target.odelta;
+  if (target.isPlayer) {
+    if (at) { d.attack = change(target.attack, at, sign); bits |= 0x40; }
+    if (df) { d.defend = change(target.defend, df, sign); bits |= 0x20; }
+    if (sp) { d.speed = change(target.speed, sp, sign); bits |= 0x10; }
+    return applyStatus(target, bits, rounds);
+  }
+  const na = at ? change(target.attack, at, sign) : 0;
+  const nd = df ? change(target.defend, df, sign) : 0;
+  const ns = sp ? change(target.speed, sp, sign) : 0;
+  if (at) bits |= 0x40;
+  if (df) bits |= 0x20;
+  if (sp) bits |= 0x10;
+  const set = applyStatus(target, bits, rounds);
+  d.attack = na;
+  d.defend = nd;
+  d.speed = ns;
+  return set;
+}
+
+/** Count down the slots after a fighter's turn; expired changes reset. */
+export function tickStatus(fc: FightingCharacter): void {
+  const s = fc.ostatus;
+  for (let i = 0; i < 7; i++) {
+    if (s[i] === 0xff) continue;
+    s[i] = s[i] - 1;
+    if (s[i] === 0) {
+      if (i === SLOT.ATTACK) fc.odelta.attack = 0;
+      else if (i === SLOT.DEFEND) fc.odelta.defend = 0;
+      else if (i === SLOT.SPEED) fc.odelta.speed = 0;
+      s[i] = 0xff;
+    }
+  }
+}
+
+/** Poison after a fighter's turn: a quarter of the current HP. */
+export function poisonDamage(fc: FightingCharacter): number {
+  if (!isPoisoned(fc) || fc.hp <= 0) return 0;
+  return fc.hp >> 2;
+}
+
+/**
+ * A confused fighter hits itself (_0023DAA7). The party's formula divides
+ * by defence / 4 here, the enemies' by defence / 8.
+ */
+export function confusedSelfHit(fc: FightingCharacter): number {
+  const r = rand16();
+  const atk = fc.battleAttack;
+  const def = fc.battleDefend;
+  return fc.isPlayer
+    ? u16(Math.trunc(atk / ((def >> 2) + 1)) + (r % ((atk >> 4) + 1)))
+    : u16(Math.trunc(atk / ((def >> 3) + 1)) + (r % ((atk >> 2) + 1)));
+}
+
+/** HP and MP a member's accessories give each turn (_0023D20C; unsigned bytes, as in the original). */
+export function turnRecovery(p: Player): { hp: number; mp: number } {
+  let hp = 0;
+  let mp = 0;
+  for (const e of p.equipmentsArray) {
+    const g = e as unknown as { mHp?: number; mMp?: number } | null;
+    if (g && typeof g.mHp === "number") hp += g.mHp;
+    if (g && typeof g.mMp === "number") mp += g.mMp;
+  }
+  return { hp: u8(hp), mp: u8(mp) };
+}
+
+// ---------------------------------------------------------------------------
+// Enemy turns (_0022475F)
+
+export type EnemyChoice =
+  | { kind: "attack"; target: number }
+  | { kind: "magic"; magicIndex: number; target: number | "all" };
+
+/**
+ * What an enemy does on its turn. `party` and `enemies` are the slots
+ * (null when empty or fallen); `magics` the spells it knows with their MP
+ * cost, type and whether they hit everyone.
+ */
+export function chooseEnemyAction(
+  enemy: FightingCharacter & { mIQ: number },
+  magics: { cost: number; type: number; forAll: boolean }[],
+  party: (FightingCharacter | null)[],
+  enemies: (FightingCharacter | null)[],
+): EnemyChoice {
+  const r = rand16() % 100;
+  const attackChance = u8(100 - enemy.mIQ);
+  let choice: EnemyChoice | null = null;
+  let targetsParty = true;
+  if (r >= attackChance && magics.length > 0) {
+    const i = r % magics.length;
+    const m = magics[i];
+    if (!(u16(enemy.mp) < m.cost || isSealed(enemy))) {
+      if (m.forAll) return { kind: "magic", magicIndex: i, target: "all" };
+      choice = { kind: "magic", magicIndex: i, target: 0 };
+      targetsParty = m.type === 1;
+    }
+  }
+  const list = targetsParty ? party : enemies;
+  let t = r % 3;
+  if (!list[t]) {
+    // the next one along (_00229452 / _00229784)
+    for (let k = 1; k <= 3; k++) {
+      const j = (t + k) % 3;
+      if (list[j]) {
+        t = j;
+        break;
+      }
+    }
+  }
+  if (choice && choice.kind === "magic") return { ...choice, target: t };
+  return { kind: "attack", target: t };
+}
+
+/**
+ * Turn order value (_0023C000): speed with its change, 1.5x for members
+ * casting restoring or reviving magic or using medicine or revival items;
+ * kept to 8 bits like the original.
+ */
+export function turnPriority(fc: FightingCharacter, quick: boolean): number {
+  const agi = fc.battleSpeed;
+  return u8(quick ? (agi >> 1) + agi : agi);
+}
+
+// ---------------------------------------------------------------------------
+// Casting (_00224E75 party, _002259AC enemies, _00220000 / _00220874 effects)
+
+/** The fighters in battle by slot (set by Combat when a battle starts). */
+const sides: { party: FightingCharacter[]; enemies: FightingCharacter[] } = { party: [], enemies: [] };
+
+export function setBattleSides(party: FightingCharacter[], enemies: FightingCharacter[]): void {
+  sides.party = party;
+  sides.enemies = enemies;
+}
+
+export function battleSides(): { party: FightingCharacter[]; enemies: FightingCharacter[] } {
+  return sides;
+}
+
+/** Bits of the original status slots as the RaiseAnimation status masks. */
+export function raiseMask(bits: number): number {
+  return (bits & 0x0f) | (bits & 0x40 ? 32 : 0) | (bits & 0x20 ? 64 : 0) | (bits & 0x10 ? 128 : 0);
+}
+
+export interface SpellResult {
+  miss: boolean;
+  /** Statuses that took hold (original slot bits). */
+  bits: number;
+}
+
+interface SpellData {
+  type: number;
+  costByte: number;
+  isForAll: boolean;
+  raw: Uint8Array;
+}
+
+const word = (b: Uint8Array, i: number) => b[i] | (b[i + 1] << 8);
+const slotOf = (list: FightingCharacter[], fc: FightingCharacter) => list.indexOf(fc);
+/** A slot that takes part: present (and, for the party, not fallen when hit by enemy spells). */
+const present = (fc: FightingCharacter | undefined) => !!fc && fc.isVisiable !== false;
+
+/**
+ * Cast `magic` as the original does: pay its MP, then apply its effect to
+ * `targets` (one fighter, or a whole side for spells that hit everyone).
+ */
+export function castMagic(caster: FightingCharacter, magic: SpellData, targets: FightingCharacter[]): Map<FightingCharacter, SpellResult> {
+  const out = new Map<FightingCharacter, SpellResult>();
+  caster.mp = caster.mp - magic.costByte;
+  const own = caster.isPlayer ? sides.party : sides.enemies;
+  const other = caster.isPlayer ? sides.enemies : sides.party;
+  const r = magic.raw;
+  const turns = r[6] >> 4;
+  const statusBits = r[6] & 0x0f;
+  // effect bytes as the original orders them: attack %, defence %, speed %
+  const pcts: [number, number, number] = [r[5], r[4], r[7]];
+
+  if (magic.type === 1) {
+    const side = other;
+    let hpPow = word(r, 0);
+    let mpPow = word(r, 2);
+    let drain = false;
+    if (hpPow > 0x8000) { hpPow = u16(-hpPow); drain = true; }
+    if (mpPow > 0x8000) { mpPow = u16(-mpPow); drain = true; }
+    // damage is worked out for every opponent, as on the device
+    const dmg = [0, 0, 0];
+    const mpd = [0, 0, 0];
+    for (let i = 0; i < 3; i++) {
+      const t = side[i];
+      if (!present(t) || (side === sides.party && t!.hp <= 0) || (side === sides.enemies && t!.hp <= 0)) continue;
+      const guard = t!.isPlayer && guarded(t!, t!.defending, t!.hasAilment);
+      const res = spellDamage(caster, t!, hpPow, mpPow, guard);
+      dmg[i] = res.hp === MISS ? 0xffff : res.hp;
+      mpd[i] = res.mp === MISS ? 0xffff : res.mp;
+    }
+    const all = targets.length > 1 || magic.isForAll;
+    const tIdx = all ? -1 : slotOf(side, targets[0]);
+    if (!all && tIdx >= 0) {
+      dmg[0] = dmg[tIdx];
+      mpd[0] = mpd[tIdx];
+    }
+    const hit = (i: number) => {
+      const t = side[i];
+      if (!present(t)) return;
+      const miss = dmg[i] === 0xffff || mpd[i] === 0xffff;
+      if (dmg[i] === 0xffff) dmg[i] = 0;
+      if (mpd[i] === 0xffff) mpd[i] = 0;
+      let bits = 0;
+      if (t!.hp > 0) {
+        t!.hp = t!.hp <= dmg[i] ? 0 : t!.hp - dmg[i];
+        t!.mp = t!.mp <= mpd[i] ? 0 : t!.mp - mpd[i];
+        // even a dodged spell can bring its side effects, as on the device
+        if ((pcts[0] || pcts[1] || pcts[2]) && statusLands(t!)) bits |= applyStatChange(t!, pcts, "-", turns);
+        if (statusBits && statusLands(t!)) bits |= applyStatus(t!, statusBits, turns);
+      }
+      out.set(t!, { miss, bits });
+    };
+    if (all) for (let i = 0; i < 3; i++) hit(i);
+    else if (tIdx >= 0) hit(tIdx);
+    if (drain) {
+      // the caster takes the sum of the list (quirk: for one target the
+      // list also holds a copy in slot 0 and the others' rolls)
+      let th = 0;
+      let tm = 0;
+      for (let i = 0; i < 3; i++) {
+        if (!present(side[i])) continue;
+        th = u16(th + dmg[i]);
+        tm = u16(tm + mpd[i]);
+      }
+      if (th) caster.hp = Math.min(caster.maxHP, caster.hp + th);
+      if (tm) caster.mp = Math.min(caster.maxMP, caster.mp + tm);
+    }
+    return out;
+  }
+
+  // support spells work on the caster's side
+  const list = magic.isForAll || targets.length > 1 ? own.filter(present) : targets;
+  for (const t of list) {
+    let bits = 0;
+    switch (magic.type) {
+      case 2: // enhancement
+        if (t.hp > 0) bits = applyStatChange(t, pcts, "+", turns);
+        break;
+      case 3: // restoration
+        if (t.hp > 0) {
+          t.hp = Math.min(t.maxHP, t.hp + word(r, 0));
+          if (statusBits) clearStatus(t, statusBits);
+        }
+        break;
+      case 4: // revival: only the fallen
+        if (t.hp <= 0) {
+          t.hp = Math.trunc((word(r, 0) * t.maxHP) / 100);
+          if (!t.isPlayer) clearStatus(t, 0xff);
+        }
+        break;
+    }
+    out.set(t, { miss: false, bits });
+  }
+  return out;
+}
+
+/**
+ * Statuses a normal attack brings (_0024218A party, _002264FA enemies). The
+ * party's use the first member's weapon whoever attacks, and land even on
+ * a miss; an enemy's only when it hits. Both are original behaviour.
+ */
+export function attackStatuses(attacker: FightingCharacter, target: FightingCharacter, missed: boolean): number {
+  const from = attacker.isPlayer ? (sides.party[0] ?? attacker) : attacker;
+  if (!attacker.isPlayer && missed) return 0;
+  const bits = from.attackStatusBits;
+  if (!bits || target.hp <= 0) return 0;
+  return statusLands(target) ? applyStatus(target, bits, from.attackStatusRounds) : 0;
+}
+
+/**
+ * The attack power of a group attack (围攻, _00226D37): every member's
+ * attack and attack change, halved for each step away from the attacker.
+ * The loop is the original's, including how it walks past empty slots.
+ */
+export function groupAttackPower(actor: number, party: (FightingCharacter | undefined)[]): number {
+  let total = 0;
+  let j = actor;
+  for (let i = 0; i < 3; i++) {
+    if (j <= 2 && !party[j]) continue; // an empty slot: the original does not move on
+    if (j > 2) j = 0;
+    const p = party[j];
+    if (p) {
+      let dist = u8(j - actor);
+      if (dist > 0xf0) dist = u8(3 - dist);
+      total = u16(total + (p.attack >> dist));
+      total = u16(total + (u16(p.odelta.attack) >> dist));
+    }
+    j++;
+  }
+  return total;
 }

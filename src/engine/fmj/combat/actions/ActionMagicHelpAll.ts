@@ -5,6 +5,8 @@ import type { ResSrs } from "../../lib/ResSrs";
 import type { BaseMagic } from "../../magic/BaseMagic";
 import type { Canvas } from "../../../graphics";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
+import { raiseMask } from "../OriginalRules";
+import { EngineSettings } from "../../config/EngineSettings";
 import { ActionMultiTarget } from "./ActionMultiTarget";
 
 const STATE_PRE = 1;
@@ -26,12 +28,26 @@ export class ActionMagicHelpAll extends ActionMultiTarget {
     this.animation = magic.magicAni!;
   }
 
+  get quick(): boolean {
+    return this.magic.type === 3 || this.magic.type === 4;
+  }
+
   preproccess(): void {
     const a = this.mAttacker!;
     this.ox = a.combatX;
     this.oy = a.combatY;
     this.animation.start();
     this.animation.setIteratorNum(2);
+    if (EngineSettings.originalDamageFormula) {
+      // one cast for the whole side, paid once
+      const before = this.mTargets.map((t) => t.hp);
+      this.magic.use(a, this.mTargets);
+      this.mTargets.forEach((t, i) => {
+        const res = this.magic.lastResults.get(t);
+        this.mRaiseAnis.push(new RaiseAnimation(t.combatX, t.combatY, t.hp - before[i], raiseMask(res?.bits ?? 0)));
+      });
+      return;
+    }
     for (const t of this.mTargets) {
       const hp = t.hp;
       this.magic.use(a, t);

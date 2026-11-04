@@ -26,6 +26,10 @@ export class ActionUseItemAll extends ActionMultiTarget {
     super(attacker, targets);
   }
 
+  get quick(): boolean {
+    return this.goods.type === 9 || this.goods.type === 10;
+  }
+
   preproccess(): void {
     const a = this.mAttacker!;
     this.ox = a.combatX;

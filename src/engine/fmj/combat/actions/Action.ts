@@ -15,6 +15,23 @@ export abstract class Action {
     return this.mAttacker!.speed;
   }
 
+  /** Who performs the action. */
+  get attacker(): FightingCharacter | null {
+    return this.mAttacker;
+  }
+
+  /** Acts at 1.5x speed in the original (restoring or reviving). */
+  get quick(): boolean {
+    return false;
+  }
+
+  /** A helper step (status numbers), not a fighter's turn. */
+  aux = false;
+  /** The turn's start-of-turn rules have run (original battle rules). */
+  turnStarted = false;
+  /** Accessory HP/MP for this turn were given. */
+  recovered = false;
+
   get isAttackerAlive(): boolean {
     return this.mAttacker!.isAlive;
   }

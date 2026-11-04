@@ -10,7 +10,8 @@ export class MagicAuxiliary extends BaseMagic {
     this.mHp = ResBase.get2BytesInt(buf, offset + 0x12);
   }
 
-  use(_src: FightingCharacter, dst: FightingCharacter | FightingCharacter[]): void {
+  use(src: FightingCharacter, dst: FightingCharacter | FightingCharacter[]): void {
+    if (this.castOriginal(src, dst)) return;
     for (const d of Array.isArray(dst) ? dst : [dst]) {
       d.hp = Math.min(d.maxHP, d.hp + Math.trunc((d.maxMP * this.mHp) / 100));
     }
