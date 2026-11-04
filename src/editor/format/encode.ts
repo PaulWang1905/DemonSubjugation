@@ -374,3 +374,37 @@ export function encodeSrs(type: number, index: number, frames: SrsFrame[], image
   }
   return out;
 }
+
+/**
+ * Re-assemble an SRS animation from a frame list and raw ResImage bytes.
+ * Only byte ranges are enforced, so any decoded animation round-trips; see
+ * srsWarnings() for values that are legal but probably mistakes.
+ */
+export function encodeSrsParts(d: {
+  type: number;
+  index: number;
+  start: number;
+  end: number;
+  frames: SrsFrame[];
+  images: Uint8Array[];
+  missingImages?: number;
+  tail?: Uint8Array;
+}): Uint8Array {
+  const tail = d.tail ?? new Uint8Array(0);
+  range("frame count", d.frames.length, 0, 255);
+  range("image count", d.images.length + (d.missingImages ?? 0), 0, 255);
+  const size = 6 + d.frames.length * 5 + d.images.reduce((a, b) => a + b.length, 0) + tail.length;
+  const out = new Uint8Array(size);
+  out.set([d.type, d.index, d.frames.length, d.images.length + (d.missingImages ?? 0), d.start & 0xff, d.end & 0xff]);
+  d.frames.forEach((f, i) => {
+    const n = `frame ${i + 1}`;
+    out.set([range(`${n} x`, f.x, 0, 255), range(`${n} y`, f.y, 0, 255), range(`${n} show`, f.show, 0, 255), range(`${n} next`, f.next, 0, 255), range(`${n} image`, f.image, 0, 255)], 6 + i * 5);
+  });
+  let p = 6 + d.frames.length * 5;
+  for (const b of d.images) {
+    out.set(b, p);
+    p += b.length;
+  }
+  out.set(tail, p);
+  return out;
+}

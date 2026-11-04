@@ -1063,3 +1063,76 @@ footer {
   color: inherit;
   opacity: 0.85;
 }
+
+/* animation editor */
+
+.anim-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .anim-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.anim-body > * {
+  min-width: 0;
+}
+
+.anim-stage canvas {
+  cursor: move;
+  touch-action: none;
+}
+
+.anim-stage + p {
+  max-width: 480px;
+}
+
+.scrub {
+  width: 160px;
+}
+
+.anim-table tbody tr {
+  cursor: pointer;
+}
+
+.anim-table tbody tr.sel {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.anim-table tbody tr.live th {
+  color: var(--accent);
+}
+
+.anim-table tbody tr.live th::before {
+  content: "● ";
+}
+
+.anim-table input {
+  width: 56px;
+}
+
+.anim-table select {
+  font: inherit;
+  padding: 2px 4px;
+}
+
+.anim-table .row button {
+  padding: 2px 8px;
+}
+
+.warnings {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  color: #a05a00;
+}
+
+.anim-h {
+  margin: 16px 0 6px;
+  font-size: 15px;
+}

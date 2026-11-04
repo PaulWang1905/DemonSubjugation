@@ -39,7 +39,8 @@ The **Editor** tab builds games in the same format:
 - **Resource browser** grouped by kind, with previews of images, sprites,
   tilesets and animations.
 - **Map editor**: paint and fill tiles, mark walkable/blocked tiles, place map
-  events, rename and resize maps, with undo/redo (Ctrl+Z / Ctrl+Y). The dashed box shows where the player can stand.
+  events, rename and resize maps, with undo/redo (Ctrl+Z / Ctrl+Y). The dashed
+  box shows where the player can stand.
 - **Script editor**: the story scripts as readable text with labels (see the
   built-in instruction reference). Errors point at the line. Your own text and
   labels are kept with the project.
@@ -48,6 +49,10 @@ The **Editor** tab builds games in the same format:
 - **Pixel editor** for tiles, sprites, portraits, icons and pictures: pen,
   fill, picker, undo/redo, frames, resize, PNG import (also slicing a sheet
   into frames) and export.
+- **Animation editor** for spell, item and cut-scene effects: a preview played
+  by the engine's own animation code, a frame list (image, position, timing),
+  dragging frames on the screen, warnings for timings that cut an animation
+  short, and the pixel editor for each image.
 - **Playtest** runs the project in the engine; **Export .lib** downloads it.
 - Projects are saved automatically in the browser (IndexedDB).
 
@@ -78,7 +83,7 @@ Script example:
 The engine's own menus come in Chinese and English; the language follows the
 game title by default and can be changed in the player's options.
 
-Still to come: an animation editor and adding new tilesets.
+Still to come: adding new tilesets.
 
 ## Controls
 

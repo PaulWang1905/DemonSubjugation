@@ -4,6 +4,7 @@ import { encodeMap, type Frame, type MapCell } from "../format/encode";
 import { findEntry, type LibArchive, type LibEntry } from "../format/lib";
 import { cells as textCells } from "../format/text";
 import { FrameCanvas } from "./FrameStrip";
+import { useUndoKeys } from "./undoKeys";
 import { DARK, LIGHT, blitFrame } from "./pixels";
 
 type Tool = "tile" | "fill" | "walk" | "block" | "event" | "pick";
@@ -138,24 +139,7 @@ export function MapEditor({ archive, entry, onChange }: Props) {
     bump((n) => n + 1);
   };
 
-  // Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z while the map is on screen and no text field has focus.
-  const keys = useRef({ doUndo, doRedo });
-  keys.current = { doUndo, doRedo };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
-      if (!canvas.current || canvas.current.offsetParent === null) return;
-      const k = e.key.toLowerCase();
-      if (k === "z" && !e.shiftKey) keys.current.doUndo();
-      else if (k === "y" || (k === "z" && e.shiftKey)) keys.current.doRedo();
-      else return;
-      e.preventDefault();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useUndoKeys(canvas, doUndo, doRedo);
 
   const floodFill = (x: number, y: number): DecodedMap => {
     const from = map.cells[y * map.width + x].tile;

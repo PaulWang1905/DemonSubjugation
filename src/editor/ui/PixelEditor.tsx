@@ -3,6 +3,7 @@ import { decodeImage } from "../format/decode";
 import { encodeImage, type Frame } from "../format/encode";
 import type { LibEntry } from "../format/lib";
 import { FrameCanvas } from "./FrameStrip";
+import { useUndoKeys } from "./undoKeys";
 import { DARK, LIGHT, floodFill, frameToImageData, resizeFrame, rgbaToFrame, sliceSheet } from "./pixels";
 
 type Tool = "pen" | "fill" | "pick";
@@ -16,6 +17,8 @@ interface Props {
   entry: LibEntry;
   onChange: (data: Uint8Array) => void;
   hint?: string;
+  /** Handle Ctrl+Z / Ctrl+Y itself (off when a parent editor owns the history). */
+  shortcuts?: boolean;
 }
 
 async function readPng(file: File): Promise<{ data: Uint8ClampedArray; width: number; height: number }> {
@@ -28,12 +31,17 @@ async function readPng(file: File): Promise<{ data: Uint8ClampedArray; width: nu
   return { data: ctx.getImageData(0, 0, c.width, c.height).data, width: c.width, height: c.height };
 }
 
-export function PixelEditor({ entry, onChange, hint }: Props) {
+export function PixelEditor({ entry, onChange, hint, shortcuts = true }: Props) {
   const [frames, setFrames] = useState<Frame[]>(() => decodeImage(entry.data).frames);
   const [cur, setCur] = useState(0);
   const [color, setColor] = useState(1);
   const [tool, setTool] = useState<Tool>("pen");
-  const [zoom, setZoom] = useState(12);
+  // the largest zoom that keeps the image within about 480 px
+  const [zoom, setZoom] = useState(() => {
+    const f0 = frames[0];
+    const side = f0 ? Math.max(f0.width, f0.height) : 16;
+    return [24, 16, 12, 8, 6, 4, 2].find((z) => z * side <= 480) ?? 2;
+  });
   const [threshold, setThreshold] = useState(128);
   const [error, setError] = useState<string | null>(null);
   const undo = useRef<Frame[][]>([]);
@@ -151,24 +159,7 @@ export function PixelEditor({ entry, onChange, hint }: Props) {
     commit(next, false);
   };
 
-  // Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z while the editor is on screen and no text field has focus.
-  const keys = useRef({ doUndo, doRedo });
-  keys.current = { doUndo, doRedo };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
-      if (!canvas.current || canvas.current.offsetParent === null) return;
-      const k = e.key.toLowerCase();
-      if (k === "z" && !e.shiftKey) keys.current.doUndo();
-      else if (k === "y" || (k === "z" && e.shiftKey)) keys.current.doRedo();
-      else return;
-      e.preventDefault();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useUndoKeys(canvas, doUndo, doRedo, shortcuts);
 
   const importPng = async (file: File | undefined) => {
     if (!file) return;

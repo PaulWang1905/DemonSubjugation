@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { decodeSrsImages, KIND_NAMES, resourceName, subTypeName } from "../format/decode";
+import { KIND_NAMES, resourceName, subTypeName } from "../format/decode";
 import type { LibArchive, LibEntry } from "../format/lib";
-import { FrameStrip } from "./FrameStrip";
 import { fieldsFor } from "../format/schema";
 import { FieldForm } from "./FieldForm";
+import { AnimationEditor } from "./AnimationEditor";
 import { MapEditor } from "./MapEditor";
 import { PixelEditor } from "./PixelEditor";
 import { LevelTableEditor, MagicChainEditor } from "./TableEditors";
@@ -30,17 +30,8 @@ export function ResourceView({ archive, entry, source, onChange }: Props) {
           return <ScriptEditor entry={entry} source={source} onChange={onChange} />;
         case 2:
           return <MapEditor archive={archive} entry={entry} onChange={onChange} />;
-        case 5: {
-          const frames = decodeSrsImages(entry.data);
-          return (
-            <>
-              <p className="muted">
-                Animation with {entry.data[2]} frame(s) drawn from {frames.length} image(s).
-              </p>
-              <FrameStrip frames={frames} />
-            </>
-          );
-        }
+        case 5:
+          return <AnimationEditor entry={entry} onChange={onChange} />;
         case 7:
         case 8:
         case 9:

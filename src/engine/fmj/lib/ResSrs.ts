@@ -98,6 +98,11 @@ export class ResSrs extends ResBase {
     }
   }
 
+  /** Indexes of the frames currently on screen (used by the editor preview). */
+  visibleFrames(): number[] {
+    return this.mShowList.map((k) => k.index);
+  }
+
   setIteratorNum(n: number): void {
     this.ITERATOR = n < 1 ? 1 : n;
   }
