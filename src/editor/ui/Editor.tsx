@@ -5,14 +5,15 @@ import { assemble } from "../format/gut";
 import {
   encodeGoods, encodeLevelChain, encodeMagic, encodeMagicChain, encodeMap, encodeMonster, encodeNpc, encodePlayer, encodeSceneObj,
 } from "../format/encode";
-import { findEntry, putEntry, readLib, writeLib, type LibArchive } from "../format/lib";
+import { findEntry, putEntry, readLib, removeEntry, writeLib, type LibArchive, type LibEntry } from "../format/lib";
 import { blankProject } from "../template/blank";
+import { blankAnimation, blankGraphic } from "../template/newres";
 import { lanternPath, lanternPathSources } from "../template/demo";
 import { keyOf, ResourceList } from "./ResourceList";
+import { KIND_NAMES } from "../format/decode";
 import { ResourceView } from "./ResourceView";
 
 interface Props {
-  fontsReady: boolean;
   onPlaytest: (p: { id: string; name: string; data: ArrayBuffer }) => void;
 }
 
@@ -22,6 +23,8 @@ interface Open {
   archive: LibArchive;
   sources: Record<string, string>;
 }
+
+const ITEM_KINDS = ["Hat", "Clothes", "Shoes", "Armour", "Bracers", "Accessory", "Weapon", "Thrown weapon", "Medicine", "Revival", "Elixir", "Stimulant", "Escape item", "Story item"];
 
 const newId = () => `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -38,7 +41,19 @@ function nextIndex(a: LibArchive, resType: number, type: number): number {
   throw new Error("No free index left");
 }
 
-export function Editor({ fontsReady, onPlaytest }: Props) {
+/** Resources store their own number in byte 1; keep it in step with the index. */
+function withIndex(data: Uint8Array, index: number): Uint8Array {
+  const out = data.slice();
+  if (out.length > 1) out[1] = index;
+  return out;
+}
+
+/** Point a script's `.gut` header line at a new number. */
+function withGutIndex(source: string, index: number): string {
+  return source.replace(/^(\s*\.gut\s+\d+\s+)\d+/m, `$1${index}`);
+}
+
+export function Editor({ onPlaytest }: Props) {
   const [projects, setProjects] = useState<StoredProject[]>([]);
   const [cur, setCur] = useState<Open | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -152,6 +167,13 @@ export function Editor({ fontsReady, onPlaytest }: Props) {
     switch (kind) {
       case "player":
         [resType, type, index] = [3, 1, idx(3, 1)];
+        // The engine finds a party member's portrait (11-1-N) and battle
+        // sprite (11-3-N) by the member's own number.
+        for (const t of [1, 3]) {
+          if (findEntry(a, 11, t, index)) continue;
+          const like = findEntry(a, 11, t, 1);
+          putEntry(a, { resType: 11, type: t, index, data: like ? withIndex(like.data, index) : blankGraphic(a, 11, t, index) });
+        }
         data = encodePlayer({ index, name: `Hero ${index}`, walkSprite: 1, magicChain: 1, magicsKnown: 1, level: 1, maxHP: 60, maxMP: 10, attack: 10, defend: 5, speed: 10, lingli: 5, luck: 10 });
         break;
       case "npc":
@@ -186,6 +208,16 @@ export function Editor({ fontsReady, onPlaytest }: Props) {
         [resType, type, index] = [12, 2, idx(12, 2)];
         data = encodeLevelChain(index, Array.from({ length: 10 }, (_, i) => ({ maxHP: 60 + i * 12, maxMP: 10 + i * 3, attack: 10 + i * 3, defend: 5 + i * 2, nextExp: 15 + i * i * 10, speed: 10 + i, lingli: 5 + i, luck: 10 + i, magics: 1 })));
         break;
+      case "gfx": {
+        [resType, type] = sub.split("-").map(Number);
+        index = idx(resType, type);
+        data = blankGraphic(a, resType, type, index);
+        break;
+      }
+      case "anim":
+        [resType, type, index] = [5, Number(sub), idx(5, Number(sub))];
+        data = blankAnimation(type, index);
+        break;
       default:
         return;
     }
@@ -209,6 +241,58 @@ export function Editor({ fontsReady, onPlaytest }: Props) {
     putEntry(cur.archive, { resType: 2, type: 1, index, data: encodeMap({ type: 1, index, tileset: 1, name: `MAP ${index}`, width: w, height: h, cells }) });
     setSelected(`2-1-${index}`);
     persist(cur);
+    setVersion((v) => v + 1);
+  };
+
+  /** Copy the selected resource to the next free number of the same kind. */
+  const duplicate = (e: LibEntry) => {
+    if (!cur) return;
+    try {
+      const index = nextIndex(cur.archive, e.resType, e.type);
+      putEntry(cur.archive, { ...e, index, data: withIndex(e.data, index) });
+      const from = keyOf(e);
+      const to = keyOf({ ...e, index });
+      const src = cur.sources[from];
+      const sources = src !== undefined ? { ...cur.sources, [to]: withGutIndex(src, index) } : cur.sources;
+      const next = { ...cur, sources };
+      setCur(next);
+      setSelected(to);
+      persist(next);
+      setVersion((v) => v + 1);
+    } catch (err) {
+      alert((err as Error).message);
+    }
+  };
+
+  /** Give the selected resource another number. References are not changed. */
+  const renumber = (e: LibEntry, index: number): string | null => {
+    if (!cur) return null;
+    if (!Number.isInteger(index) || index < 1 || index > 255) return "Numbers are 1-255.";
+    if (index === e.index) return null;
+    if (findEntry(cur.archive, e.resType, e.type, index)) return `${e.type}-${index} is already used.`;
+    removeEntry(cur.archive, e.resType, e.type, e.index);
+    putEntry(cur.archive, { ...e, index, data: withIndex(e.data, index) });
+    const from = keyOf(e);
+    const to = keyOf({ ...e, index });
+    const { [from]: src, ...rest } = cur.sources;
+    const next = { ...cur, sources: src !== undefined ? { ...rest, [to]: withGutIndex(src, index) } : rest };
+    setCur(next);
+    setSelected(to);
+    persist(next);
+    setVersion((v) => v + 1);
+    return null;
+  };
+
+  const remove = (e: LibEntry) => {
+    if (!cur) return;
+    const what = `${KIND_NAMES[e.resType] ?? "resource"} ${e.type}-${e.index}`;
+    if (!confirm(`Delete ${what}? Anything that refers to it will find it missing.`)) return;
+    removeEntry(cur.archive, e.resType, e.type, e.index);
+    const { [keyOf(e)]: _gone, ...sources } = cur.sources;
+    const next = { ...cur, sources };
+    setCur(next);
+    setSelected(null);
+    persist(next);
     setVersion((v) => v + 1);
   };
 
@@ -327,7 +411,7 @@ export function Editor({ fontsReady, onPlaytest }: Props) {
             <option value="object">Object (chest, sign…)</option>
           </optgroup>
           <optgroup label="Items">
-            {["Hat", "Clothes", "Shoes", "Armour", "Bracers", "Accessory", "Weapon", "Thrown weapon", "Medicine", "Revival", "Elixir", "Stimulant", "Escape item", "Story item"].map((n, i) => (
+            {ITEM_KINDS.map((n, i) => (
               <option key={n} value={`item:${i + 1}`}>
                 {n}
               </option>
@@ -344,6 +428,36 @@ export function Editor({ fontsReady, onPlaytest }: Props) {
             <option value="chain">Spell list</option>
             <option value="levels">Level table</option>
           </optgroup>
+          <optgroup label="Graphics (blank)">
+            {(
+              [
+                ["7-1", "Tileset"],
+                ["8-1", "Party walk sprite"],
+                ["8-2", "NPC walk sprite"],
+                ["8-3", "Monster battle sprite"],
+                ["8-4", "Object sprite"],
+                ["11-1", "Portrait"],
+                ["11-3", "Party battle sprite"],
+                ["11-4", "Battle background"],
+                ["11-5", "Story picture"],
+              ] as const
+            ).map(([k, n]) => (
+              <option key={k} value={`gfx:${k}`}>
+                {n}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Item icons (blank)">
+            {ITEM_KINDS.map((n, i) => (
+              <option key={n} value={`gfx:9-${i + 1}`}>
+                {n} icon
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Animations">
+            <option value="anim:1">Cut-scene animation</option>
+            <option value="anim:2">Spell / item effect</option>
+          </optgroup>
         </select>
         <button
           className="ghost"
@@ -357,14 +471,21 @@ export function Editor({ fontsReady, onPlaytest }: Props) {
         >
           Export .lib
         </button>
-        <button onClick={playtest} disabled={!fontsReady} title={fontsReady ? "Run this project" : "Import HZK16 and ASC16 on the Play tab first"}>
+        <button onClick={playtest} title="Run this project">
           ▶ Playtest
         </button>
       </div>
       <div className="editor-main">
         <ResourceList archive={cur.archive} selected={selected} onSelect={setSelected} />
         {entry ? (
-          <ResourceView key={selected!} archive={cur.archive} entry={entry} source={selected ? cur.sources[selected] : undefined} onChange={change} />
+          <ResourceView
+            key={selected!}
+            archive={cur.archive}
+            entry={entry}
+            source={selected ? cur.sources[selected] : undefined}
+            onChange={change}
+            actions={{ duplicate: () => duplicate(entry), renumber: (n) => renumber(entry, n), remove: () => remove(entry) }}
+          />
         ) : (
           <section className="res-view">
             <p className="muted">Pick a resource on the left.</p>

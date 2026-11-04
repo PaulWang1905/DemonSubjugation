@@ -53,6 +53,10 @@ The **Editor** tab builds games in the same format:
   by the engine's own animation code, a frame list (image, position, timing),
   dragging frames on the screen, warnings for timings that cut an animation
   short, and the pixel editor for each image.
+- **Add** blank tilesets, sprites, portraits, battle sprites, backgrounds,
+  pictures, item icons and animations (sized like the game's others); a new
+  party member also gets a portrait and battle sprite. Any resource can be
+  duplicated, given another number or deleted.
 - **Playtest** runs the project in the engine; **Export .lib** downloads it.
 - Projects are saved automatically in the browser (IndexedDB).
 
@@ -83,7 +87,6 @@ Script example:
 The engine's own menus come in Chinese and English; the language follows the
 game title by default and can be changed in the player's options.
 
-Still to come: adding new tilesets.
 
 ## Controls
 

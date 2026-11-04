@@ -684,6 +684,35 @@ footer {
   color: var(--muted);
 }
 
+.res-view > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin-bottom: 10px;
+}
+
+.res-view > header h2 {
+  margin: 0;
+}
+
+.res-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.res-actions input {
+  width: 64px;
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
 .frames {
   display: flex;
   flex-wrap: wrap;

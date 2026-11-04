@@ -107,7 +107,7 @@ export function App() {
       )}
       {/* The editor stays mounted so an open project survives tab switches and playtests. */}
       <div hidden={showPlayer || tab !== "editor"}>
-        <Editor fontsReady onPlaytest={onPlaytest} />
+        <Editor onPlaytest={onPlaytest} />
       </div>
       {showPlayer ? (
         <Player key={playing!.id + (playtestFrom ? playing!.addedAt : "")} game={playing!} fonts={fontPair} onExit={onExit} />

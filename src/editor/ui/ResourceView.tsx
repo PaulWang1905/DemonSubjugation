@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { KIND_NAMES, resourceName, subTypeName } from "../format/decode";
 import type { LibArchive, LibEntry } from "../format/lib";
 import { fieldsFor } from "../format/schema";
@@ -14,13 +14,20 @@ interface Props {
   entry: LibEntry;
   source?: string;
   onChange: (data: Uint8Array, source?: string) => void;
+  actions?: {
+    duplicate: () => void;
+    /** Returns an error message, or null when done. */
+    renumber: (index: number) => string | null;
+    remove: () => void;
+  };
 }
 
 function hex(b: Uint8Array, n = 64): string {
   return [...b.subarray(0, n)].map((x) => x.toString(16).padStart(2, "0")).join(" ") + (b.length > n ? " …" : "");
 }
 
-export function ResourceView({ archive, entry, source, onChange }: Props) {
+export function ResourceView({ archive, entry, source, onChange, actions }: Props) {
+  const [numError, setNumError] = useState<string | null>(null);
   const title = `${KIND_NAMES[entry.resType] ?? "Resource"} · ${subTypeName(entry.resType, entry.type)} · #${entry.index}`;
   const name = resourceName(entry.resType, entry.type, entry.data);
   const body = useMemo(() => {
@@ -79,7 +86,34 @@ export function ResourceView({ archive, entry, source, onChange }: Props) {
           {title}
           {name && <span className="name"> {name}</span>}
         </h2>
+        {actions && (
+          <div className="res-actions">
+            <label className="field" title="Other resources refer to this one by number; they are not updated">
+              No.
+              <input
+                type="number"
+                min={1}
+                max={255}
+                defaultValue={entry.index}
+                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                onBlur={(e) => {
+                  const err = actions.renumber(Number(e.target.value));
+                  setNumError(err);
+                  if (err) e.target.value = String(entry.index);
+                }}
+                aria-label="Resource number"
+              />
+            </label>
+            <button className="ghost" onClick={actions.duplicate}>
+              Duplicate
+            </button>
+            <button className="ghost danger" onClick={actions.remove}>
+              Delete
+            </button>
+          </div>
+        )}
       </header>
+      {numError && <p className="error small">{numError}</p>}
       {body}
     </section>
   );
