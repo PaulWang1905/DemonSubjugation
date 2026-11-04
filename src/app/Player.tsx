@@ -6,6 +6,9 @@ import type { StoredGame } from "../storage/db";
 import { KEY_HELP, KEYMAP } from "./keys";
 import { Keypad } from "./Keypad";
 import { applyPalette, PALETTES } from "./palettes";
+import { HiresText, hiresScale, type TextStyle } from "./hiresText";
+
+type TextMode = "pixel" | TextStyle;
 
 interface Props {
   game: StoredGame;
@@ -44,6 +47,12 @@ export function Player({ game, fonts, onExit }: Props) {
   const [originalFormula, setOriginalFormula] = useState(() => pref("originalDamage", "on") === "on");
   const [notice, setNotice] = useState<string | null>(null);
   const [uiLang, setUiLang] = useState<UiLanguage | "auto">(() => pref<string>("uiLanguage", "auto") as UiLanguage | "auto");
+  // Sharp text by default; the original bitmap look when the font files were added.
+  const [textMode, setTextMode] = useState<TextMode>(() => pref<TextMode>("text", fonts.hzk16 && fonts.asc16 ? "pixel" : "sans"));
+  const textRef = useRef(textMode);
+  textRef.current = textMode;
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
   const speedRef = useRef(speed);
   const paletteRef = useRef(paletteId);
   speedRef.current = speed;
@@ -71,8 +80,10 @@ export function Player({ game, fonts, onExit }: Props) {
       return;
     }
     engineRef.current = engine;
-    const ctx = canvasRef.current!.getContext("2d")!;
+    const cv = canvasRef.current!;
+    const ctx = cv.getContext("2d")!;
     const image = ctx.createImageData(SCREEN_WIDTH, SCREEN_HEIGHT);
+    const hires: Partial<Record<TextStyle, HiresText>> = {};
     let frame = engine.render();
     let raf = 0;
     let last = performance.now();
@@ -98,8 +109,18 @@ export function Player({ game, fonts, onExit }: Props) {
         return;
       }
       const pal = PALETTES.find((p) => p.id === paletteRef.current) ?? PALETTES[0];
-      applyPalette(frame, image.data, pal);
-      ctx.putImageData(image, 0, 0);
+      const mode = textRef.current;
+      if (mode === "pixel") {
+        if (cv.width !== SCREEN_WIDTH) {
+          cv.width = SCREEN_WIDTH;
+          cv.height = SCREEN_HEIGHT;
+        }
+        applyPalette(frame, image.data, pal);
+        ctx.putImageData(image, 0, 0);
+      } else {
+        const h = (hires[mode] ??= new HiresText(mode));
+        h.draw(cv, frame, engine.textLayer(), pal, hiresScale(scaleRef.current));
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -244,6 +265,20 @@ export function Player({ game, fonts, onExit }: Props) {
             ))}
           </select>
         </label>
+        <label className="field" title="Sharp redraws text in your device's fonts at full resolution; Pixel keeps the original 16x16 bitmap text">
+          <span className="lbl">Text</span>
+          <select
+            value={textMode}
+            onChange={(e) => {
+              setTextMode(e.target.value as TextMode);
+              setPref("text", e.target.value);
+            }}
+          >
+            <option value="sans">Sharp</option>
+            <option value="serif">Sharp serif</option>
+            <option value="pixel">Pixel (original)</option>
+          </select>
+        </label>
         <button className="ghost" onClick={toggleFullscreen} title="Fullscreen" aria-label="Fullscreen">
           ⛶
         </button>
@@ -253,8 +288,6 @@ export function Player({ game, fonts, onExit }: Props) {
         <div className="bezel" style={{ width: SCREEN_WIDTH * scale + 16 }}>
           <canvas
             ref={canvasRef}
-            width={SCREEN_WIDTH}
-            height={SCREEN_HEIGHT}
             style={{ width: SCREEN_WIDTH * scale, height: SCREEN_HEIGHT * scale }}
             aria-label="Game screen"
           />

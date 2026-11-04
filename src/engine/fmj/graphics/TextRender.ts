@@ -1,8 +1,8 @@
 // Port of fmj/graphics/TextRender.kt — draws GB2312 text with the HZK16 /
 // ASC16 bitmap fonts.
 import { Global } from "../Global";
-import { Bitmap, Canvas, Rect } from "../../graphics";
-import { gbkBytes, getPlatform } from "../../java";
+import { Bitmap, Canvas, Rect, type GlyphMark } from "../../graphics";
+import { gbkBytes, getPlatform, sysGbkDecode } from "../../java";
 
 /** Byte source for a bitmap font: a loaded file or the platform fallback. */
 interface FontSource {
@@ -77,6 +77,76 @@ function getAsc(offset: number): Bitmap {
   return mBmpAsc;
 }
 
+function drawHzk(canvas: Canvas, offset: number, x: number, y: number): void {
+  canvas.drawBitmap(getHzk(offset), x, y);
+  canvas.markGlyph({ x, y, w: 16, font: 0, code: offset >> 5, fg: Global.fgColor, bg: Global.bgColor });
+}
+
+function drawAsc(canvas: Canvas, code: number, x: number, y: number): void {
+  canvas.drawBitmap(getAsc(code * 16), x, y);
+  canvas.markGlyph({ x, y, w: 8, font: 1, code, fg: Global.fgColor, bg: Global.bgColor });
+}
+
+const charCache = new Map<number, string>();
+
+/** The Unicode character a glyph mark stands for. */
+export function glyphChar(m: GlyphMark): string {
+  if (m.font === 1) return String.fromCharCode(m.code);
+  let ch = charCache.get(m.code);
+  if (ch === undefined) {
+    ch = sysGbkDecode([0xa1 + Math.floor(m.code / 94), 0xa1 + (m.code % 94)]);
+    if (ch.length !== 1 || ch === "\ufffd") ch = "";
+    charCache.set(m.code, ch);
+  }
+  return ch;
+}
+
+/**
+ * How much of a glyph cell still shows what was drawn. Returns null when no
+ * inked pixel of the glyph is left (the cell was drawn over since), an empty
+ * array when the whole cell is intact, or the cell-relative box [x0, y0, x1,
+ * y1) that something else now covers. The box is stretched to the cell edge
+ * on sides it nearly touches, since covering shapes (menus, borders,
+ * clipping) are rectangles.
+ */
+export function glyphVisibility(m: GlyphMark, buf: Uint32Array, width: number, height: number): number[] | null {
+  const src = m.font === 0 ? hzk() : asc();
+  const bpr = m.font === 0 ? 2 : 1;
+  const base = m.font === 0 ? m.code * 32 : m.code * 16;
+  let x0 = 99;
+  let y0 = 99;
+  let x1 = -1;
+  let y1 = -1;
+  const ink: number[] = [];
+  for (let r = 0; r < 16; r++) {
+    const y = m.y + r;
+    for (let c = 0; c < m.w; c++) {
+      const x = m.x + c;
+      const bit = (src.byte(base + r * bpr + (c >> 3)) & (0x80 >> (c & 7))) !== 0;
+      const on = x >= 0 && y >= 0 && x < width && y < height;
+      if (on && buf[y * width + x] === (bit ? m.fg : m.bg)) {
+        if (bit) ink.push(r * 16 + c);
+        continue;
+      }
+      if (x0 > c) x0 = c;
+      if (y0 > r) y0 = r;
+      if (x1 < c + 1) x1 = c + 1;
+      if (y1 < r + 1) y1 = r + 1;
+    }
+  }
+  if (x1 < 0) return ink.length ? [] : null;
+  if (x0 <= 2) x0 = 0;
+  if (y0 <= 2) y0 = 0;
+  if (x1 >= m.w - 2) x1 = m.w;
+  if (y1 >= 14) y1 = 16;
+  const shown = ink.some((p) => {
+    const r = p >> 4;
+    const c = p & 15;
+    return c < x0 || c >= x1 || r < y0 || r >= y1;
+  });
+  return shown ? [x0, y0, x1, y1] : null;
+}
+
 function toBytes(text: string | Int8Array): Int8Array {
   return typeof text === "string" ? gbkBytes(text) : text;
 }
@@ -97,10 +167,10 @@ export const TextRender = {
       if (t >= 0xa1) {
         ++i;
         const offset = (94 * (t - 0xa1) + (bytes[i] & 0xff) - 0xa1) * 32;
-        canvas.drawBitmap(getHzk(offset), x0, y);
+        drawHzk(canvas, offset, x0, y);
         x0 += 16;
       } else if (t < 128) {
-        canvas.drawBitmap(getAsc(t * 16), x0, y);
+        drawAsc(canvas, t, x0, y);
         x0 += 8;
       } else {
         x0 += 8;
@@ -148,10 +218,10 @@ export const TextRender = {
         if (t >= 0xa1) {
           ++i;
           const offset = (94 * (t - 0xa1) + (buf[i] & 0xff) - 0xa1) * 32;
-          canvas.drawBitmap(getHzk(offset), tmpX, tmpY);
+          drawHzk(canvas, offset, tmpX, tmpY);
           tmpX += 16;
         } else if (t < 128) {
-          canvas.drawBitmap(getAsc(t * 16), tmpX, tmpY);
+          drawAsc(canvas, t, tmpX, tmpY);
           tmpX += 8;
         } else {
           tmpX += 8;
@@ -178,10 +248,10 @@ export const TextRender = {
         if (t >= 0xa1) {
           ++i;
           const offset = (94 * (t - 0xa1) + (buf[i] & 0xff) - 0xa1) * 32;
-          canvas.drawBitmap(getHzk(offset), x, y);
+          drawHzk(canvas, offset, x, y);
           x += 16;
         } else if (t < 128) {
-          canvas.drawBitmap(getAsc(t * 16), x, y);
+          drawAsc(canvas, t, x, y);
           x += 8;
         } else {
           x += 8;

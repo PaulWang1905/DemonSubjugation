@@ -24,6 +24,12 @@ the right to use.
   combined attacks, flee, auto-attack), levelling, equipment and three save slots.
 - 160×96 screen rendered pixel-exact with integer scaling and selectable
   palettes (classic, LCD, paper, amber).
+- **Sharp text** (default): characters are redrawn at the display's full
+  resolution with the device's fonts (sans or serif), while the rest of the
+  picture stays pixel-exact. The engine reports where it drew each character
+  and the player checks the pixels each frame, so text that menus or borders
+  cover keeps the covering pixels. **Pixel (original)** keeps the 16×16
+  bitmap text, using HZK16/ASC16 when added.
 - Keyboard controls and an on-screen keypad for phones; 1×/2×/4× speed.
 - Save slots are kept per game in `localStorage` and can be exported or imported
   as JSON.

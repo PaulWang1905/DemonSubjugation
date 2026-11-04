@@ -33,9 +33,28 @@ export class Paint {
   strokeWidth = 1;
 }
 
+/**
+ * Where a text glyph was drawn, so a host can redraw it at a higher
+ * resolution. `font` 0 is the 16x16 HZK16 font (code = glyph number), 1 the
+ * 8x16 ASC16 font (code = character code).
+ */
+export interface GlyphMark {
+  x: number;
+  y: number;
+  w: number;
+  font: 0 | 1;
+  code: number;
+  fg: Color;
+  bg: Color;
+}
+
+const MAX_GLYPHS = 320;
+
 export class Bitmap {
   readonly buffer: Uint32Array;
   color: Color = Colors.WHITE;
+  /** Glyphs drawn onto this bitmap (directly or by blitting another bitmap). */
+  glyphs: GlyphMark[] | null = null;
 
   constructor(
     readonly width: number,
@@ -52,6 +71,34 @@ export class Bitmap {
 
   drawImage(src: Bitmap, x: number, y: number): void {
     this.setPixels(src.buffer, 0, x, y, src.width, src.height);
+    if (src.glyphs) {
+      for (const g of src.glyphs) {
+        const nx = g.x + x;
+        const ny = g.y + y;
+        if (nx > -g.w && ny > -16 && nx < this.width && ny < this.height) this.markGlyph({ ...g, x: nx, y: ny });
+      }
+    }
+  }
+
+  /**
+   * Record a glyph cell, replacing earlier glyphs inside it. Glyphs it only
+   * partly overlaps stay: the host checks the pixels to see what is left.
+   */
+  markGlyph(m: GlyphMark): void {
+    const list = this.glyphs;
+    if (!list) {
+      this.glyphs = [m];
+      return;
+    }
+    let k = 0;
+    for (let i = 0; i < list.length; i++) {
+      const g = list[i];
+      if (g.x >= m.x && g.y >= m.y && g.x + g.w <= m.x + m.w && g.y <= m.y) continue;
+      list[k++] = g;
+    }
+    list.length = k;
+    list.push(m);
+    if (list.length > MAX_GLYPHS) list.shift();
   }
 
   private setPixel(col: number, row: number, color: Color): void {
@@ -59,6 +106,10 @@ export class Bitmap {
   }
 
   fillRect(x: number, y: number, w: number, h: number): void {
+    if (this.glyphs) {
+      // drop glyphs the rectangle covers completely
+      this.glyphs = this.glyphs.filter((g) => !(g.x >= x && g.y >= y && g.x + g.w <= x + w && g.y + 16 <= y + h));
+    }
     for (let col = x; col < x + w; col++) {
       for (let row = y; row < y + h; row++) {
         this.setPixel(col, row, this.color);
@@ -124,7 +175,9 @@ export class Bitmap {
   }
 
   copy(): Bitmap {
-    return new Bitmap(this.width, this.height, this.buffer.slice());
+    const b = new Bitmap(this.width, this.height, this.buffer.slice());
+    if (this.glyphs) b.glyphs = this.glyphs.map((g) => ({ ...g }));
+    return b;
   }
 
   static createBitmap(w: number, h: number, pixels?: Uint32Array): Bitmap {
@@ -193,6 +246,13 @@ export class Canvas {
   }
   get buffer(): Uint32Array {
     return this.bg.buffer;
+  }
+  get bitmap(): Bitmap {
+    return this.bg;
+  }
+
+  markGlyph(m: GlyphMark): void {
+    this.bg.markGlyph({ ...m, x: Math.trunc(m.x), y: Math.trunc(m.y) });
   }
 
   drawBitmap(bitmap: Bitmap, left: number, top: number): void {

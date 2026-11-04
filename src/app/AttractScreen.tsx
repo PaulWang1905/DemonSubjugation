@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
-import { createEngine, Keys, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, type Engine, type EngineKey } from "../engine";
+import { createEngine, Keys, SCREEN_WIDTH, TICK_MS, type Engine, type EngineKey } from "../engine";
 import type { SaveStorage } from "../engine/java";
 import { createDeviceFont } from "./deviceFont";
 import { demoArchive } from "./demoGame";
-import { applyPalette, PALETTES } from "./palettes";
+import { HiresText, hiresScale } from "./hiresText";
+import { PALETTES } from "./palettes";
 
 /** Ticks after boot at which the attract loop presses OK, then starts walking. */
 const OK_PRESSES = [120, 150, 190, 235, 280, 325, 370, 415, 460, 505, 550];
@@ -32,8 +33,7 @@ export function AttractScreen({ onError }: { onError?: () => void }) {
 
   useEffect(() => {
     const c = canvas.current!;
-    const ctx = c.getContext("2d")!;
-    const image = ctx.createImageData(SCREEN_WIDTH, SCREEN_HEIGHT);
+    const text = new HiresText("sans");
     const palette = PALETTES.find((p) => p.id === "lcd") ?? PALETTES[0];
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
     let engine: Engine | null = null;
@@ -49,8 +49,8 @@ export function AttractScreen({ onError }: { onError?: () => void }) {
       held = null;
     };
     const paint = () => {
-      applyPalette(engine!.render(), image.data, palette);
-      ctx.putImageData(image, 0, 0);
+      const css = c.clientWidth / SCREEN_WIDTH || 2;
+      text.draw(c, engine!.render(), engine!.textLayer(), palette, hiresScale(css));
     };
     const step = () => {
       const e = engine!;
@@ -122,5 +122,5 @@ export function AttractScreen({ onError }: { onError?: () => void }) {
     };
   }, [onError]);
 
-  return <canvas ref={canvas} width={SCREEN_WIDTH} height={SCREEN_HEIGHT} aria-label="The Lantern Path demo playing itself" />;
+  return <canvas ref={canvas} aria-label="The Lantern Path demo playing itself" />;
 }

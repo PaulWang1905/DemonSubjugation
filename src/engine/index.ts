@@ -7,7 +7,7 @@ import { EngineSettings } from "./fmj/config/EngineSettings";
 import { setUiLanguage, type UiLanguage } from "./fmj/i18n";
 
 export type { UiLanguage };
-import { TextRender } from "./fmj/graphics/TextRender";
+import { glyphChar, glyphVisibility, TextRender } from "./fmj/graphics/TextRender";
 import { Util } from "./fmj/graphics/Util";
 import { DatLib } from "./fmj/lib/DatLib";
 import { registerResources } from "./fmj/registry";
@@ -87,6 +87,23 @@ function resetStatics(): void {
   Global.bgColor = Global.COLOR_WHITE;
 }
 
+/** A character on screen, for redrawing text at a higher resolution. */
+export interface TextMark {
+  x: number;
+  y: number;
+  /** 16 for HZK16 characters, 8 for ASC16. Cells are 16 pixels tall. */
+  w: number;
+  text: string;
+  /** Engine colours (0xAABBGGRR), as in the frame from render(). */
+  fg: number;
+  bg: number;
+  /**
+   * Part of the cell drawn over since, as [x0, y0, x1, y1) relative to the
+   * cell; null when the whole character is visible.
+   */
+  hidden: [number, number, number, number] | null;
+}
+
 export interface Engine {
   /**
    * Advance the game by one tick of `delta` ms and redraw the framebuffer.
@@ -98,6 +115,11 @@ export interface Engine {
   render(): Uint8ClampedArray;
   keyDown(key: EngineKey): void;
   keyUp(key: EngineKey): void;
+  /**
+   * Characters visible in the current frame, with the part of each cell that
+   * later drawing covers (if any).
+   */
+  textLayer(): TextMark[];
   /** Compile every script in the archive; returns the failures. */
   checkScripts(): string[];
   readonly game: MainGame;
@@ -147,6 +169,23 @@ export function createEngine(opts: EngineOptions): Engine {
     },
     keyUp(key) {
       game.keyUp(key);
+    },
+    textLayer() {
+      const bmp = game.canvas.bitmap;
+      const list = bmp.glyphs;
+      if (!list) return [];
+      const keep = [];
+      const out: TextMark[] = [];
+      for (const g of list) {
+        const vis = glyphVisibility(g, bmp.buffer, bmp.width, bmp.height);
+        if (!vis) continue; // drawn over since: forget it
+        keep.push(g);
+        const text = glyphChar(g);
+        const hidden = vis.length === 4 ? (vis as [number, number, number, number]) : null;
+        if (text.trim()) out.push({ x: g.x, y: g.y, w: g.w, text, fg: g.fg, bg: g.bg, hidden });
+      }
+      bmp.glyphs = keep;
+      return out;
     },
     checkScripts() {
       const errors: string[] = [];
