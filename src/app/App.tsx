@@ -5,6 +5,7 @@ import { archiveId, importFiles } from "./importFiles";
 import { Library } from "./Library";
 import { Player } from "./Player";
 import { Editor } from "../editor/ui/Editor";
+import { demoGame } from "./demoGame";
 
 function copyBuffer(u: Uint8Array): ArrayBuffer {
   return u.slice().buffer as ArrayBuffer;
@@ -96,14 +97,27 @@ export function App() {
   return (
     <>
       {!showPlayer && (
-        <nav className="tabs" aria-label="Sections">
-          <button className={tab === "play" ? "" : "ghost"} onClick={() => switchTab("play")}>
-            Play
-          </button>
-          <button className={tab === "editor" ? "" : "ghost"} onClick={() => switchTab("editor")}>
-            Editor
-          </button>
-        </nav>
+        <header className="topbar">
+          <a
+            className="brand"
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              switchTab("play");
+            }}
+          >
+            <img src="/favicon.svg" alt="" width={28} height={28} />
+            <span>FMJ React</span>
+          </a>
+          <nav className="tabs" aria-label="Sections">
+            <button className={tab === "play" ? "" : "ghost"} aria-current={tab === "play" ? "page" : undefined} onClick={() => switchTab("play")}>
+              Play
+            </button>
+            <button className={tab === "editor" ? "" : "ghost"} aria-current={tab === "editor" ? "page" : undefined} onClick={() => switchTab("editor")}>
+              Editor
+            </button>
+          </nav>
+        </header>
       )}
       {/* The editor stays mounted so an open project survives tab switches and playtests. */}
       <div hidden={showPlayer || tab !== "editor"}>
@@ -121,6 +135,8 @@ export function App() {
             messages={messages}
             onImport={onImport}
             onPlay={setPlaying}
+            onPlayDemo={() => setPlaying(demoGame())}
+            onOpenEditor={() => switchTab("editor")}
             onDelete={onDelete}
           />
         )

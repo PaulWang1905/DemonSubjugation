@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { StoredGame } from "../storage/db";
+import { AttractScreen } from "./AttractScreen";
 import type { Imported } from "./importFiles";
 
 interface Props {
@@ -10,120 +11,208 @@ interface Props {
   messages: string[];
   onImport: (files: File[]) => void;
   onPlay: (g: StoredGame) => void;
+  onPlayDemo: () => void;
+  onOpenEditor: () => void;
   onDelete: (g: StoredGame) => void;
 }
 
 function size(n: number): string {
-  return n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.round(n / 1024)} KB`;
+  return n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 }
 
-export function Library({ games, fonts, persistent, busy, messages, onImport, onPlay, onDelete }: Props) {
+function added(t: number): string {
+  try {
+    return new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
+export function Library({ games, fonts, persistent, busy, messages, onImport, onPlay, onPlayDemo, onOpenEditor, onDelete }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
+  const [preview, setPreview] = useState(true);
+  const hidePreview = useCallback(() => setPreview(false), []);
+  const choose = () => input.current?.click();
 
   return (
-    <div className="library">
-      <section className="intro">
-        <h1>
-          FMJ React <span>BBK RPG engine</span>
-        </h1>
-        <p>
-          A browser port of the engine behind the BBK electronic-dictionary RPGs (伏魔记 and the many community games made
-          for it). <strong>No game data is included</strong>: import a game archive you have the right to use (the
-          original bitmap fonts are optional). Files stay in this browser and are never uploaded.
-        </p>
+    <div
+      className="library"
+      onDragOver={(e) => {
+        if (![...e.dataTransfer.types].includes("Files")) return;
+        e.preventDefault();
+        setDrag(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDrag(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDrag(false);
+        onImport([...e.dataTransfer.files]);
+      }}
+    >
+      <input
+        ref={input}
+        type="file"
+        multiple
+        hidden
+        onChange={(e) => {
+          onImport([...(e.target.files ?? [])]);
+          e.target.value = "";
+        }}
+      />
+
+      <section className="hero">
+        <div className="hero-text">
+          <p className="eyebrow">BBK electronic-dictionary RPG engine</p>
+          <h1>Play and make pocket RPGs in your browser.</h1>
+          <p className="lead">
+            The engine behind 伏魔记 and the many community games made for it, rebuilt for the web. Open a game archive you
+            own, or build your own with the editor.
+          </p>
+          <div className="cta">
+            <button className="big" onClick={onPlayDemo}>
+              ▶ Play the demo
+            </button>
+            <button className="big ghost" onClick={choose} disabled={busy}>
+              Open a game file…
+            </button>
+            <button className="big ghost" onClick={onOpenEditor}>
+              Make a game →
+            </button>
+          </div>
+          <p className="fine">No game data included · your files never leave this browser</p>
+        </div>
+        {preview && (
+          <figure className="hero-screen">
+            <div className="device">
+              <div className="device-screen">
+                <AttractScreen onError={hidePreview} />
+              </div>
+              <div className="device-keys" aria-hidden="true">
+                <span className="dpad" />
+                <span className="ab">
+                  <i />
+                  <i />
+                </span>
+              </div>
+            </div>
+            <figcaption>
+              <em>Lantern Path</em>, the built-in demo, playing itself.
+            </figcaption>
+          </figure>
+        )}
       </section>
 
-      <section
-        className={`drop ${drag ? "drag" : ""}`}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDrag(true);
-        }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDrag(false);
-          onImport([...e.dataTransfer.files]);
-        }}
-      >
-        <div>
-          <strong>Drop files here</strong> or{" "}
-          <button onClick={() => input.current?.click()} disabled={busy}>
-            choose files
-          </button>
-          <input
-            ref={input}
-            type="file"
-            multiple
-            hidden
-            onChange={(e) => {
-              onImport([...(e.target.files ?? [])]);
-              e.target.value = "";
-            }}
-          />
+      {(busy || messages.length > 0) && (
+        <section className="notice" role="status">
+          {busy && <p>Reading files…</p>}
+          {messages.length > 0 && (
+            <ul>
+              {messages.map((m, i) => (
+                <li key={i}>{m}</li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      <section className="shelf">
+        <div className="shelf-head">
+          <h2>Your games</h2>
+          <span className="muted small">Drop .lib files anywhere on this page</span>
         </div>
-        <ul className="needs">
-          <li>
-            Game archive: <code>DAT.LIB</code> or any <code>*.lib</code>
+        <ul className="cards">
+          <li className="card demo">
+            <div className="card-art" aria-hidden="true">
+              <span>LANTERN PATH</span>
+            </div>
+            <div className="card-body">
+              <strong>Lantern Path</strong>
+              <span className="muted small">Built-in demo</span>
+            </div>
+            <div className="card-actions">
+              <button onClick={onPlayDemo}>Play</button>
+            </div>
           </li>
-          <li>
-            Optional fonts: <code>HZK16</code> (16×16 GB2312) and <code>ASC16</code> (8×16 ASCII)
-          </li>
-          <li>
-            Also accepted: hex-encoded <code>*.lib.js</code> / <code>rom.js</code> bundles from fmj.kt web builds
+          {games.map((g) => (
+            <li key={g.id} className="card">
+              <div className="card-art" aria-hidden="true">
+                <span>{g.name}</span>
+              </div>
+              <div className="card-body">
+                <strong title={g.name}>{g.name}</strong>
+                <span className="muted small" title={g.fileName}>
+                  {g.fileName} · {size(g.size)}
+                  {g.addedAt ? ` · ${added(g.addedAt)}` : ""}
+                </span>
+              </div>
+              <div className="card-actions">
+                <button onClick={() => onPlay(g)}>Play</button>
+                <button className="ghost danger" onClick={() => onDelete(g)}>
+                  Remove
+                </button>
+              </div>
+            </li>
+          ))}
+          <li className="card add">
+            <button className="add-btn" onClick={choose} disabled={busy}>
+              <span className="plus" aria-hidden="true">
+                +
+              </span>
+              <strong>Add a game</strong>
+              <span className="muted small">
+                <code>DAT.LIB</code> or any <code>*.lib</code>
+              </span>
+            </button>
           </li>
         </ul>
-        {busy && <p className="muted">Reading files…</p>}
-        {messages.length > 0 && (
-          <ul className="messages">
-            {messages.map((m, i) => (
-              <li key={i}>{m}</li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="status">
-        <h2>
-          Fonts <span className="muted small">(optional)</span>
-        </h2>
-        <div className="chips">
-          <span className={`chip ${fonts.HZK16 ? "ok" : "soft"}`}>{fonts.HZK16 ? "✓ HZK16" : "HZK16 not added"}</span>
-          <span className={`chip ${fonts.ASC16 ? "ok" : "soft"}`}>{fonts.ASC16 ? "✓ ASC16" : "ASC16 not added"}</span>
+        <div className="fonts-line">
+          <span className="muted small">Original bitmap fonts (optional):</span>
+          <span className={`chip ${fonts.HZK16 ? "ok" : "soft"}`}>{fonts.HZK16 ? "✓ HZK16" : "HZK16"}</span>
+          <span className={`chip ${fonts.ASC16 ? "ok" : "soft"}`}>{fonts.ASC16 ? "✓ ASC16" : "ASC16"}</span>
+          <span className="muted small">
+            {fonts.HZK16 && fonts.ASC16 ? "Games use the original fonts." : "Without them, text uses your device's fonts. Drop the files here to add them."}
+          </span>
         </div>
-        <p className="muted small">
-          {fonts.HZK16 && fonts.ASC16
-            ? "Games use the original bitmap fonts."
-            : "Games are playable without these files: text is drawn with your device's own fonts. Add HZK16 and ASC16 for the original look."}
-        </p>
-        {!persistent && <p className="muted">Browser storage is unavailable, so imported files last for this tab only.</p>}
+        {!persistent && <p className="muted small">Browser storage is unavailable, so imported files last for this tab only.</p>}
       </section>
 
-      <section className="games">
-        <h2>Games</h2>
-        {games.length === 0 ? (
-          <p className="muted">No games imported yet.</p>
-        ) : (
-          <ul>
-            {games.map((g) => (
-              <li key={g.id}>
-                <div className="meta">
-                  <strong>{g.name}</strong>
-                  <span>
-                    {g.fileName} · {size(g.size)}
-                  </span>
-                </div>
-                <div className="row">
-                  <button onClick={() => onPlay(g)}>Play</button>
-                  <button className="ghost danger" onClick={() => onDelete(g)}>
-                    Remove
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+      <section className="features">
+        <article>
+          <span className="feat-icon" aria-hidden="true">
+            ▶
+          </span>
+          <h3>Play</h3>
+          <p>
+            Keyboard or on-screen keypad, three save slots per game, LCD colour palettes, 2× and 4× speed, and English or
+            Chinese menus.
+          </p>
+        </article>
+        <article>
+          <span className="feat-icon" aria-hidden="true">
+            ✎
+          </span>
+          <h3>Make</h3>
+          <p>
+            Paint maps, write story scripts, design characters, items and spells, draw sprites and time spell effects.
+            Playtest in one click and export a <code>.lib</code>.
+          </p>
+          <button className="ghost" onClick={onOpenEditor}>
+            Open the editor
+          </button>
+        </article>
+        <article>
+          <span className="feat-icon" aria-hidden="true">
+            ◆
+          </span>
+          <h3>Private</h3>
+          <p>
+            Nothing is uploaded. Games, saves and projects stay in this browser, and the site ships no game content apart
+            from its own demo.
+          </p>
+        </article>
       </section>
 
       <footer>
@@ -137,6 +226,12 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
         </a>
         . Game content belongs to its respective owners.
       </footer>
+
+      {drag && (
+        <div className="drop-overlay" aria-hidden="true">
+          <div>Drop to add games or fonts</div>
+        </div>
+      )}
     </div>
   );
 }

@@ -15,6 +15,8 @@ the right to use.
 
 ## What it does
 
+- The launch page plays the original *Lantern Path* demo live, starts it in one
+  click, and takes `.lib` files dropped anywhere on the page.
 - Interprets the original `DAT.LIB` resource format: maps, tiles, sprites,
   characters, items, magic, special effects and the GUT story-script bytecode
   (80 opcodes).
