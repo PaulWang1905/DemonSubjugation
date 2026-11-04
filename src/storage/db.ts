@@ -12,12 +12,22 @@ export interface StoredGame {
 
 export type FontName = "HZK16" | "ASC16";
 
+/** An editor project: the archive being edited. */
+export interface StoredProject {
+  id: string;
+  name: string;
+  updatedAt: number;
+  data: ArrayBuffer;
+  /** Script source text as written in the editor (labels, comments), by resource key. */
+  sources?: Record<string, string>;
+}
+
 const DB_NAME = "fmj-react";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 // Fallback when IndexedDB is unavailable (private mode, blocked storage).
-const memory = { games: new Map<string, StoredGame>(), fonts: new Map<string, ArrayBuffer>() };
+const memory = { games: new Map<string, StoredGame>(), fonts: new Map<string, ArrayBuffer>(), projects: new Map<string, StoredProject>() };
 let useMemory = false;
 
 function open(): Promise<IDBDatabase> {
@@ -29,6 +39,7 @@ function open(): Promise<IDBDatabase> {
         const db = req.result;
         if (!db.objectStoreNames.contains("games")) db.createObjectStore("games", { keyPath: "id" });
         if (!db.objectStoreNames.contains("fonts")) db.createObjectStore("fonts");
+        if (!db.objectStoreNames.contains("projects")) db.createObjectStore("projects", { keyPath: "id" });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -117,4 +128,40 @@ export async function putFont(name: FontName, data: ArrayBuffer): Promise<void> 
 
 export function isPersistent(): boolean {
   return !useMemory;
+}
+
+export async function listProjects(): Promise<StoredProject[]> {
+  try {
+    if (!useMemory) {
+      const all = await tx<StoredProject[]>("projects", "readonly", (s) => s.getAll() as IDBRequest<StoredProject[]>);
+      return all.sort((a, b) => b.updatedAt - a.updatedAt);
+    }
+  } catch {
+    /* fall through */
+  }
+  return [...memory.projects.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function putProject(p: StoredProject): Promise<void> {
+  try {
+    if (!useMemory) {
+      await tx("projects", "readwrite", (s) => s.put(p));
+      return;
+    }
+  } catch {
+    /* fall through */
+  }
+  memory.projects.set(p.id, p);
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  try {
+    if (!useMemory) {
+      await tx("projects", "readwrite", (s) => s.delete(id));
+      return;
+    }
+  } catch {
+    /* fall through */
+  }
+  memory.projects.delete(id);
 }

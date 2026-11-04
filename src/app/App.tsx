@@ -4,6 +4,7 @@ import { deleteSavesFor } from "../storage/saves";
 import { archiveId, importFiles } from "./importFiles";
 import { Library } from "./Library";
 import { Player } from "./Player";
+import { Editor } from "../editor/ui/Editor";
 
 function copyBuffer(u: Uint8Array): ArrayBuffer {
   return u.slice().buffer as ArrayBuffer;
@@ -13,6 +14,8 @@ export function App() {
   const [games, setGames] = useState<StoredGame[]>([]);
   const [fonts, setFonts] = useState<{ hzk16: ArrayBuffer | null; asc16: ArrayBuffer | null }>({ hzk16: null, asc16: null });
   const [playing, setPlaying] = useState<StoredGame | null>(null);
+  const [tab, setTab] = useState<"play" | "editor">(() => (location.hash === "#editor" ? "editor" : "play"));
+  const [playtestFrom, setPlaytestFrom] = useState(false);
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
   const [persistent, setPersistent] = useState(true);
@@ -71,27 +74,59 @@ export function App() {
     [refresh],
   );
 
-  const onExit = useCallback(() => setPlaying(null), []);
+  const onExit = useCallback(() => {
+    setPlaying(null);
+    setPlaytestFrom(false);
+  }, []);
+
+  const switchTab = (t: "play" | "editor") => {
+    setTab(t);
+    history.replaceState(null, "", t === "editor" ? "#editor" : "#");
+  };
+
+  const onPlaytest = useCallback((p: { id: string; name: string; data: ArrayBuffer }) => {
+    setPlaytestFrom(true);
+    setPlaying({ id: p.id, name: p.name, fileName: "playtest", size: p.data.byteLength, addedAt: Date.now(), data: p.data });
+  }, []);
 
   const fontPair = useMemo(
     () => (fonts.hzk16 && fonts.asc16 ? { hzk16: fonts.hzk16, asc16: fonts.asc16 } : null),
     [fonts],
   );
 
-  if (playing && fontPair) {
-    return <Player key={playing.id} game={playing} fonts={fontPair} onExit={onExit} />;
-  }
-
+  const showPlayer = !!(playing && fontPair);
   return (
-    <Library
-      games={games}
-      fonts={{ HZK16: !!fonts.hzk16, ASC16: !!fonts.asc16 }}
-      persistent={persistent}
-      busy={busy}
-      messages={messages}
-      onImport={onImport}
-      onPlay={setPlaying}
-      onDelete={onDelete}
-    />
+    <>
+      {!showPlayer && (
+        <nav className="tabs" aria-label="Sections">
+          <button className={tab === "play" ? "" : "ghost"} onClick={() => switchTab("play")}>
+            Play
+          </button>
+          <button className={tab === "editor" ? "" : "ghost"} onClick={() => switchTab("editor")}>
+            Editor
+          </button>
+        </nav>
+      )}
+      {/* The editor stays mounted so an open project survives tab switches and playtests. */}
+      <div hidden={showPlayer || tab !== "editor"}>
+        <Editor fontsReady={!!fontPair} onPlaytest={onPlaytest} />
+      </div>
+      {showPlayer ? (
+        <Player key={playing!.id + (playtestFrom ? playing!.addedAt : "")} game={playing!} fonts={fontPair!} onExit={onExit} />
+      ) : (
+        tab === "play" && (
+          <Library
+            games={games}
+            fonts={{ HZK16: !!fonts.hzk16, ASC16: !!fonts.asc16 }}
+            persistent={persistent}
+            busy={busy}
+            messages={messages}
+            onImport={onImport}
+            onPlay={setPlaying}
+            onDelete={onDelete}
+          />
+        )
+      )}
+    </>
   );
 }

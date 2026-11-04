@@ -106,3 +106,17 @@ describe("resource encoders (decoded by the engine)", () => {
     expect(() => encodeMap({ type: 1, index: 1, tileset: 1, name: "x", width: 200, height: 1, cells: [] })).toThrow(/map width/);
   });
 });
+
+import { decodeImage, decodeMap } from "../src/editor/format/decode";
+describe("editor decoders", () => {
+  it("decode what the encoders write", () => {
+    const f = [frameFromArt(["# . #", "#####"]), frameFromArt(["     ", "  #  "])];
+    const back = decodeImage(encodeImage(1, 1, f)).frames;
+    expect(back.map((x) => [...x.pixels])).toEqual(f.map((x) => [...x.pixels]));
+    const opaque = [frameFromArt(["#.#.#.#.#.", ".........#"])];
+    expect([...decodeImage(encodeImage(1, 1, opaque)).frames[0].pixels]).toEqual([...opaque[0].pixels]);
+    const cells = [{ tile: 3, walkable: true, event: 2 }, { tile: 9, walkable: false, event: 0 }];
+    const m = decodeMap(encodeMap({ type: 1, index: 4, tileset: 2, name: "Glade", width: 2, height: 1, cells }));
+    expect(m).toEqual({ type: 1, index: 4, tileset: 2, name: "Glade", width: 2, height: 1, cells });
+  });
+});

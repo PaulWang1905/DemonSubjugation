@@ -26,6 +26,51 @@ the right to use.
 - Also imports the hex-encoded `*.lib.js` / `rom.js` bundles used by the fmj.kt web
   builds.
 
+## Editor (work in progress)
+
+The **Editor** tab builds games in the same format:
+
+- **New project** from the original *Lantern Path* demo or a blank starter game.
+  Both ship original system graphics, tiles, sprites, sample monsters, items and
+  spells, so a new game needs nobody else's files. You can also open a `.lib`
+  you have the right to modify.
+- **Resource browser** grouped by kind, with previews of images, sprites,
+  tilesets and animations.
+- **Map editor**: paint tiles, mark walkable/blocked tiles, place map events,
+  rename and resize maps. The dashed box shows where the player can stand.
+- **Script editor**: the story scripts as readable text with labels (see the
+  built-in instruction reference). Errors point at the line. Your own text and
+  labels are kept with the project.
+- **Playtest** runs the project in the engine; **Export .lib** downloads it.
+- Projects are saved automatically in the browser (IndexedDB).
+
+Script example:
+
+```
+.gut 1 1
+.events 41
+.event 1 @talk          ; NPC 1 was talked to
+.event 41 @exit         ; the player stepped on map event 1
+
+@start:
+  loadmap 1, 1, 4, 4
+  createactor 1, 4, 3
+  createnpc 1, 1, 10, 6
+  callback
+@talk:
+  say 0, "Hello there!"
+  if 12, @done
+  gaingoods 9, 1
+  setevent 12
+@done:
+  callback
+@exit:
+  startchapter 1, 2
+```
+
+Still to come: forms for characters, items, magic and level tables, a pixel
+image editor, and translatable engine interface text.
+
 ## Controls
 
 | Action         | Keys                         |
@@ -92,6 +137,10 @@ src/
       scene/           map screen, save/load
       combat/          battle controller, actions, battle UI
       characters/ goods/ magic/ gamemenu/ views/ graphics/
+  editor/
+    format/            LIB reader/writer, script assembler, encoders, decoders
+    template/          original starter art, blank project and the demo game
+    ui/                editor screens (resource list, map and script editors)
   app/                 React shell: library/importer, player, keypad
   storage/             IndexedDB (archives, fonts) and localStorage (saves)
 tests/                 vitest: unit tests + optional real-data tests

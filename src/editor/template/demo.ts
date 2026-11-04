@@ -537,6 +537,11 @@ ${say(1, "The wisp is gone. Back to the hamlet!")}
 
 // ---------------------------------------------------------------------------
 
+/** The demo's script sources, so the editor shows them with their labels. */
+export function lanternPathSources(): Record<string, string> {
+  return { "1-1-1": HAMLET.trimStart(), "1-1-2": GLADE.trimStart() };
+}
+
 export function lanternPath(): LibArchive {
   const entries: LibEntry[] = [...systemResources({ title: "LANTERN PATH", subtitle: "A DEMO FOR FMJ REACT" })];
   const add = (resType: number, type: number, index: number, data: Uint8Array) => entries.push({ resType, type, index, data });

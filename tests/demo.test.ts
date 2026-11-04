@@ -101,3 +101,18 @@ describe("Lantern Path demo", () => {
     expect(e.game.playerList[0].currentExp + e.game.playerList[0].level).toBeGreaterThan(1);
   });
 });
+
+import { blankProject } from "../src/editor/template/blank";
+describe("blank starter project", () => {
+  it("is a playable archive", () => {
+    const lib = writeLib(blankProject("TEST"));
+    expect(inspectDatLib(lib)).toMatchObject({ playable: true, maps: 1, scripts: 1 });
+    const e = createEngine({ resources: { datLib: lib, ...blankFonts }, saves: memorySaves() });
+    expect(e.checkScripts()).toEqual([]);
+    tick(e, 120);
+    press(e, Keys.ENTER, 10);
+    settle(e);
+    expect(e.game.mainScene.currentMap?.mapName).toBe("START");
+    expect(e.game.playerList).toHaveLength(1);
+  });
+});

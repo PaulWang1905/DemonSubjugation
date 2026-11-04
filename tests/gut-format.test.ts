@@ -65,3 +65,15 @@ describe("GUT assembler", () => {
     expect(() => assemble("  set 1, 70000\n")).toThrow(/16 bits/);
   });
 });
+
+import { lanternPath, lanternPathSources } from "../src/editor/template/demo";
+describe("demo script sources", () => {
+  it("assemble to exactly the bytes in the demo archive", () => {
+    const a = lanternPath();
+    for (const [key, src] of Object.entries(lanternPathSources())) {
+      const [rt, t, i] = key.split("-").map(Number);
+      const e = a.entries.find((x) => x.resType === rt && x.type === t && x.index === i)!;
+      expect([...assemble(src)]).toEqual([...e.data]);
+    }
+  });
+});
