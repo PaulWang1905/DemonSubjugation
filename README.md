@@ -38,8 +38,8 @@ The **Editor** tab builds games in the same format:
   you have the right to modify.
 - **Resource browser** grouped by kind, with previews of images, sprites,
   tilesets and animations.
-- **Map editor**: paint tiles, mark walkable/blocked tiles, place map events,
-  rename and resize maps. The dashed box shows where the player can stand.
+- **Map editor**: paint and fill tiles, mark walkable/blocked tiles, place map
+  events, rename and resize maps, with undo/redo (Ctrl+Z / Ctrl+Y). The dashed box shows where the player can stand.
 - **Script editor**: the story scripts as readable text with labels (see the
   built-in instruction reference). Errors point at the line. Your own text and
   labels are kept with the project.
@@ -78,7 +78,7 @@ Script example:
 The engine's own menus come in Chinese and English; the language follows the
 game title by default and can be changed in the player's options.
 
-Still to come: an animation editor, map-editor undo and adding new tilesets.
+Still to come: an animation editor and adding new tilesets.
 
 ## Controls
 

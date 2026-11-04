@@ -6,7 +6,9 @@ import { cells as textCells } from "../format/text";
 import { FrameCanvas } from "./FrameStrip";
 import { DARK, LIGHT, blitFrame } from "./pixels";
 
-type Tool = "tile" | "walk" | "block" | "event" | "pick";
+type Tool = "tile" | "fill" | "walk" | "block" | "event" | "pick";
+
+const HISTORY = 100;
 
 interface Props {
   archive: LibArchive;
@@ -25,8 +27,16 @@ export function MapEditor({ archive, entry, onChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const painting = useRef(false);
+  // Undo history of whole-map snapshots. `stroke` holds the map as it was when
+  // a drag started; `lastTag` merges runs of the same edit (typing a name).
+  const undo = useRef<DecodedMap[]>([]);
+  const redo = useRef<DecodedMap[]>([]);
+  const stroke = useRef<DecodedMap | null>(null);
+  const lastTag = useRef<string | null>(null);
+  const [, bump] = useState(0);
 
-  useEffect(() => setMap(decodeMap(entry.data)), [entry]);
+  // No reload on entry changes: the view is re-created when another resource
+  // is selected, and reloading after our own saves would wipe the undo history.
 
   const tiles: Frame[] = useMemo(() => {
     const t = findEntry(archive, 7, 1, map.tileset);
@@ -84,7 +94,17 @@ export function MapEditor({ archive, entry, onChange }: Props) {
     }
   }, [map, tiles, zoom, showWalk, showEvents]);
 
-  const commit = (next: DecodedMap) => {
+  const remember = (before: DecodedMap, tag: string | null) => {
+    if (tag === null || tag !== lastTag.current) {
+      undo.current.push(before);
+      if (undo.current.length > HISTORY) undo.current.shift();
+    }
+    lastTag.current = tag;
+    redo.current = [];
+    bump((n) => n + 1);
+  };
+
+  const save = (next: DecodedMap) => {
     setMap(next);
     try {
       onChange(encodeMap({ ...next, cells: next.cells }));
@@ -92,6 +112,67 @@ export function MapEditor({ archive, entry, onChange }: Props) {
     } catch (e) {
       setError((e as Error).message);
     }
+  };
+
+  /** Apply an edit that can be undone. */
+  const commit = (next: DecodedMap, tag: string | null = null) => {
+    if (next === map) return;
+    remember(map, tag);
+    save(next);
+  };
+
+  const doUndo = () => {
+    const prev = undo.current.pop();
+    if (!prev) return;
+    redo.current.push(map);
+    lastTag.current = null;
+    save(prev);
+    bump((n) => n + 1);
+  };
+  const doRedo = () => {
+    const next = redo.current.pop();
+    if (!next) return;
+    undo.current.push(map);
+    lastTag.current = null;
+    save(next);
+    bump((n) => n + 1);
+  };
+
+  // Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z while the map is on screen and no text field has focus.
+  const keys = useRef({ doUndo, doRedo });
+  keys.current = { doUndo, doRedo };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (!canvas.current || canvas.current.offsetParent === null) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) keys.current.doUndo();
+      else if (k === "y" || (k === "z" && e.shiftKey)) keys.current.doRedo();
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const floodFill = (x: number, y: number): DecodedMap => {
+    const from = map.cells[y * map.width + x].tile;
+    if (from === tile) return map;
+    const cells = map.cells.slice();
+    const stack = [y * map.width + x];
+    while (stack.length) {
+      const i = stack.pop()!;
+      if (cells[i].tile !== from) continue;
+      cells[i] = { ...cells[i], tile };
+      const cx = i % map.width;
+      if (cx > 0) stack.push(i - 1);
+      if (cx < map.width - 1) stack.push(i + 1);
+      if (i >= map.width) stack.push(i - map.width);
+      if (i + map.width < cells.length) stack.push(i + map.width);
+    }
+    return { ...map, cells };
   };
 
   const apply = (ev: React.PointerEvent<HTMLCanvasElement>, commitNow: boolean) => {
@@ -103,6 +184,10 @@ export function MapEditor({ archive, entry, onChange }: Props) {
     if (x < 0 || y < 0 || x >= map.width || y >= map.height) return;
     const i = y * map.width + x;
     const cur = map.cells[i];
+    if (tool === "fill") {
+      commit(floodFill(x, y));
+      return;
+    }
     let nextCell: MapCell = cur;
     switch (tool) {
       case "tile":
@@ -127,7 +212,7 @@ export function MapEditor({ archive, entry, onChange }: Props) {
     cells[i] = nextCell;
     const next = { ...map, cells };
     if (commitNow) commit(next);
-    else setMap(next);
+    else setMap(next); // the drag is recorded once, on pointer up
   };
 
   const resize = (w: number, h: number) => {
@@ -153,6 +238,7 @@ export function MapEditor({ archive, entry, onChange }: Props) {
           {(
             [
               ["tile", "Paint tile"],
+              ["fill", "Fill"],
               ["walk", "Walkable"],
               ["block", "Blocked"],
               ["event", "Event"],
@@ -181,6 +267,14 @@ export function MapEditor({ archive, entry, onChange }: Props) {
             ))}
           </select>
         </label>
+        <div className="seg">
+          <button className="ghost" onClick={doUndo} disabled={undo.current.length === 0} title="Undo (Ctrl+Z)">
+            Undo
+          </button>
+          <button className="ghost" onClick={doRedo} disabled={redo.current.length === 0} title="Redo (Ctrl+Y)">
+            Redo
+          </button>
+        </div>
         <label className="check">
           <input type="checkbox" checked={showWalk} onChange={(e) => setShowWalk(e.target.checked)} /> Blocked tint
         </label>
@@ -196,7 +290,7 @@ export function MapEditor({ archive, entry, onChange }: Props) {
             value={map.name}
             maxLength={12}
             onChange={(e) => {
-              if (textCells(e.target.value) <= 12) commit({ ...map, name: e.target.value });
+              if (textCells(e.target.value) <= 12) commit({ ...map, name: e.target.value }, "name");
             }}
           />
         </label>
@@ -207,7 +301,7 @@ export function MapEditor({ archive, entry, onChange }: Props) {
         </label>
         <label className="field">
           Tileset
-          <input type="number" min={1} max={255} value={map.tileset} onChange={(e) => commit({ ...map, tileset: Math.max(1, Math.min(255, Number(e.target.value) || 1)) })} />
+          <input type="number" min={1} max={255} value={map.tileset} onChange={(e) => commit({ ...map, tileset: Math.max(1, Math.min(255, Number(e.target.value) || 1)) }, "tileset")} />
         </label>
         {error && <span className="error">{error}</span>}
       </div>
@@ -217,14 +311,21 @@ export function MapEditor({ archive, entry, onChange }: Props) {
           <canvas
             ref={canvas}
             onPointerDown={(e) => {
-              painting.current = true;
+              const drag = tool === "tile" || tool === "walk" || tool === "block";
+              painting.current = drag;
+              stroke.current = drag ? map : null;
               (e.target as HTMLElement).setPointerCapture(e.pointerId);
-              apply(e, tool === "event" || tool === "pick");
+              apply(e, !drag);
             }}
-            onPointerMove={(e) => painting.current && tool !== "event" && tool !== "pick" && apply(e, false)}
+            onPointerMove={(e) => painting.current && apply(e, false)}
             onPointerUp={() => {
-              if (painting.current && tool !== "event" && tool !== "pick") commit(map);
+              const before = stroke.current;
               painting.current = false;
+              stroke.current = null;
+              if (before && before !== map) {
+                remember(before, null);
+                save(map);
+              }
             }}
           />
         </div>

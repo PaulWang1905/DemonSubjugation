@@ -151,6 +151,25 @@ export function PixelEditor({ entry, onChange, hint }: Props) {
     commit(next, false);
   };
 
+  // Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z while the editor is on screen and no text field has focus.
+  const keys = useRef({ doUndo, doRedo });
+  keys.current = { doUndo, doRedo };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (!canvas.current || canvas.current.offsetParent === null) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) keys.current.doUndo();
+      else if (k === "y" || (k === "z" && e.shiftKey)) keys.current.doRedo();
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const importPng = async (file: File | undefined) => {
     if (!file) return;
     try {
@@ -195,17 +214,7 @@ export function PixelEditor({ entry, onChange, hint }: Props) {
   if (!f) return <p className="error">This image has no frames.</p>;
 
   return (
-    <div
-      className="pixel-editor"
-      onKeyDown={(e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
-          e.preventDefault();
-          if (e.shiftKey) doRedo();
-          else doUndo();
-        }
-      }}
-      tabIndex={-1}
-    >
+    <div className="pixel-editor">
       {hint && <p className="muted small">{hint}</p>}
       <div className="map-tools">
         <div className="seg">
