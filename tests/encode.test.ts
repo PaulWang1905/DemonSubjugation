@@ -16,7 +16,6 @@ import type { NPC } from "../src/engine/fmj/characters/NPC";
 import type { Monster } from "../src/engine/fmj/characters/Monster";
 import type { GoodsEquipment } from "../src/engine/fmj/goods/GoodsEquipment";
 import type { GoodsMedicine } from "../src/engine/fmj/goods/GoodsMedicine";
-import type { MagicAttack } from "../src/engine/fmj/magic/MagicAttack";
 import type { ResMagicChain } from "../src/engine/fmj/magic/ResMagicChain";
 import type { ResLevelupChain } from "../src/engine/fmj/characters/ResLevelupChain";
 import { memorySaves } from "./helpers";
@@ -91,7 +90,7 @@ describe("resource encoders (decoded by the engine)", () => {
     expect([w.mat, w.mdf]).toEqual([6, -1]);
     const h = DatLib.getRes(ResType.GRS, 9, 1) as GoodsMedicine;
     expect(h.name).toBe("Herb");
-    const s = DatLib.getRes(ResType.MRS, 1, 1) as MagicAttack & { mHp: number };
+    const s = DatLib.getRes(ResType.MRS, 1, 1) as unknown as { magicName: string; magicDescription: string; costMp: number; isForAll: boolean; mHp: number };
     expect([s.magicName, s.magicDescription, s.costMp, s.isForAll, s.mHp]).toEqual(["Spark", "A small bolt.", 3, false, 25]);
     const mc = DatLib.getMlr(1, 1)!;
     expect((mc as ResMagicChain).getMagic(0)!.magicName).toBe("Spark");
