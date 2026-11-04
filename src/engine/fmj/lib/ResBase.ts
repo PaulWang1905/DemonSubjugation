@@ -11,7 +11,7 @@ export abstract class ResBase {
   /** GBK, NUL-terminated string. */
   static getString(buf: Int8Array, start: number): string {
     let i = 0;
-    while (buf[start + i] !== 0) ++i;
+    while (start + i < buf.length && buf[start + i] !== 0) ++i;
     return gbkString(buf, start, i);
   }
 

@@ -24,7 +24,7 @@ export class ResMap extends ResBase {
     this.mTilIndex = buf[offset + 2];
 
     let i = 0;
-    while (buf[offset + 3 + i] !== 0) ++i;
+    while (offset + 3 + i < buf.length && buf[offset + 3 + i] !== 0 && i < 13) ++i;
     this.mapName = gbkString(buf, offset + 3, i);
 
     this.mapWidth = buf[offset + 0x10];

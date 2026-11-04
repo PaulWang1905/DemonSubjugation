@@ -46,6 +46,8 @@ export function warnOnce(key: string, msg: string): void {
 export class DatLib {
   private readonly mBuffer: Int8Array;
   private readonly mDataOffset = new Map<number, number>();
+  /** End (exclusive) of each resource's data, by start offset. */
+  private readonly mDataEnd = new Map<number, number>();
   private readonly guts: { type: number; index: number }[] = [];
 
   constructor(buffer: Int8Array) {
@@ -78,6 +80,32 @@ export class DatLib {
       this.mDataOffset.set(key, value);
       if (resType === 1) this.guts.push({ type, index });
     }
+    this.computeExtents();
+  }
+
+  /**
+   * A resource ends where the next one in its 16 KB block starts, or at the
+   * block's used-data end (u16 at block+12). Resources are read through a
+   * view that stops there, so a truncated record reads zeros instead of a
+   * neighbour's bytes (which would depend on how the archive was packed).
+   */
+  private computeExtents(): void {
+    const b = this.mBuffer;
+    const BLOCK = 0x4000;
+    const starts = [...new Set(this.mDataOffset.values())].sort((x, y) => x - y);
+    for (let k = 0; k < starts.length; k++) {
+      const off = starts[k];
+      const blockStart = Math.floor(off / BLOCK) * BLOCK;
+      const next = starts[k + 1];
+      let end: number;
+      if (next !== undefined && next < blockStart + BLOCK) {
+        end = next;
+      } else {
+        const used = (b[blockStart + 12] & 0xff) | ((b[blockStart + 13] & 0xff) << 8);
+        end = used > off - blockStart && used <= BLOCK ? blockStart + used : blockStart + BLOCK;
+      }
+      this.mDataEnd.set(off, Math.min(end, b.length));
+    }
   }
 
   getRes(resType: ResType, type: number, index: number, allowNull = false): ResBase | null {
@@ -86,7 +114,8 @@ export class DatLib {
     if (offset !== -1) {
       if (!factory) throw new Error("Resource factory not registered");
       res = factory(resType, type);
-      res?.setData(this.mBuffer, offset);
+      const end = this.mDataEnd.get(offset) ?? this.mBuffer.length;
+      res?.setData(end >= this.mBuffer.length ? this.mBuffer : this.mBuffer.subarray(0, end), offset);
     }
     if (allowNull) return res;
     if (!res && placeholder) {
