@@ -38,7 +38,7 @@ function decodeGbk(bytes: Uint8Array): string {
 export function libTitle(data: Uint8Array): string | null {
   if (data.length < 0x10 || data[0] !== 0x4c || data[1] !== 0x49 || data[2] !== 0x42) return null;
   let end = 3;
-  while (end < 0x10 && data[end] !== 0) end++;
+  while (end < 12 && data[end] !== 0) end++; // the title ends where the index length starts
   const name = decodeGbk(data.subarray(3, end)).trim();
   return name || null;
 }
