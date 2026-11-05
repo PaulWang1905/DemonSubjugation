@@ -65,7 +65,7 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
         }}
       />
 
-      <section className="hero">
+      <section className="hero" id="top">
         <div className="hero-text">
           <p className="eyebrow">BBK electronic-dictionary RPG engine</p>
           <h1>Play and make pocket RPGs in your browser.</h1>
@@ -85,8 +85,13 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
             <button className="link" onClick={onOpenEditor}>
               Or make your own game in the editor →
             </button>
-            <span className="fine-note">No game data included · nothing you open is uploaded</span>
           </p>
+          <ul className="highlights" aria-label="Highlights">
+            <li>Runs in the browser</li>
+            <li>Keyboard and touch</li>
+            <li>Saves on your device</li>
+            <li>Free, nothing uploaded</li>
+          </ul>
         </div>
         {preview && (
           <figure className="hero-screen">
@@ -122,7 +127,7 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
         </section>
       )}
 
-      <section className="shelf">
+      <section className="shelf" id="games">
         <div className="shelf-head">
           <h2>Your games</h2>
           <span className="muted small">Drop .lib files anywhere on this page</span>
@@ -199,6 +204,10 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
 
       <RemoteAdd busy={busy} onImport={onImport} />
 
+      <header className="section-head" id="features">
+        <h2 className="section-title">What you can do</h2>
+        <p className="section-sub">Play the classics you own, try the demos, or make a game of your own.</p>
+      </header>
       <section className="features">
         <article>
           <span className="feat-icon" aria-hidden="true">
@@ -229,18 +238,91 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
           </span>
           <h3>Private</h3>
           <p>
-            Nothing is uploaded. Games, saves and projects stay in this browser, and the site ships no game content apart
-            from its own demo.
+            Nothing is uploaded. Games, saves and projects stay in this browser, and the site ships no game content apart from its own demos.
           </p>
         </article>
       </section>
 
-      <footer>
-        Engine ported from{" "}
-        <a href="https://gitee.com/bgwp/fmj.kt" target="_blank" rel="noreferrer">
-          fmj.kt
-        </a>{" "}
-        (GPL-2.0) with fixes from the baye-fmj-app fork. Game content belongs to its respective owners.
+      <section className="how" id="how">
+        <header className="section-head">
+          <h2 className="section-title">How it works</h2>
+        </header>
+        <ol className="steps">
+          <li>
+            <span className="step-n">1</span>
+            <h3>Pick a game</h3>
+            <p>
+              Start with <em>The Silent Bell</em> or <em>Lantern Path</em>, open a <code>.lib</code> archive you own, or add one from a link.
+            </p>
+          </li>
+          <li>
+            <span className="step-n">2</span>
+            <h3>Play anywhere</h3>
+            <p>Keyboard on a computer, a full-screen keypad on a phone. Save at any time; saves stay in this browser.</p>
+          </li>
+          <li>
+            <span className="step-n">3</span>
+            <h3>Make your own</h3>
+            <p>On a computer, open the editor: paint maps, write the story, draw sprites, playtest in one click and export a <code>.lib</code>.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section className="about" id="about">
+        <header className="section-head">
+          <h2 className="section-title">About the project</h2>
+        </header>
+        <div className="about-body">
+          <p>
+            In the 2000s, BBK electronic dictionaries shipped with a small role-playing game engine. <em>伏魔记</em> was its best-known game, and fans went
+            on to make many more for it.
+          </p>
+          <p>
+            FMJ React brings that engine to the web. It is a TypeScript port of the open-source fmj.kt re-implementation, checked against a reconstruction
+            of the original engine so that battles, scripts and items behave as they did on the device. On top it adds sharp text, a phone layout, more
+            text per page and a complete game editor.
+          </p>
+          <dl className="facts">
+            <div>
+              <dt>Engine</dt>
+              <dd>TypeScript and React, no plugins</dd>
+            </div>
+            <div>
+              <dt>Licence</dt>
+              <dd>GPL-2.0, like fmj.kt</dd>
+            </div>
+            <div>
+              <dt>Game data</dt>
+              <dd>None included apart from the demos</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <footer className="site-footer">
+        <div className="footer-brand">
+          <img src="/favicon.svg" alt="" width={24} height={24} />
+          <strong>FMJ React</strong>
+          <span className="muted">Play and make pocket RPGs in your browser.</span>
+        </div>
+        <nav className="footer-links" aria-label="Footer">
+          <button className="link" onClick={() => onPlayDemo("bell")}>
+            Play the demo
+          </button>
+          <button className="link" onClick={choose} disabled={busy}>
+            Open a game
+          </button>
+          <button className="link" onClick={onOpenEditor}>
+            Editor
+          </button>
+        </nav>
+        <p className="muted small">
+          Engine ported from{" "}
+          <a href="https://gitee.com/bgwp/fmj.kt" target="_blank" rel="noreferrer">
+            fmj.kt
+          </a>{" "}
+          (GPL-2.0) with fixes from the baye-fmj-app fork. Game content belongs to its respective owners.
+        </p>
       </footer>
 
       {drag && (

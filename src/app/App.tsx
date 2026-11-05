@@ -11,6 +11,14 @@ function copyBuffer(u: Uint8Array): ArrayBuffer {
   return u.slice().buffer as ArrayBuffer;
 }
 
+/** The launch page's sections in the site menu. */
+const SECTIONS: [string, string][] = [
+  ["games", "Games"],
+  ["features", "Features"],
+  ["how", "How it works"],
+  ["about", "About"],
+];
+
 /** Screens too narrow for the editor (phones). */
 const SMALL_SCREEN = "(max-width: 760px)";
 
@@ -103,6 +111,20 @@ export function App() {
     history.replaceState(null, "", t === "editor" ? "#editor" : "#");
   };
 
+  // The site menu: sections of the launch page (from the editor, go back to it first).
+  const [menuOpen, setMenuOpen] = useState(false);
+  const goTo = (id: string) => {
+    setMenuOpen(false);
+    const scroll = () => {
+      if (id === "top") window.scrollTo({ top: 0, behavior: "smooth" });
+      else document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    if (tab !== "play") {
+      switchTab("play");
+      requestAnimationFrame(() => requestAnimationFrame(scroll));
+    } else scroll();
+  };
+
   const onPlaytest = useCallback((p: { id: string; name: string; data: ArrayBuffer }) => {
     setPlaytestFrom(true);
     setPlaying({ id: p.id, name: p.name, fileName: "playtest", size: p.data.byteLength, addedAt: Date.now(), data: p.data });
@@ -121,20 +143,51 @@ export function App() {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              switchTab("play");
+              goTo("top");
             }}
           >
             <img src="/favicon.svg" alt="" width={28} height={28} />
             <span>FMJ React</span>
           </a>
-          <nav className="tabs" aria-label="Sections">
-            <button className={tab === "play" ? "" : "ghost"} aria-current={tab === "play" ? "page" : undefined} onClick={() => switchTab("play")}>
-              Play
-            </button>
-            <button className={tab === "editor" ? "" : "ghost"} aria-current={tab === "editor" ? "page" : undefined} onClick={() => switchTab("editor")}>
+          <nav className={menuOpen ? "site-nav open" : "site-nav"} id="site-nav" aria-label="Site">
+            {SECTIONS.map(([id, label]) => (
+              <a
+                key={id}
+                href={`#${id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  goTo(id);
+                }}
+              >
+                {label}
+              </a>
+            ))}
+            <a
+              href="#editor"
+              aria-current={tab === "editor" ? "page" : undefined}
+              onClick={(e) => {
+                e.preventDefault();
+                setMenuOpen(false);
+                switchTab("editor");
+              }}
+            >
               Editor
-            </button>
+            </a>
           </nav>
+          <div className="topbar-actions">
+            <button className="nav-play" onClick={() => setPlaying(bellGame())}>
+              ▶ Play
+            </button>
+            <button
+              className="ghost nav-toggle"
+              aria-label="Menu"
+              aria-expanded={menuOpen}
+              aria-controls="site-nav"
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              {menuOpen ? "✕" : "☰"}
+            </button>
+          </div>
         </header>
       )}
       {/* The editor needs room: on a phone, say so instead of showing a cramped editor. */}

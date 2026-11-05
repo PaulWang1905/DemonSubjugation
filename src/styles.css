@@ -60,6 +60,7 @@
 
 html,
 body {
+  overflow-x: clip; /* the top bar's full-width background must not scroll sideways */
   margin: 0;
   background: var(--bg);
   color: var(--ink);
@@ -1126,16 +1127,34 @@ footer {
   }
 }
 
-/* ---------- top bar ---------- */
+/* ---------- top bar: the site's navigation ---------- */
 
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--line);
+  gap: 16px;
+  margin: -16px -16px 12px;
+  padding: 10px 16px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  backdrop-filter: saturate(1.4) blur(10px);
+  /* the bar's background and line reach the window's edges */
+  box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--bg) 88%, transparent);
+  clip-path: inset(0 -100vmax);
+}
+
+.topbar::after {
+  content: "";
+  position: absolute;
+  left: -100vmax;
+  right: -100vmax;
+  bottom: 0;
+  height: 1px;
+  background: var(--line);
 }
 
 .brand {
@@ -1146,15 +1165,98 @@ footer {
   font-size: 17px;
   color: var(--ink);
   text-decoration: none;
+  flex: none;
 }
 
 .brand img {
   border-radius: 6px;
 }
 
-.tabs {
+.site-nav {
   display: flex;
-  gap: 6px;
+  gap: 4px;
+  flex: 1;
+  justify-content: center;
+}
+
+.site-nav a {
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-nav a:hover,
+.site-nav a[aria-current="page"] {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.nav-play {
+  font-weight: 600;
+}
+
+.nav-toggle {
+  display: none;
+  width: 40px;
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
+}
+
+/* phones: the links fold into a menu under the bar */
+@media (max-width: 760px) {
+  .topbar {
+    margin: -12px -12px 8px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .nav-toggle {
+    display: inline-flex;
+  }
+  .site-nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0;
+    padding: 6px 12px 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 12px 24px rgb(0 0 0 / 0.12);
+  }
+  .site-nav.open {
+    display: flex;
+  }
+  .topbar:has(.site-nav.open) {
+    clip-path: none;
+  }
+  .site-nav a {
+    padding: 12px 8px;
+    font-size: 16px;
+    color: var(--ink);
+    border-radius: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .site-nav a:last-child {
+    border-bottom: none;
+  }
+}
+
+/* sections land below the sticky bar */
+.library [id] {
+  scroll-margin-top: 76px;
 }
 
 /* ---------- editor ---------- */
@@ -2436,4 +2538,189 @@ button.small {
   justify-content: center;
   flex-wrap: wrap;
   margin-top: 16px;
+}
+
+/* ---------- launch page: highlights, sections, footer ---------- */
+
+.highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.highlights li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.highlights li::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.section-head {
+  margin: 34px 0 14px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 22px !important;
+  letter-spacing: -0.01em;
+}
+
+.section-sub {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.steps li {
+  padding: 16px 18px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.steps h3 {
+  margin: 10px 0 6px;
+  font-size: 16px;
+}
+
+.steps p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.about-body {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px 20px;
+}
+
+.about-body p {
+  margin: 0 0 12px;
+  max-width: 62em;
+  text-wrap: pretty;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.facts dt {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.facts dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+
+.site-footer {
+  margin-top: 36px;
+  padding: 20px 2px calc(28px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.footer-brand img {
+  border-radius: 5px;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.footer-links button.link {
+  font-size: 14px;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .steps,
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .section-head {
+    margin-top: 28px;
+  }
+  /* the hero on a phone: big title, full-width buttons, a smaller device */
+  .hero h1 {
+    font-size: 34px;
+  }
+  .lead {
+    font-size: 16px;
+  }
+  .cta {
+    flex-direction: column;
+  }
+  .cta button.big {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 18px;
+  }
+  .fine {
+    align-items: center;
+    text-align: center;
+  }
+  .highlights {
+    justify-content: center;
+  }
+  .hero-screen .device {
+    width: min(100%, 340px);
+  }
 }
