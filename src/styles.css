@@ -2406,3 +2406,34 @@ button.small {
   top: auto;
   bottom: calc(14px + env(safe-area-inset-bottom));
 }
+
+/* the editor's note on small screens */
+.small-screen {
+  max-width: 460px;
+  margin: 40px auto;
+  padding: 24px 20px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.small-screen-icon {
+  display: block;
+  margin: 0 auto 10px;
+  color: var(--accent);
+}
+.small-screen h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+}
+.small-screen p {
+  margin: 0 0 12px;
+  text-wrap: pretty;
+}
+.small-screen .row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}

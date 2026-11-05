@@ -11,9 +11,27 @@ function copyBuffer(u: Uint8Array): ArrayBuffer {
   return u.slice().buffer as ArrayBuffer;
 }
 
+/** Screens too narrow for the editor (phones). */
+const SMALL_SCREEN = "(max-width: 760px)";
+
+function useMedia(query: string): boolean {
+  const [on, setOn] = useState(() => typeof matchMedia === "function" && matchMedia(query).matches);
+  useEffect(() => {
+    const m = matchMedia(query);
+    const ch = () => setOn(m.matches);
+    ch();
+    m.addEventListener("change", ch);
+    return () => m.removeEventListener("change", ch);
+  }, [query]);
+  return on;
+}
+
 export function App() {
   const [games, setGames] = useState<StoredGame[]>([]);
   const [fonts, setFonts] = useState<{ hzk16: ArrayBuffer | null; asc16: ArrayBuffer | null }>({ hzk16: null, asc16: null });
+  // Phones get a note instead of the editor, unless they ask to continue.
+  const smallScreen = useMedia(SMALL_SCREEN);
+  const [editorAnyway, setEditorAnyway] = useState(false);
   const [playing, setPlaying] = useState<StoredGame | null>(null);
   const [tab, setTab] = useState<"play" | "editor">(() => (location.hash === "#editor" ? "editor" : "play"));
   const [playtestFrom, setPlaytestFrom] = useState(false);
@@ -119,8 +137,30 @@ export function App() {
           </nav>
         </header>
       )}
+      {/* The editor needs room: on a phone, say so instead of showing a cramped editor. */}
+      {!showPlayer && tab === "editor" && smallScreen && !editorAnyway && (
+        <section className="small-screen" role="note">
+          <svg className="small-screen-icon" viewBox="0 0 48 40" width="56" height="46" aria-hidden="true">
+            <rect x="3" y="3" width="42" height="26" rx="3" fill="none" stroke="currentColor" strokeWidth="3" />
+            <rect x="9" y="9" width="30" height="14" fill="#a7ba82" />
+            <path d="M18 37h12M24 30v7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+          </svg>
+          <h2>The editor needs a bigger screen</h2>
+          <p>
+            Making a game means painting maps, editing scripts and drawing sprites, which needs more room than a phone has. Open this
+            site on a computer or a tablet to use the editor.
+          </p>
+          <p className="muted small">Your phone is great for playing: games, saves and the built-in demos all work here.</p>
+          <div className="row">
+            <button onClick={() => switchTab("play")}>Back to the games</button>
+            <button className="ghost" onClick={() => setEditorAnyway(true)}>
+              Continue anyway
+            </button>
+          </div>
+        </section>
+      )}
       {/* The editor stays mounted so an open project survives tab switches and playtests. */}
-      <div hidden={showPlayer || tab !== "editor"}>
+      <div hidden={showPlayer || tab !== "editor" || (smallScreen && !editorAnyway)}>
         <Editor onPlaytest={onPlaytest} />
       </div>
       {showPlayer ? (
