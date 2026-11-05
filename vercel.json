@@ -3,5 +3,6 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(games|guide|about|editor)/?", "destination": "/index.html" }]
+  "trailingSlash": false,
+  "rewrites": [{ "source": "/:page(games|guide|about|editor)", "destination": "/index.html" }]
 }
