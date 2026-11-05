@@ -2724,3 +2724,35 @@ button.small {
     width: min(100%, 340px);
   }
 }
+
+/* external links: GitHub in the bar and the footer */
+.gh-mark {
+  vertical-align: -3px;
+  flex: none;
+}
+
+.site-nav a.nav-ext {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+a.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+a.link:hover {
+  text-decoration: underline;
+}
+
+@media (min-width: 761px) {
+  .facts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

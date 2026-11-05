@@ -3,6 +3,7 @@ import type { StoredGame } from "../storage/db";
 import { AttractScreen } from "./AttractScreen";
 import type { Imported } from "./importFiles";
 import { RemoteAdd } from "./RemoteAdd";
+import { GitHubMark, REPO_URL } from "./links";
 
 interface Props {
   games: StoredGame[];
@@ -295,6 +296,14 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
               <dt>Game data</dt>
               <dd>None included apart from the demos</dd>
             </div>
+            <div>
+              <dt>Source</dt>
+              <dd>
+                <a href={REPO_URL} target="_blank" rel="noreferrer">
+                  GitHub
+                </a>
+              </dd>
+            </div>
           </dl>
         </div>
       </section>
@@ -315,13 +324,23 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
           <button className="link" onClick={onOpenEditor}>
             Editor
           </button>
+          <a className="link" href={REPO_URL} target="_blank" rel="noreferrer">
+            <GitHubMark /> Source on GitHub
+          </a>
+          <a className="link" href={`${REPO_URL}/issues`} target="_blank" rel="noreferrer">
+            Report a problem
+          </a>
         </nav>
         <p className="muted small">
           Engine ported from{" "}
           <a href="https://gitee.com/bgwp/fmj.kt" target="_blank" rel="noreferrer">
             fmj.kt
           </a>{" "}
-          (GPL-2.0) with fixes from the baye-fmj-app fork. Game content belongs to its respective owners.
+          (GPL-2.0) with fixes from the baye-fmj-app fork, and checked against{" "}
+          <a href="https://gitee.com/BA4988/fmj-engine" target="_blank" rel="noreferrer">
+            fmj-engine
+          </a>
+          , a reconstruction of the original engine. Game content belongs to its respective owners.
         </p>
       </footer>
 

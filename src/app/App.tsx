@@ -6,6 +6,7 @@ import { Library } from "./Library";
 import { Player } from "./Player";
 import { Editor } from "../editor/ui/Editor";
 import { bellGame, demoGame } from "./demoGame";
+import { GitHubMark, REPO_URL } from "./links";
 
 function copyBuffer(u: Uint8Array): ArrayBuffer {
   return u.slice().buffer as ArrayBuffer;
@@ -172,6 +173,9 @@ export function App() {
               }}
             >
               Editor
+            </a>
+            <a className="nav-ext" href={REPO_URL} target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}>
+              <GitHubMark /> GitHub <span aria-hidden="true">↗</span>
             </a>
           </nav>
           <div className="topbar-actions">
