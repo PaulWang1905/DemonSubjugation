@@ -70,21 +70,23 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
           <p className="eyebrow">BBK electronic-dictionary RPG engine</p>
           <h1>Play and make pocket RPGs in your browser.</h1>
           <p className="lead">
-            The engine behind 伏魔记 and the many community games made for it, rebuilt for the web. Open a game archive you
-            own, or build your own with the editor.
+            The engine behind 伏魔记 and the many community games made for it, rebuilt for the web. Start with{" "}
+            <em>The Silent Bell</em>, a twenty-minute adventure made for this site, open a game you own, or build your own.
           </p>
           <div className="cta">
             <button className="big" onClick={() => onPlayDemo("bell")}>
-              ▶ Play the demo
+              ▶ Play The Silent Bell
             </button>
             <button className="big ghost" onClick={choose} disabled={busy}>
               Open a game file…
             </button>
-            <button className="big ghost" onClick={onOpenEditor}>
-              Make a game →
-            </button>
           </div>
-          <p className="fine">No game data included · your files never leave this browser</p>
+          <p className="fine">
+            <button className="link" onClick={onOpenEditor}>
+              Or make your own game in the editor →
+            </button>
+            <span className="fine-note">No game data included · nothing you open is uploaded</span>
+          </p>
         </div>
         {preview && (
           <figure className="hero-screen">
@@ -120,8 +122,6 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
         </section>
       )}
 
-      <RemoteAdd busy={busy} onImport={onImport} />
-
       <section className="shelf">
         <div className="shelf-head">
           <h2>Your games</h2>
@@ -135,6 +135,7 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
             <div className="card-body">
               <strong>The Silent Bell</strong>
               <span className="muted small">Built-in demo · about 20 minutes</span>
+              <span className="card-desc">Bring back the three shards of Bellhaven's bell before the fog wins.</span>
             </div>
             <div className="card-actions">
               <button onClick={() => onPlayDemo("bell")}>Play</button>
@@ -147,6 +148,7 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
             <div className="card-body">
               <strong>Lantern Path</strong>
               <span className="muted small">Built-in short demo · 3 minutes</span>
+              <span className="card-desc">Relight the hamlet's lantern with a stone from the glade.</span>
             </div>
             <div className="card-actions">
               <button onClick={() => onPlayDemo("lantern")}>Play</button>
@@ -194,6 +196,8 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
         </div>
         {!persistent && <p className="muted small">Browser storage is unavailable, so imported files last for this tab only.</p>}
       </section>
+
+      <RemoteAdd busy={busy} onImport={onImport} />
 
       <section className="features">
         <article>
