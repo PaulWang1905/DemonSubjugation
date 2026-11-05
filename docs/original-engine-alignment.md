@@ -83,20 +83,37 @@ revive branch works on fallen members (the C file has that test inverted).
 | NPCMOVEMOD | 0 stop, 1 wander, anything else animate in place | The number as a state |
 | ATTRIBTEST / ATTRIBSET / ATTRIBADD | Also fields 9-14 (attack-status rounds, immunities, attack statuses, combined spell, per-turn HP/MP) | Unsupported |
 
+| ACTORLAYERUP | Experience becomes the requirement of the level below the target + 5, then the usual level-up (can stop short of the target) | Jumped to the level |
+| SETEVENTTIMER | Fires once after n map ticks (500 ms) | Repeated |
+
+### Field, shops and NPCs
+
+| Area | Original (now followed) | fmj.kt (before) |
+| --- | --- | --- |
+| Medicine outside battle (`_0023516C`) | One item; medicine and elixirs marked "everyone" (byte 0x1c bit 0x10) work on the whole party; revival items do nothing but are used up | One item per member for party medicine |
+| Selling (`_00236FD7`) | Anything with an event number cannot be sold; money capped at 65951 | Only story items; 99999 |
+| Buying (`_00239068`) | Price check, at most 99 of a kind (as before) | Same |
+| NPC wandering (`_00215865`, `_00215A79`, `_00215EDE`) | Every 500 ms map tick: wait `delay` ticks, pick a random direction and 0-4 tiles, walk until there or blocked; "animate in place" steps the frames | Random pauses and turns |
+
 The C reconstruction was checked against the disassembly where it looked
 wrong: GAINMONEY's cap is conditional (the C file has a stray `;`), the
-steal test reads the spell's number, not its type, and throwing a weapon
-really deals the flag value.
+steal test reads the spell's number, not its type, throwing a weapon
+really deals the flag value, and an NPC walks until it reaches its target
+(the C file has that test inverted).
 
-## Still different
+## Still different (on purpose or not checkable)
 
-- **NPC movement** (`_00215A79`, `_00215EDE`): wandering NPCs still move
-  the fmj.kt way.
-- **Bag order across kinds**: the original keeps one list for equipment and
-  items; here they are two lists (each follows the original's order rules).
-- A status landing on "every enemy" from a thrown item rolls each enemy's
-  luck; the original reads past the enemy table there.
+- **Save files** keep fmj.kt's layout so existing saves load; the device
+  stored a memory image. What is saved is the same game state.
+- **Screens and menus** are drawn as fmj.kt draws them. Their behaviour
+  matches the commands above; pixel layouts were not compared.
+- **Music** (MUSIC, MOVIE sound) is not played.
 - **Unknown script opcodes** 4, 5, 8, 17, 18, 19, 25, 78 and 79 stop a
   script on the device; here they are skipped, so archives made for other
-  engines keep running.
-- Shops, the item and status menus and saving were not compared in detail.
+  engines keep running (setfightmiss / setarmstoss appear 149 times in the
+  test archives).
+- **Bag order across kinds**: the original keeps one list for equipment and
+  items; here there are two lists, each following the original's rules.
+- A status landing on "every enemy" from a thrown item rolls each enemy's
+  luck; the original reads past the enemy table there.
+- Values a script sets with ATTRIBSET 10-14 are not kept in save files.

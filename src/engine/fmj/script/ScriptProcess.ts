@@ -1,4 +1,5 @@
 // Port of fmj/script/ScriptProcess.kt — one compiled script being executed.
+import { EngineSettings } from "../config/EngineSettings";
 import type { Canvas } from "../../graphics";
 import type { ObjectInput, ObjectOutput } from "../../java";
 import type { Command, Operate } from "./Operate";
@@ -114,8 +115,13 @@ export class ScriptProcess {
     if (this.timer > 0 && this.timerEventId > 0) {
       this.timerCounter -= delta;
       if (this.timerCounter <= 0) {
-        this.timerCounter += this.timer;
-        this.triggerEvent(this.timerEventId);
+        const id = this.timerEventId;
+        if (EngineSettings.originalDamageFormula) {
+          // the original's timer fires once (map loop, _00214000)
+          this.timer = 0;
+          this.timerEventId = 0;
+        } else this.timerCounter += this.timer;
+        this.triggerEvent(id);
       }
     }
   }

@@ -1,6 +1,8 @@
 // Port of fmj/characters/NPC.kt
 import { Random, type Coder, type ObjectInput, type ObjectOutput } from "../../java";
 import { ResBase } from "../lib/ResBase";
+import { EngineSettings } from "../config/EngineSettings";
+import { rand16 } from "../combat/OriginalRules";
 import { Character, CharacterState, stateFromInt } from "./Character";
 import { Direction, directionFromInt } from "./Direction";
 import { WalkingSprite } from "./WalkingSprite";
@@ -64,7 +66,70 @@ export class NPC extends Character implements Coder {
     this.mCanWalk = arg;
   }
 
+  // Original engine wandering (_00215865, _00215A79, _00215EDE): one step
+  // per 500 ms map tick, idle for `delay` ticks, then walk 0-4 tiles in a
+  // random direction until there or blocked.
+  private oIdle = 0;
+  private oTarget: { x: number; y: number } | null = null;
+  private oTick = 0;
+
+  private updateOriginal(delta: number): void {
+    this.oTick += delta;
+    if (this.oTick < 500) return;
+    this.oTick -= 500;
+    switch (this.state) {
+      case CharacterState.PAUSE: {
+        if (this.oIdle === 0) this.oIdle = this.mDelay;
+        this.oIdle = (this.oIdle - 1) & 0xff;
+        if (this.oIdle !== 0) return;
+        const r = rand16() % 200;
+        const dirs = [Direction.North, Direction.East, Direction.South, Direction.West];
+        const facing = r % 4; // 1 up, 2 right, 3 down, 4 left
+        this.direction = dirs[facing];
+        const d = r % 5;
+        const { x, y } = this.posInMap;
+        this.oTarget = facing === 3 ? { x: x - d, y } : facing === 1 ? { x: x + d, y } : facing === 2 ? { x, y: y + d } : { x, y: y - d };
+        this.state = CharacterState.WALKING;
+        return;
+      }
+      case CharacterState.FORCE_MOVE:
+      case CharacterState.WALKING: {
+        const t = this.oTarget;
+        const { x, y } = this.posInMap;
+        const at = !t || t.x < 0 || t.y < 0 || (t.x === x && t.y === y);
+        if (!at) {
+          let nx = x;
+          let ny = y;
+          switch (this.direction) {
+            case Direction.North: --ny; break;
+            case Direction.East: ++nx; break;
+            case Direction.South: ++ny; break;
+            case Direction.West: --nx; break;
+          }
+          if (this.mCanWalk!.canWalk(nx, ny)) {
+            super.walk();
+            return;
+          }
+        }
+        // there, or blocked: wait again
+        this.oTarget = null;
+        this.oIdle = this.mDelay;
+        this.state = CharacterState.PAUSE;
+        return;
+      }
+      case CharacterState.ACTIVE:
+        this.walkStay();
+        return;
+      default:
+        return;
+    }
+  }
+
   update(delta: number): void {
+    if (EngineSettings.originalDamageFormula) {
+      this.updateOriginal(delta);
+      return;
+    }
     switch (this.state) {
       case CharacterState.PAUSE:
         this.mPauseCnt -= delta;

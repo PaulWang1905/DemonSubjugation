@@ -709,8 +709,18 @@ export class ScriptVM extends Control {
       const toLevel = g2(code, start + 2);
       return makeCommand(4, () => {
         const player = scene().getPlayer(actor);
-        if (!player || toLevel <= player.level) return null;
-        player.levelUp(toLevel);
+        if (orig() && player) {
+          // the original (_0022EE58): experience becomes the requirement of
+          // the level below the target plus 5, then the usual level-up
+          const c = player.levelupChain;
+          const target = Math.min(toLevel, c.maxLevel);
+          player.currentExp = (c.getNextLevelExp(target - 1) + 5) & 0xffff;
+          if (!OriginalRules.gainExperience(player, 0)) return null;
+        } else {
+          if (!player || toLevel <= player.level) return null;
+          player.levelUp(toLevel);
+        }
+        if (!player) return null;
         const msgScreen = new MsgScreen(vm, T.levelUp(player.name));
         const levelupScreen = new LevelupScreen(vm, player);
         let exit = false;

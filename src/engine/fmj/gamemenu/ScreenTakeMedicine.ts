@@ -1,5 +1,8 @@
 // Port of fmj/gamemenu/ScreenTakeMedicine.kt
 import { Global } from "../Global";
+import { EngineSettings } from "../config/EngineSettings";
+import { Player } from "../characters/Player";
+import { applyItemChange } from "../goods/ItemRules";
 import type { BaseGoods } from "../goods/BaseGoods";
 import { isEatMedicine } from "../goods/IEatMedicine";
 import { TextRender } from "../graphics/TextRender";
@@ -42,7 +45,19 @@ export class ScreenTakeMedicine extends BaseScreen {
       this.popScreen();
     } else if (key === Global.KEY_ENTER) {
       const m = this.mMedicine;
-      if (m.goodsNum > 0 && isEatMedicine(m)) {
+      if (EngineSettings.originalDamageFormula && m.goodsNum > 0 && m.type >= 9 && m.type <= 11) {
+        // the original (_0023516C): medicine and elixirs marked for everyone
+        // work on the whole party; revival items do nothing here but are
+        // still used up; one item either way
+        const party = this.game.playerList;
+        if ((m.type === 9 || m.type === 11) && (m.raw[6] & 0x10) === 0x10) {
+          for (const p of party) applyItemChange(m.type, null, m.raw, p);
+        } else if (m.type !== 10) {
+          applyItemChange(m.type, null, m.raw, party[this.mActorIndex]);
+        }
+        Player.sGoodsList.useGoodsNum(m.type, m.index, 1);
+        if (m.goodsNum <= 0) this.popScreen();
+      } else if (m.goodsNum > 0 && isEatMedicine(m)) {
         if (m.type === 9 && m.effectAll()) {
           for (let i = this.game.playerList.length - 1; i >= 0; i--) m.eat(this.game.playerList[i]);
         } else {

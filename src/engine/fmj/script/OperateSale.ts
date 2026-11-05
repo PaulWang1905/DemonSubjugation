@@ -1,5 +1,6 @@
 // Port of fmj/script/OperateSale.kt — pawn shop driven by the SALE command.
 import { Global } from "../Global";
+import { EngineSettings } from "../config/EngineSettings";
 import { T } from "../i18n";
 import { Player } from "../characters/Player";
 import { GoodsListMode, ScreenGoodsList, type OnGoodsSelectedListener } from "../gamemenu/ScreenGoodsList";
@@ -64,7 +65,8 @@ class SaleGoodsScreen extends BaseScreen {
     } else if (key === Global.KEY_DOWN && this.goods.goodsNum > this.saleCnt) {
       ++this.saleCnt;
       this.money += this.goods.sellPrice;
-      if (this.money > 99999) this.money = 99999;
+      const cap = EngineSettings.originalDamageFormula ? 0x1019f : 99999; // the original's money cap
+      if (this.money > cap) this.money = cap;
     }
   }
 }
@@ -82,7 +84,8 @@ export class OperateSale extends Control implements Operate, OnGoodsSelectedList
   onKeyUp(_key: number): void {}
 
   onItemSelected(goods: BaseGoods): void {
-    if (goods instanceof GoodsDrama) {
+    // the original refuses anything with an event number (_00236FD7)
+    if (goods instanceof GoodsDrama || (EngineSettings.originalDamageFormula && goods.eventId >= 1)) {
       this.showMessage(T.questItem, 1000);
     } else {
       this.pushScreen(new SaleGoodsScreen(this, goods, this));
