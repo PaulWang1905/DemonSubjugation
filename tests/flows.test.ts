@@ -64,6 +64,10 @@ describe.skipIf(!res)("game flows", () => {
     startGame(e);
     const before = e.game.playerList.map((p) => [p.name, p.level, p.hp, p.posInMap.x, p.posInMap.y]);
     const map = e.game.mainScene.currentMap?.mapName;
+    // values scripts set with ATTRIBSET 9-14 are saved too
+    const p0 = e.game.playerList[0];
+    p0.attackStatusRounds = 3;
+    Object.assign(p0.scriptOverrides, { immune: 0x0c, turnHp: 0x85 });
     press(e, Keys.CANCEL);
     for (let i = 0; i < 3; i++) press(e, Keys.DOWN); // 系统
     press(e, Keys.ENTER); // system menu
@@ -84,6 +88,8 @@ describe.skipIf(!res)("game flows", () => {
     expect(top(e2)).toBe("ScreenMainGame");
     expect(e2.game.mainScene.currentMap?.mapName).toBe(map);
     expect(e2.game.playerList.map((p) => [p.name, p.level, p.hp, p.posInMap.x, p.posInMap.y])).toEqual(before);
+    expect(e2.game.playerList[0].attackStatusRounds).toBe(3);
+    expect(e2.game.playerList[0].scriptOverrides).toEqual({ immune: 0x0c, turnHp: 0x85 });
     tick(e2, 50);
   });
 

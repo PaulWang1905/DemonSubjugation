@@ -105,8 +105,9 @@ really deals the flag value, and an NPC walks until it reaches its target
 
 ## Still different (on purpose or not checkable)
 
-- **Save files** use fmj.kt's layout; the device stored a memory image.
-  What is saved is the same game state.
+- **Save files** use fmj.kt's layout plus what scripts set with ATTRIBSET
+  9-14; the device stored a memory image. What is saved is the same game
+  state. (Saves from before this change do not load.)
 - **Screens and menus** are drawn as fmj.kt draws them, which already
   follows the device's positions closely (the in-game menu, the system
   menu and the actor list sit within a pixel of the original's boxes). The
@@ -115,7 +116,9 @@ really deals the flag value, and an NPC walks until it reaches its target
 - **Keys**: menus act when a key is let go, the device when it is
   pressed. Held keys repeat every 100 ms after 250 ms, on the keypad and the
   keyboard alike; each repeat is one more key press, as on the device.
-- **Music** (MUSIC, MOVIE sound) is not played.
+- **Music** (MUSIC, MOVIE sound) is not played: the original asks the
+  device for one of its built-in melodies by number (`SysPlayMelody`), so
+  the tunes are not in the game file.
 - **Unknown script opcodes** 4, 5, 8, 17, 18, 19, 25, 78 and 79 stop a
   script on the device; here they are skipped, so archives made for other
   engines keep running (setfightmiss / setarmstoss appear 149 times in the
@@ -124,6 +127,5 @@ really deals the flag value, and an NPC walks until it reaches its target
   items; here there are two lists, each following the original's rules.
 - A status landing on "every enemy" from a thrown item rolls each enemy's
   luck; the original reads past the enemy table there.
-- Values a script sets with ATTRIBSET 10-14 are not kept in save files.
 - Auto-walk (the device's space key, which keeps walking on each 500 ms
   tick) is not offered; holding a direction does the same.

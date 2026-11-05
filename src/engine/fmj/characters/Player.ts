@@ -17,6 +17,8 @@ import { FightingSprite } from "./FightingSprite";
 import { ResLevelupChain } from "./ResLevelupChain";
 import { WalkingSprite } from "./WalkingSprite";
 
+const OVERRIDE_KEYS = ["immune", "attackStatus", "combo", "turnHp", "turnMp"] as const;
+
 export class Player extends FightingCharacter implements Coder {
   /** Equipment types of the slots, left to right on the equipment screen. */
   static readonly sEquipTypes = [6, 6, 5, 3, 7, 2, 4, 1];
@@ -249,6 +251,12 @@ export class Player extends FightingCharacter implements Coder {
       const index = coder.readInt();
       this.privateLearntMagics.push(DatLib.getMrs(type, index));
     }
+    // What scripts set with ATTRIBSET 9-14 (0xffff: not set).
+    this.attackStatusRounds = coder.readInt() & 0xff;
+    for (const k of OVERRIDE_KEYS) {
+      const v = coder.readInt();
+      if (v !== 0xffff) this.scriptOverrides[k] = v & 0xff;
+    }
   }
 
   encode(out: ObjectOutput): void {
@@ -285,6 +293,8 @@ export class Player extends FightingCharacter implements Coder {
       out.writeInt(m.type);
       out.writeInt(m.index);
     }
+    out.writeInt(this.attackStatusRounds & 0xff);
+    for (const k of OVERRIDE_KEYS) out.writeInt(this.scriptOverrides[k] ?? 0xffff);
   }
 
   setLevel(level: number): void {
