@@ -88,6 +88,13 @@ export function Player({ game, fonts, onExit }: Props) {
   const touchDevice = useMedia(TOUCH_QUERY);
   const sideways = useMedia(SIDE_PAD_QUERY);
   const touch = showPad && touchDevice;
+  // True while the player fills the screen: only the game (and the keypad) show.
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const ch = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", ch);
+    return () => document.removeEventListener("fullscreenchange", ch);
+  }, []);
   // Let go of every key the game still thinks is held, then pause it.
   const releaseKeys = useCallback(() => {
     if (repeat.current) window.clearTimeout(repeat.current.t);
@@ -307,11 +314,19 @@ export function Player({ game, fonts, onExit }: Props) {
         setScale(Math.max(1, Math.floor(fitted * dpr * 4) / 4) / dpr);
         return;
       }
-      const top = stage.getBoundingClientRect().top + (document.fullscreenElement ? 0 : window.scrollY);
       const kp = stage.querySelector(".kp") as HTMLElement | null;
+      if (document.fullscreenElement) {
+        // fullscreen: the game takes the whole screen (above the keypad, if shown)
+        h = window.innerHeight - (kp ? kp.offsetHeight + 10 : 0);
+        w = window.innerWidth;
+        const fitted = Math.min((w - frame) / SCREEN_WIDTH, (h - frame) / SCREEN_HEIGHT, 16);
+        setScale(Math.max(1, Math.floor(fitted * dpr * 4) / 4) / dpr);
+        return;
+      }
+      const top = stage.getBoundingClientRect().top + window.scrollY;
       h = window.innerHeight - top - 6;
       if (kp) h -= kp.offsetHeight + 10;
-      else if (!document.fullscreenElement) h -= 60; // leave the options bar in view
+      else h -= 60; // leave the options bar in view
       const fitted = Math.min((w - frame) / SCREEN_WIDTH, (h - frame) / SCREEN_HEIGHT, 8);
       setScale(Math.max(1, Math.floor(fitted * dpr)) / dpr);
     };
@@ -325,7 +340,7 @@ export function Player({ game, fonts, onExit }: Props) {
       window.removeEventListener("resize", fit);
       document.removeEventListener("fullscreenchange", fit);
     };
-  }, [showPad, touch, sideways]);
+  }, [showPad, touch, sideways, fullscreen]);
 
   // The phone layout covers the page; stop the page behind it scrolling.
   useEffect(() => {
@@ -502,7 +517,14 @@ export function Player({ game, fonts, onExit }: Props) {
   const canFullscreen = typeof document !== "undefined" && !!document.fullscreenEnabled;
 
   return (
-    <div className={touch ? (sideways ? "player touch sideways" : "player touch") : showPad ? "player with-pad" : "player"}>
+    <div
+      className={(touch ? (sideways ? "player touch sideways" : "player touch") : showPad ? "player with-pad" : "player") + (fullscreen ? " fs" : "")}
+    >
+      {fullscreen && (
+        <button className="fs-exit" onClick={toggleFullscreen} aria-label="Exit fullscreen" title="Exit fullscreen (Esc)">
+          ✕
+        </button>
+      )}
       {touch ? (
         <div className="tbar">
           <button className="tb-btn" onClick={onExit} aria-label="Back to library" title="Back to library">
