@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import type { StoredGame } from "../storage/db";
 import type { Imported } from "./importFiles";
 import { RemoteAdd } from "./RemoteAdd";
+import { LockedCard } from "./LockedCard";
+import { LOCKED_GAMES } from "./lockedGame";
 
 interface Props {
   games: StoredGame[];
@@ -33,6 +35,8 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const choose = () => input.current?.click();
+  // a locked game is shown until it has been unlocked and added
+  const locked = LOCKED_GAMES.filter((l) => !games.some((g) => g.name === l.name));
 
   return (
     <div
@@ -118,6 +122,9 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
               <button onClick={() => onPlayDemo("lantern")}>Play</button>
             </div>
           </li>
+          {locked.map((l) => (
+            <LockedCard key={l.url} game={l} busy={busy} onImport={onImport} />
+          ))}
           {games.map((g) => (
             <li key={g.id} className="card">
               <div className="card-art" aria-hidden="true">

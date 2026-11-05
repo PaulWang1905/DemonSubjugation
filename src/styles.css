@@ -3001,3 +3001,31 @@ a.link:hover {
     justify-content: center;
   }
 }
+
+/* locked (password-protected) game cards */
+.lock-form {
+  flex-wrap: wrap;
+}
+.lock-form input {
+  flex: 1 1 0;
+  min-width: 0;
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.lock-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger, #b3261e);
+}
+.lock-form button {
+  flex: none;
+}
+@media (max-width: 560px) {
+  .cards .card.locked {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+}
