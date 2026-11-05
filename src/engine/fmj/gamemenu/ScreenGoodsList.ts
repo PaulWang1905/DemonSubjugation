@@ -20,22 +20,47 @@ export interface OnGoodsSelectedListener {
   onItemSelected(goods: BaseGoods): void;
 }
 
-let bgImageCache: Bitmap | null = null;
-function bgImage(): Bitmap {
-  if (bgImageCache) return bgImageCache;
-  const bmp = Bitmap.createBitmap(160, 96);
+/**
+ * The list's background. At the device's text size it is fmj.kt's; with
+ * compact text the name and price rows are smaller and the divider under
+ * them moves up, so the description gets more lines.
+ */
+const bgCache = new Map<number, Bitmap>();
+function bgImage(size = 16): Bitmap {
+  let bmp = bgCache.get(size);
+  if (bmp) return bmp;
+  bmp = Bitmap.createBitmap(160, 96);
+  const d = size === 16 ? 57 : divider(size); // the divider's top line
   const pts = [
     40, 21, 40, 95, 40, 95, 0, 95, 0, 95, 0, 5, 0, 5, 5, 0, 5, 0, 39, 0, 39, 0, 58, 19, 38, 0, 57, 19, 57, 19, 140, 19,
-    41, 20, 140, 20, 41, 21, 159, 21, 54, 0, 140, 0, 40, 95, 159, 95, 40, 57, 160, 57, 40, 58, 140, 58, 40, 59, 159, 59,
-    41, 20, 41, 95, 42, 20, 42, 95, 159, 21, 159, 57, 159, 59, 159, 96,
+    41, 20, 140, 20, 41, 21, 159, 21, 54, 0, 140, 0, 40, 95, 159, 95, 40, d, 160, d, 40, d + 1, 140, d + 1, 40, d + 2, 159, d + 2,
+    41, 20, 41, 95, 42, 20, 42, 95, 159, 21, 159, d, 159, d + 2, 159, 96,
   ];
   const c = new Canvas(bmp);
   c.drawColor(Global.COLOR_WHITE);
   c.drawLines(pts, Util.sBlackPaint);
-  TextRender.drawText(c, T.goodsName, 45, 23);
-  TextRender.drawText(c, T.goodsPrice, 45, 40);
-  bgImageCache = bmp;
+  TextRender.withSize(size, () => {
+    TextRender.drawText(c, T.goodsName, 45, 23);
+    TextRender.drawText(c, T.goodsPrice, 45, size === 16 ? 40 : 23 + size);
+  });
+  bgCache.set(size, bmp);
   return bmp;
+}
+
+/** Top of the divider under the name and price rows with compact text. */
+function divider(size: number): number {
+  return 23 + 2 * size + 1;
+}
+
+/** Where the description goes: under the divider, to the bottom frame. */
+function descRect(size: number): Rect {
+  return size === 16 ? displayRect : new Rect(44, divider(size) + 4, 156, 94);
+}
+
+/** Where a value starts after its label ("名:" or an English one). */
+function valueX(label: string, size: number): number {
+  if (size === 16) return 69;
+  return 45 + Math.max(Math.ceil(size * 1.5), gbkBytes(label).length * (size >> 1));
 }
 
 const displayRect = new Rect(44, 61, 156, 94);
@@ -78,14 +103,17 @@ export class ScreenGoodsList extends BaseScreen {
   }
 
   draw(canvas: Canvas): void {
-    canvas.drawBitmap(bgImage(), 0, 0);
+    const size = EngineSettings.textSize;
+    canvas.drawBitmap(bgImage(size), 0, 0);
     if (this.goodsList.length === 0) return;
     while (this.curItemIndex >= this.goodsList.length) this.showPreItem();
 
     const g = this.goodsList[this.curItemIndex];
     TextRender.drawText(canvas, this.mode === GoodsListMode.Buy ? T.money + Player.sMoney : T.goodsCount + g.goodsNum, 60, 2);
-    TextRender.drawText(canvas, g.name, 69, 23);
-    TextRender.drawText(canvas, "" + (this.mode === GoodsListMode.Buy ? g.buyPrice : g.sellPrice), 69, 40);
+    TextRender.withSize(size, () => {
+      TextRender.drawText(canvas, g.name, valueX(T.goodsName, size), 23);
+      TextRender.drawText(canvas, "" + (this.mode === GoodsListMode.Buy ? g.buyPrice : g.sellPrice), valueX(T.goodsPrice, size), size === 16 ? 40 : 23 + size);
+    });
     Util.drawTriangleCursor(canvas, 4, 8 + 23 * (this.curItemIndex - this.firstDisplayItemIndex));
 
     for (
@@ -96,7 +124,7 @@ export class ScreenGoodsList extends BaseScreen {
       this.goodsList[i].draw(canvas, 14, 2 + 23 * (i - this.firstDisplayItemIndex));
     }
     // the description (in smaller text with the compact text option)
-    this.nextToDraw = TextRender.drawBlock(canvas, this.description, this.toDraw, displayRect, EngineSettings.textSize);
+    this.nextToDraw = TextRender.drawBlock(canvas, this.description, this.toDraw, descRect(size), size);
   }
 
   private showNextItem(): void {
