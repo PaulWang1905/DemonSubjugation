@@ -90,13 +90,14 @@ class UtilImpl {
   private showMessageCompact(canvas: Canvas, bytes: Int8Array, size: number): void {
     const maxLines = Math.floor(84 / size);
     const rowsAt = (y: number) => Array.from({ length: maxLines }, (_, k) => ({ x: 16, y: y + k * size, right: 143 }));
-    const lines = Math.max(1, TextRender.withSize(size, () => TextRender.drawWrapped(null, bytes, 0, rowsAt(0)).rows));
+    const device = [{ left: 16, right: 16 + 16 * 8 }]; // the device's message lines
+    const lines = Math.max(1, TextRender.withSize(size, () => TextRender.drawWrapped(null, bytes, 0, rowsAt(0), device).rows));
     const h = lines * size + 7;
     let frame = this.compactFrames.get(h);
     if (!frame) this.compactFrames.set(h, (frame = this.getFrameBitmap(138, h)));
     const textY = Math.max(5, 48 - Math.round((lines * size) / 2));
     canvas.drawBitmap(frame, 11, textY - 3);
-    TextRender.withSize(size, () => TextRender.drawWrapped(canvas, bytes, 0, rowsAt(textY).slice(0, lines)));
+    TextRender.withSize(size, () => TextRender.drawWrapped(canvas, bytes, 0, rowsAt(textY).slice(0, lines), device));
   }
 
   drawSideFrame(canvas: Canvas): void {

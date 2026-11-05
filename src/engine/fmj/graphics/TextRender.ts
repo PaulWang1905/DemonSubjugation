@@ -215,6 +215,85 @@ function toBytes(text: string | Int8Array): Int8Array {
   return typeof text === "string" ? gbkBytes(text) : text;
 }
 
+
+/** Compact-text line breaking and drawing for TextRender.drawWrapped. */
+function wrapBytes(canvas: Canvas | null, b: Int8Array, start: number, rows: { x: number; y: number; right: number }[]): { next: number; rows: number } {
+  let len = b.indexOf(0);
+  if (len < 0) len = b.length;
+  const half = cell >> 1;
+  let i = start;
+  let used = 0;
+  const isWord = (j: number) => j < len && b[j] !== 0x20 && (b[j] & 0xff) < 0x80;
+  const isWide = (j: number) => j + 1 < len && (b[j] & 0xff) >= 0xa1;
+  for (const row of rows) {
+    while (i < len && b[i] === 0x20) i++;
+    if (i >= len) break;
+    used++;
+    const width = row.right + 1 - row.x;
+    // 1. where this line ends: [i, end) fits, end is where the next starts
+    let x = 0;
+    let j = i;
+    let lastWide = -1; // start of the last full-width character on the line
+    let wideCount = 0;
+    while (j < len) {
+      if (isWide(j)) {
+        if (x + cell > width) break;
+        lastWide = j;
+        wideCount++;
+        x += cell;
+        j += 2;
+      } else if (b[j] === 0x20) {
+        let k = j;
+        while (k < len && b[k] === 0x20) k++;
+        if (x + half > width) {
+          j = k;
+          break;
+        }
+        x += half;
+        j = k;
+      } else if (isWord(j)) {
+        let k = j;
+        while (isWord(k)) k++;
+        if (x + (k - j) * half > width) {
+          if (x === 0) j += Math.max(1, Math.floor(width / half)); // longer than a line
+          break;
+        }
+        x += (k - j) * half;
+        j = k;
+      } else {
+        x += half;
+        j++;
+      }
+    }
+    // a line may not start with closing punctuation: take the character
+    // before it down too
+    if (j < len && isWide(j) && CLOSING.has(((b[j] & 0xff) << 8) | (b[j + 1] & 0xff)) && wideCount > 1 && lastWide === j - 2) j = lastWide;
+    // 2. draw it
+    if (canvas) {
+      let dx = row.x;
+      let k = i;
+      while (k < j) {
+        const t = b[k] & 0xff;
+        if (isWide(k)) {
+          drawHzk(canvas, (94 * (t - 0xa1) + (b[k + 1] & 0xff) - 0xa1) * 32, dx, row.y);
+          dx += cell;
+          k += 2;
+        } else if (t === 0x20) {
+          while (k < j && b[k] === 0x20) k++;
+          dx += half;
+        } else {
+          if (t < 0x80) drawAsc(canvas, t, dx, row.y);
+          dx += half;
+          k++;
+        }
+      }
+    }
+    i = j;
+  }
+  while (i < len && b[i] === 0x20) i++;
+  return { next: i >= len ? b.length : i, rows: used };
+  }
+
 export const TextRender = {
   /** Drop cached fonts (used when another game is loaded). */
   reset(): void {
@@ -269,82 +348,60 @@ export const TextRender = {
    * only measures. Returns the next byte to draw (the text's length when
    * nothing but spaces is left) and how many rows were used.
    */
-  drawWrapped(canvas: Canvas | null, text: string | Int8Array, start: number, rows: { x: number; y: number; right: number }[]): { next: number; rows: number } {
+  drawWrapped(
+    canvas: Canvas | null,
+    text: string | Int8Array,
+    start: number,
+    rows: { x: number; y: number; right: number }[],
+    deviceRows?: { left: number; right: number }[],
+  ): { next: number; rows: number } {
+    const src = toBytes(text);
+    if (!deviceRows) return wrapBytes(canvas, src, start, rows);
+    // Texts are wrapped for the device's 16-pixel lines. Where a line was
+    // exactly full, the words either side of the break have no space between
+    // them; put one back so they do not run together here.
+    const ends = new Set(TextRender.deviceLineEnds(src, deviceRows));
+    const word = (k: number) => k >= 0 && k < src.length && src[k] !== 0x20 && src[k] !== 0 && (src[k] & 0xff) < 0x80;
+    const out: number[] = [];
+    const toMod: number[] = [];
+    const toOrig: number[] = [];
+    for (let k = 0; k < src.length; k++) {
+      if (ends.has(k) && word(k - 1) && word(k)) {
+        toOrig.push(k);
+        out.push(0x20);
+      }
+      toMod[k] = out.length;
+      toOrig.push(k);
+      out.push(src[k]);
+    }
+    const mod = Int8Array.from(out);
+    const r = wrapBytes(canvas, mod, toMod[start] ?? mod.length, rows);
+    return { next: r.next >= mod.length ? src.length : toOrig[r.next], rows: r.rows };
+  },
+
+  /**
+   * Where the device's own layout (fmj.kt's drawTextFrom at 16 pixels) ends
+   * each line of `text`, going through `rows` page after page: the index of
+   * the first byte of every following line.
+   */
+  deviceLineEnds(text: string | Int8Array, rows: { left: number; right: number }[]): number[] {
     const b = toBytes(text);
     let len = b.indexOf(0);
     if (len < 0) len = b.length;
-    const half = cell >> 1;
-    let i = start;
-    let used = 0;
-    const isWord = (j: number) => j < len && b[j] !== 0x20 && (b[j] & 0xff) < 0x80;
-    const isWide = (j: number) => j + 1 < len && (b[j] & 0xff) >= 0xa1;
-    for (const row of rows) {
-      while (i < len && b[i] === 0x20) i++;
-      if (i >= len) break;
-      used++;
-      const width = row.right + 1 - row.x;
-      // 1. where this line ends: [i, end) fits, end is where the next starts
-      let x = 0;
-      let j = i;
-      let lastWide = -1; // start of the last full-width character on the line
-      let wideCount = 0;
-      while (j < len) {
-        if (isWide(j)) {
-          if (x + cell > width) break;
-          lastWide = j;
-          wideCount++;
-          x += cell;
-          j += 2;
-        } else if (b[j] === 0x20) {
-          let k = j;
-          while (k < len && b[k] === 0x20) k++;
-          if (x + half > width) {
-            j = k;
-            break;
-          }
-          x += half;
-          j = k;
-        } else if (isWord(j)) {
-          let k = j;
-          while (isWord(k)) k++;
-          if (x + (k - j) * half > width) {
-            if (x === 0) j += Math.max(1, Math.floor(width / half)); // longer than a line
-            break;
-          }
-          x += (k - j) * half;
-          j = k;
-        } else {
-          x += half;
-          j++;
-        }
+    const out: number[] = [];
+    let i = 0;
+    for (let row = 0; i < len && row < 10000; row++) {
+      const r = rows[row % rows.length];
+      let x = r.left;
+      const start = i;
+      while (x <= r.right - 16 && i < len) {
+        x += (b[i] & 0xff) >= 0xa1 ? 16 : 8;
+        i += (b[i] & 0xff) >= 0xa1 ? 2 : 1;
       }
-      // a line may not start with closing punctuation: take the character
-      // before it down too
-      if (j < len && isWide(j) && CLOSING.has(((b[j] & 0xff) << 8) | (b[j + 1] & 0xff)) && wideCount > 1 && lastWide === j - 2) j = lastWide;
-      // 2. draw it
-      if (canvas) {
-        let dx = row.x;
-        let k = i;
-        while (k < j) {
-          const t = b[k] & 0xff;
-          if (isWide(k)) {
-            drawHzk(canvas, (94 * (t - 0xa1) + (b[k + 1] & 0xff) - 0xa1) * 32, dx, row.y);
-            dx += cell;
-            k += 2;
-          } else if (t === 0x20) {
-            while (k < j && b[k] === 0x20) k++;
-            dx += half;
-          } else {
-            if (t < 0x80) drawAsc(canvas, t, dx, row.y);
-            dx += half;
-            k++;
-          }
-        }
-      }
-      i = j;
+      if (i === start) break;
+      if (i < len) out.push(i);
     }
-    while (i < len && b[i] === 0x20) i++;
-    return { next: i >= len ? b.length : i, rows: used };
+    return out;
   },
 
   /**
@@ -356,7 +413,7 @@ export const TextRender = {
     return TextRender.withSize(size, () => {
       const rows: { x: number; y: number; right: number }[] = [];
       for (let y = r.top; y + size <= r.bottom + 1; y += size) rows.push({ x: r.left, y, right: r.right });
-      return TextRender.drawWrapped(canvas, text, start, rows).next;
+      return TextRender.drawWrapped(canvas, text, start, rows, [{ left: r.left, right: r.right }]).next;
     });
   },
 

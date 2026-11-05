@@ -73,7 +73,9 @@ function drawCompactSay(canvas: Canvas, text: Int8Array, from: number, headImg: 
     return rows;
   };
   // as tall as this page needs, never less than the device's two lines
-  const fit = (n: number) => TextRender.withSize(size, () => TextRender.drawWrapped(null, text, from, rowsFor(n)).next);
+  // the device's two lines (beside the portrait, then the full width)
+  const device = [{ left: headImg == null ? 14 : 44, right: 145 }, { left: 14, right: 145 }];
+  const fit = (n: number) => TextRender.withSize(size, () => TextRender.drawWrapped(null, text, from, rowsFor(n), device).next);
   const full = fit(maxLines);
   let lines = 2;
   while (lines < maxLines && fit(lines) < full) lines++;
@@ -94,7 +96,7 @@ function drawCompactSay(canvas: Canvas, text: Int8Array, from: number, headImg: 
     canvas.drawLine(43.5, tab, 151, tab, paint);
     headImg.draw(canvas, 1, 13, textTop - 12);
   }
-  return TextRender.withSize(size, () => TextRender.drawWrapped(canvas, text, from, rows).next);
+  return TextRender.withSize(size, () => TextRender.drawWrapped(canvas, text, from, rows, device).next);
 }
 
 export class ScriptVM extends Control {
