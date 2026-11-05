@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createDeviceFont } from "./deviceFont";
-import { createEngine, EngineSettings, type UiLanguage, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, type Engine, type EngineKey } from "../engine";
+import { createEngine, EngineSettings, type UiLanguage, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, Keys, type Engine, type EngineKey } from "../engine";
 import { exportSaves, importSaves, savesFor } from "../storage/saves";
 import type { StoredGame } from "../storage/db";
 import { KEY_HELP, KEYMAP } from "./keys";
@@ -35,10 +35,16 @@ function setPref(key: string, v: string): void {
 }
 
 const SPEEDS = [1, 2, 4];
+/** Key repeat: first repeat after this long, then one every REPEAT_RATE ms. */
+const REPEAT_DELAY = 250;
+const REPEAT_RATE = 100;
+/** Where the keypad goes beside the screen instead of under it. */
+const SIDE_PAD_QUERY = "(orientation: landscape) and (max-height: 560px)";
+const REPEATS = new Set<EngineKey>([Keys.UP, Keys.DOWN, Keys.LEFT, Keys.RIGHT, Keys.PAGEUP, Keys.PAGEDOWN]);
 
 export function Player({ game, fonts, onExit }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const screenRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
@@ -62,6 +68,8 @@ export function Player({ game, fonts, onExit }: Props) {
   debugRef.current = debugOpen;
   // Let go of every key the game still thinks is held, then pause it.
   const openDebug = useCallback(() => {
+    if (repeat.current) window.clearTimeout(repeat.current.t);
+    repeat.current = null;
     for (const k of pressed.current) engineRef.current?.keyUp(k);
     pressed.current.clear();
     setDebugOpen(true);
@@ -148,28 +156,67 @@ export function Player({ game, fonts, onExit }: Props) {
     };
   }, [game, fonts, onExit, generation, uiLang]);
 
-  const keyDown = useCallback((k: EngineKey) => {
-    if (debugRef.current) return;
-    pressed.current.add(k);
-    try {
-      engineRef.current?.keyDown(k);
-    } catch (e) {
-      setError(String((e as Error).stack ?? e));
-    }
+  // Held keys repeat at one fixed rate whatever sends them (keypad, keyboard,
+  // gamepad), so walking feels the same everywhere. Each repeat is one more
+  // key message, as on the device: one step on the map, one line in a menu.
+  const repeat = useRef<{ key: EngineKey; t: number } | null>(null);
+  const stopRepeat = useCallback(() => {
+    if (repeat.current) window.clearTimeout(repeat.current.t);
+    repeat.current = null;
   }, []);
-  const keyUp = useCallback((k: EngineKey) => {
-    if (debugRef.current) return;
-    if (pressed.current.delete(k)) {
+  const startRepeat = useCallback(
+    (k: EngineKey, delay: number) => {
+      stopRepeat();
+      const fire = () => {
+        if (!repeat.current || debugRef.current) return;
+        try {
+          engineRef.current?.keyDown(k);
+        } catch (e) {
+          setError(String((e as Error).stack ?? e));
+          return;
+        }
+        repeat.current.t = window.setTimeout(fire, REPEAT_RATE);
+      };
+      repeat.current = { key: k, t: window.setTimeout(fire, delay) };
+    },
+    [stopRepeat],
+  );
+
+  const keyDown = useCallback(
+    (k: EngineKey) => {
+      if (debugRef.current || pressed.current.has(k)) return;
+      pressed.current.add(k);
+      try {
+        engineRef.current?.keyDown(k);
+      } catch (e) {
+        setError(String((e as Error).stack ?? e));
+      }
+      if (REPEATS.has(k)) startRepeat(k, REPEAT_DELAY);
+    },
+    [startRepeat],
+  );
+  const keyUp = useCallback(
+    (k: EngineKey) => {
+      if (!pressed.current.delete(k)) return;
+      if (repeat.current?.key === k) {
+        stopRepeat();
+        // another held direction takes over, as on a keyboard
+        const other = [...pressed.current].reverse().find((x) => REPEATS.has(x));
+        if (other !== undefined) startRepeat(other, REPEAT_DELAY);
+      }
+      if (debugRef.current) return;
       try {
         engineRef.current?.keyUp(k);
       } catch (e) {
         setError(String((e as Error).stack ?? e));
       }
-    }
-  }, []);
+    },
+    [startRepeat, stopRepeat],
+  );
+  useEffect(() => stopRepeat, [stopRepeat]);
 
-  // Keyboard input. Auto-repeat keydowns are passed through, which is how
-  // holding a direction keeps walking.
+  // Keyboard input. The browser's own auto-repeat is ignored: holding a key
+  // repeats at the same rate as the keypad.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest?.("input, select, textarea")) return;
@@ -180,7 +227,7 @@ export function Player({ game, fonts, onExit }: Props) {
       const k = KEYMAP[e.code];
       if (k === undefined || e.ctrlKey || e.metaKey || e.altKey) return;
       e.preventDefault();
-      keyDown(k);
+      if (!e.repeat) keyDown(k);
     };
     const up = (e: KeyboardEvent) => {
       const k = KEYMAP[e.code];
@@ -196,19 +243,40 @@ export function Player({ game, fonts, onExit }: Props) {
     };
   }, [keyDown, keyUp]);
 
-  // Integer scaling keeps the 160x96 pixels crisp.
+  // Fit the screen into what is left of the window, at a whole number of
+  // device pixels per game pixel so the 160x96 pixels stay crisp. With the
+  // keypad, the screen and the keypad fit together without scrolling; on a
+  // phone held sideways the controls go either side of the screen.
   useEffect(() => {
-    const el = screenRef.current;
-    if (!el) return;
+    const stage = stageRef.current;
+    if (!stage) return;
     const fit = () => {
-      const w = el.clientWidth;
-      const h = document.fullscreenElement ? window.innerHeight - 24 : Math.max(window.innerHeight * 0.62, 200);
-      const s = Math.max(1, Math.min(Math.floor(w / SCREEN_WIDTH), Math.floor(h / SCREEN_HEIGHT), 8));
-      setScale(s);
+      const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+      const side = showPad && matchMedia(SIDE_PAD_QUERY).matches;
+      const bezel = stage.querySelector(".bezel") as HTMLElement | null;
+      const frame = bezel ? bezel.offsetWidth - (canvasRef.current?.offsetWidth ?? 0) : 18;
+      const top = stage.getBoundingClientRect().top + (document.fullscreenElement ? 0 : window.scrollY);
+      const gap = parseFloat(getComputedStyle(stage).rowGap) || 0;
+      const kp = stage.querySelector(".kp") as HTMLElement | null;
+      let w = stage.clientWidth;
+      let h = window.innerHeight - top - 6;
+      if (side) {
+        // the widest control column, measured by its contents (grid cells stretch)
+        const widest = (sel: string) => Math.max(0, ...[...stage.querySelectorAll(sel)].map((x) => (x as HTMLElement).offsetWidth));
+        w -= 2 * Math.max(widest(".kp-pad"), widest(".kp-act > *")) + 2 * gap + 8;
+      } else if (kp) {
+        h -= kp.offsetHeight + gap;
+      } else if (!document.fullscreenElement) {
+        h -= 60; // leave the options bar in view
+      }
+      const fitted = Math.min((w - frame) / SCREEN_WIDTH, (h - frame) / SCREEN_HEIGHT, 8);
+      setScale(Math.max(1, Math.floor(fitted * dpr)) / dpr);
     };
     fit();
     const ro = new ResizeObserver(fit);
-    ro.observe(el);
+    ro.observe(stage);
+    const tb = stage.previousElementSibling;
+    if (tb) ro.observe(tb);
     window.addEventListener("resize", fit);
     document.addEventListener("fullscreenchange", fit);
     return () => {
@@ -216,7 +284,7 @@ export function Player({ game, fonts, onExit }: Props) {
       window.removeEventListener("resize", fit);
       document.removeEventListener("fullscreenchange", fit);
     };
-  }, []);
+  }, [showPad]);
 
   const flash = (msg: string) => {
     setNotice(msg);
@@ -249,8 +317,44 @@ export function Player({ game, fonts, onExit }: Props) {
     else document.exitFullscreen?.().catch(() => {});
   };
 
+  // Screen colours and text style: in the toolbar, or under options on a phone.
+  const lookOptions = (
+    <>
+      <label className="field">
+        <span className="lbl">Screen</span>
+        <select
+          value={paletteId}
+          onChange={(e) => {
+            setPaletteId(e.target.value);
+            setPref("palette", e.target.value);
+          }}
+        >
+          {PALETTES.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field" title="Sharp redraws text in your device's fonts at full resolution; Pixel keeps the original 16x16 bitmap text">
+        <span className="lbl">Text</span>
+        <select
+          value={textMode}
+          onChange={(e) => {
+            setTextMode(e.target.value as TextMode);
+            setPref("text", e.target.value);
+          }}
+        >
+          <option value="sans">Sharp</option>
+          <option value="serif">Sharp serif</option>
+          <option value="pixel">Pixel (original)</option>
+        </select>
+      </label>
+    </>
+  );
+
   return (
-    <div className="player">
+    <div className={showPad ? "player with-pad" : "player"}>
       <div className="toolbar">
         <button className="ghost" onClick={onExit} title="Back to library">
           ← Library
@@ -275,71 +379,46 @@ export function Player({ game, fonts, onExit }: Props) {
             ))}
           </select>
         </label>
-        <label className="field">
-          <span className="lbl">Screen</span>
-          <select
-            value={paletteId}
-            onChange={(e) => {
-              setPaletteId(e.target.value);
-              setPref("palette", e.target.value);
-            }}
-          >
-            {PALETTES.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field" title="Sharp redraws text in your device's fonts at full resolution; Pixel keeps the original 16x16 bitmap text">
-          <span className="lbl">Text</span>
-          <select
-            value={textMode}
-            onChange={(e) => {
-              setTextMode(e.target.value as TextMode);
-              setPref("text", e.target.value);
-            }}
-          >
-            <option value="sans">Sharp</option>
-            <option value="serif">Sharp serif</option>
-            <option value="pixel">Pixel (original)</option>
-          </select>
-        </label>
+        <span className="tb-opt">{lookOptions}</span>
         <button className="ghost" onClick={toggleFullscreen} title="Fullscreen" aria-label="Fullscreen">
           ⛶
         </button>
       </div>
 
-      <div className="screen-wrap" ref={screenRef}>
-        <div className="bezel" style={{ width: SCREEN_WIDTH * scale + 16 }}>
-          <canvas
-            ref={canvasRef}
-            style={{ width: SCREEN_WIDTH * scale, height: SCREEN_HEIGHT * scale }}
-            aria-label="Game screen"
-            {...hold.bind}
-          />
-          {hold.ring}
-          {error && (
-            <div className="crash" role="alert">
-              <strong>The engine stopped.</strong>
-              <p>This archive may use something the engine does not support yet.</p>
-              <pre>{error.split("\n").slice(0, 6).join("\n")}</pre>
-              <div className="row">
-                <button onClick={() => setGeneration((g) => g + 1)}>Restart</button>
-                <button className="ghost" onClick={onExit}>
-                  Back to library
-                </button>
+      <div className="stage" ref={stageRef}>
+        <div className="screen-wrap">
+          <div className="bezel">
+            <canvas
+              ref={canvasRef}
+              style={{
+                width: SCREEN_WIDTH * scale,
+                height: SCREEN_HEIGHT * scale,
+              }}
+              aria-label="Game screen"
+              {...hold.bind}
+            />
+            {hold.ring}
+            {error && (
+              <div className="crash" role="alert">
+                <strong>The engine stopped.</strong>
+                <p>This archive may use something the engine does not support yet.</p>
+                <pre>{error.split("\n").slice(0, 6).join("\n")}</pre>
+                <div className="row">
+                  <button onClick={() => setGeneration((g) => g + 1)}>Restart</button>
+                  <button className="ghost" onClick={onExit}>
+                    Back to library
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+        {showPad && <Keypad onDown={keyDown} onUp={keyUp} />}
       </div>
 
       {notice && <div className="notice">{notice}</div>}
 
       {debugOpen && engineRef.current && <DebugMenu engine={engineRef.current} onClose={() => setDebugOpen(false)} />}
-
-      {showPad && <Keypad onDown={keyDown} onUp={keyUp} />}
 
       <details className="extras">
         <summary>Controls &amp; options</summary>
@@ -355,6 +434,7 @@ export function Player({ game, fonts, onExit }: Props) {
             </tbody>
           </table>
           <div className="opts">
+            <div className="opts-look">{lookOptions}</div>
             <label className="check">
               <input
                 type="checkbox"
