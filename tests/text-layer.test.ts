@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createEngine, Keys, type Engine } from "../src/engine";
 import { writeLib } from "../src/editor/format/lib";
 import { lanternPath } from "../src/editor/template/demo";
-import { Bitmap, Canvas } from "../src/engine/graphics";
+import { Bitmap, Canvas, Paint } from "../src/engine/graphics";
 import { memorySaves } from "./helpers";
 
 // a stand-in font: every glyph is a block of ink
@@ -50,5 +50,24 @@ describe("text layer", () => {
     expect(screen.bitmap.glyphs).toEqual([{ x: 40, y: 20, w: 16, h: 16, font: 0, code: 1, fg: 1, bg: 2 }]);
     screen.drawColor(0);
     expect(screen.bitmap.glyphs).toEqual([]);
+  });
+});
+
+describe("drawing at the edges", () => {
+  it("clips images and lines left of the bitmap instead of wrapping them round", () => {
+    const screen = new Bitmap(20, 4);
+    const blank = screen.buffer[0];
+    const img = new Bitmap(6, 2);
+    img.buffer.fill(0xff000000);
+    screen.drawImage(img, -3, 1); // half of it sticks out on the left
+    const at = (x: number, y: number) => screen.buffer[y * 20 + x];
+    expect([0, 1, 2].every((x) => at(x, 1) === 0xff000000 && at(x, 2) === 0xff000000)).toBe(true);
+    expect([17, 18, 19].every((x) => at(x, 0) === blank && at(x, 1) === blank)).toBe(true); // nothing on the right
+    const c = new Canvas(screen);
+    const p = new Paint();
+    p.color = 0xff0000ff;
+    c.drawLine(-5, 3, 2, 3, p);
+    expect(at(19, 2)).toBe(blank);
+    expect(at(0, 3)).toBe(0xff0000ff);
   });
 });

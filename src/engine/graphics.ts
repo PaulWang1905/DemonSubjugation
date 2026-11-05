@@ -104,6 +104,7 @@ export class Bitmap {
   }
 
   private setPixel(col: number, row: number, color: Color): void {
+    if (col < 0 || row < 0 || col >= this.width || row >= this.height) return; // no wrapping round
     this.buffer[this.width * row + col] = color;
   }
 
@@ -162,16 +163,16 @@ export class Bitmap {
   }
 
   setPixels(pixels: Uint32Array, offset: number, x: number, y: number, w: number, h: number): void {
+    // clipped to all four edges: a pixel left of the bitmap must not wrap
+    // round onto the end of the row above
     const xWidth = Math.min(this.width - x, w);
     const xHeight = Math.min(this.height - y, h);
     const buf = this.buffer;
-    for (let col = 0; col < xWidth; col++) {
-      for (let row = 0; row < xHeight; row++) {
+    for (let col = Math.max(0, -x); col < xWidth; col++) {
+      for (let row = Math.max(0, -y); row < xHeight; row++) {
         const dOff = this.width * (y + row) + x + col;
         const p = pixels[offset + w * row + col];
-        if (p >>> 24 > 0 && dOff >= 0 && dOff < buf.length) {
-          buf[dOff] = p;
-        }
+        if (p >>> 24 > 0) buf[dOff] = p;
       }
     }
   }
