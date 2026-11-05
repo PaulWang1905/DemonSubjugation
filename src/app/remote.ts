@@ -122,7 +122,7 @@ export async function listFolder(link: string): Promise<RemoteFolder> {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const seen = new Set<string>();
   const entries: RemoteEntry[] = [];
-  for (const a of doc.querySelectorAll("a[href]")) {
+  for (const a of Array.from(doc.querySelectorAll("a[href]"))) {
     const href = a.getAttribute("href")!;
     let abs: URL;
     try {

@@ -288,7 +288,7 @@ export function Player({ game, fonts, onExit }: Props) {
       const bezel = stage.querySelector(".bezel") as HTMLElement | null;
       const frame = bezel ? bezel.offsetWidth - (canvasRef.current?.offsetWidth ?? 0) : 18;
       const size = (sel: string, wide: boolean) =>
-        Math.max(0, ...[...stage.querySelectorAll(sel)].map((x) => (wide ? (x as HTMLElement).offsetWidth : (x as HTMLElement).offsetHeight)));
+        Math.max(0, ...Array.from(stage.querySelectorAll(sel)).map((x) => (wide ? (x as HTMLElement).offsetWidth : (x as HTMLElement).offsetHeight)));
       let w = stage.clientWidth;
       let h: number;
       if (touch) {
