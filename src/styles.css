@@ -2171,3 +2171,116 @@ html.playing-touch body {
 .sheet .keys {
   display: none;
 }
+
+/* ---------- add from a link ---------- */
+
+.remote {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 18px;
+  margin-bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.remote-form label {
+  font-weight: 600;
+}
+
+.remote-form .row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.remote-form input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.remote-form p {
+  margin: 6px 0 0;
+}
+
+.remote-error {
+  margin: 0;
+  color: #b3412e;
+}
+
+.remote-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.remote-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remote-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(60vh, 520px);
+  overflow: auto;
+}
+
+.remote-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+.remote-file {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.remote-file .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remote-dir {
+  flex: 1;
+  justify-content: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  padding: 4px 0;
+  text-align: left;
+}
+
+.remote-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+button.small {
+  padding: 4px 10px;
+  font-size: 13px;
+}

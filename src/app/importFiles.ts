@@ -69,7 +69,10 @@ function classify(name: string, data: Uint8Array, errors: string[]): Imported | 
       if (!info.playable) throw new Error("it has no starting script (GUT 1-1), so it is not a BBK RPG archive or it is damaged");
       const title = libTitle(data);
       const fileTitle = name.replace(/\.lib$/i, "");
-      return { kind: "game", name: title ?? fileTitle, fileName: name, data, info };
+      // The header has room for a short title only; a file name that carries
+      // the full title on from it is the better name.
+      const full = title && fileTitle.length > title.length && fileTitle.startsWith(title) ? fileTitle : null;
+      return { kind: "game", name: full ?? title ?? fileTitle, fileName: name, data, info };
     } catch (e) {
       errors.push(`${name}: not a valid game archive (${(e as Error).message})`);
       return null;

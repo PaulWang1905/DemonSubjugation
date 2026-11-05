@@ -36,6 +36,10 @@ the right to use.
   it is open. It edits party stats, money, items, spells and story flags, and
   has switches for no random battles, walking through walls and an always-full
   party, plus "win this battle".
+- **Add from a link**: paste a GitHub folder (browse it and pick games), a
+  GitHub file page, a direct `.lib` link, or a web folder that lists `.lib`
+  files. The games are downloaded into the browser; nothing is bundled with
+  the app. GitHub allows 60 folder listings an hour without signing in.
 - Save slots are kept per game in `localStorage` and can be exported or imported
   as JSON.
 - Also imports the hex-encoded `*.lib.js` / `rom.js` bundles used by the fmj.kt web

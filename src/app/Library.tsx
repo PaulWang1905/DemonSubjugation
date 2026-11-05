@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type { StoredGame } from "../storage/db";
 import { AttractScreen } from "./AttractScreen";
 import type { Imported } from "./importFiles";
+import { RemoteAdd } from "./RemoteAdd";
 
 interface Props {
   games: StoredGame[];
@@ -9,7 +10,7 @@ interface Props {
   persistent: boolean;
   busy: boolean;
   messages: string[];
-  onImport: (files: File[]) => void;
+  onImport: (files: File[]) => Promise<void> | void;
   onPlay: (g: StoredGame) => void;
   onPlayDemo: () => void;
   onOpenEditor: () => void;
@@ -117,6 +118,8 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
           )}
         </section>
       )}
+
+      <RemoteAdd busy={busy} onImport={onImport} />
 
       <section className="shelf">
         <div className="shelf-head">
