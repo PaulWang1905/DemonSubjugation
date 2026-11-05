@@ -6,6 +6,7 @@ import { Util } from "../graphics/Util";
 import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import { SaveLoadOperate, ScreenSaveLoadGame } from "../views/ScreenSaveLoadGame";
 import { Bitmap, Canvas, Paint } from "../../graphics";
+import { listKey } from "../views/ScrollList";
 
 export class ScreenMenuSystem extends BaseScreen {
   private first = 0;
@@ -56,6 +57,7 @@ export class ScreenMenuSystem extends BaseScreen {
   }
 
   onKeyDown(key: number): void {
+    key = listKey(key);
     if (key === Global.KEY_UP) {
       --this.index;
       this.selY -= 16;

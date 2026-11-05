@@ -13,6 +13,7 @@ import { gbkBytes } from "../../java";
 import { ScreenChgEquipment } from "./ScreenChgEquipment";
 import { GoodsListMode, ScreenGoodsList, type OnGoodsSelectedListener } from "./ScreenGoodsList";
 import { ScreenTakeMedicine } from "./ScreenTakeMedicine";
+import { listKey } from "../views/ScrollList";
 
 export class ScreenMenuGoods extends BaseScreen implements OnGoodsSelectedListener {
   private readonly mFrameBmp = Util.getFrameBitmap(77 - 39 + 1, 77 - 39 + 1);
@@ -41,6 +42,7 @@ export class ScreenMenuGoods extends BaseScreen implements OnGoodsSelectedListen
   }
 
   onKeyDown(key: number): void {
+    key = listKey(key);
     if (key === Global.KEY_UP || key === Global.KEY_DOWN) this.mSelId = 1 - this.mSelId;
   }
 

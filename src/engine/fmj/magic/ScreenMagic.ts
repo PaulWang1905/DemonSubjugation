@@ -6,6 +6,7 @@ import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import { Bitmap, Canvas, Paint, PaintStyle, Point, Rect } from "../../graphics";
 import { Stack, gbkBytes } from "../../java";
 import type { BaseMagic } from "./BaseMagic";
+import { listKey } from "../views/ScrollList";
 
 const ITEM_NUM = 2;
 
@@ -90,6 +91,7 @@ export class ScreenMagic extends BaseScreen {
   }
 
   onKeyDown(key: number): void {
+    key = listKey(key);
     if (key === Global.KEY_UP && this.mCurItemIndex > 0) {
       --this.mCurItemIndex;
       if (this.mCurItemIndex < this.mFirstItemIndex) --this.mFirstItemIndex;

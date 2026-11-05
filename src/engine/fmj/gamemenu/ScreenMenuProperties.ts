@@ -7,6 +7,7 @@ import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import type { Canvas } from "../../graphics";
 import { ScreenActorState } from "./ScreenActorState";
 import { ScreenActorWearing } from "./ScreenActorWearing";
+import { listKey } from "../views/ScrollList";
 
 export class ScreenMenuProperties extends BaseScreen {
   private readonly mFrameBmp = Util.getFrameBitmap(77 - 39 + 1, 54 - 16 + 1);
@@ -36,6 +37,7 @@ export class ScreenMenuProperties extends BaseScreen {
   }
 
   onKeyDown(key: number): void {
+    key = listKey(key);
     if (key === Global.KEY_UP || key === Global.KEY_DOWN) this.mSelId = 1 - this.mSelId;
   }
 

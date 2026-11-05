@@ -13,6 +13,7 @@ import { ScreenMenuGoods } from "./ScreenMenuGoods";
 import { ScreenMenuProperties } from "./ScreenMenuProperties";
 import { ScreenMenuSystem } from "./ScreenMenuSystem";
 import { ScreenUseMagic } from "./ScreenUseMagic";
+import { listKey } from "../views/ScrollList";
 
 class SelectActorScreen extends BaseScreen {
   private index = 0;
@@ -46,6 +47,7 @@ class SelectActorScreen extends BaseScreen {
   }
 
   onKeyDown(key: number): void {
+    key = listKey(key);
     if (key === Global.KEY_DOWN) {
       if (++this.index >= this.mSum) this.index = 0;
     } else if (key === Global.KEY_UP) {
@@ -100,6 +102,7 @@ export class ScreenGameMainMenu extends BaseScreen {
   }
 
   onKeyDown(key: number): void {
+    key = listKey(key);
     if (key === Global.KEY_UP) {
       if (--this.mSelIndex < 0) this.mSelIndex = 3;
     } else if (key === Global.KEY_DOWN) {

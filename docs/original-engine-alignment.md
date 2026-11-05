@@ -85,6 +85,7 @@ revive branch works on fallen members (the C file has that test inverted).
 
 | ACTORLAYERUP | Experience becomes the requirement of the level below the target + 5, then the usual level-up (can stop short of the target) | Jumped to the level |
 | SETEVENTTIMER | Fires once after n map ticks (500 ms) | Repeated |
+| MENU (`_00210D5B`) | The original's list: from y = 10, at most five rows with scroll arrows, wraps round | Centred, every item at once (long menus ran off the screen), no wrap |
 
 ### Field, shops and NPCs
 
@@ -93,6 +94,7 @@ revive branch works on fallen members (the C file has that test inverted).
 | Medicine outside battle (`_0023516C`) | One item; medicine and elixirs marked "everyone" (byte 0x1c bit 0x10) work on the whole party; revival items do nothing but are used up | One item per member for party medicine |
 | Selling (`_00236FD7`) | Anything with an event number cannot be sold; money capped at 65951 | Only story items; 99999 |
 | Buying (`_00239068`) | Price check, at most 99 of a kind (as before) | Same |
+| Menus and lists (`_00210D5B`, `_00210000`) | Left moves up and Right moves down in the in-game menu, its sub-menus, the system menu and the spell list | Up and Down only |
 | NPC wandering (`_00215865`, `_00215A79`, `_00215EDE`) | Every 500 ms map tick: wait `delay` ticks, pick a random direction and 0-4 tiles, walk until there or blocked; "animate in place" steps the frames | Random pauses and turns |
 
 The C reconstruction was checked against the disassembly where it looked
@@ -103,10 +105,16 @@ really deals the flag value, and an NPC walks until it reaches its target
 
 ## Still different (on purpose or not checkable)
 
-- **Save files** keep fmj.kt's layout so existing saves load; the device
-  stored a memory image. What is saved is the same game state.
-- **Screens and menus** are drawn as fmj.kt draws them. Their behaviour
-  matches the commands above; pixel layouts were not compared.
+- **Save files** use fmj.kt's layout; the device stored a memory image.
+  What is saved is the same game state.
+- **Screens and menus** are drawn as fmj.kt draws them, which already
+  follows the device's positions closely (the in-game menu, the system
+  menu and the actor list sit within a pixel of the original's boxes). The
+  map is drawn the same way: 9 by 6 tiles with striped side borders, one
+  whole tile per step.
+- **Keys**: menus act when a key is let go, the device when it is
+  pressed. Held keys repeat every 100 ms after 250 ms, on the keypad and the
+  keyboard alike; each repeat is one more key press, as on the device.
 - **Music** (MUSIC, MOVIE sound) is not played.
 - **Unknown script opcodes** 4, 5, 8, 17, 18, 19, 25, 78 and 79 stop a
   script on the device; here they are skipped, so archives made for other
@@ -117,3 +125,5 @@ really deals the flag value, and an NPC walks until it reaches its target
 - A status landing on "every enemy" from a thrown item rolls each enemy's
   luck; the original reads past the enemy table there.
 - Values a script sets with ATTRIBSET 10-14 are not kept in save files.
+- Auto-walk (the device's space key, which keeps walking on each 500 ms
+  tick) is not offered; holding a direction does the same.

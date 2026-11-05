@@ -8,6 +8,7 @@ import type { Canvas } from "../../graphics";
 import { sysExit } from "../../java";
 import { BaseScreen, type GameNode } from "./BaseScreen";
 import { ScreenSaveLoadGame, SaveLoadOperate } from "./ScreenSaveLoadGame";
+import { listKey } from "./ScrollList";
 
 export class ScreenMenu extends BaseScreen {
   private readonly mImgMenu: ResImage = DatLib.getPic(2, 14)!;
@@ -41,6 +42,7 @@ export class ScreenMenu extends BaseScreen {
   }
 
   onKeyDown(key: number): void {
+    key = listKey(key);
     if (key === Global.KEY_UP || key === Global.KEY_DOWN) this.mCurSelect = 1 - this.mCurSelect;
     else if (key === Global.KEY_CANCEL) this.isCancelKeyDown = true;
   }
