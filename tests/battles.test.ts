@@ -25,7 +25,7 @@ describe.skipIf(!res)("battles with the original rules (real archive)", () => {
     for (let i = 0; i < 60; i++) { tick(20); press(Keys.ENTER); }
     expect(e.game.playerList.length).toBeGreaterThan(0);
 
-    const counts = { battles: 0, enemySpells: 0, partyStatusTurns: 0 };
+    const counts = { battles: 0, enemySpells: 0, partyStatusTurns: 0, offScreen: 0 };
     const applyStatus = R.applyStatus;
     const monstersNow = () => ((Combat.current as unknown as { mMonsterList: { mp: number; isVisiable: boolean }[] }).mMonsterList ?? []).filter((m) => m.isVisiable);
 
@@ -60,11 +60,17 @@ describe.skipIf(!res)("battles with the original rules (real archive)", () => {
         mp.forEach((v, k) => { if (mpBefore[k] !== undefined && v < mpBefore[k]) counts.enemySpells++; });
         mpBefore = mp;
         for (const p of party) if (p.hp < 300) p.hp = 999;
+        // every enemy stays on the screen (a support spell once left casters at 0,0)
+        for (const m of (Combat.current as unknown as { mMonsterList: { isVisiable: boolean; fightingSprite: { combatX: number; combatY: number } }[] }).mMonsterList) {
+          const f = m.fightingSprite;
+          if (m.isVisiable && (f.combatX < 4 || f.combatX > 156 || f.combatY < 4 || f.combatY > 92)) counts.offScreen++;
+        }
       }
       if (Combat.IsActive()) { const c = Combat.current as unknown as { stateName: string; mMonsterList: { name: string; hp: number; maxHP: number; defend: number; isVisiable: boolean; ostatus: Uint8Array }[]; mActionQueue: unknown[] }; console.log("STUCK", b, c.stateName, JSON.stringify(c.mMonsterList.map((m) => [m.name, m.hp, m.maxHP, m.defend, m.isVisiable, [...m.ostatus]])), c.mActionQueue.length, JSON.stringify(party.map((p) => [p.hp, [...p.ostatus]]))); }
       expect(Combat.IsActive()).toBe(false);
     }
     console.log("battles", JSON.stringify(counts));
     expect(counts.enemySpells).toBeGreaterThan(0);
+    expect(counts.offScreen).toBe(0);
   }, 120_000);
 });

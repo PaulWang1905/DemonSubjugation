@@ -34,6 +34,9 @@ export class ActionMagicHelpOne extends ActionSingleTarget {
 
   preproccess(): void {
     const t = this.mTarget;
+    // where the caster stands; enemies shake from here while casting
+    this.ox = this.mAttacker!.combatX;
+    this.oy = this.mAttacker!.combatY;
     this.mAni = this.magic.magicAni!;
     this.mAni.start();
     this.mAni.setIteratorNum(2);
@@ -61,7 +64,7 @@ export class ActionMagicHelpOne extends ActionSingleTarget {
         if (!this.mAni!.update(delta)) {
           this.mState = STATE_AFT;
           if (a instanceof Player) a.setFrameByState();
-          else a.fightingSprite!.move(-2, -2);
+          else a.setCombatPos(this.ox, this.oy);
         }
         break;
       case STATE_AFT:

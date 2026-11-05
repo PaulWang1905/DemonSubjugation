@@ -34,6 +34,8 @@ export class ActionUseItemOne extends ActionSingleTarget {
 
   preproccess(): void {
     const t = this.mTarget;
+    this.ox = this.mAttacker!.combatX;
+    this.oy = this.mAttacker!.combatY;
     let hp = 0;
     if (EngineSettings.originalDamageFormula) {
       // the item was taken from the bag when the turn came (Combat.decideTurn)
