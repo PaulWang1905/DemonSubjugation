@@ -7,18 +7,13 @@ import { Player } from "./Player";
 import { Editor } from "../editor/ui/Editor";
 import { bellGame, demoGame } from "./demoGame";
 import { GitHubMark, REPO_URL } from "./links";
+import { AboutPage, GuidePage, HomePage, SiteFooter } from "./pages";
+import { Link, PAGES, navigate, usePage } from "./router";
+import { Analytics } from "@vercel/analytics/react";
 
 function copyBuffer(u: Uint8Array): ArrayBuffer {
   return u.slice().buffer as ArrayBuffer;
 }
-
-/** The launch page's sections in the site menu. */
-const SECTIONS: [string, string][] = [
-  ["games", "Games"],
-  ["features", "Features"],
-  ["how", "How it works"],
-  ["about", "About"],
-];
 
 /** Screens too narrow for the editor (phones). */
 const SMALL_SCREEN = "(max-width: 760px)";
@@ -42,7 +37,11 @@ export function App() {
   const smallScreen = useMedia(SMALL_SCREEN);
   const [editorAnyway, setEditorAnyway] = useState(false);
   const [playing, setPlaying] = useState<StoredGame | null>(null);
-  const [tab, setTab] = useState<"play" | "editor">(() => (location.hash === "#editor" ? "editor" : "play"));
+  const page = usePage();
+  // each page has its own title in the browser tab
+  useEffect(() => {
+    document.title = PAGES.find((p) => p.page === page)!.title;
+  }, [page]);
   const [playtestFrom, setPlaytestFrom] = useState(false);
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
@@ -107,24 +106,9 @@ export function App() {
     setPlaytestFrom(false);
   }, []);
 
-  const switchTab = (t: "play" | "editor") => {
-    setTab(t);
-    history.replaceState(null, "", t === "editor" ? "#editor" : "#");
-  };
-
-  // The site menu: sections of the launch page (from the editor, go back to it first).
   const [menuOpen, setMenuOpen] = useState(false);
-  const goTo = (id: string) => {
-    setMenuOpen(false);
-    const scroll = () => {
-      if (id === "top") window.scrollTo({ top: 0, behavior: "smooth" });
-      else document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    };
-    if (tab !== "play") {
-      switchTab("play");
-      requestAnimationFrame(() => requestAnimationFrame(scroll));
-    } else scroll();
-  };
+  const closeMenu = () => setMenuOpen(false);
+  const playDemo = (which?: "bell" | "lantern") => setPlaying(which === "lantern" ? demoGame() : bellGame());
 
   const onPlaytest = useCallback((p: { id: string; name: string; data: ArrayBuffer }) => {
     setPlaytestFrom(true);
@@ -139,47 +123,22 @@ export function App() {
     <>
       {!showPlayer && (
         <header className="topbar">
-          <a
-            className="brand"
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              goTo("top");
-            }}
-          >
+          <Link to="home" className="brand" onClick={closeMenu}>
             <img src="/favicon.svg" alt="" width={28} height={28} />
             <span>FMJ React</span>
-          </a>
+          </Link>
           <nav className={menuOpen ? "site-nav open" : "site-nav"} id="site-nav" aria-label="Site">
-            {SECTIONS.map(([id, label]) => (
-              <a
-                key={id}
-                href={`#${id}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  goTo(id);
-                }}
-              >
-                {label}
-              </a>
+            {PAGES.filter((p) => p.page !== "home").map((p) => (
+              <Link key={p.page} to={p.page} onClick={closeMenu}>
+                {p.label}
+              </Link>
             ))}
-            <a
-              href="#editor"
-              aria-current={tab === "editor" ? "page" : undefined}
-              onClick={(e) => {
-                e.preventDefault();
-                setMenuOpen(false);
-                switchTab("editor");
-              }}
-            >
-              Editor
-            </a>
-            <a className="nav-ext" href={REPO_URL} target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}>
+            <a className="nav-ext" href={REPO_URL} target="_blank" rel="noreferrer" onClick={closeMenu}>
               <GitHubMark /> GitHub <span aria-hidden="true">↗</span>
             </a>
           </nav>
           <div className="topbar-actions">
-            <button className="nav-play" onClick={() => setPlaying(bellGame())}>
+            <button className="nav-play" onClick={() => playDemo("bell")}>
               ▶ Play
             </button>
             <button
@@ -195,7 +154,7 @@ export function App() {
         </header>
       )}
       {/* The editor needs room: on a phone, say so instead of showing a cramped editor. */}
-      {!showPlayer && tab === "editor" && smallScreen && !editorAnyway && (
+      {!showPlayer && page === "editor" && smallScreen && !editorAnyway && (
         <section className="small-screen" role="note">
           <svg className="small-screen-icon" viewBox="0 0 48 40" width="56" height="46" aria-hidden="true">
             <rect x="3" y="3" width="42" height="26" rx="3" fill="none" stroke="currentColor" strokeWidth="3" />
@@ -209,7 +168,7 @@ export function App() {
           </p>
           <p className="muted small">Your phone is great for playing: games, saves and the built-in demos all work here.</p>
           <div className="row">
-            <button onClick={() => switchTab("play")}>Back to the games</button>
+            <button onClick={() => navigate("games")}>Back to the games</button>
             <button className="ghost" onClick={() => setEditorAnyway(true)}>
               Continue anyway
             </button>
@@ -217,27 +176,34 @@ export function App() {
         </section>
       )}
       {/* The editor stays mounted so an open project survives tab switches and playtests. */}
-      <div hidden={showPlayer || tab !== "editor" || (smallScreen && !editorAnyway)}>
+      <div hidden={showPlayer || page !== "editor" || (smallScreen && !editorAnyway)}>
         <Editor onPlaytest={onPlaytest} />
       </div>
       {showPlayer ? (
         <Player key={playing!.id + (playtestFrom ? playing!.addedAt : "")} game={playing!} fonts={fontPair} onExit={onExit} />
       ) : (
-        tab === "play" && (
-          <Library
-            games={games}
-            fonts={{ HZK16: !!fonts.hzk16, ASC16: !!fonts.asc16 }}
-            persistent={persistent}
-            busy={busy}
-            messages={messages}
-            onImport={onImport}
-            onPlay={setPlaying}
-            onPlayDemo={(which) => setPlaying(which === "lantern" ? demoGame() : bellGame())}
-            onOpenEditor={() => switchTab("editor")}
-            onDelete={onDelete}
-          />
-        )
+        <>
+          {page === "home" && <HomePage onPlayDemo={playDemo} />}
+          {page === "games" && (
+            <Library
+              games={games}
+              fonts={{ HZK16: !!fonts.hzk16, ASC16: !!fonts.asc16 }}
+              persistent={persistent}
+              busy={busy}
+              messages={messages}
+              onImport={onImport}
+              onPlay={setPlaying}
+              onPlayDemo={playDemo}
+              onDelete={onDelete}
+            />
+          )}
+          {page === "guide" && <GuidePage />}
+          {page === "about" && <AboutPage />}
+          {page !== "editor" && <SiteFooter onPlayDemo={playDemo} />}
+        </>
       )}
+      {/* page views, one per page of the site */}
+      <Analytics route={PAGES.find((p) => p.page === page)!.path} path={PAGES.find((p) => p.page === page)!.path} />
     </>
   );
 }
