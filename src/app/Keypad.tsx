@@ -69,6 +69,22 @@ export function Keypad({ onDown, onUp }: Props) {
     }
   };
 
+  // Stop the browser's own touch gestures on the controls (text selection,
+  // the long-press callout, double-tap zoom, the tap flash). React's touch
+  // listeners are passive, so this one is added by hand.
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const stop = (e: TouchEvent) => e.preventDefault();
+    el.addEventListener("touchstart", stop, { passive: false });
+    el.addEventListener("touchmove", stop, { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", stop);
+      el.removeEventListener("touchmove", stop);
+    };
+  }, []);
+
   // Let go of everything when unmounted or when the page is hidden.
   useEffect(() => {
     const releaseAll = () => {
@@ -145,7 +161,7 @@ export function Keypad({ onDown, onUp }: Props) {
   });
 
   return (
-    <div className="kp" aria-label="On-screen controls">
+    <div className="kp" ref={root} aria-label="On-screen controls">
       <div className="kp-dir">
         <div className="kp-pad" data-dir={dir ?? undefined} role="group" aria-label="Direction pad" {...pad}>
           <i className="arm up" />

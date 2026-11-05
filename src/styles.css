@@ -715,6 +715,19 @@ footer {
   user-select: none;
 }
 
+.kp,
+.kp * {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.kp button:focus,
+.kp button:focus-visible {
+  outline: none;
+}
+
 .kp {
   --cell: clamp(38px, 12.5vw, 58px);
   --round: clamp(52px, 16vw, 70px);
@@ -745,7 +758,8 @@ footer {
   height: calc(var(--cell) * 3);
   border-radius: 50%;
   touch-action: none;
-  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
 
 .kp-pad .arm,
@@ -1909,6 +1923,8 @@ html.playing-touch body {
   overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .tbar {
