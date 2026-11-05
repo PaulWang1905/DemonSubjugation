@@ -1,11 +1,12 @@
 // A small client-side router: each page of the site has its own address
 // (/, /games, /guide, /about, /editor), links change it without reloading,
 // and the browser's back and forward buttons work. Vercel serves index.html
-// for every address (vercel.json), so a page can be opened or reloaded
-// directly.
+// at each page's address (vercel.json), so a page can be opened or reloaded
+// directly; any other address gets 404.html (the same app, with a 404
+// status), which shows the "page not found" page.
 import { useSyncExternalStore, type MouseEvent, type ReactNode } from "react";
 
-export type Page = "home" | "games" | "guide" | "about" | "editor";
+export type Page = "home" | "games" | "guide" | "about" | "editor" | "notfound";
 
 export const PAGES: { page: Page; path: string; label: string; title: string }[] = [
   { page: "home", path: "/", label: "Home", title: "FMJ React: play and make pocket RPGs in your browser" },
@@ -15,12 +16,15 @@ export const PAGES: { page: Page; path: string; label: string; title: string }[]
   { page: "editor", path: "/editor", label: "Editor", title: "Editor · FMJ React" },
 ];
 
-export const pathOf = (p: Page) => PAGES.find((x) => x.page === p)!.path;
+export const pathOf = (p: Page) => PAGES.find((x) => x.page === p)?.path ?? "/";
+
+/** The browser tab title for a page. */
+export const titleOf = (p: Page) => PAGES.find((x) => x.page === p)?.title ?? "Page not found · FMJ React";
 
 function current(): Page {
   if (location.hash === "#editor") return "editor"; // the old address of the editor
-  const path = location.pathname.replace(/\/+$/, "") || "/";
-  return PAGES.find((x) => x.path === path)?.page ?? "home";
+  const path = location.pathname.replace(/\/+$/, "").replace(/\/index\.html$/, "") || "/";
+  return PAGES.find((x) => x.path === path)?.page ?? "notfound";
 }
 
 const listeners = new Set<() => void>();

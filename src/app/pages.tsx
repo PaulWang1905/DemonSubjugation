@@ -336,6 +336,38 @@ export function AboutPage() {
   );
 }
 
+/** Shown for an address the site does not have. */
+export function NotFoundPage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
+  return (
+    <div className="library page">
+      <section className="not-found">
+        <div className="not-found-screen" aria-hidden="true">
+          <span className="nf-code">404</span>
+          <span className="nf-line">THE PATH ENDS HERE</span>
+        </div>
+        <p className="eyebrow">Page not found</p>
+        <h1>This road leads nowhere</h1>
+        <p className="lead">
+          There is no page at <code>{location.pathname}</code>. It may have moved, or the link may be mistyped.
+        </p>
+        <div className="cta">
+          <Link to="home" className="button big">
+            Go to the home page
+          </Link>
+          <Link to="games" className="button big ghost">
+            Your games
+          </Link>
+        </div>
+        <p className="fine">
+          <button className="link" onClick={() => onPlayDemo("bell")}>
+            Or play The Silent Bell →
+          </button>
+        </p>
+      </section>
+    </div>
+  );
+}
+
 export function SiteFooter({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
   return (
     <footer className="site-footer">

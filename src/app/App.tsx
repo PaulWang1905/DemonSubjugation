@@ -7,8 +7,8 @@ import { Player } from "./Player";
 import { Editor } from "../editor/ui/Editor";
 import { bellGame, demoGame } from "./demoGame";
 import { GitHubMark, REPO_URL } from "./links";
-import { AboutPage, GuidePage, HomePage, SiteFooter } from "./pages";
-import { Link, PAGES, navigate, usePage } from "./router";
+import { AboutPage, GuidePage, HomePage, NotFoundPage, SiteFooter } from "./pages";
+import { Link, PAGES, navigate, titleOf, usePage } from "./router";
 import { Analytics } from "@vercel/analytics/react";
 
 function copyBuffer(u: Uint8Array): ArrayBuffer {
@@ -40,7 +40,7 @@ export function App() {
   const page = usePage();
   // each page has its own title in the browser tab
   useEffect(() => {
-    document.title = PAGES.find((p) => p.page === page)!.title;
+    document.title = titleOf(page);
   }, [page]);
   const [playtestFrom, setPlaytestFrom] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -199,11 +199,12 @@ export function App() {
           )}
           {page === "guide" && <GuidePage />}
           {page === "about" && <AboutPage />}
+          {page === "notfound" && <NotFoundPage onPlayDemo={playDemo} />}
           {page !== "editor" && <SiteFooter onPlayDemo={playDemo} />}
         </>
       )}
       {/* page views, one per page of the site */}
-      <Analytics route={PAGES.find((p) => p.page === page)!.path} path={PAGES.find((p) => p.page === page)!.path} />
+      <Analytics route={page === "notfound" ? "/404" : PAGES.find((p) => p.page === page)!.path} path={location.pathname} />
     </>
   );
 }

@@ -2938,3 +2938,57 @@ a.link:hover {
     font-size: 13px;
   }
 }
+
+/* ---------- page not found ---------- */
+
+.not-found {
+  max-width: 560px;
+  margin: 24px auto 0;
+  text-align: center;
+}
+
+.not-found .cta {
+  justify-content: center;
+}
+
+.not-found .fine {
+  align-items: center;
+}
+
+.not-found-screen {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  width: min(100%, 320px);
+  aspect-ratio: 160 / 96;
+  margin: 0 auto 22px;
+  padding: 14px;
+  border: 10px solid var(--bezel);
+  border-radius: 14px;
+  background:
+    linear-gradient(rgb(30 44 32 / 0.07) 1px, transparent 1px) 0 0 / 100% 3px,
+    #a7ba82;
+  color: #1e2c20;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.18);
+}
+
+.nf-code {
+  font-size: clamp(44px, 12vw, 64px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+
+.nf-line {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+@media (max-width: 760px) {
+  .not-found .cta .button {
+    width: 100%;
+    justify-content: center;
+  }
+}
