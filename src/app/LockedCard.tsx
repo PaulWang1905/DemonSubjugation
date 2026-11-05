@@ -3,12 +3,14 @@ import { decryptGame, WrongPassword, type LockedGame } from "./lockedGame";
 
 interface Props {
   game: LockedGame;
+  /** An older version is already in the library. */
+  update?: boolean;
   busy: boolean;
   onImport: (files: File[]) => Promise<void> | void;
 }
 
 /** A game the site serves encrypted: type the password to add it. */
-export function LockedCard({ game, busy, onImport }: Props) {
+export function LockedCard({ game, update, busy, onImport }: Props) {
   const [password, setPassword] = useState("");
   const [state, setState] = useState<"idle" | "working">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +39,7 @@ export function LockedCard({ game, busy, onImport }: Props) {
       </div>
       <div className="card-body">
         <strong>{game.name}</strong>
-        <span className="muted small">Locked · needs a password</span>
+        <span className="muted small">{update ? "New version · needs the password" : "Locked · needs a password"}</span>
         <span className="card-desc">{game.desc}</span>
       </div>
       <form

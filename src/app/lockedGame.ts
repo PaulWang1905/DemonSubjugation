@@ -8,6 +8,8 @@ const MAGIC = [0x46, 0x4d, 0x4a, 0x45]; // "FMJE"
 const HEAD = 4 + 1 + 4 + 16 + 12;
 
 export interface LockedGame {
+  /** The unlocked game's id (archiveId), so a newer version shows the card again. */
+  id: string;
   name: string;
   fileName: string;
   url: string;
@@ -17,10 +19,11 @@ export interface LockedGame {
 /** The locked games on the Games page. */
 export const LOCKED_GAMES: LockedGame[] = [
   {
+    id: "6d9cd6598ed515b7",
     name: "Fumo Ji (English)",
     fileName: "Fumo Ji (English).lib",
     url: "/locked/fumo-ji-en.fmje",
-    desc: "伏魔记 (BBK, 2004), translated into English. Password protected.",
+    desc: "伏魔记 (BBK, 2004) in English: text and pictures. Password protected.",
   },
 ];
 

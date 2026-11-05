@@ -35,8 +35,8 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const choose = () => input.current?.click();
-  // a locked game is shown until it has been unlocked and added
-  const locked = LOCKED_GAMES.filter((l) => !games.some((g) => g.name === l.name));
+  // a locked game is shown until this version of it has been unlocked and added
+  const locked = LOCKED_GAMES.filter((l) => !games.some((g) => g.id === l.id));
 
   return (
     <div
@@ -123,7 +123,7 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
             </div>
           </li>
           {locked.map((l) => (
-            <LockedCard key={l.url} game={l} busy={busy} onImport={onImport} />
+            <LockedCard key={l.url} game={l} update={games.some((g) => g.name === l.name)} busy={busy} onImport={onImport} />
           ))}
           {games.map((g) => (
             <li key={g.id} className="card">
