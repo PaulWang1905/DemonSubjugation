@@ -1,0 +1,10 @@
+{
+  "name": "FMJ React",
+  "short_name": "FMJ",
+  "description": "A browser port of the BBK electronic-dictionary RPG engine.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#14161a",
+  "theme_color": "#14161a",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

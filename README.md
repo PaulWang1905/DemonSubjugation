@@ -30,7 +30,7 @@ the right to use.
   and the player checks the pixels each frame, so text that menus or borders
   cover keeps the covering pixels. **Pixel (original)** keeps the 16×16
   bitmap text, using HZK16/ASC16 when added.
-- Keyboard controls and an on-screen keypad for phones: slide the thumb on the d-pad to turn, hold a direction and A together, controls either side of the screen when the phone is held sideways. Held keys repeat at one rate on every device; 1×/2×/4× speed.
+- Keyboard controls, and a full-screen phone layout: the screen as large as it goes, a big on-screen keypad (slide the thumb on the d-pad to turn, hold a direction and A together), controls either side of the screen when held sideways, options in a sheet that pauses the game. Add it to the home screen to play without the browser bars. Held keys repeat at one rate on every device; 1×/2×/4× speed.
 - **Hidden debug menu** for testing: press and hold the game screen for two
   seconds (mouse or finger; a ring fills while you hold). The game pauses while
   it is open. It edits party stats, money, items, spells and story flags, and
