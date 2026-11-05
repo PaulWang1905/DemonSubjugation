@@ -202,6 +202,8 @@ export interface MonsterDef {
   exp: number;
   magicChain?: number;
   magicsKnown?: number;
+  /** 0-100: how often it casts a spell instead of attacking (original rules). */
+  iq?: number;
   drop?: { type: number; index: number; count: number };
   steal?: { type: number; index: number; count: number };
 }
@@ -209,7 +211,7 @@ export interface MonsterDef {
 export function encodeMonster(m: MonsterDef): Uint8Array {
   const r = new Rec(0x30);
   r.u8(0, 3).u8(1, m.index).u8(2, m.magicsKnown ?? 0).str(6, m.name, 12, "monster name");
-  r.u8(0x12, m.level).u8(0x13, m.speed).u8(0x14, m.lingli ?? 0).u8(0x16, m.luck ?? 0);
+  r.u8(0x12, m.level).u8(0x13, m.speed).u8(0x14, m.lingli ?? 0).u8(0x15, m.iq ?? 0).u8(0x16, m.luck ?? 0);
   r.u16(0x18, m.maxHP).u16(0x1a, m.maxHP).u16(0x1c, m.maxMP ?? 0).u16(0x1e, m.maxMP ?? 0);
   r.u16(0x20, m.attack).u16(0x22, m.defend).u16(0x24, m.money).u16(0x26, m.exp);
   if (m.steal) r.u8(0x28, m.steal.type).u8(0x29, m.steal.index).u8(0x2a, m.steal.count);

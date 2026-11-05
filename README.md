@@ -15,6 +15,10 @@ the right to use.
 
 ## What it does
 
+- **The Silent Bell**, the built-in demo: an original game of about twenty
+  minutes, built entirely in code (`src/editor/template/silentBell.ts`).
+  Five areas, two party members, a lever puzzle, a shop, an inn, a ferry,
+  four bosses and an ending. It can also be opened in the editor.
 - The launch page plays the original *Lantern Path* demo live, starts it in one
   click, and takes `.lib` files dropped anywhere on the page.
 - Interprets the original `DAT.LIB` resource format: maps, tiles, sprites,

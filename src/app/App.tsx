@@ -5,7 +5,7 @@ import { archiveId, importFiles } from "./importFiles";
 import { Library } from "./Library";
 import { Player } from "./Player";
 import { Editor } from "../editor/ui/Editor";
-import { demoGame } from "./demoGame";
+import { bellGame, demoGame } from "./demoGame";
 
 function copyBuffer(u: Uint8Array): ArrayBuffer {
   return u.slice().buffer as ArrayBuffer;
@@ -135,7 +135,7 @@ export function App() {
             messages={messages}
             onImport={onImport}
             onPlay={setPlaying}
-            onPlayDemo={() => setPlaying(demoGame())}
+            onPlayDemo={(which) => setPlaying(which === "lantern" ? demoGame() : bellGame())}
             onOpenEditor={() => switchTab("editor")}
             onDelete={onDelete}
           />

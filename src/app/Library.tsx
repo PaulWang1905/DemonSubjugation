@@ -12,7 +12,8 @@ interface Props {
   messages: string[];
   onImport: (files: File[]) => Promise<void> | void;
   onPlay: (g: StoredGame) => void;
-  onPlayDemo: () => void;
+  /** Play a built-in demo: The Silent Bell (default) or the short Lantern Path. */
+  onPlayDemo: (which?: "bell" | "lantern") => void;
   onOpenEditor: () => void;
   onDelete: (g: StoredGame) => void;
 }
@@ -73,7 +74,7 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
             own, or build your own with the editor.
           </p>
           <div className="cta">
-            <button className="big" onClick={onPlayDemo}>
+            <button className="big" onClick={() => onPlayDemo("bell")}>
               ▶ Play the demo
             </button>
             <button className="big ghost" onClick={choose} disabled={busy}>
@@ -129,14 +130,26 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
         <ul className="cards">
           <li className="card demo">
             <div className="card-art" aria-hidden="true">
+              <span>THE SILENT BELL</span>
+            </div>
+            <div className="card-body">
+              <strong>The Silent Bell</strong>
+              <span className="muted small">Built-in demo · about 20 minutes</span>
+            </div>
+            <div className="card-actions">
+              <button onClick={() => onPlayDemo("bell")}>Play</button>
+            </div>
+          </li>
+          <li className="card demo">
+            <div className="card-art" aria-hidden="true">
               <span>LANTERN PATH</span>
             </div>
             <div className="card-body">
               <strong>Lantern Path</strong>
-              <span className="muted small">Built-in demo</span>
+              <span className="muted small">Built-in short demo · 3 minutes</span>
             </div>
             <div className="card-actions">
-              <button onClick={onPlayDemo}>Play</button>
+              <button onClick={() => onPlayDemo("lantern")}>Play</button>
             </div>
           </li>
           {games.map((g) => (

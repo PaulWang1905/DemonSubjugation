@@ -95,7 +95,7 @@ const MONSTER: Field[] = [
   { key: "speed", label: "Speed", at: 0x13, kind: "u8", max: 99, group: "Stats" },
   { key: "lingli", label: "Spirit", at: 0x14, kind: "u8", max: 99, group: "Stats" },
   { key: "luck", label: "Luck", at: 0x16, kind: "u8", max: 99, group: "Stats" },
-  { key: "iq", label: "Cunning", at: 0x15, kind: "u8", group: "Stats", help: "Stored but not used by the engine yet." },
+  { key: "iq", label: "Cunning", at: 0x15, kind: "u8", group: "Stats", help: "Chance out of 100 that it casts a spell instead of attacking (original engine rules)." },
   { key: "money", label: "Money dropped", at: 0x24, kind: "u16", group: "Rewards" },
   { key: "exp", label: "Experience", at: 0x26, kind: "u16", group: "Rewards" },
   { key: "dropType", label: "Drop: item kind", at: 0x2b, kind: "u8", group: "Rewards" },

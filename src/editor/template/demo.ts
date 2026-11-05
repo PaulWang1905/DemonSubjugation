@@ -23,8 +23,8 @@ function tile(rows: string[]): Pix {
   return p.art(rows, 0, 0);
 }
 
-const TILES: Record<string, { pix: Pix; walk: boolean }> = {};
-const order: string[] = [];
+export const TILES: Record<string, { pix: Pix; walk: boolean }> = {};
+export const order: string[] = [];
 function defTile(ch: string, walk: boolean, rows: string[]): void {
   TILES[ch] = { pix: tile(rows), walk };
   order.push(ch);
@@ -113,7 +113,7 @@ function map(index: number, name: string, rows: string[], events: Record<string,
 // walking sprites (ACP). 12 frames: north 1-3, east 4-6, south 7-9, west 10-12;
 // within a direction: left foot, standing, right foot.
 
-function walker(face: { down: string[]; up: string[]; side: string[] }, legs: { stand: string[]; left: string[]; right: string[]; side: string[]; sideStep: string[] }): Pix[] {
+export function walker(face: { down: string[]; up: string[]; side: string[] }, legs: { stand: string[]; left: string[]; right: string[]; side: string[]; sideStep: string[] }): Pix[] {
   const build = (top: string[], bottom: string[]) => Pix.fromArt([...top, ...bottom]);
   const north = [build(face.up, legs.left), build(face.up, legs.stand), build(face.up, legs.right)];
   const south = [build(face.down, legs.left), build(face.down, legs.stand), build(face.down, legs.right)];
@@ -123,7 +123,7 @@ function walker(face: { down: string[]; up: string[]; side: string[] }, legs: { 
 }
 
 // Mira, the lantern keeper (hooded, with a scarf).
-const MIRA = walker(
+export const MIRA = walker(
   {
     down: [
       "                ", "     ######     ", "    #......#    ", "   #.######.#   ", "   #.#....#.#   ", "   #.#.#..#.#   ",
@@ -151,7 +151,7 @@ const MIRA = walker(
 );
 
 // Elder Ostra (bald, beard, cane).
-const ELDER = walker(
+export const ELDER = walker(
   {
     down: [
       "                ", "      ####      ", "     #....#     ", "    #.#..#.#    ", "    #......#    ", "     #.##.#     ",
@@ -179,7 +179,7 @@ const ELDER = walker(
 );
 
 // Tam the merchant (round hat, apron).
-const MERCHANT = walker(
+export const MERCHANT = walker(
   {
     down: [
       "                ", "    ########    ", "   #........#   ", "  ############  ", "    #......#    ", "    #.#..#.#    ",
@@ -207,7 +207,7 @@ const MERCHANT = walker(
 );
 
 // Scene objects: frame 1 = step 0, frame 2 = step 1 ...
-const CHEST = [
+export const CHEST = [
   ["                ", "                ", "                ", "                ", "   ##########   ", "  #..........#  ",
     "  #.########.#  ", "  #.#......#.#  ", "  ############  ", "  #....##....#  ", "  #....##....#  ", "  #..........#  ",
     "  #..........#  ", "  ############  ", "                ", "                "],
@@ -225,7 +225,7 @@ const LANTERN = [
     "       ##       ", "       ##       ", "     ######     ", "    ########    "],
 ].map((a) => Pix.fromArt(a));
 
-const STONE = [
+export const STONE = [
   ["                ", "                ", "       #        ", "      #.#       ", "     #...#      ", "    #.#.#.#     ",
     "   #..#.#..#    ", "  #...#.#...#   ", "   #..#.#..#    ", "    #.#.#.#     ", "     #...#      ", "      #.#       ",
     "       #        ", "   #########    ", "  ###########   ", "                "],
@@ -238,24 +238,24 @@ const STONE = [
 // battle art
 
 // Monster sprites (ACP 3-n), two frames each.
-function twoFrames(rows: string[], shift = 1): Pix[] {
+export function twoFrames(rows: string[], shift = 1): Pix[] {
   const a = Pix.fromArt(rows);
   const b = new Pix(a.width, a.height).blit(a, 0, shift);
   return [a, b];
 }
 
-const MOTH = twoFrames([
+export const MOTH = twoFrames([
   "                        ", "  ##              ##    ", " #..##          ##..#   ", " #....##      ##....#   ", " #......#    #......#   ",
   "  #...#..#  #..#...#    ", "  #..#.#..##..#.#..#    ", "   #...#..##..#...#     ", "   #....#....#....#     ", "    #....#..#....#      ",
   "     #...####...#       ", "    #...#.##.#...#      ", "   #...# #..# #...#     ", "   #..#  #..#  #..#     ", "    ##   #..#   ##      ",
   "         ####           ",
 ]);
-const SHELLBUG = twoFrames([
+export const SHELLBUG = twoFrames([
   "                        ", "        ########        ", "      ##........##      ", "     #..#..#..#...#     ", "    #...#..#..#....#    ",
   "   #.##########.....#   ", "   #.#........#.....#   ", "  #..#.#....#.#......#  ", "  #..#........#..##..#  ", "  #...########..#..#.#  ",
   "  ##################.#  ", "  #.#.#.#.#.#.#.#.###   ", "   # # # # # # # #      ",
 ], 0);
-const WISP = twoFrames([
+export const WISP = twoFrames([
   "                                ", "              ##                ", "             #..#               ", "            #....#              ",
   "           #......#             ", "          #...##...#            ", "         #...#..#...#           ", "        #...#....#...#          ",
   "       #...#.####.#...#         ", "      #...#.#....#.#...#        ", "     #....#.#.##.#.#....#       ", "     #....#.#.##.#.#....#       ",
@@ -312,7 +312,7 @@ function portrait(): Pix[] {
   return [f, f, f, f, f, f, f];
 }
 
-function battleBackground(): Pix[] {
+export function battleBackground(): Pix[] {
   const bg = new Pix(160, 96, W);
   for (let x = 0; x < 160; x++) {
     const h = 40 + Math.round(4 * Math.sin(x / 13) + 2 * Math.sin(x / 5));
@@ -323,18 +323,18 @@ function battleBackground(): Pix[] {
   return [bg];
 }
 
-const TUFT = new Pix(40, 20).art([
+export const TUFT = new Pix(40, 20).art([
   "                                        ", "    #                 #                 ", "   #.#     #         #.#      #         ", "  #...#   #.#   #   #...#    #.#        ",
   " #.....# #...# #.# #.....#  #...#   #   ", "#.......#.....#...#.......##.....# #.#  ", "########################################",
 ], 0, 13);
-const CLOUD = new Pix(48, 22).art([
+export const CLOUD = new Pix(48, 22).art([
   "            ######                ", "         ###......###             ", "       ##............##   ####    ", "     ##................###....##  ",
   "    #...........................# ", "   #.............................#", "    #############################  ",
 ], 10, 3);
 
 // item icons (GDP), 20x20
 const icon = (rows: string[]) => new Pix(20, 20).art(rows, 2, 2);
-const ICONS = {
+export const ICONS = {
   herb: icon(["       ##       ", "      #..#      ", "  ## #....# ##  ", " #..##....##..# ", " #...#....#...# ", "  #...#..#...#  ", "   #...##...#   ", "    #..##..#    ", "     ######     ", "       ##       ", "       ##       ", "      ####      "]),
   tonic: icon(["      ####      ", "      #..#      ", "      #..#      ", "     ##..##     ", "    #......#    ", "   #.######.#   ", "   #.#....#.#   ", "   #.#....#.#   ", "   #.######.#   ", "   #........#   ", "    ########    "]),
   sword: icon(["             ## ", "            #.# ", "           #.#  ", "          #.#   ", "         #.#    ", "        #.#     ", "   #   #.#      ", "    # #.#       ", "     #.#        ", "    ##.#        ", "   #  # #       ", "  #             "]),
@@ -343,7 +343,7 @@ const ICONS = {
 };
 
 // spell / item animations (SRS 2-n)
-function sparkle(): LibEntry {
+export function sparkle(): LibEntry {
   const star = (s: number) => {
     const p = new Pix(2 * s + 1, 2 * s + 1);
     p.line(0, s, 2 * s, s).line(s, 0, s, 2 * s);
@@ -357,7 +357,7 @@ function sparkle(): LibEntry {
     ], [star(1), star(3), star(5)]),
   };
 }
-function bolt(): LibEntry {
+export function bolt(): LibEntry {
   const seg = (rows: string[]) => Pix.fromArt(rows).frame();
   return {
     resType: R.SRS, type: 2, index: 2,
@@ -371,7 +371,7 @@ function bolt(): LibEntry {
     ]),
   };
 }
-function glow(): LibEntry {
+export function glow(): LibEntry {
   const ring = (r: number) => {
     const p = new Pix(2 * r + 1, 2 * r + 1);
     for (let a = 0; a < 64; a++) p.set(r + Math.round(r * Math.cos((a / 64) * 2 * Math.PI)), r + Math.round(r * Math.sin((a / 64) * 2 * Math.PI)), B);

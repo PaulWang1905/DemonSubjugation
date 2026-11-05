@@ -9,6 +9,7 @@ import { findEntry, putEntry, readLib, removeEntry, writeLib, type LibArchive, t
 import { blankProject } from "../template/blank";
 import { blankAnimation, blankGraphic } from "../template/newres";
 import { lanternPath, lanternPathSources } from "../template/demo";
+import { silentBell, silentBellSources } from "../template/silentBell";
 import { keyOf, ResourceList } from "./ResourceList";
 import { KIND_NAMES } from "../format/decode";
 import { ResourceView } from "./ResourceView";
@@ -93,8 +94,9 @@ export function Editor({ onPlaytest }: Props) {
     persist(o, true);
   };
 
-  const create = (kind: "demo" | "blank") => {
+  const create = (kind: "demo" | "bell" | "blank") => {
     if (kind === "demo") openArchive("Lantern Path", lanternPath(), lanternPathSources());
+    else if (kind === "bell") openArchive("The Silent Bell", silentBell(), silentBellSources());
     else {
       const name = prompt("Name of the new game (letters, up to 9):", "MY GAME")?.trim();
       if (!name) return;
@@ -312,6 +314,7 @@ export function Editor({ onPlaytest }: Props) {
         <section>
           <h2>New project</h2>
           <div className="row">
+            <button onClick={() => create("bell")}>The Silent Bell demo</button>
             <button onClick={() => create("demo")}>Lantern Path demo</button>
             <button className="ghost" onClick={() => create("blank")}>
               Blank game
