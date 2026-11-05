@@ -165,6 +165,11 @@ script early.
 3. The framework preset (Vite), build command (`npm run build`) and output
    directory (`dist`) come from `vercel.json`. Deploy.
 
+Visitor counts use [Vercel Web Analytics](https://vercel.com/docs/analytics)
+(`<Analytics />` in `src/main.tsx`). Turn it on under the project's
+**Analytics** tab; it records page views only, without cookies, and game files
+never leave the browser. On other hosts the component does nothing.
+
 Any static host works the same way: serve the `dist/` folder.
 
 ## Layout
