@@ -41,6 +41,14 @@ export function LockedCard({ game, update, busy, onImport }: Props) {
         <strong>{game.name}</strong>
         <span className="muted small">{update ? "New version · needs the password" : "Locked · needs a password"}</span>
         <span className="card-desc">{game.desc}</span>
+        {game.source && (
+          <span className="card-source small">
+            Original from{" "}
+            <a href={game.source.url} target="_blank" rel="noreferrer">
+              {game.source.label}
+            </a>
+          </span>
+        )}
       </div>
       <form
         className="card-actions lock-form"

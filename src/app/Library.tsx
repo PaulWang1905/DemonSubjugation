@@ -136,6 +136,19 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
                   {g.fileName} · {size(g.size)}
                   {g.addedAt ? ` · ${added(g.addedAt)}` : ""}
                 </span>
+                {(() => {
+                  const src = LOCKED_GAMES.find((l) => l.name === g.name)?.source;
+                  return (
+                    src && (
+                      <span className="card-source small">
+                        Original from{" "}
+                        <a href={src.url} target="_blank" rel="noreferrer">
+                          {src.label}
+                        </a>
+                      </span>
+                    )
+                  );
+                })()}
               </div>
               <div className="card-actions">
                 <button onClick={() => onPlay(g)}>Play</button>

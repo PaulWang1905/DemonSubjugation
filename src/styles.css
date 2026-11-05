@@ -3029,3 +3029,9 @@ a.link:hover {
     grid-template-columns: 96px minmax(0, 1fr);
   }
 }
+.card-body .card-source {
+  white-space: normal;
+  margin-top: 4px;
+  color: var(--muted, inherit);
+  overflow-wrap: anywhere;
+}

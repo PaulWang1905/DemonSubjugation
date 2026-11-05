@@ -14,6 +14,8 @@ export interface LockedGame {
   fileName: string;
   url: string;
   desc: string;
+  /** Where the original game comes from. */
+  source?: { label: string; url: string };
 }
 
 /** The locked games on the Games page. */
@@ -24,6 +26,7 @@ export const LOCKED_GAMES: LockedGame[] = [
     fileName: "Fumo Ji (English).lib",
     url: "/locked/fumo-ji-en.fmje",
     desc: "伏魔记 (BBK, 2004) in English: text and pictures. Password protected.",
+    source: { label: "erduoniba/baye-fmj-app", url: "https://github.com/erduoniba/baye-fmj-app" },
   },
 ];
 
