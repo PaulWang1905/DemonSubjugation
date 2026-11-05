@@ -112,6 +112,9 @@ export function Player({ game, fonts, onExit }: Props) {
   speedRef.current = speed;
   paletteRef.current = paletteId;
   EngineSettings.originalDamageFormula = originalFormula;
+  // Experimental: smaller text cells so dialogue, menus and descriptions hold more.
+  const [textSize, setTextSize] = useState(() => Number(pref("textSize", "16")) as 16 | 12 | 10);
+  EngineSettings.textSize = textSize === 12 || textSize === 10 ? textSize : 16;
 
   // Boot the engine and run the fixed-step loop (the original ticks every 40 ms).
   useEffect(() => {
@@ -457,6 +460,21 @@ export function Player({ game, fonts, onExit }: Props) {
             <option value="en">English</option>
           </select>
         </label>
+        <label className="field" title="Smaller text in dialogue, message boxes, script menus and descriptions, so more fits on the screen">
+          More text (experimental)
+          <select
+            value={textSize}
+            onChange={(e) => {
+              setTextSize(Number(e.target.value) as 16 | 12 | 10);
+              setPref("textSize", e.target.value);
+            }}
+          >
+            <option value="16">Off (device size)</option>
+            <option value="12">More: 12-pixel text</option>
+            <option value="10">Most: 10-pixel text</option>
+          </select>
+        </label>
+        {textSize !== 16 && textMode === "pixel" && <p className="muted small">Small text reads best with Sharp text.</p>}
         <label className="check">
           <input
             type="checkbox"

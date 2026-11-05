@@ -37,7 +37,10 @@ export class ScreenCommonMenu extends BaseScreen {
       out.set(b);
       return out;
     });
-    this.list = EngineSettings.originalDamageFormula ? new ScrollList(0x50 - colCount * 4, 0x0a, colCount, byteItems) : null;
+    // the original's list; also with compact text, which only it can lay out
+    const size = EngineSettings.textSize;
+    this.list =
+      EngineSettings.originalDamageFormula || size !== 16 ? new ScrollList(0x50 - colCount * (size >> 2), 0x0a, colCount, byteItems) : null;
   }
 
   get isPopup(): boolean {

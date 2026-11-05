@@ -36,6 +36,8 @@ export class ScrollList {
   private readonly frameW: number;
   private static up: Bitmap | null = null;
   private static down: Bitmap | null = null;
+  /** Text cell height: 16 as on the device, less with the compact text option. */
+  private readonly size: number;
 
   constructor(
     x: number,
@@ -45,26 +47,27 @@ export class ScrollList {
     startLine = 0,
   ) {
     const count = items.length;
-    const w = lineChars * 8;
+    const size = (this.size = EngineSettings.textSize);
+    const w = lineChars * (size >> 1);
     x = Math.max(1, x);
     y = Math.max(1, y);
     if (y > 0x32) y = 0x32;
     if (count > 3 && y > 0x2a) y = 0x2a;
-    let visible = Math.trunc((0x5f - y - 4) / 16);
+    let visible = Math.trunc((0x5f - y - 4) / size);
     let bottom: number;
     if (count > visible) {
-      bottom = visible * 16 + y + 4;
+      bottom = visible * size + y + 4;
       if (count - visible > 1) visible--;
       else {
         bottom += 8;
         if (bottom > 0x5e) {
           visible--;
-          bottom = visible * 16 + y + 16 + 4;
+          bottom = visible * size + y + size + 4;
         }
       }
     } else {
       visible = count;
-      bottom = visible * 16 + y + 4;
+      bottom = visible * size + y + 4;
     }
     this.visible = Math.max(1, visible);
     this.x = x;
@@ -125,12 +128,15 @@ export class ScrollList {
     this.frame ??= Util.getFrameBitmap(this.frameW, this.bottom - this.y + 3);
     canvas.drawBitmap(this.frame, this.x - 1, this.y - 1);
     const textY = this.top >= 1 ? y + 8 : y;
-    for (let i = 0; i < this.visible && this.top + i < this.lines.length; i++) {
-      const line = this.lines[this.top + i];
-      if (this.top + i === this.sel) TextRender.drawSelText(canvas, line, textX, textY + 16 * i);
-      else TextRender.drawText(canvas, line, textX, textY + 16 * i);
-    }
-    const ax = (this.lineChars - 1) * 4 + textX;
+    const size = this.size;
+    TextRender.withSize(size, () => {
+      for (let i = 0; i < this.visible && this.top + i < this.lines.length; i++) {
+        const line = this.lines[this.top + i];
+        if (this.top + i === this.sel) TextRender.drawSelText(canvas, line, textX, textY + size * i);
+        else TextRender.drawText(canvas, line, textX, textY + size * i);
+      }
+    });
+    const ax = (this.lineChars * (size >> 1)) / 2 - 4 + textX;
     if (this.top >= 1) canvas.drawBitmap((ScrollList.up ??= arrow(true)), ax, y + 2);
     if (this.top + this.visible < this.lines.length) canvas.drawBitmap((ScrollList.down ??= arrow(false)), ax, this.bottom - 2 - 8 + 2);
   }

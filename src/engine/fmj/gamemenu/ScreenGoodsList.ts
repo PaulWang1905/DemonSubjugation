@@ -5,6 +5,7 @@ import { Player } from "../characters/Player";
 import type { BaseGoods } from "../goods/BaseGoods";
 import { TextRender } from "../graphics/TextRender";
 import { Util } from "../graphics/Util";
+import { EngineSettings } from "../config/EngineSettings";
 import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import { Bitmap, Canvas, Rect } from "../../graphics";
 import { Stack, gbkBytes } from "../../java";
@@ -94,7 +95,8 @@ export class ScreenGoodsList extends BaseScreen {
     ) {
       this.goodsList[i].draw(canvas, 14, 2 + 23 * (i - this.firstDisplayItemIndex));
     }
-    this.nextToDraw = TextRender.drawTextFrom(canvas, this.description, this.toDraw, displayRect);
+    // the description (in smaller text with the compact text option)
+    this.nextToDraw = TextRender.drawBlock(canvas, this.description, this.toDraw, displayRect, EngineSettings.textSize);
   }
 
   private showNextItem(): void {

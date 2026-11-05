@@ -105,6 +105,11 @@ really deals the flag value, and an NPC walks until it reaches its target
 
 ## Still different (on purpose or not checkable)
 
+- **More text** (experimental player option, off by default) changes the
+  dialogue, message boxes, MENU lists and descriptions on purpose: smaller
+  text and taller boxes, so fewer pages. With it off they are as described
+  above.
+
 - **Save files** use fmj.kt's layout plus what scripts set with ATTRIBSET
   9-14; the device stored a memory image. What is saved is the same game
   state. (Saves from before this change do not load.)

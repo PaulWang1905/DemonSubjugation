@@ -6,6 +6,11 @@ export const EngineSettings = {
    * simplified one.
    */
   originalDamageFormula: true,
+  /**
+   * Experimental: the text cell size dialogue, message boxes, script menus
+   * and descriptions use. 16 is the device's; 12 and 10 fit more text in.
+   */
+  textSize: 16 as 16 | 12 | 10,
   // Test switches for the player's debug menu (off in normal play).
   /** No random encounters while walking. */
   noRandomBattles: false,

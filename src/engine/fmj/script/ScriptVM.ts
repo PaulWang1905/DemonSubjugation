@@ -30,6 +30,7 @@ import type { ResSrs } from "../lib/ResSrs";
 import { Control, type GameNode } from "../views/BaseScreen";
 import { SaveLoadOperate, ScreenSaveLoadGame } from "../views/ScreenSaveLoadGame";
 import { Canvas, Paint, PaintStyle, Rect, RectF } from "../../graphics";
+import type { ResImage } from "../lib/ResImage";
 import { gbkString, getCString, random } from "../../java";
 import { OperateAdapter, OperateDrawOnce, type Command, type Operate } from "./Operate";
 import { OperateBuy } from "./OperateBuy";
@@ -50,6 +51,50 @@ class DrawSceneOnce extends OperateDrawOnce {
   drawOnce(canvas: Canvas): void {
     this.drawFn(canvas);
   }
+}
+
+/**
+ * The SAY box with compact text (the experimental text size option): the
+ * same box and portrait tab, grown upwards to hold more, smaller lines.
+ * Returns the index of the first byte that did not fit.
+ */
+function drawCompactSay(canvas: Canvas, text: Int8Array, from: number, headImg: ResImage | null, size: number, paint: Paint): number {
+  const maxLines = size === 12 ? 4 : 5;
+  const bottom = 94;
+  const rowsFor = (lines: number) => {
+    const textTop = bottom - lines * size;
+    const headBottom = headImg == null ? -1 : textTop - 12 + headImg.height;
+    const rows: { x: number; y: number; right: number }[] = [];
+    for (let row = 0; row < lines; row++) {
+      const y = textTop + row * size;
+      // lines beside the portrait start after it, as in the device's box
+      rows.push({ x: y < headBottom ? 44 : 14, y, right: 145 });
+    }
+    return rows;
+  };
+  // as tall as this page needs, never less than the device's two lines
+  const fit = (n: number) => TextRender.withSize(size, () => TextRender.drawWrapped(null, text, from, rowsFor(n)).next);
+  const full = fit(maxLines);
+  let lines = 2;
+  while (lines < maxLines && fit(lines) < full) lines++;
+  const rows = rowsFor(lines);
+  const textTop = rows[0].y;
+  const frameTop = headImg == null ? textTop - 3 : textTop - 8;
+  paint.color = Global.COLOR_WHITE;
+  paint.style = PaintStyle.FILL;
+  const r = new RectF(9, frameTop, 151, 96 - 0.5);
+  canvas.drawRectR(r, paint);
+  paint.color = Global.COLOR_BLACK;
+  paint.style = PaintStyle.STROKE;
+  paint.strokeWidth = 1;
+  canvas.drawRectR(r, paint);
+  if (headImg != null) {
+    const tab = textTop - 2;
+    canvas.drawLine(38, frameTop, 44, tab, paint);
+    canvas.drawLine(43.5, tab, 151, tab, paint);
+    headImg.draw(canvas, 1, 13, textTop - 12);
+  }
+  return TextRender.withSize(size, () => TextRender.drawWrapped(canvas, text, from, rows).next);
 }
 
 export class ScriptVM extends Control {
@@ -265,6 +310,11 @@ export class ScriptVM extends Control {
           },
           draw(canvas: Canvas) {
             if (!Combat.IsActive()) scene().drawScene(canvas);
+            const size = EngineSettings.textSize;
+            if (size !== 16) {
+              iOfNext = drawCompactSay(canvas, text, iOfText, headImg, size, paint);
+              return;
+            }
             const r = headImg == null ? rWithoutPic : rWithPic;
             paint.color = Global.COLOR_WHITE;
             paint.style = PaintStyle.FILL;
@@ -974,7 +1024,7 @@ export class ScriptVM extends Control {
           },
           draw(canvas: Canvas) {
             canvas.drawColor(Global.COLOR_WHITE);
-            const e = TextRender.drawTextInRect(canvas, text, rect, curY);
+            const e = TextRender.withSize(EngineSettings.textSize, () => TextRender.drawTextInRect(canvas, text, rect, curY));
             if (e !== 1 && e !== 2) goon = false;
             imgTop?.draw(canvas, 1, 0, 0);
             if (imgBottom) imgBottom.draw(canvas, 1, 0, 96 - imgBottom.height);

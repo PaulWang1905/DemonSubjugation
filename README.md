@@ -31,6 +31,12 @@ the right to use.
   cover keeps the covering pixels. **Pixel (original)** keeps the 16×16
   bitmap text, using HZK16/ASC16 when added.
 - Keyboard controls, and a full-screen phone layout: the screen as large as it goes, a big on-screen keypad (slide the thumb on the d-pad to turn, hold a direction and A together), controls either side of the screen when held sideways, options in a sheet that pauses the game. Add it to the home screen to play without the browser bars. Held keys repeat at one rate on every device; 1×/2×/4× speed.
+- **More text (experimental, off by default)**: dialogue, message boxes,
+  script menus, descriptions and scrolling story text can use 12- or 10-pixel
+  text instead of the device's 16, so more fits on a page (the first
+  dialogue of 伏魔记's opening fits in one box instead of two or three). The
+  layout folds the spaces games used to break lines, keeps Latin words whole
+  and keeps closing punctuation off the start of a line. Best with Sharp text.
 - **Hidden debug menu** for testing: press and hold the game screen for two
   seconds (mouse or finger; a ring fills while you hold). The game pauses while
   it is open. It edits party stats, money, items, spells and story flags, and

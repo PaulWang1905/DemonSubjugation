@@ -44,10 +44,10 @@ describe("text layer", () => {
 
   it("follows text drawn on another bitmap and blitted, and forgets erased text", () => {
     const off = new Bitmap(32, 16);
-    off.markGlyph({ x: 0, y: 0, w: 16, font: 0, code: 1, fg: 1, bg: 2 });
+    off.markGlyph({ x: 0, y: 0, w: 16, h: 16, font: 0, code: 1, fg: 1, bg: 2 });
     const screen = new Canvas(new Bitmap(160, 96));
     screen.drawBitmap(off, 40, 20);
-    expect(screen.bitmap.glyphs).toEqual([{ x: 40, y: 20, w: 16, font: 0, code: 1, fg: 1, bg: 2 }]);
+    expect(screen.bitmap.glyphs).toEqual([{ x: 40, y: 20, w: 16, h: 16, font: 0, code: 1, fg: 1, bg: 2 }]);
     screen.drawColor(0);
     expect(screen.bitmap.glyphs).toEqual([]);
   });

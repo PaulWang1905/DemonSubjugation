@@ -5,6 +5,7 @@ import type { ResImage } from "../lib/ResImage";
 import { TextRender } from "./TextRender";
 import { Bitmap, Canvas, Paint, PaintStyle, Rect } from "../../graphics";
 import { gbkBytes } from "../../java";
+import { EngineSettings } from "../config/EngineSettings";
 
 // 22x39 "wearing" figure used by the equipment screen (1 = black).
 const CHUANDAI_BITS = "000000000111000000000000011001111111111111000011111000000001111100001100011100111000110000010010000000000011000001001111111111100000000000010000110000000000000011111111111111110000001100011110111111000000000111111000111000000011110011100000001111111100001110000000011110000000110000000000000000111111000000000000000001111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100001100010000000011111110110011000000011001000011010000000001111111111111111000011111111111111111000000001111111011011000000000110111101101100000000010110010010110000000001111111001111000000000111111100111000000000001111100001110000001111100001111111111000000111001101100111111100110000001000001111100000000000000000001100";
@@ -72,11 +73,30 @@ class UtilImpl {
   /** Up to 8 Chinese characters per line, at most 5 lines. */
   showMessage(canvas: Canvas, msg: string | Int8Array): void {
     const bytes = typeof msg === "string" ? gbkBytes(msg) : msg;
+    if (EngineSettings.textSize !== 16) {
+      this.showMessageCompact(canvas, bytes, EngineSettings.textSize);
+      return;
+    }
     let lineNum = Math.trunc(bytes.length / 16);
     if (lineNum >= 5) lineNum = 4;
     const textY = 39 - lineNum * 8;
     canvas.drawBitmap(this.bmpInformationBg[lineNum], 11, textY - 2);
     TextRender.drawTextFrom(canvas, bytes, 0, new Rect(16, textY, 16 + 16 * 8, textY + 16 * lineNum + 16));
+  }
+
+  private compactFrames = new Map<number, Bitmap>();
+
+  /** showMessage with the compact text option: wider lines, as many as fit. */
+  private showMessageCompact(canvas: Canvas, bytes: Int8Array, size: number): void {
+    const maxLines = Math.floor(84 / size);
+    const rowsAt = (y: number) => Array.from({ length: maxLines }, (_, k) => ({ x: 16, y: y + k * size, right: 143 }));
+    const lines = Math.max(1, TextRender.withSize(size, () => TextRender.drawWrapped(null, bytes, 0, rowsAt(0)).rows));
+    const h = lines * size + 7;
+    let frame = this.compactFrames.get(h);
+    if (!frame) this.compactFrames.set(h, (frame = this.getFrameBitmap(138, h)));
+    const textY = Math.max(5, 48 - Math.round((lines * size) / 2));
+    canvas.drawBitmap(frame, 11, textY - 3);
+    TextRender.withSize(size, () => TextRender.drawWrapped(canvas, bytes, 0, rowsAt(textY).slice(0, lines)));
   }
 
   drawSideFrame(canvas: Canvas): void {

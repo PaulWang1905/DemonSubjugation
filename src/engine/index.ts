@@ -94,8 +94,10 @@ function resetStatics(): void {
 export interface TextMark {
   x: number;
   y: number;
-  /** 16 for HZK16 characters, 8 for ASC16. Cells are 16 pixels tall. */
+  /** Cell width: 16 for HZK16 characters, 8 for ASC16 (less in compact text). */
   w: number;
+  /** Cell height: 16, or 12 / 10 for compact text. */
+  h: number;
   text: string;
   /** Engine colours (0xAABBGGRR), as in the frame from render(). */
   fg: number;
@@ -200,7 +202,7 @@ export function createEngine(opts: EngineOptions): Engine {
         keep.push(g);
         const text = glyphChar(g);
         const hidden = vis.length === 4 ? (vis as [number, number, number, number]) : null;
-        if (text.trim()) out.push({ x: g.x, y: g.y, w: g.w, text, fg: g.fg, bg: g.bg, hidden });
+        if (text.trim()) out.push({ x: g.x, y: g.y, w: g.w, h: g.h ?? 16, text, fg: g.fg, bg: g.bg, hidden });
       }
       bmp.glyphs = keep;
       return out;

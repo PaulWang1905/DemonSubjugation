@@ -2,6 +2,7 @@
 import { Global } from "../Global";
 import { T } from "../i18n";
 import { TextRender } from "../graphics/TextRender";
+import { EngineSettings } from "../config/EngineSettings";
 import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import { Bitmap, Canvas, Paint, PaintStyle, Point, Rect } from "../../graphics";
 import { Stack, gbkBytes } from "../../java";
@@ -81,7 +82,8 @@ export class ScreenMagic extends BaseScreen {
     if (this.mFirstItemIndex + 1 < this.magics.length) {
       TextRender.drawText(canvas, this.magics[this.mFirstItemIndex + 1].magicName, this.mRectTop.left + 1, this.mRectTop.top + 1 + 16);
     }
-    this.mNextToDraw = TextRender.drawTextFrom(canvas, hlMagic.magicDescription, this.mToDraw, this.mRectDsp);
+    // the description (in smaller text with the compact text option)
+    this.mNextToDraw = TextRender.drawBlock(canvas, hlMagic.magicDescription, this.mToDraw, this.mRectDsp, EngineSettings.textSize);
     TextRender.drawText(canvas, T.mpCost + hlMagic.costMp, this.mTextPos.x, this.mTextPos.y);
     canvas.drawBitmap(this.mBmpCursor, 100, this.mFirstItemIndex === this.mCurItemIndex ? 10 : 26);
     canvas.drawBitmap(this.mFirstItemIndex === 0 ? this.mBmpMarker : this.mBmpMarker2, 135, 6);

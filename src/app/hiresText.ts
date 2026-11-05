@@ -51,11 +51,12 @@ export function hiresScale(cssScale: number): number {
 
 /** The parts of a character cell that still show it, as [x, y, w, h] in the cell. */
 function visibleRects(m: TextMark): [number, number, number, number][] {
-  if (!m.hidden) return [[0, 0, m.w, 16]];
+  const h = m.h ?? 16;
+  if (!m.hidden) return [[0, 0, m.w, h]];
   const [x0, y0, x1, y1] = m.hidden;
   const out: [number, number, number, number][] = [];
   if (y0 > 0) out.push([0, 0, m.w, y0]);
-  if (y1 < 16) out.push([0, y1, m.w, 16 - y1]);
+  if (y1 < h) out.push([0, y1, m.w, h - y1]);
   if (x0 > 0) out.push([0, y0, x0, y1 - y0]);
   if (x1 < m.w) out.push([x1, y0, m.w - x1, y1 - y0]);
   return out;
@@ -109,31 +110,32 @@ export class HiresText {
     if (this.glyphs.size > 4000) this.glyphs.clear();
     const k = scale;
     for (const m of marks) {
-      const g = this.glyph(m.text, m.w, shade(m.fg, palette), k);
+      const g = this.glyph(m.text, m.w, m.h ?? 16, shade(m.fg, palette), k);
       for (const [cx, cy, cw, ch] of visibleRects(m)) {
         ctx.drawImage(g, cx * k, cy * k, cw * k, ch * k, (m.x + cx) * k, (m.y + cy) * k, cw * k, ch * k);
       }
     }
   }
 
-  private glyph(text: string, w: number, color: string, scale: number): Surface {
-    const key = `${text}\u0000${w}\u0000${color}\u0000${scale}`;
+  private glyph(text: string, w: number, h: number, color: string, scale: number): Surface {
+    const key = `${text}\u0000${w}\u0000${h}\u0000${color}\u0000${scale}`;
     let s = this.glyphs.get(key);
     if (s) return s;
-    s = surface(w * scale, 16 * scale);
+    s = surface(w * scale, h * scale);
     const ctx = s.getContext("2d") as Ctx2D;
     const f = FONTS[this.style];
+    const u = (h / 16) * scale; // output pixels per pixel of a 16-pixel cell
     ctx.fillStyle = color;
     ctx.textAlign = "center";
-    if (w === 16) {
-      // full-width: fill most of the 16x16 cell, like the original font
-      ctx.font = `${(14.5 * scale).toFixed(1)}px ${f.cjk}`;
+    if (w === h) {
+      // full-width: fill most of the cell, like the original font
+      ctx.font = `${(14.5 * u).toFixed(1)}px ${f.cjk}`;
       ctx.textBaseline = "middle";
-      ctx.fillText(text, 8 * scale, 8.4 * scale);
+      ctx.fillText(text, 8 * u, 8.4 * u);
     } else {
-      ctx.font = `${(13 * scale).toFixed(1)}px ${f.latin}`;
+      ctx.font = `${(13 * u).toFixed(1)}px ${f.latin}`;
       ctx.textBaseline = "alphabetic";
-      ctx.fillText(text, 4 * scale, 12.4 * scale, 8 * scale);
+      ctx.fillText(text, 4 * u, 12.4 * u, 8 * u);
     }
     this.glyphs.set(key, s);
     return s;

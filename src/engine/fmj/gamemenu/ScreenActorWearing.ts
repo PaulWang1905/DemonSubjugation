@@ -5,6 +5,7 @@ import { Player } from "../characters/Player";
 import type { BaseGoods } from "../goods/BaseGoods";
 import type { GoodsEquipment } from "../goods/GoodsEquipment";
 import { TextRender } from "../graphics/TextRender";
+import { EngineSettings } from "../config/EngineSettings";
 import { Util } from "../graphics/Util";
 import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import { Point, Rect, type Canvas } from "../../graphics";
@@ -64,7 +65,7 @@ export class ScreenActorWearing extends BaseScreen {
       canvas.drawBitmap(this.bmpName, 9, 10);
       canvas.drawBitmap(this.bmpDesc, 9, 28);
       TextRender.drawText(canvas, this.mTextName, 12, 13);
-      this.mNextToDraw = TextRender.drawTextFrom(canvas, this.mTextDesc, this.mToDraw, sRectDesc);
+      this.mNextToDraw = TextRender.drawBlock(canvas, this.mTextDesc, this.mToDraw, sRectDesc, EngineSettings.textSize);
     }
   }
 

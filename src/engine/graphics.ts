@@ -42,6 +42,8 @@ export interface GlyphMark {
   x: number;
   y: number;
   w: number;
+  /** Cell height: 16 as on the device, less for the compact text option. */
+  h: number;
   font: 0 | 1;
   code: number;
   fg: Color;
@@ -75,7 +77,7 @@ export class Bitmap {
       for (const g of src.glyphs) {
         const nx = g.x + x;
         const ny = g.y + y;
-        if (nx > -g.w && ny > -16 && nx < this.width && ny < this.height) this.markGlyph({ ...g, x: nx, y: ny });
+        if (nx > -g.w && ny > -g.h && nx < this.width && ny < this.height) this.markGlyph({ ...g, x: nx, y: ny });
       }
     }
   }
@@ -108,7 +110,7 @@ export class Bitmap {
   fillRect(x: number, y: number, w: number, h: number): void {
     if (this.glyphs) {
       // drop glyphs the rectangle covers completely
-      this.glyphs = this.glyphs.filter((g) => !(g.x >= x && g.y >= y && g.x + g.w <= x + w && g.y + 16 <= y + h));
+      this.glyphs = this.glyphs.filter((g) => !(g.x >= x && g.y >= y && g.x + g.w <= x + w && g.y + g.h <= y + h));
     }
     for (let col = x; col < x + w; col++) {
       for (let row = y; row < y + h; row++) {
