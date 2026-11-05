@@ -10,7 +10,7 @@ describe("game links", () => {
   });
 
   it("treats GitHub folders and repositories as folders", () => {
-    expect(fileLink("https://github.com/o/r/tree/main/Fmj/fmj_libs/BBK%20A%E7%B3%BB%E5%88%97RPG%20LIB%E5%90%88%E9%9B%86")).toBeNull();
+    expect(fileLink("https://github.com/o/r/tree/main/games/%E6%B8%B8%E6%88%8F")).toBeNull();
     expect(fileLink("https://github.com/o/r")).toBeNull();
   });
 

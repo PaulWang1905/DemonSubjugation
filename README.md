@@ -143,7 +143,7 @@ and plays a few thousand ticks with scripted input:
 FMJ_DATA_DIR=/path/to/fonts FMJ_COMPAT_DIR=/path/to/libs FMJ_COMPAT_REPORT=report.txt npm test
 ```
 
-On the 139-archive community collection in baye-fmj-app, all 135 playable
+On a 139-archive community collection, all 135 playable
 archives ran without errors; the other 4 are not RPG archives and are rejected at
 import. 11 of the 135 contain a script with an unknown opcode, which now ends that
 script early.
@@ -235,8 +235,7 @@ off, buff/debuff rounds and enhancement magic still do nothing, as in fmj.kt.
 
 - Engine ported from [fmj.kt](https://gitee.com/bgwp/fmj.kt) by bgwp, licensed
   GPL-2.0, which this port is a derivative of.
-- Fixes and extra opcodes from
-  [erduoniba/baye-fmj-app](https://github.com/erduoniba/baye-fmj-app).
+- Fixes and extra opcodes from the baye-fmj-app fork of the engine.
 - Battle rules checked against [BA4988/fmj-engine](https://gitee.com/BA4988/fmj-engine),
   a GPL-2.0 C reconstruction of the original engine (no code copied; the
   formulas are re-implemented).

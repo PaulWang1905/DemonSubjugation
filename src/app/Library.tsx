@@ -223,11 +223,7 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
         <a href="https://gitee.com/bgwp/fmj.kt" target="_blank" rel="noreferrer">
           fmj.kt
         </a>{" "}
-        (GPL-2.0) with fixes from{" "}
-        <a href="https://github.com/erduoniba/baye-fmj-app" target="_blank" rel="noreferrer">
-          baye-fmj-app
-        </a>
-        . Game content belongs to its respective owners.
+        (GPL-2.0) with fixes from the baye-fmj-app fork. Game content belongs to its respective owners.
       </footer>
 
       {drag && (
