@@ -3,6 +3,7 @@ import { createEngine, Keys, type Engine } from "../src/engine";
 import { writeLib } from "../src/editor/format/lib";
 import { lanternPath } from "../src/editor/template/demo";
 import { Combat } from "../src/engine/fmj/combat/Combat";
+import { DatLib } from "../src/engine/fmj/lib/DatLib";
 import { EngineSettings } from "../src/engine/fmj/config/EngineSettings";
 import { memorySaves } from "./helpers";
 
@@ -82,5 +83,31 @@ describe("debug menu cheats", () => {
   it("starts each game with the switches off", () => {
     EngineSettings.walkThroughWalls = true;
     expect(inGame().cheats.switches()).toEqual({ noRandomBattles: false, walkThroughWalls: false, alwaysFull: false });
+  });
+});
+
+describe("round limit of scripted battles (original rules)", () => {
+  it("ends as a draw after limit + 1 rounds, without jumping", () => {
+    const e = inGame();
+    EngineSettings.originalDamageFormula = true;
+    const party = e.game.playerList;
+    for (const p of party) { p.maxHP = 999; p.hp = 999; p.attack = 1; p.defend = 999; }
+    const pics = DatLib.instance.listResources().filter((r) => r.resType === 11 && r.type === 4).map((r) => r.index);
+    const monster = DatLib.instance.listResources().find((r) => r.resType === 3 && r.type === 3)!.index;
+    let jumped = -1;
+    const goto = e.game.gotoAddress.bind(e.game);
+    e.game.gotoAddress = (a: number) => { jumped = a; goto(a); };
+    Combat.EnterFight(e.game.vm, 2, [monster], [pics[0], pics[0], pics[0]], [0, 0, 0], [0, 0, 0], 111, 222);
+    // tough monster so nobody wins
+    const m = (Combat.current as unknown as { mMonsterList: { hp: number; maxHP: number; defend: number; attack: number }[] }).mMonsterList.find((x) => x.hp > 0)!;
+    m.maxHP = 999; m.hp = 999; m.defend = 999; m.attack = 1;
+    let rounds = 0;
+    for (let i = 0; i < 4000 && Combat.IsActive(); i++) {
+      press(e, Keys.ENTER, 4);
+      rounds = (Combat.current as unknown as { mRoundCnt: number } | null)?.mRoundCnt ?? rounds;
+    }
+    expect(Combat.IsActive()).toBe(false);
+    expect(jumped).toBe(-1); // neither the win nor the loss address
+    expect(rounds).toBe(2); // rounds 0, 1 and 2 were fought: the limit + 1
   });
 });

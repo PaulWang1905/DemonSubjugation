@@ -76,6 +76,8 @@ export class Combat extends BaseScreen implements CombatUICallBack {
   private mHasEventExed = false;
   /** Max rounds, 0 = unlimited. */
   public mMaxRound = 0;
+  /** A scripted battle ended by its round limit: the script continues after it. */
+  private mIsDraw = false;
   private mEventRound: number[] | null = null;
   private mEventNum: number[] | null = null;
   private mLossAddr = 0;
@@ -194,8 +196,10 @@ export class Combat extends BaseScreen implements CombatUICallBack {
   }
 
   private exitCurrentCombat(): void {
+    const draw = this.mIsDraw;
+    this.mIsDraw = false;
     if (!sIsRandomFight) {
-      this.game.gotoAddress(this.mIsWin ? this.mWinAddr : this.mLossAddr);
+      if (!draw) this.game.gotoAddress(this.mIsWin ? this.mWinAddr : this.mLossAddr);
       this.game.mainScene.scriptProcess.goonExecute = true;
       sIsRandomFight = true;
       sInstance = sInstanceBk;
@@ -215,7 +219,8 @@ export class Combat extends BaseScreen implements CombatUICallBack {
     // Recover a little after the fight. With the original rules this
     // happened on victory already; fallen members are left with 1 HP.
     if (EngineSettings.originalDamageFormula) {
-      for (const p of this.mPlayerList) if (p.hp <= 0) p.hp = 1;
+      // after a draw the fallen stay down, as on the device
+      if (!draw) for (const p of this.mPlayerList) if (p.hp <= 0) p.hp = 1;
     } else for (const p of this.mPlayerList) {
       if (p.hp <= 0) p.hp = 1;
       if (p.mp <= 0) p.mp = 1;
@@ -262,6 +267,12 @@ export class Combat extends BaseScreen implements CombatUICallBack {
           if (this.isAllMonsterDead) {
             this.onVictory();
           } else if (this.isAnyPlayerAlive) {
+            if (EngineSettings.originalDamageFormula && this.mMaxRound > 0 && this.mRoundCnt === this.mMaxRound && !sIsRandomFight) {
+              // the round limit ran out (_0021C000): neither won nor lost
+              this.mIsDraw = true;
+              this.mCombatState = CombatState.Exit;
+              break;
+            }
             ++this.mRoundCnt;
             this.updateFighterState();
             for (const p of this.mPlayerList) p.defending = false;
@@ -481,7 +492,17 @@ export class Combat extends BaseScreen implements CombatUICallBack {
     else if (action instanceof ActionMonsterTurn) next = this.monsterAction(fc as Monster);
     else if (fc instanceof Player) {
       const magic = (action as unknown as { magic?: BaseMagic }).magic;
-      if (magic && (fc.mp < magic.costByte || OriginalRules.isSealed(fc))) {
+      const held = action as unknown as { goods?: BaseGoods; hiddenWeapon?: BaseGoods };
+      const item = held.goods ?? held.hiddenWeapon;
+      if (item) {
+        // the item leaves the bag when the turn comes; none left: attack
+        if (Player.sGoodsList.useGoodsNum(item.type, item.index, 1)) {
+          next.turnStarted = true;
+          return next;
+        }
+        const target = this.firstAliveMonster;
+        if (target) next = new ActionPhysicalAttackOne(fc, target);
+      } else if (magic && (fc.mp < magic.costByte || OriginalRules.isSealed(fc))) {
         // cannot cast: a normal attack instead (_0023C7F9)
         const target = this.firstAliveMonster;
         if (target) next = fc.hasAtbuff(FightingCharacter.BUFF_MASK_ALL) ? new ActionPhysicalAttackAll(fc, this.mMonsterList) : new ActionPhysicalAttackOne(fc, target);
@@ -516,6 +537,8 @@ export class Combat extends BaseScreen implements CombatUICallBack {
 
   /** After a fighter's turn: poison, then count statuses down (_0023E1E4, _0023D52A). */
   finishTurn(action: Action): Action | null {
+    // a fallen member's statuses go (_0024330C); stat changes stay, as in the original
+    for (const p of this.mPlayerList) if (p.hp <= 0) OriginalRules.clearStatus(p, 0xff);
     if (action.aux) return null;
     const fc = action.attacker;
     if (!fc || fc.isVisiable === false) return null;

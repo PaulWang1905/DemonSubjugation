@@ -10,6 +10,8 @@ import type { FightingCharacter } from "../characters/FightingCharacter";
 import type { Monster } from "../characters/Monster";
 import type { Player } from "../characters/Player";
 import { random } from "../../java";
+import type { BaseGoods } from "../goods/BaseGoods";
+import { addSignedByte, applyItemChange, word as rawWord } from "../goods/ItemRules";
 
 /** A hit that missed (the original shows its MISS picture). */
 export const MISS = -1;
@@ -289,16 +291,22 @@ export function confusedSelfHit(fc: FightingCharacter): number {
     : u16(Math.trunc(atk / ((def >> 3) + 1)) + (r % ((atk >> 2) + 1)));
 }
 
-/** HP and MP a member's accessories give each turn (_0023D20C; unsigned bytes, as in the original). */
+/**
+ * HP and MP a member's accessories give each turn (_0023D20C): the bytes
+ * 0x17 / 0x16 of each worn accessory, added as sign-and-magnitude into
+ * an unsigned byte, as equipping does in the original.
+ */
 export function turnRecovery(p: Player): { hp: number; mp: number } {
+  const o = p.scriptOverrides;
+  if (o && (o.turnHp !== undefined || o.turnMp !== undefined)) return { hp: o.turnHp ?? 0, mp: o.turnMp ?? 0 };
   let hp = 0;
   let mp = 0;
   for (const e of p.equipmentsArray) {
-    const g = e as unknown as { mHp?: number; mMp?: number } | null;
-    if (g && typeof g.mHp === "number") hp += g.mHp;
-    if (g && typeof g.mMp === "number") mp += g.mMp;
+    if (!e || e.type !== 6) continue;
+    hp = addSignedByte(hp, e.raw[1], true);
+    mp = addSignedByte(mp, e.raw[0], true);
   }
-  return { hp: u8(hp), mp: u8(mp) };
+  return { hp, mp };
 }
 
 // ---------------------------------------------------------------------------
@@ -529,4 +537,100 @@ export function groupAttackPower(actor: number, party: (FightingCharacter | unde
     j++;
   }
   return total;
+}
+
+// ---------------------------------------------------------------------------
+// Items and stealing in battle (_002401AE, _00240841, _00241014, _0022F65A)
+
+/**
+ * Use medicine, a revival item, an elixir or a stimulant (types 9-12) on
+ * party members. Quirks kept: for "everyone" it goes over every member,
+ * fallen ones too, so party medicine also lifts the fallen.
+ */
+export function useItemOnParty(goods: BaseGoods, target: FightingCharacter | "all"): Map<FightingCharacter, number> {
+  const out = new Map<FightingCharacter, number>();
+  const list = target === "all" ? [2, 0, 1].map((i) => sides.party[i]).filter(Boolean) : [target];
+  for (const t of list) {
+    const before = t.hp;
+    applyItemChange(goods.type, null, goods.raw, t);
+    const cure = goods.raw[6] & 0x0f;
+    if (cure) clearStatus(t, cure);
+    let bits = 0;
+    if (goods.type === 12) bits = applyStatChange(t, [goods.raw[3], goods.raw[2], goods.raw[5]], "+", goods.sumRound);
+    out.set(t, bits);
+    void before;
+  }
+  return out;
+}
+
+/** Take `amount` HP or MP from an enemy, stopping at 0 (_00241375). */
+function subtract(t: FightingCharacter, amount: number, hp: boolean): void {
+  if (hp) t.hp = t.hp < amount ? 0 : t.hp - amount;
+  else t.mp = t.mp < amount ? 0 : t.mp - amount;
+}
+
+/**
+ * Throw a thrown weapon (type 8) or a weapon (type 7) at enemies. A thrown
+ * weapon's negative values drain, giving the thrower the amount times the
+ * number of enemies hit; a weapon deals the original's flag value made of
+ * its effect bytes. Statuses in byte 0x1c may land for `sumRound` rounds.
+ * Returns the HP each enemy lost.
+ */
+export function throwItem(thrower: FightingCharacter, goods: BaseGoods, target: FightingCharacter | "all"): Map<FightingCharacter, number> {
+  const out = new Map<FightingCharacter, number>();
+  const list = (target === "all" ? sides.enemies : [target]).filter((t) => t && t.isVisiable !== false && t.hp > 0);
+  for (const t of list) out.set(t, t.hp);
+  const raw = goods.raw;
+  if (goods.type === 8) {
+    const deal = (amount: number, hp: boolean) => {
+      if (!amount) return;
+      let drain = 0;
+      if (amount > 0x8000) {
+        amount = u16(-amount);
+        drain = amount;
+      }
+      for (const t of list) subtract(t, amount, hp);
+      if (drain) {
+        const gain = u16(drain * list.length);
+        if (hp) thrower.hp = Math.min(thrower.maxHP, thrower.hp + gain);
+        else thrower.mp = Math.min(thrower.maxMP, thrower.mp + gain);
+      }
+    };
+    deal(rawWord(raw, 0), true);
+    deal(rawWord(raw, 2), false);
+  } else {
+    const w0 = rawWord(raw, 0);
+    const w1 = rawWord(raw, 2);
+    const w2 = rawWord(raw, 4);
+    const w3 = rawWord(raw, 6);
+    let flags = 0;
+    if (w3 & 0x00ff) flags |= 0x2000;
+    if (w3 & 0xff00) flags |= 0x1000;
+    if (w2 & 0x00ff) flags |= 0x0800;
+    if (w2 & 0xff00) flags |= 0x0400;
+    if (w0 & 0x00ff) flags |= 0x0200;
+    if (w0 & 0xff00) flags |= 0x0100;
+    if (w1 & 0x00ff) flags |= 0x0080;
+    flags += (w1 & 0x7f00) >> 8;
+    for (const t of list) subtract(t, flags, true);
+  }
+  const bits = raw[6] & 0x0f;
+  if (bits) for (const t of list) if (statusLands(t)) applyStatus(t, bits, goods.sumRound);
+  for (const [t, before] of out) out.set(t, before - t.hp);
+  return out;
+}
+
+/**
+ * Steal (special spell 1, _0022F65A): luck against luck, then 2 in 3 (or 1
+ * in 2 when the thief is not luckier). Quirk kept: the enemy's luck is read
+ * from the enemy slot with the thief's own number.
+ */
+export function stealSucceeds(thief: FightingCharacter, thiefSlot: number, target: FightingCharacter): boolean {
+  const r = rand16();
+  const pLuck = u8(thief.luck);
+  const eLuck = u8(sides.enemies[thiefSlot]?.luck ?? target.luck);
+  const rate = pLuck > eLuck ? 3 : 2;
+  const mine = u8(mod(r, pLuck) + 1);
+  const theirs = mod(r, eLuck);
+  return mine > theirs && r % rate !== 0;
 }

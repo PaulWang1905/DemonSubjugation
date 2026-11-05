@@ -12,6 +12,7 @@ import type { Animation } from "../anim/Animation";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
 import { raiseMask } from "../OriginalRules";
 import { ActionSingleTarget } from "./ActionSingleTarget";
+import { EngineSettings } from "../../config/EngineSettings";
 
 const STATE_PRE = 1; // wind-up
 const STATE_ANI = 2; // spell animation
@@ -51,7 +52,9 @@ export class ActionMagicAttackOne extends ActionSingleTarget {
     this.mRaiseAni = new RaiseAnimation(t.combatX, t.combatY, t.hp - ohp, raiseMask(res?.bits ?? 0), res?.miss);
 
     if (this.magic instanceof MagicSpecial) {
-      const it = this.steal(a);
+      // the original pays for special spells too, and only spell 1 steals
+      if (EngineSettings.originalDamageFormula) a.mp = a.mp - this.magic.costByte;
+      const it = !EngineSettings.originalDamageFormula || this.magic.index === 1 ? this.steal(a) : null;
       if (it) {
         Player.sGoodsList.addGoods(it.type, it.index);
         let countdown = 1000;

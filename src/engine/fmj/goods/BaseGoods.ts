@@ -17,6 +17,13 @@ export abstract class BaseGoods extends ResBase {
   /** When non-zero, equipping sets this event and taking off clears it; cannot be sold. */
   eventId = 0;
   goodsNum = 0;
+  /** Effect bytes 0x16-0x1d, as the original engine applies them (ItemRules). */
+  raw = new Uint8Array(8);
+
+  /** The original's "hits everyone" test for battle items: byte 0x1c above 0x0f. */
+  get originalForAll(): boolean {
+    return this.raw[6] > 0x0f;
+  }
 
   protected abstract setOtherData(buf: Int8Array, offset: number): void;
 
@@ -31,6 +38,7 @@ export abstract class BaseGoods extends ResBase {
     this.sellPrice = ResBase.get2BytesInt(buf, offset + 0x14);
     this.description = ResBase.getString(buf, offset + 0x1e);
     this.eventId = ResBase.get2BytesInt(buf, offset + 0x84);
+    this.raw = Uint8Array.from(buf.subarray(offset + 0x16, offset + 0x1e), (v) => v & 0xff);
     this.setOtherData(buf, offset);
   }
 

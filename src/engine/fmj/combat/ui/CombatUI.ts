@@ -23,6 +23,7 @@ import { Point, Rect, type Canvas } from "../../../graphics";
 import { gbkBytes } from "../../../java";
 import type { Action } from "../actions/Action";
 import { ActionCoopMagic } from "../actions/ActionCoopMagic";
+import { EngineSettings } from "../../config/EngineSettings";
 import { ActionDefend } from "../actions/ActionDefend";
 import { ActionMagicAttackAll } from "../actions/ActionMagicAttackAll";
 import { ActionMagicAttackOne } from "../actions/ActionMagicAttackOne";
@@ -458,7 +459,14 @@ class MenuGoods extends BaseScreen {
   }
 
   private get throwableGoodsList(): BaseGoods[] {
+    // the original also lets weapons in the bag be thrown
+    if (EngineSettings.originalDamageFormula) return [...Player.sGoodsList.equipList.filter((g) => g.type === 7), ...Player.sGoodsList.goodsList.filter((g) => g.type === 8)];
     return Player.sGoodsList.goodsList.filter((g) => g.type === 8);
+  }
+
+  /** Whether an item works on a whole side (the original reads byte 0x1c). */
+  private forAll(goods: BaseGoods): boolean {
+    return EngineSettings.originalDamageFormula ? goods.originalForAll : goods.effectAll();
   }
 
   update(_delta: number): void {}
@@ -495,7 +503,7 @@ class MenuGoods extends BaseScreen {
                 onItemSelected: (goods) => {
                   this.popScreen(); // goods list
                   this.popScreen(); // misc menu
-                  if (goods.effectAll()) {
+                  if (this.forAll(goods)) {
                     ui.actionSelected(new ActionThrowItemAll(cur, ui.mMonsterList, goods as GoodsHiddenWeapon));
                   } else {
                     ui.pushScreen(
@@ -517,7 +525,7 @@ class MenuGoods extends BaseScreen {
                 onItemSelected: (goods) => {
                   this.popScreen(); // goods list
                   this.popScreen(); // misc menu
-                  if (goods.effectAll()) {
+                  if (this.forAll(goods)) {
                     ui.actionSelected(new ActionUseItemAll(cur, ui.mPlayerList, goods));
                   } else {
                     this.pushScreen(ui.selectPlayer(this, (fc) => ui.actionSelected(new ActionUseItemOne(cur, fc, goods))));

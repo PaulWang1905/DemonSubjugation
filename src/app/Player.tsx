@@ -389,7 +389,7 @@ export function Player({ game, fonts, onExit }: Props) {
                   setPref("originalDamage", e.target.checked ? "on" : "off");
                 }}
               />
-              Original battle rules
+              Original engine rules
             </label>
             <div className="row">
               <button className="ghost" onClick={downloadSaves}>

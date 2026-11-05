@@ -9,6 +9,8 @@ import type { ResSrs } from "../../lib/ResSrs";
 import type { Canvas } from "../../../graphics";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
 import { ActionSingleTarget } from "./ActionSingleTarget";
+import { EngineSettings } from "../../config/EngineSettings";
+import { throwItem } from "../OriginalRules";
 import { STATE_AFT, STATE_ANI, STATE_PRE, applyHiddenWeapon, fallbackAni, windDown, windUp } from "./ItemActionBase";
 
 export class ActionThrowItemOne extends ActionSingleTarget {
@@ -32,11 +34,16 @@ export class ActionThrowItemOne extends ActionSingleTarget {
     const t = this.mTarget;
     this.ox = a.combatX;
     this.oy = a.combatY;
-    this.mAni = this.hiddenWeapon.ani ?? fallbackAni();
+    this.mAni = (this.hiddenWeapon as { ani?: ResSrs | null }).ani ?? fallbackAni();
     this.mAni.start();
     this.mAni.setIteratorNum(2);
     this.mAniX = t.combatX;
     this.mAniY = t.combatY;
+    if (EngineSettings.originalDamageFormula) {
+      const lost = throwItem(a, this.hiddenWeapon, t);
+      this.mRaiseAni = new RaiseAnimation(this.mAniX, t.combatTop, -(lost.get(t) ?? 0), 0);
+      return;
+    }
     Player.sGoodsList.deleteGoods(this.hiddenWeapon.type, this.hiddenWeapon.index);
     const diff = applyHiddenWeapon(a, t, this.hiddenWeapon.affectHp, this.hiddenWeapon.affectMp);
     this.mRaiseAni = new RaiseAnimation(this.mAniX, t.combatTop, diff, 0);

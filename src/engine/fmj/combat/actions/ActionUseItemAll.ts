@@ -9,6 +9,8 @@ import { GoodsMedicine } from "../../goods/GoodsMedicine";
 import type { ResSrs } from "../../lib/ResSrs";
 import type { Canvas } from "../../../graphics";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
+import { EngineSettings } from "../../config/EngineSettings";
+import { raiseMask, useItemOnParty } from "../OriginalRules";
 import { ActionMultiTarget } from "./ActionMultiTarget";
 import { STATE_AFT, STATE_ANI, STATE_PRE, fallbackAni, windDown, windUp } from "./ItemActionBase";
 
@@ -37,6 +39,15 @@ export class ActionUseItemAll extends ActionMultiTarget {
     this.mAni = (this.goods instanceof GoodsMedicine ? this.goods.ani : null) ?? fallbackAni();
     this.mAni.start();
     this.mAni.setIteratorNum(2);
+    if (EngineSettings.originalDamageFormula) {
+      const before = new Map(this.mTargets.map((t) => [t, t.hp]));
+      const res = useItemOnParty(this.goods, "all");
+      for (const t of this.mTargets) {
+        if (!res.has(t)) continue;
+        this.mRaiseAnis.push(new RaiseAnimation(t.combatX, t.combatY, t.hp - (before.get(t) ?? t.hp), raiseMask(res.get(t) ?? 0)));
+      }
+      return;
+    }
     if (this.goods instanceof GoodsMedicine) {
       // eat() removes one item per call; apply the effect without using more.
       const goods = this.goods;

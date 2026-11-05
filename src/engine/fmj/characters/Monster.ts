@@ -36,6 +36,20 @@ export class Monster extends FightingCharacter {
     return g;
   }
 
+  /** Has something left to steal (its first carried item). */
+  get hasStealable(): boolean {
+    const c = this.mCarryGoods1;
+    return c[0] !== 0 && c[2] !== 0;
+  }
+
+  /** Take one of its first carried item. */
+  takeStealable(): BaseGoods | null {
+    const c = this.mCarryGoods1;
+    if (!this.hasStealable) return null;
+    c[2] -= 1;
+    return DatLib.getRes(ResType.GRS, c[0], c[1], true) as unknown as BaseGoods | null;
+  }
+
   stealGoods(_attacker: FightingCharacter): BaseGoods | null {
     const c = this.mCarryGoods1;
     if (c[0] === 0 || c[1] === 0 || c[2] === 0) return null;

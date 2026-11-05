@@ -54,13 +54,48 @@ Checked against the disassembly where the C reconstruction looked off:
 the buff percentage function does return `value × pct / 100`, and the
 revive branch works on fallen members (the C file has that test inverted).
 
+### Items, equipment and inventory
+
+| Area | Original (now followed) | fmj.kt (before) |
+| --- | --- | --- |
+| Equipment stat bytes (`_0022111F`, `_00221AE9`) | Sign-and-magnitude (0x83 = −3), subtraction stops at 0; weapons add their attack byte and armour its defence byte as plain numbers. **Applied with either setting**: fmj.kt read 0x83 as −125, which affects about 14% of items in the test archives (including 伏魔记) | Two's-complement bytes |
+| Immunities | The status bytes of the five armour pieces | Also accessories, whose byte 0x1c is their combined spell |
+| Medicine / revival / elixirs / stimulants in battle (`_002401AE`) | Item leaves the bag when the turn comes (attack instead if none left); "everyone" (byte 0x1c > 0x0f) goes over every member, fallen ones too; revival sets HP to a percentage; stimulants raise stats for some rounds; cures with byte 0x1c | fmj.kt's own effects |
+| Throwing (`_00240841`) | Thrown weapons and weapons from the bag; drains scale with the number of enemies hit; a thrown weapon deals the original's flag value of its bytes | Thrown weapons only |
+| Stealing (`_0022F65A`) | Only special spell 1; luck against luck, then 2 in 3 (1 in 2); costs MP | 50%, free |
+| Bag (`_00239BE2`, `_00239F29`) | 99 per kind, 200 kinds; taking at least as many as there are removes the kind and succeeds; the last kind fills the gap | No limits; not enough failed |
+| Fallen members | Lose their statuses (stat changes stay) | — |
+| Poses | Weak when asleep or under ¼ HP, guarding when defending | Weak under 1/10 HP |
+| Round limit of scripted battles | After limit + 1 rounds the battle ends with neither result; the script continues after ENTERFIGHT and the fallen stay down | Ignored |
+
+### Script commands
+
+| Command | Original (now followed) | fmj.kt (before) |
+| --- | --- | --- |
+| SET / ADD / SUB / IFCMP / DISCMP / MENU / SETTO | Variables are single bytes (wrap at 256) | 16-bit values |
+| GAINMONEY / SETMONEY / USEMONEY | Capped at 65951; spending stops at 0 | No limits |
+| TESTMONEY | Compares the low 16 bits | Full value |
+| DELETEGOODS | Removes every one of the item; jumps only when there is none | Removed one |
+| USEGOODSNUM | Jumps when there are fewer than asked | Same, via the bag |
+| TESTGOODSNUM | Does nothing when the item is missing | Could jump to "equal" for 0 |
+| RANDRADE | `rand % 1000 < n` | `<=` |
+| RESUMEACTORHP | Adds a percentage of max HP (at least 1, 1-100% only) | Set HP to the percentage |
+| NPCMOVEMOD | 0 stop, 1 wander, anything else animate in place | The number as a state |
+| ATTRIBTEST / ATTRIBSET / ATTRIBADD | Also fields 9-14 (attack-status rounds, immunities, attack statuses, combined spell, per-turn HP/MP) | Unsupported |
+
+The C reconstruction was checked against the disassembly where it looked
+wrong: GAINMONEY's cap is conditional (the C file has a stray `;`), the
+steal test reads the spell's number, not its type, and throwing a weapon
+really deals the flag value.
+
 ## Still different
 
-- **Items in battle**: medicine and thrown weapons still use fmj.kt's code;
-  the original also takes the item from the bag at the start of the turn.
-- **Stealing** (`_0022F5CE`) uses fmj.kt's 50% roll.
-- **Automatic commands** the original recalculates for asleep/confused
-  members (`_0024327E`) and the round limit of scripted battles.
+- **NPC movement** (`_00215A79`, `_00215EDE`): wandering NPCs still move
+  the fmj.kt way.
+- **Bag order across kinds**: the original keeps one list for equipment and
+  items; here they are two lists (each follows the original's order rules).
+- A status landing on "every enemy" from a thrown item rolls each enemy's
+  luck; the original reads past the enemy table there.
 - **Unknown script opcodes** 4, 5, 8, 17, 18, 19, 25, 78 and 79 stop a
   script on the device; here they are skipped, so archives made for other
   engines keep running.

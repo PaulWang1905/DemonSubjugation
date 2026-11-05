@@ -2,6 +2,7 @@
 import { DatLib, ResType } from "../lib/DatLib";
 import type { ObjectInput, ObjectOutput } from "../../java";
 import type { BaseGoods } from "./BaseGoods";
+import { EngineSettings } from "../config/EngineSettings";
 
 function grs(type: number, index: number): BaseGoods {
   return DatLib.getRes(ResType.GRS, type, index) as unknown as BaseGoods;
@@ -46,9 +47,13 @@ export class GoodsManage {
     for (const g of list) {
       if (g.type === type && g.index === index) {
         g.addGoodsNum(num);
+        // the original keeps at most 99 of a kind (_00239BE2)
+        if (EngineSettings.originalDamageFormula && g.goodsNum > 99) g.goodsNum = 99;
         return;
       }
     }
+    // ... and at most 200 kinds
+    if (EngineSettings.originalDamageFormula && this.mGoodsList.length + this.mEquipList.length >= 200) return;
     const item = grs(type, index);
     item.goodsNum = num;
     list.push(item);
@@ -58,10 +63,28 @@ export class GoodsManage {
     return this.useGoodsNum(type, index, 1);
   }
 
-  /** Remove `num` of the item; false if not enough. */
+  /**
+   * Remove `num` of the item; false if not enough. With the original rules
+   * (_00239F29): asking for at least as many as there are removes the item
+   * and still succeeds; only a missing item fails. The last item of the
+   * list takes the removed one's place, as in the original bag.
+   */
   useGoodsNum(type: number, index: number, num: number): boolean {
     const list = this.listFor(type);
     if (!list) return false;
+    if (EngineSettings.originalDamageFormula) {
+      const k = list.findIndex((g) => g.type === type && g.index === index);
+      if (k < 0) return false;
+      const g = list[k];
+      if (g.goodsNum > num) {
+        g.addGoodsNum(-num);
+      } else {
+        g.goodsNum = 0;
+        const last = list.pop()!;
+        if (last !== g) list[k] = last;
+      }
+      return true;
+    }
     for (let k = 0; k < list.length; k++) {
       const g = list[k];
       if (g.type === type && g.index === index) {

@@ -1,6 +1,7 @@
 // Port of fmj/characters/Player.kt
 import type { GoodsEquipment } from "../goods/GoodsEquipment";
 import { T } from "../i18n";
+import { EngineSettings } from "../config/EngineSettings";
 import { GoodsManage } from "../goods/GoodsManage";
 import { TextRender } from "../graphics/TextRender";
 import { Util } from "../graphics/Util";
@@ -33,6 +34,34 @@ export class Player extends FightingCharacter implements Coder {
     return true;
   }
 
+  /**
+   * Values a script set with ATTRIBSET for fields the original keeps in
+   * the character but this engine works out from the equipment. Changing
+   * the matching equipment clears them, as equipping rewrites the field.
+   */
+  readonly scriptOverrides: { immune?: number; attackStatus?: number; combo?: number; turnHp?: number; turnMp?: number } = {};
+
+  /** The weapon's status byte (0x1c): statuses of normal attacks, 0x10 hits all. */
+  get attackStatusRaw(): number {
+    return this.scriptOverrides.attackStatus ?? (this.mAtbuff & 0xff);
+  }
+
+  /** The combined spell of the worn accessory (its byte 0x1c). */
+  get comboMagicId(): number {
+    if (this.scriptOverrides.combo !== undefined) return this.scriptOverrides.combo;
+    let id = 0;
+    for (const e of this.equipmentsArray) if (e && e.type === 6) id = e.raw[6];
+    return id;
+  }
+
+  /** Immunities: the status bytes (0x1c) of the worn armour, OR-ed like the original. */
+  get immuneBits(): number {
+    if (this.scriptOverrides.immune !== undefined) return this.scriptOverrides.immune;
+    let b = 0;
+    for (const e of this.equipmentsArray) if (e && e.type >= 1 && e.type <= 5) b |= e.raw[6];
+    return b;
+  }
+
   /** Stats before the last level-up, for the level-up screen (not saved). */
   levelBefore: { hp: number; maxHP: number; mp: number; maxMP: number; attack: number; defend: number; speed: number; lingli: number; luck: number } | null =
     null;
@@ -42,6 +71,13 @@ export class Player extends FightingCharacter implements Coder {
   }
 
   setFrameByState(): void {
+    if (EngineSettings.originalDamageFormula && this.fightingSprite) {
+      // the original's poses (_0024330C): fallen, weak (asleep or under a
+      // quarter of max HP), guarding (defending), otherwise standing
+      const asleep = this.ostatus[6] !== 0xff;
+      this.fightingSprite.currentFrame = !this.isAlive ? 12 : asleep || this.hp < this.maxHP >> 2 ? 11 : this.defending ? 9 : 1;
+      return;
+    }
     if (this.isAlive) {
       if (this.hasDebuff(FightingCharacter.BUFF_MASK_MIAN) || this.hp < Math.trunc(this.maxHP / 10)) {
         this.fightingSprite!.currentFrame = 11;

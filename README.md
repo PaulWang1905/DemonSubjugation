@@ -200,11 +200,12 @@ Deliberate changes:
   so scripts that use them no longer abort.
 - `DELETEGOODS` reads its jump address from the right operand (fork fix).
 - `GAMESAVE` only closes its own screen, and cancelling it resumes the script (fork fix).
-- **Original battle rules** (on by default, under *Controls & options*): hit
+- **Original engine rules** (on by default, under *Controls & options*): hit
   and miss, physical and spell damage, defending, fleeing, the encounter rate,
   turn order, enemy spells and AI, statuses (poison, confusion, seal, sleep,
-  stat changes with round counts), the group attack, recovery after a win,
-  levelling and drops follow the original engine as
+  stat changes with round counts), the group attack, battle items, stealing,
+  recovery after a win, levelling, drops, the bag and many script commands
+  (byte-wide variables, money limits, goods tests) follow the original engine as
   reconstructed in [fmj-engine](https://gitee.com/BA4988/fmj-engine). Turning
   the option off restores fmj.kt's simplified rules. See
   [docs/original-engine-alignment.md](docs/original-engine-alignment.md) for

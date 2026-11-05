@@ -7,6 +7,10 @@
 // Opcodes 4, 5, 7, 8, 15, 17, 18, 19 and 25 were unassigned in the original
 // fmj.kt; their decoders come from the erduoniba/baye-fmj-app fork so scripts
 // that use them no longer abort.
+import { EngineSettings } from "../config/EngineSettings";
+import * as OriginalRules from "../combat/OriginalRules";
+import { rand16 } from "../combat/OriginalRules";
+import { CharacterState } from "../characters/Character";
 import { Global, ScreenViewType } from "../Global";
 import { T } from "../i18n";
 import type { Character } from "../characters/Character";
@@ -91,6 +95,11 @@ export class ScriptVM extends Control {
     const vm = this;
     const g2 = ScriptVM.get2ByteInt;
     const g4 = ScriptVM.get4BytesInt;
+    // Under the original engine rules script variables are single bytes and
+    // money is capped at 65951, as on the device (BA4988/fmj-engine).
+    const orig = () => EngineSettings.originalDamageFormula;
+    const b8 = (v: number) => (orig() ? v & 0xff : v);
+    const MONEY_MAX = 0x1019f;
     const str = ScriptVM.getStringBytes;
     const log = ScriptVM.cmdPrint;
     const game = () => vm.game;
@@ -217,7 +226,7 @@ export class ScriptVM extends Control {
       const id = g2(code, start);
       const value = g2(code, start + 2);
       return makeCommand(4, () => {
-        ScriptResources.variables[id] = value;
+        ScriptResources.variables[b8(id)] = b8(value);
         return null;
       });
     };
@@ -309,7 +318,7 @@ export class ScriptVM extends Control {
       const other = g2(code, start + 2);
       const addr = g2(code, start + 4);
       return makeCommand(6, () => {
-        if (ScriptResources.variables[id] === other) game().gotoAddress(addr);
+        if (ScriptResources.variables[b8(id)] === b8(other)) game().gotoAddress(addr);
         return null;
       });
     };
@@ -318,7 +327,7 @@ export class ScriptVM extends Control {
       const va = g2(code, start);
       const value = g2(code, start + 2);
       return makeCommand(4, () => {
-        ScriptResources.variables[va] += value;
+        ScriptResources.variables[b8(va)] = b8(ScriptResources.variables[b8(va)] + value);
         return null;
       });
     };
@@ -327,7 +336,7 @@ export class ScriptVM extends Control {
       const va = g2(code, start);
       const value = g2(code, start + 2);
       return makeCommand(4, () => {
-        ScriptResources.variables[va] -= value;
+        ScriptResources.variables[b8(va)] = b8(ScriptResources.variables[b8(va)] - value);
         return null;
       });
     };
@@ -584,7 +593,7 @@ export class ScriptVM extends Control {
     const cmd_gainmoney: Instruct = (code, start) => {
       const value = g4(code, start);
       return makeCommand(4, () => {
-        Player.sMoney += value;
+        Player.sMoney = orig() ? Math.min(MONEY_MAX, Player.sMoney + value) : Player.sMoney + value;
         return null;
       });
     };
@@ -592,7 +601,7 @@ export class ScriptVM extends Control {
     const cmd_usemoney: Instruct = (code, start) => {
       const value = g4(code, start);
       return makeCommand(4, () => {
-        Player.sMoney -= value;
+        Player.sMoney = orig() ? Math.max(0, Player.sMoney - value) : Player.sMoney - value;
         return null;
       });
     };
@@ -600,7 +609,7 @@ export class ScriptVM extends Control {
     const cmd_setmoney: Instruct = (code, start) => {
       const money = g4(code, start);
       return makeCommand(4, () => {
-        Player.sMoney = money;
+        Player.sMoney = orig() ? Math.min(MONEY_MAX, money) : money;
         return null;
       });
     };
@@ -642,7 +651,9 @@ export class ScriptVM extends Control {
       const id = g2(code, start);
       const state = g2(code, start + 2);
       return makeCommand(4, () => {
-        scene().getNPC(id).state = stateFromInt(state);
+        // the original: 0 stops, 1 wanders (pause / walk), anything else animates in place (_002060B7)
+        const s = orig() ? (state === 0 ? CharacterState.STOP : state === 1 ? CharacterState.PAUSE : CharacterState.ACTIVE) : stateFromInt(state);
+        scene().getNPC(id).state = s;
         return null;
       });
     };
@@ -673,7 +684,9 @@ export class ScriptVM extends Control {
       // The original read the jump address from start + 2; fixed as in the fork.
       const address = g2(code, start + 4);
       return makeCommand(6, () => {
-        if (!Player.sGoodsList.deleteGoods(type, index)) game().gotoAddress(address);
+        // the original takes all of them (99) and only fails when there are none
+        const ok = orig() ? Player.sGoodsList.useGoodsNum(type, index, 99) : Player.sGoodsList.deleteGoods(type, index);
+        if (!ok) game().gotoAddress(address);
         return null;
       });
     };
@@ -683,7 +696,10 @@ export class ScriptVM extends Control {
       const value = g2(code, start + 2);
       return makeCommand(4, () => {
         const p = scene().getPlayer(id);
-        if (p) p.hp = Math.trunc((p.maxHP * value) / 100);
+        if (p && orig()) {
+          // heal by a percentage of max HP, at least 1 (_002062BB)
+          if (value >= 1 && value <= 100) p.hp = Math.min(p.maxHP, p.hp + Math.max(1, Math.trunc((p.maxHP * value) / 100)));
+        } else if (p) p.hp = Math.trunc((p.maxHP * value) / 100);
         return null;
       });
     };
@@ -838,6 +854,12 @@ export class ScriptVM extends Control {
           case 22: currentValue = eq[1]?.index ?? 0; break;
           case 23: currentValue = player.maxHP; break;
           case 24: currentValue = player.maxMP; break;
+          case 9: currentValue = player.attackStatusRounds; break;
+          case 10: currentValue = player.immuneBits; break;
+          case 11: currentValue = player.attackStatusRaw; break;
+          case 12: currentValue = player.comboMagicId; break;
+          case 13: currentValue = OriginalRules.turnRecovery(player).hp; break;
+          case 14: currentValue = OriginalRules.turnRecovery(player).mp; break;
           default:
             warnOnce(`attrib:test:${type}`, "ATTRIBTEST: unsupported attribute " + type);
             currentValue = value;
@@ -867,6 +889,12 @@ export class ScriptVM extends Control {
           case 8: player.luck = value; break;
           case 15: player.maxHP = value; break;
           case 16: player.maxMP = value; break;
+          case 9: player.attackStatusRounds = value & 0xff; break;
+          case 10: player.scriptOverrides.immune = value & 0xff; break;
+          case 11: player.scriptOverrides.attackStatus = value & 0xff; break;
+          case 12: player.scriptOverrides.combo = value & 0xff; break;
+          case 13: player.scriptOverrides.turnHp = value & 0xff; break;
+          case 14: player.scriptOverrides.turnMp = value & 0xff; break;
           default:
             warnOnce(`attrib:ATTRIBSET:${type}`, "ATTRIBSET: unsupported attribute " + type);
         }
@@ -893,6 +921,7 @@ export class ScriptVM extends Control {
           case 8: player.luck += value; break;
           case 10: player.maxHP += value; break;
           case 11: player.maxMP += value; break;
+          case 9: player.attackStatusRounds = (player.attackStatusRounds + value) & 0xff; break;
           default:
             warnOnce(`attrib:ATTRIBADD:${type}`, "ATTRIBADD: unsupported attribute " + type);
         }
@@ -946,14 +975,18 @@ export class ScriptVM extends Control {
 
     const cmd_usegoodsnum: Instruct = (code, start) =>
       makeCommand(8, () => {
-        const b = Player.sGoodsList.useGoodsNum(g2(code, start), g2(code, start + 2), g2(code, start + 4));
+        const [type, index, num] = [g2(code, start), g2(code, start + 2), g2(code, start + 4)];
+        // the original jumps when there are fewer than asked (_00206F18)
+        const enough = !orig() || Player.sGoodsList.getGoodsNum(type, index) >= b8(num);
+        const b = enough && Player.sGoodsList.useGoodsNum(type, index, orig() ? b8(num) : num);
         if (!b) game().gotoAddress(g2(code, start + 6));
         return null;
       });
 
     const cmd_randrade: Instruct = (code, start) =>
       makeCommand(4, () => {
-        if (Math.trunc(random() * 1000) <= g2(code, start)) game().gotoAddress(g2(code, start + 2));
+        const hit = orig() ? rand16() % 1000 < g2(code, start) : Math.trunc(random() * 1000) <= g2(code, start);
+        if (hit) game().gotoAddress(g2(code, start + 2));
         return null;
       });
 
@@ -964,7 +997,7 @@ export class ScriptVM extends Control {
         let finished = false;
         const rvAddr = g2(code, start);
         const menu = new ScreenCommonMenu(vm, stringItems, (it: number) => {
-          ScriptResources.variables[rvAddr] = it;
+          ScriptResources.variables[b8(rvAddr)] = b8(it);
           finished = true;
         });
         vm.pushScreen(menu);
@@ -991,7 +1024,9 @@ export class ScriptVM extends Control {
       const money = g4(code, start);
       const address = g2(code, start + 4);
       return makeCommand(6, () => {
-        if (Player.sMoney < money) game().gotoAddress(address);
+        // the original compares the low 16 bits of both (_0020378B)
+        const less = orig() ? (Player.sMoney & 0xffff) < (money & 0xffff) : Player.sMoney < money;
+        if (less) game().gotoAddress(address);
         return null;
       });
     };
@@ -1008,8 +1043,8 @@ export class ScriptVM extends Control {
 
     const cmd_discmp: Instruct = (code, start) =>
       makeCommand(8, () => {
-        const v = ScriptResources.variables[g2(code, start)];
-        const num = g2(code, start + 2);
+        const v = ScriptResources.variables[b8(g2(code, start))];
+        const num = b8(g2(code, start + 2));
         if (v < num) game().gotoAddress(g2(code, start + 4));
         else if (v > num) game().gotoAddress(g2(code, start + 6));
         return null;
@@ -1091,14 +1126,16 @@ export class ScriptVM extends Control {
 
     const cmd_setto: Instruct = (code, start) =>
       makeCommand(4, () => {
-        ScriptResources.variables[g2(code, start + 2)] = ScriptResources.variables[g2(code, start)];
+        ScriptResources.variables[b8(g2(code, start + 2))] = ScriptResources.variables[b8(g2(code, start))];
         return null;
       });
 
     const cmd_testgoodsnum: Instruct = (code, start) =>
       makeCommand(10, () => {
         const goodsnum = Player.sGoodsList.getGoodsNum(g2(code, start), g2(code, start + 2));
-        const num = g2(code, start + 4);
+        const num = b8(g2(code, start + 4));
+        // the original does nothing when the item is not in the bag (_0020774E)
+        if (orig() && !Player.sGoodsList.getGoods(g2(code, start), g2(code, start + 2))) return null;
         if (goodsnum === num) game().gotoAddress(g2(code, start + 6));
         else if (goodsnum > num) game().gotoAddress(g2(code, start + 8));
         return null;

@@ -3,6 +3,7 @@ import type { Player } from "../characters/Player";
 import { ResBase } from "../lib/ResBase";
 import { ScriptResources } from "../script/ScriptResources";
 import { BaseGoods } from "./BaseGoods";
+import { applyItemChange } from "./ItemRules";
 
 export class GoodsEquipment extends BaseGoods {
   protected mMpMax = 0;
@@ -32,29 +33,41 @@ export class GoodsEquipment extends BaseGoods {
     return false;
   }
 
+  /** Armour (types 1-5) protects against the statuses in byte 0x1c; accessories use it for their combined spell. */
+  get isArmour(): boolean {
+    return this.type >= 1 && this.type <= 5;
+  }
+
+  /**
+   * Put on as the original does (_0022111F): stat bytes are sign-and-
+   * magnitude and subtraction stops at 0 (fmj.kt read them as plain signed
+   * bytes, so 0x83 meant -125 instead of -3).
+   */
+  /** Equipping rewrites the fields a script may have set (see Player.scriptOverrides). */
+  protected clearOverrides(p: Player): void {
+    const o = p.scriptOverrides;
+    if (this.isArmour) delete o.immune;
+    else if (this.type === 7) delete o.attackStatus;
+    else if (this.type === 6) {
+      delete o.combo;
+      delete o.turnHp;
+      delete o.turnMp;
+    }
+  }
+
   putOn(p: Player): void {
     if (this.canPlayerUse(p.index)) {
-      p.maxMP = p.maxMP + this.mMpMax;
-      p.maxHP = p.maxHP + this.mHpMax;
-      p.defend = p.defend + this.mdf;
-      p.attack = p.attack + this.mat;
-      p.lingli = p.lingli + this.mlingli;
-      p.speed = p.speed + this.mSpeed;
-      if (!this.isWeapon()) p.addBuff(this.mBitEffect);
-      p.luck = p.luck + this.mLuck;
+      this.clearOverrides(p);
+      applyItemChange(this.type, null, this.raw, p);
+      if (this.isArmour) p.addBuff(this.mBitEffect);
       if (this.eventId !== 0) ScriptResources.setEvent(this.eventId);
     }
   }
 
   takeOff(p: Player): void {
-    p.maxMP = p.maxMP - this.mMpMax;
-    p.maxHP = p.maxHP - this.mHpMax;
-    p.defend = p.defend - this.mdf;
-    p.attack = p.attack - this.mat;
-    p.lingli = p.lingli - this.mlingli;
-    p.speed = p.speed - this.mSpeed;
-    if (!this.isWeapon()) p.delBuff(this.mBitEffect);
-    p.luck = p.luck - this.mLuck;
+    this.clearOverrides(p);
+    applyItemChange(this.type, this.raw, null, p);
+    if (this.isArmour) p.delBuff(this.mBitEffect);
     if (this.eventId !== 0) ScriptResources.clearEvent(this.eventId);
   }
 }

@@ -8,6 +8,8 @@ import type { ResSrs } from "../../lib/ResSrs";
 import type { Canvas } from "../../../graphics";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
 import { ActionSingleTarget } from "./ActionSingleTarget";
+import { EngineSettings } from "../../config/EngineSettings";
+import { raiseMask, useItemOnParty } from "../OriginalRules";
 import { STATE_AFT, STATE_ANI, STATE_PRE, fallbackAni, windDown, windUp } from "./ItemActionBase";
 
 export class ActionUseItemOne extends ActionSingleTarget {
@@ -33,6 +35,18 @@ export class ActionUseItemOne extends ActionSingleTarget {
   preproccess(): void {
     const t = this.mTarget;
     let hp = 0;
+    if (EngineSettings.originalDamageFormula) {
+      // the item was taken from the bag when the turn came (Combat.decideTurn)
+      this.mAni = (this.goods instanceof GoodsMedicine ? this.goods.ani : null) ?? fallbackAni();
+      const before = t.hp;
+      const res = useItemOnParty(this.goods, t);
+      this.mAni.start();
+      this.mAni.setIteratorNum(2);
+      this.mAnix = t.combatX;
+      this.mAniy = t.combatY;
+      this.mRaiseAni = new RaiseAnimation(t.combatX, t.combatTop, t.hp - before, raiseMask(res.get(t) ?? 0));
+      return;
+    }
     if (this.goods instanceof GoodsMedicine) {
       this.mAni = this.goods.ani ?? fallbackAni();
       hp = t.hp;

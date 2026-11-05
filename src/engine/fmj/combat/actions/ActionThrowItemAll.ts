@@ -5,6 +5,8 @@ import type { GoodsHiddenWeapon } from "../../goods/GoodsHiddenWeapon";
 import type { ResSrs } from "../../lib/ResSrs";
 import type { Canvas } from "../../../graphics";
 import { RaiseAnimation } from "../anim/RaiseAnimation";
+import { EngineSettings } from "../../config/EngineSettings";
+import { throwItem } from "../OriginalRules";
 import { ActionMultiTarget } from "./ActionMultiTarget";
 import { STATE_AFT, STATE_ANI, STATE_PRE, applyHiddenWeapon, fallbackAni, windDown, windUp } from "./ItemActionBase";
 
@@ -26,9 +28,14 @@ export class ActionThrowItemAll extends ActionMultiTarget {
     const a = this.mAttacker!;
     this.ox = a.combatX;
     this.oy = a.combatY;
-    this.mAni = this.hiddenWeapon.ani ?? fallbackAni();
+    this.mAni = (this.hiddenWeapon as { ani?: ResSrs | null }).ani ?? fallbackAni();
     this.mAni.start();
     this.mAni.setIteratorNum(2);
+    if (EngineSettings.originalDamageFormula) {
+      const lost = throwItem(a, this.hiddenWeapon, "all");
+      for (const [t, n] of lost) this.mRaiseAnis.push(new RaiseAnimation(t.combatX, t.combatY, -n, 0));
+      return;
+    }
     Player.sGoodsList.deleteGoods(this.hiddenWeapon.type, this.hiddenWeapon.index);
     for (const t of this.mTargets) {
       if (!t.isAlive) continue;
