@@ -3111,3 +3111,807 @@ a.link:hover {
   color: var(--muted, inherit);
   overflow-wrap: anywhere;
 }
+
+/* ======================================================================
+   Front page (2026): an editorial layout on a dark hero. Big tight type,
+   monospaced labels and numbers, hairline grids, square edges and one
+   signal colour, the LCD green of the handheld's screen.
+   ====================================================================== */
+
+:root {
+  --h-ink: #0b0c0a;
+  --h-ink-2: #15170f;
+  --h-paper: #ecebe3;
+  --h-dim: #8d9083;
+  --h-rule: rgb(236 235 227 / 0.14);
+  --h-lcd: #c9e265;
+  --h-lcd-deep: #a7ba82;
+  --h-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --h-sans: "Geist Variable", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --h-pixel: "Silkscreen", "Geist Mono Variable", monospace;
+}
+
+html,
+body {
+  font-family: var(--h-sans);
+}
+
+/* -- the top bar sits on the dark hero, in its colours -- */
+#root:has(.h-home) .topbar {
+  margin-bottom: 0;
+  color: var(--h-paper);
+  background: var(--h-ink);
+  box-shadow: 0 0 0 100vmax var(--h-ink);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+#root:has(.h-home) .topbar::after {
+  background: var(--h-rule);
+}
+#root:has(.h-home) .brand {
+  color: var(--h-paper);
+}
+#root:has(.h-home) .site-nav a {
+  color: var(--h-dim);
+}
+#root:has(.h-home) .site-nav a:hover {
+  color: var(--h-paper);
+  background: transparent;
+}
+#root:has(.h-home) .topbar button.ghost {
+  color: var(--h-paper);
+  background: transparent;
+  border-color: var(--h-rule);
+}
+#root:has(.h-home) .nav-play {
+  background: var(--h-lcd);
+  border-color: var(--h-lcd);
+  color: var(--h-ink);
+}
+
+/* the bar on every page: monospaced labels, square buttons */
+.site-nav a {
+  font-family: var(--h-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 0;
+}
+.site-nav {
+  counter-reset: nav;
+}
+.site-nav > a:not(.nav-ext)::before {
+  counter-increment: nav;
+  content: "0" counter(nav) " ";
+  opacity: 0.45;
+}
+.topbar-actions button {
+  border-radius: 0;
+  font-family: var(--h-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.brand {
+  font-family: var(--h-mono);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.brand img {
+  border-radius: 0;
+  image-rendering: pixelated;
+}
+
+/* -- shared pieces -- */
+.h-home {
+  --pad: clamp(20px, 4vw, 56px);
+}
+.h-num,
+.h-index,
+.h-meta,
+.h-kicker,
+.h-cell-no,
+.h-row-no,
+.h-game-no {
+  font-family: var(--h-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.h-arrow {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+a:hover > .h-arrow,
+button:hover > .h-arrow,
+a:hover .h-row-link .h-arrow {
+  transform: translateX(4px);
+}
+.h-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  min-height: 52px;
+  padding: 0 20px;
+  border-radius: 0;
+  border: 1px solid currentColor;
+  font: 600 15px/1 var(--h-sans);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.h-btn-primary {
+  background: var(--h-lcd);
+  border-color: var(--h-lcd);
+  color: var(--h-ink);
+}
+.h-btn-primary:hover {
+  background: var(--h-paper);
+  border-color: var(--h-paper);
+}
+.h-btn-line {
+  background: transparent;
+  color: var(--h-paper);
+  border-color: var(--h-rule);
+}
+.h-btn-line:hover {
+  border-color: var(--h-paper);
+}
+.h-btn-dark {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+.h-btn-dark:hover {
+  background: var(--h-lcd);
+  border-color: var(--h-lcd);
+  color: var(--h-ink);
+}
+
+/* -- hero: dark, to the window's edges -- */
+.h-hero {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  gap: clamp(28px, 5vw, 72px);
+  align-items: center;
+  padding: clamp(40px, 7vw, 104px) 0 clamp(36px, 5vw, 72px);
+  color: var(--h-paper);
+}
+.h-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 -100vmax;
+  z-index: -1;
+  background:
+    radial-gradient(60% 80% at 78% 40%, rgb(201 226 101 / 0.1), transparent 70%),
+    linear-gradient(var(--h-ink), var(--h-ink-2));
+}
+/* a fine pixel grid over the hero, like an enlarged LCD */
+.h-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0 -100vmax;
+  z-index: -1;
+  background-image:
+    linear-gradient(to right, rgb(236 235 227 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(236 235 227 / 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(to bottom, #000 40%, transparent);
+}
+.h-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0 0 28px;
+  color: var(--h-dim);
+}
+.h-kicker span:first-child {
+  color: var(--h-lcd);
+}
+.h-title {
+  margin: 0;
+  font-size: clamp(46px, 7.4vw, 118px);
+  font-weight: 620;
+  line-height: 0.92;
+  letter-spacing: -0.055em;
+}
+.h-title span {
+  display: block;
+}
+.h-title .accent {
+  color: var(--h-lcd);
+  font-style: normal;
+}
+html:lang(zh-CN) .h-title {
+  letter-spacing: -0.02em;
+  line-height: 1.04;
+  font-weight: 700;
+}
+.h-lead {
+  max-width: 34em;
+  margin: 30px 0 0;
+  color: rgb(236 235 227 / 0.72);
+  font-size: clamp(16px, 1.3vw, 19px);
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+}
+.h-lead em {
+  color: var(--h-paper);
+}
+.h-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 34px;
+}
+.h-cta .h-btn {
+  min-width: 240px;
+}
+.h-textlink {
+  display: inline-block;
+  margin-top: 18px;
+  color: var(--h-paper);
+  font-size: 14px;
+  text-decoration: underline;
+  text-decoration-color: rgb(236 235 227 / 0.35);
+  text-underline-offset: 4px;
+}
+.h-textlink:hover {
+  color: var(--h-lcd);
+  text-decoration-color: currentColor;
+}
+.h-specs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 44px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--h-rule);
+}
+.h-specs li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 14px 0 0;
+  color: rgb(236 235 227 / 0.8);
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+.h-specs li + li {
+  padding-left: 14px;
+  border-left: 1px solid var(--h-rule);
+}
+.h-specs .h-num {
+  color: var(--h-dim);
+  font-size: 11px;
+}
+
+/* the live demo, framed like a monitor feed */
+.h-monitor {
+  margin: 0;
+  border: 1px solid var(--h-rule);
+  background: #050604;
+}
+.h-monitor-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--h-rule);
+  color: var(--h-dim);
+  font: 500 11px/1 var(--h-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.h-rec {
+  color: var(--h-paper);
+}
+.h-rec::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  vertical-align: 1px;
+  background: #ff5a3c;
+  animation: h-blink 1.6s steps(1) infinite;
+}
+@keyframes h-blink {
+  50% {
+    opacity: 0.2;
+  }
+}
+.h-monitor-screen {
+  padding: clamp(10px, 1.6vw, 20px);
+}
+.h-monitor-screen canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+.h-monitor figcaption {
+  padding: 10px 14px;
+  border-top: 1px solid var(--h-rule);
+  color: var(--h-dim);
+  font-size: 12.5px;
+}
+.h-monitor figcaption em {
+  color: var(--h-paper);
+}
+
+/* -- ticker under the hero -- */
+.h-ticker {
+  position: relative;
+  overflow: hidden;
+  margin: 0 calc(50% - 50vw);
+  padding: 16px 0;
+  background: var(--h-lcd);
+  color: var(--h-ink);
+  border-block: 1px solid var(--h-ink);
+}
+.h-ticker-track {
+  display: flex;
+  width: max-content;
+  animation: h-ticker 38s linear infinite;
+}
+.h-ticker-item {
+  font: 400 clamp(18px, 2vw, 26px) / 1 var(--h-pixel);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.h-ticker-item::after {
+  content: "✦";
+  margin: 0 0.9em;
+  font-family: var(--h-sans);
+}
+@keyframes h-ticker {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .h-ticker-track,
+  .h-rec::before {
+    animation: none;
+  }
+}
+
+/* -- numbered sections -- */
+.h-section {
+  padding: clamp(56px, 8vw, 120px) 0 0;
+}
+.h-sec-head {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 16px 32px;
+  align-items: end;
+  padding-bottom: 24px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--ink);
+}
+.h-sec-head h2 {
+  margin: 0;
+  font-size: clamp(32px, 4.2vw, 64px);
+  font-weight: 620;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+html:lang(zh-CN) .h-sec-head h2 {
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+.h-sec-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  max-width: 30em;
+  justify-self: end;
+}
+.h-index {
+  align-self: start;
+  padding-top: 8px;
+  color: var(--muted);
+}
+.h-index::before {
+  content: "§ ";
+}
+
+/* the two demos: wide editorial rows */
+.h-games {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.h-game {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  border-bottom: 1px solid var(--line);
+}
+.h-game + .h-game {
+  border-left: 1px solid var(--line);
+}
+.h-game-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  color: #1e2c20;
+  background-color: var(--h-lcd-deep);
+  /* LCD cells, and a dithered shade at the bottom */
+  background-image:
+    linear-gradient(to right, rgb(30 44 32 / 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(30 44 32 / 0.08) 1px, transparent 1px),
+    radial-gradient(rgb(30 44 32 / 0.35) 1px, transparent 1.2px);
+  background-size: 8px 8px, 8px 8px, 6px 6px;
+  background-position: 0 0, 0 0, 0 100%;
+  overflow: hidden;
+}
+.h-game-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(30 44 32 / 0.25), transparent 45%);
+  pointer-events: none;
+}
+.h-game-logo {
+  padding: 0.5em 0.8em;
+  border: 4px double currentColor;
+  font: 400 clamp(22px, 3.2vw, 46px) / 1.05 var(--h-pixel);
+  text-align: center;
+  transition: transform 0.25s ease;
+}
+.h-game-art:hover .h-game-logo {
+  transform: scale(1.04);
+}
+.h-game-no {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+}
+.h-game-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px clamp(0px, 2vw, 28px) 32px 0;
+}
+.h-game + .h-game .h-game-body {
+  padding-left: clamp(16px, 2vw, 28px);
+}
+.h-game:first-child .h-game-art {
+  margin-right: 0;
+}
+.h-game + .h-game .h-game-art {
+  margin-left: clamp(16px, 2vw, 28px);
+}
+.h-game:first-child .h-game-art {
+  margin-right: clamp(16px, 2vw, 28px);
+}
+.h-game-art {
+  margin-top: 28px;
+}
+.h-meta {
+  margin: 0;
+  color: var(--muted);
+}
+.h-game h3 {
+  margin: 0;
+  font-size: clamp(26px, 2.6vw, 38px);
+  font-weight: 620;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.h-game-body > p:not(.h-meta) {
+  margin: 0 0 8px;
+  max-width: 34em;
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+  line-height: 1.55;
+}
+.h-game-body .h-btn {
+  align-self: flex-start;
+  margin-top: auto;
+  min-width: 180px;
+}
+
+/* what the player adds: a spec sheet */
+.h-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.h-grid li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 300px;
+  padding: 22px 26px 30px;
+  border-bottom: 1px solid var(--line);
+  transition: background 0.2s ease;
+}
+.h-grid li:not(:nth-child(3n + 1)) {
+  border-left: 1px solid var(--line);
+}
+.h-grid li:hover {
+  background: color-mix(in srgb, var(--h-lcd) 22%, transparent);
+}
+.h-cell-no {
+  color: var(--muted);
+}
+.h-stat {
+  margin: auto 0 10px;
+  font-size: clamp(54px, 6vw, 92px);
+  font-weight: 640;
+  line-height: 0.9;
+  letter-spacing: -0.06em;
+}
+.h-grid h3 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+}
+.h-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+/* what you can do: big link rows */
+.h-rows {
+  display: flex;
+  flex-direction: column;
+}
+.h-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 0.9fr) minmax(0, 1.3fr) auto;
+  gap: 16px 32px;
+  align-items: baseline;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.2s ease, padding 0.2s ease;
+}
+.h-row:hover {
+  background: var(--h-lcd);
+  color: var(--h-ink);
+  padding-left: 14px;
+  padding-right: 14px;
+}
+.h-row-no {
+  color: var(--muted);
+}
+.h-row:hover .h-row-no,
+.h-row:hover .h-row-text {
+  color: var(--h-ink);
+}
+.h-row-title {
+  font-size: clamp(34px, 4.6vw, 72px);
+  font-weight: 620;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+.h-row-text {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.h-row-link {
+  font: 500 12px/1 var(--h-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.h-row-link .h-arrow {
+  margin-left: 10px;
+}
+
+/* the closing band, dark again */
+.h-band {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px 48px;
+  align-items: end;
+  margin-top: clamp(56px, 8vw, 120px);
+  padding: clamp(48px, 7vw, 96px) 0;
+  color: var(--h-paper);
+}
+.h-band::before {
+  content: "";
+  position: absolute;
+  inset: 0 -100vmax;
+  z-index: -1;
+  background: var(--h-ink);
+}
+.h-band .h-index {
+  color: var(--h-dim);
+}
+.h-band h2 {
+  margin: 14px 0 0;
+  font-size: clamp(40px, 6.4vw, 104px);
+  font-weight: 620;
+  line-height: 0.92;
+  letter-spacing: -0.055em;
+}
+html:lang(zh-CN) .h-band h2 {
+  letter-spacing: -0.015em;
+  font-weight: 700;
+}
+.h-band p {
+  margin: 18px 0 0;
+  max-width: 36em;
+  color: rgb(236 235 227 / 0.7);
+}
+.h-band .h-btn {
+  min-width: 240px;
+}
+
+/* -- the footer on every page: dark, with a giant pixel wordmark -- */
+.site-footer {
+  position: relative;
+  isolation: isolate;
+  margin-top: 0;
+  padding: 36px 0 0;
+  border-top: 0;
+  color: var(--h-paper);
+}
+.site-footer::before {
+  content: "";
+  position: absolute;
+  inset: 0 -100vmax;
+  z-index: -1;
+  background: var(--h-ink);
+  border-top: 1px solid var(--h-rule);
+}
+#root:not(:has(.h-home)) .site-footer {
+  margin-top: 48px;
+}
+/* down to the window's bottom edge (over the page's bottom padding) */
+.site-footer {
+  margin-bottom: -16px;
+}
+@media (max-width: 520px) {
+  .site-footer {
+    margin-bottom: -12px;
+  }
+}
+.site-footer .muted,
+.site-footer p.muted {
+  color: var(--h-dim);
+}
+.site-footer a,
+.site-footer button.link {
+  color: var(--h-paper);
+}
+.footer-links a,
+.footer-links button.link {
+  font: 500 12.5px/1.4 var(--h-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.footer-links a:hover,
+.footer-links button.link:hover {
+  color: var(--h-lcd);
+}
+.footer-brand strong {
+  font-family: var(--h-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.footer-brand img {
+  border-radius: 0;
+}
+.footer-wordmark {
+  margin: 32px 0 0 !important;
+  padding-bottom: calc(18px + env(safe-area-inset-bottom));
+  overflow: hidden;
+  color: var(--h-lcd);
+  /* (sized to fill the column: nine Silkscreen letters are about 6.4em wide) */
+  font: 400 min(15vw, 212px) / 0.9 var(--h-pixel);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* -- narrower screens -- */
+@media (max-width: 1000px) {
+  .h-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .h-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .h-grid li:not(:nth-child(3n + 1)) {
+    border-left: 0;
+  }
+  .h-grid li:nth-child(2n) {
+    border-left: 1px solid var(--line);
+  }
+  .h-sec-head {
+    grid-template-columns: 80px minmax(0, 1fr);
+  }
+  .h-sec-head p {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .h-row {
+    grid-template-columns: 80px minmax(0, 1fr);
+  }
+  .h-row-text,
+  .h-row-link {
+    grid-column: 2;
+  }
+}
+@media (max-width: 760px) {
+  .h-specs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .h-specs li:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .h-specs li:nth-child(n + 3) {
+    padding-top: 14px;
+  }
+  .h-cta .h-btn {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .h-games,
+  .h-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .h-game + .h-game,
+  .h-grid li:nth-child(2n) {
+    border-left: 0;
+  }
+  .h-game + .h-game .h-game-body,
+  .h-game + .h-game .h-game-art {
+    padding-left: 0;
+    margin-left: 0;
+  }
+  .h-game:first-child .h-game-art {
+    margin-right: 0;
+  }
+  .h-grid li {
+    min-height: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .h-stat {
+    margin-top: 12px;
+  }
+  .h-sec-head,
+  .h-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .h-sec-head p,
+  .h-row-text,
+  .h-row-link {
+    grid-column: auto;
+  }
+  .h-band {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .h-band .h-btn {
+    width: 100%;
+  }
+}

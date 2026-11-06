@@ -9,53 +9,88 @@ import { SITE_TEXT } from "./siteText";
 
 type PlayDemo = (which?: "bell" | "lantern") => void;
 
+/** A "→" that slides on hover (decorative). */
+const Arrow = () => (
+  <span className="h-arrow" aria-hidden="true">
+    →
+  </span>
+);
+
 export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
   const [preview, setPreview] = useState(true);
   const hidePreview = useCallback(() => setPreview(false), []);
   const t = SITE_TEXT[useSiteLang()];
+  const games = [
+    { key: "bell" as const, art: "THE SILENT BELL", name: "The Silent Bell", meta: t.bellMeta, text: t.bellText },
+    { key: "lantern" as const, art: "LANTERN PATH", name: "Lantern Path", meta: t.lanternMeta, text: t.lanternText },
+  ];
+  const does = [
+    { to: "games" as const, title: t.doPlay.title, text: <>{t.doPlay.text}</>, link: t.doPlay.link },
+    {
+      to: "editor" as const,
+      title: t.doMake.title,
+      text: (
+        <>
+          {t.doMake.text[0]}
+          <code>{t.doMake.text[1]}</code>
+          {t.doMake.text[2]}
+        </>
+      ),
+      link: t.doMake.link,
+    },
+    { to: "about" as const, title: t.doPrivate.title, text: <>{t.doPrivate.text}</>, link: t.doPrivate.link },
+  ];
   return (
-    <div className="library page">
-      <section className="hero" id="top">
-        <div className="hero-text">
-          <p className="eyebrow">{t.eyebrow}</p>
-          <h1>{t.heroTitle}</h1>
-          <p className="lead">
+    <div className="h-home">
+      <section className="h-hero" id="top">
+        <div className="h-hero-copy">
+          <p className="h-kicker">
+            <span>{t.kicker[0]}</span>
+            <span>{t.kicker[1]}</span>
+          </p>
+          <h1 className="h-title">
+            {t.heroLines.map((l, i) => (
+              <span key={i} className={i === 1 ? "accent" : undefined}>
+                {l}
+              </span>
+            ))}
+          </h1>
+          <p className="h-lead">
             {t.heroLead[0]}
             <em>{t.heroLead[1]}</em>
             {t.heroLead[2]}
           </p>
-          <div className="cta">
-            <button className="big" onClick={() => onPlayDemo("bell")}>
-              {t.playBell}
+          <div className="h-cta">
+            <button className="h-btn h-btn-primary" onClick={() => onPlayDemo("bell")}>
+              {t.playBell.replace(/^▶\s*/, "")}
+              <Arrow />
             </button>
-            <Link to="games" className="button big ghost">
+            <Link to="games" className="h-btn h-btn-line">
               {t.browse}
+              <Arrow />
             </Link>
           </div>
-          <p className="fine">
-            <Link to="editor" className="link">
-              {t.makeOwn}
-            </Link>
-          </p>
-          <ul className="highlights" aria-label={t.highlightsLabel}>
-            {t.highlights.map((h) => (
-              <li key={h}>{h}</li>
+          <Link to="editor" className="h-textlink">
+            {t.makeOwn}
+          </Link>
+          <ul className="h-specs" aria-label={t.highlightsLabel}>
+            {t.highlights.map((h, i) => (
+              <li key={h}>
+                <span className="h-num">{String(i + 1).padStart(2, "0")}</span>
+                {h}
+              </li>
             ))}
           </ul>
         </div>
         {preview && (
-          <figure className="hero-screen">
-            <div className="device">
-              <div className="device-screen">
-                <AttractScreen onError={hidePreview} />
-              </div>
-              <div className="device-keys" aria-hidden="true">
-                <span className="dpad" />
-                <span className="ab">
-                  <i />
-                  <i />
-                </span>
-              </div>
+          <figure className="h-monitor">
+            <div className="h-monitor-bar" aria-hidden="true">
+              <span className="h-rec">{t.monitor.live}</span>
+              <span>{t.monitor.title}</span>
+              <span>{t.monitor.res}</span>
+            </div>
+            <div className="h-monitor-screen">
+              <AttractScreen onError={hidePreview} />
             </div>
             <figcaption>
               <em>{t.caption[0]}</em>
@@ -65,99 +100,97 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
         )}
       </section>
 
-      <header className="section-head">
-        <h2 className="section-title">{t.startTitle}</h2>
-        <p className="section-sub">{t.startSub}</p>
-      </header>
-      <section className="featured">
-        <article className="feature-game">
-          <div className="card-art" aria-hidden="true">
-            <span>THE SILENT BELL</span>
-          </div>
-          <div className="feature-game-body">
-            <h3>The Silent Bell</h3>
-            <p className="muted small">{t.bellMeta}</p>
-            <p>{t.bellText}</p>
-            <button onClick={() => onPlayDemo("bell")}>{t.play}</button>
-          </div>
-        </article>
-        <article className="feature-game">
-          <div className="card-art" aria-hidden="true">
-            <span>LANTERN PATH</span>
-          </div>
-          <div className="feature-game-body">
-            <h3>Lantern Path</h3>
-            <p className="muted small">{t.lanternMeta}</p>
-            <p>{t.lanternText}</p>
-            <button onClick={() => onPlayDemo("lantern")}>{t.play}</button>
-          </div>
-        </article>
-      </section>
-
-      <header className="section-head">
-        <h2 className="section-title">{t.betterTitle}</h2>
-        <p className="section-sub">{t.betterSub}</p>
-      </header>
-      <section className="features better">
-        {t.better.map((b) => (
-          <article key={b.title}>
-            <span className="feat-icon" aria-hidden="true">
-              {b.icon}
+      <div className="h-ticker" aria-hidden="true">
+        <div className="h-ticker-track">
+          {[0, 1].map((k) => (
+            <span key={k}>
+              {t.ticker.map((w) => (
+                <span key={w} className="h-ticker-item">
+                  {w}
+                </span>
+              ))}
             </span>
-            <h3>{b.title}</h3>
-            <p>{b.text}</p>
-          </article>
-        ))}
+          ))}
+        </div>
+      </div>
+
+      <section className="h-section">
+        <header className="h-sec-head">
+          <span className="h-index">01</span>
+          <h2>{t.startTitle}</h2>
+          <p>{t.startSub}</p>
+        </header>
+        <div className="h-games">
+          {games.map((g, i) => (
+            <article key={g.key} className="h-game">
+              <button className="h-game-art" onClick={() => onPlayDemo(g.key)} aria-label={`${t.play.replace(/^▶\s*/, "")} ${g.name}`}>
+                <span className="h-game-no">{String(i + 1).padStart(2, "0")}</span>
+                <span className="h-game-logo">{g.art}</span>
+              </button>
+              <div className="h-game-body">
+                <p className="h-meta">{g.meta}</p>
+                <h3>{g.name}</h3>
+                <p>{g.text}</p>
+                <button className="h-btn h-btn-dark" onClick={() => onPlayDemo(g.key)}>
+                  {t.play.replace(/^▶\s*/, "")}
+                  <Arrow />
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
-      <header className="section-head">
-        <h2 className="section-title">{t.doTitle}</h2>
-        <p className="section-sub">{t.doSub}</p>
-      </header>
-      <section className="features">
-        <article>
-          <span className="feat-icon" aria-hidden="true">
-            ▶
-          </span>
-          <h3>{t.doPlay.title}</h3>
-          <p>{t.doPlay.text}</p>
-          <Link to="games" className="link">
-            {t.doPlay.link}
-          </Link>
-        </article>
-        <article>
-          <span className="feat-icon" aria-hidden="true">
-            ✎
-          </span>
-          <h3>{t.doMake.title}</h3>
-          <p>
-            {t.doMake.text[0]}
-            <code>{t.doMake.text[1]}</code>
-            {t.doMake.text[2]}
-          </p>
-          <Link to="editor" className="link">
-            {t.doMake.link}
-          </Link>
-        </article>
-        <article>
-          <span className="feat-icon" aria-hidden="true">
-            ◆
-          </span>
-          <h3>{t.doPrivate.title}</h3>
-          <p>{t.doPrivate.text}</p>
-          <Link to="about" className="link">
-            {t.doPrivate.link}
-          </Link>
-        </article>
+      <section className="h-section">
+        <header className="h-sec-head">
+          <span className="h-index">02</span>
+          <h2>{t.betterTitle}</h2>
+          <p>{t.betterSub}</p>
+        </header>
+        <ul className="h-grid">
+          {t.better.map((b, i) => (
+            <li key={b.title}>
+              <span className="h-cell-no">{`A.${String(i + 1).padStart(2, "0")}`}</span>
+              <span className="h-stat" aria-hidden="true">
+                {b.stat}
+              </span>
+              <h3>{b.title}</h3>
+              <p>{b.text}</p>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <section className="cta-band">
+      <section className="h-section">
+        <header className="h-sec-head">
+          <span className="h-index">03</span>
+          <h2>{t.doTitle}</h2>
+          <p>{t.doSub}</p>
+        </header>
+        <div className="h-rows">
+          {does.map((d, i) => (
+            <Link key={d.to} to={d.to} className="h-row">
+              <span className="h-row-no">{String(i + 1).padStart(2, "0")}</span>
+              <span className="h-row-title">{d.title}</span>
+              <span className="h-row-text">{d.text}</span>
+              <span className="h-row-link">
+                {d.link.replace(/\s*→$/, "")}
+                <Arrow />
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="h-band">
         <div>
+          <span className="h-index">04</span>
           <h2>{t.ctaTitle}</h2>
           <p>{t.ctaText}</p>
         </div>
-        <Link to="guide" className="button big">
+        <Link to="guide" className="h-btn h-btn-primary">
           {t.ctaButton}
+          <Arrow />
         </Link>
       </section>
     </div>
@@ -400,6 +433,9 @@ export function SiteFooter({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
           fmj-engine
         </a>
         {t.footerCredit[2]}
+      </p>
+      <p className="footer-wordmark" aria-hidden="true">
+        {t.wordmark}
       </p>
     </footer>
   );

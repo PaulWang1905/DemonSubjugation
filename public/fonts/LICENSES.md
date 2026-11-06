@@ -56,3 +56,10 @@ only), loaded only when chosen:
 | Atkinson Hyperlegible Mono | Atkinson Hyperlegible Mono, © 2020-2024 The Atkinson Hyperlegible Mono Project Authors (Braille Institute of America) | [AtkinsonHyperlegibleMono-OFL.txt](licenses/AtkinsonHyperlegibleMono-OFL.txt) |
 | Courier Prime | Courier Prime (above) | [CourierPrime-OFL.txt](licenses/CourierPrime-OFL.txt) |
 | VT323 | VT323, © 2011 The VT323 Project Authors (Peter Hull) | [VT323-OFL.txt](licenses/VT323-OFL.txt) |
+
+## Site fonts
+
+The site itself is set in Geist and Geist Mono (© 2023 Vercel, in
+collaboration with basement.studio) and the pixel wordmark in Silkscreen
+(© 2001 Jason Kottke), all under the SIL Open Font License 1.1, from the
+unmodified `@fontsource` builds.

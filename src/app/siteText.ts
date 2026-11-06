@@ -23,6 +23,12 @@ const en = {
 
   eyebrow: "BBK electronic-dictionary RPG engine",
   heroTitle: "Play and make pocket RPGs in your browser.",
+  /** The headline in three lines; the second is set in the accent colour. */
+  heroLines: ["Play and make", "pocket RPGs", "in your browser."],
+  kicker: ["FMJ / REACT", "BBK RPG engine · 2004 → the web"],
+  monitor: { live: "Live", title: "Lantern Path", res: "160 × 96 px" },
+  ticker: ["伏魔记", "The Silent Bell", "Lantern Path", "HD text", "LCD screen", "Wider maps", "More text", "Game editor", "Nothing uploaded"],
+  wordmark: "FMJ REACT",
   heroLead: [
     "The engine behind 伏魔记 and the many community games made for it, rebuilt for the web. Start with ",
     "The Silent Bell",
@@ -47,12 +53,12 @@ const en = {
   betterTitle: "Better than the handheld",
   betterSub: "The games play by the original rules. Around them, the player adds what a 160×96 screen could not.",
   better: [
-    { icon: "Aa", title: "Sharp HD text", text: "Characters redrawn at your screen's full resolution, in 黑体, 宋体 or 楷体, with a choice of English fonts. Or keep the pixel fonts." },
-    { icon: "▦", title: "LCD screen look", text: "Every pixel a cell of a handheld screen, with fine gaps and a soft shadow; or a smoothing filter that rounds off edges." },
-    { icon: "⤢", title: "See more of the map", text: "Wider (13×8 tiles) and Widest (17×10) views instead of 9×6. Dialogue and battles stay in the middle, as on the device." },
-    { icon: "¶", title: "More text per page", text: "12- and 10-pixel fonts drawn for the purpose, so dialogue and descriptions need less paging, with a ▼ when there is more." },
-    { icon: "±", title: "Any size, still crisp", text: "Zoom in whole-pixel steps, play full screen, or on a phone with a big on-screen keypad. 2× and 4× speed." },
-    { icon: "✓", title: "Faithful, and fixed", text: "Battles, items and scripts checked against a reconstruction of the original engine, with its missing parts filled in and English menus for every game." },
+    { icon: "Aa", stat: "HD", title: "Sharp HD text", text: "Characters redrawn at your screen's full resolution, in 黑体, 宋体 or 楷体, with a choice of English fonts. Or keep the pixel fonts." },
+    { icon: "▦", stat: "LCD", title: "LCD screen look", text: "Every pixel a cell of a handheld screen, with fine gaps and a soft shadow; or a smoothing filter that rounds off edges." },
+    { icon: "⤢", stat: "17×10", title: "See more of the map", text: "Wider (13×8 tiles) and Widest (17×10) views instead of 9×6. Dialogue and battles stay in the middle, as on the device." },
+    { icon: "¶", stat: "10 px", title: "More text per page", text: "12- and 10-pixel fonts drawn for the purpose, so dialogue and descriptions need less paging, with a ▼ when there is more." },
+    { icon: "±", stat: "1:1", title: "Any size, still crisp", text: "Zoom in whole-pixel steps, play full screen, or on a phone with a big on-screen keypad. 2× and 4× speed." },
+    { icon: "✓", stat: "✓", title: "Faithful, and fixed", text: "Battles, items and scripts checked against a reconstruction of the original engine, with its missing parts filled in and English menus for every game." },
   ],
 
   doTitle: "What you can do",
@@ -155,6 +161,11 @@ const zh: SiteText = {
 
   eyebrow: "步步高电子词典 RPG 引擎",
   heroTitle: "在浏览器里畅玩和制作掌上 RPG。",
+  heroLines: ["在浏览器里", "畅玩和制作", "掌上 RPG。"],
+  kicker: ["FMJ / REACT", "步步高 RPG 引擎 · 2004 → 网页"],
+  monitor: { live: "实时", title: "Lantern Path", res: "160 × 96 像素" },
+  ticker: ["伏魔记", "The Silent Bell", "Lantern Path", "高清文字", "液晶屏效果", "更宽的地图", "一页更多文字", "游戏编辑器", "不上传任何内容"],
+  wordmark: "FMJ REACT",
   heroLead: [
     "《伏魔记》和众多玩家自制游戏背后的引擎，现在搬到了网页上。可以先玩为本站制作的二十分钟冒险 ",
     "The Silent Bell",
@@ -178,12 +189,12 @@ const zh: SiteText = {
   betterTitle: "比掌机更好玩",
   betterSub: "游戏按原版规则运行；在此之外，播放器补上了 160×96 小屏幕做不到的东西。",
   better: [
-    { icon: "Aa", title: "清晰的高清文字", text: "文字按屏幕的实际分辨率重新绘制，可选黑体、宋体或楷体，英文也有多种字体可选；也可以保留像素字体。" },
-    { icon: "▦", title: "液晶屏效果", text: "每个像素都像掌机屏幕上的一个点，带细小的格线和柔和的阴影；也可以用平滑滤镜让边缘更圆润。" },
-    { icon: "⤢", title: "看到更多地图", text: "除了原版的 9×6 格，还有更宽（13×8）和最宽（17×10）的视野。对话和战斗仍在中间，和掌机上一样。" },
-    { icon: "¶", title: "一页显示更多文字", text: "专门绘制的 12 和 10 像素字体，让对话和说明少翻页；还有下文时会显示 ▼。" },
-    { icon: "±", title: "任意大小，依然清晰", text: "按整像素缩放，也可以全屏玩，或者在手机上用大号屏幕按键玩。支持 2 倍和 4 倍速。" },
-    { icon: "✓", title: "忠于原版，也修好了问题", text: "战斗、道具和脚本都对照原版引擎的还原项目校验，补全了缺失的部分，每款游戏都可以用英文菜单。" },
+    { icon: "Aa", stat: "HD", title: "清晰的高清文字", text: "文字按屏幕的实际分辨率重新绘制，可选黑体、宋体或楷体，英文也有多种字体可选；也可以保留像素字体。" },
+    { icon: "▦", stat: "LCD", title: "液晶屏效果", text: "每个像素都像掌机屏幕上的一个点，带细小的格线和柔和的阴影；也可以用平滑滤镜让边缘更圆润。" },
+    { icon: "⤢", stat: "17×10", title: "看到更多地图", text: "除了原版的 9×6 格，还有更宽（13×8）和最宽（17×10）的视野。对话和战斗仍在中间，和掌机上一样。" },
+    { icon: "¶", stat: "10 px", title: "一页显示更多文字", text: "专门绘制的 12 和 10 像素字体，让对话和说明少翻页；还有下文时会显示 ▼。" },
+    { icon: "±", stat: "1:1", title: "任意大小，依然清晰", text: "按整像素缩放，也可以全屏玩，或者在手机上用大号屏幕按键玩。支持 2 倍和 4 倍速。" },
+    { icon: "✓", stat: "✓", title: "忠于原版，也修好了问题", text: "战斗、道具和脚本都对照原版引擎的还原项目校验，补全了缺失的部分，每款游戏都可以用英文菜单。" },
   ],
 
   doTitle: "你可以做什么",
