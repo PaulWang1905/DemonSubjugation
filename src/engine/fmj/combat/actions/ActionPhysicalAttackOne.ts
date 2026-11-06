@@ -41,7 +41,7 @@ export class ActionPhysicalAttackOne extends ActionSingleTarget {
       this.mRaiseAni = new RaiseAnimation(t.combatLeft, t.combatTop, miss ? 0 : -damage, raiseMask(bits), miss);
       return;
     } else {
-      damage = a.attack - t.defend;
+      damage = a.battleAttack - t.battleDefend; // with spell changes
       if (damage <= 0) damage = 1;
       if (a instanceof Player) damage *= 10;
       damage += Math.trunc(random() * 10);

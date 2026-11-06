@@ -12,7 +12,7 @@ export abstract class Action {
 
   /** The performer's agility. */
   get priority(): number {
-    return this.mAttacker!.speed;
+    return this.mAttacker!.battleSpeed; // with spell changes
   }
 
   /** Who performs the action. */

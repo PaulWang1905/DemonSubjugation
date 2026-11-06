@@ -76,6 +76,8 @@ export interface ObjectInput {
   readString(): string;
   readBoolean(): boolean;
   readIntArray(): number[];
+  /** Bytes left to read. */
+  remaining(): number;
   close(): void;
 }
 
@@ -315,6 +317,9 @@ class ObjectInputStream implements ObjectInput {
     const out = new Array<number>(len);
     for (let i = 0; i < len; i++) out[i] = this.readInt();
     return out;
+  }
+  remaining(): number {
+    return Math.max(0, this.buffer.length - this.cur);
   }
   close(): void {
     this.file.close();

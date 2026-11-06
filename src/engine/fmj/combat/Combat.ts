@@ -274,7 +274,6 @@ export class Combat extends BaseScreen implements CombatUICallBack {
               break;
             }
             ++this.mRoundCnt;
-            this.updateFighterState();
             for (const p of this.mPlayerList) p.defending = false;
             this.mCombatState = CombatState.SelectAction;
             this.mCurSelActionPlayerIndex = this.firstAlivePlayerIndex;
@@ -551,10 +550,6 @@ export class Combat extends BaseScreen implements CombatUICallBack {
   private isPlayerBehindDead(index: number): boolean {
     for (let i = index + 1; i < this.mPlayerList.length; i++) if (this.mPlayerList[i].isAlive) return false;
     return true;
-  }
-
-  private updateFighterState(): void {
-    // TODO (original): decrease the buffs' round counts
   }
 
   onActionSelected(action: Action): void {

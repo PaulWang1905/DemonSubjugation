@@ -41,7 +41,7 @@ export class ActionPhysicalAttackAll extends ActionMultiTarget {
         this.mRaiseAnis.push(new RaiseAnimation(fc.combatX, fc.combatY, miss ? 0 : -damage, raiseMask(bits), miss));
         continue;
       } else {
-        damage = a.attack - fc.defend;
+        damage = a.battleAttack - fc.battleDefend; // with spell changes
         if (damage <= 0) damage = 1;
         damage += Math.trunc(random() * 3);
       }

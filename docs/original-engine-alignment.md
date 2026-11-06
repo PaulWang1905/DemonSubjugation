@@ -103,6 +103,14 @@ steal test reads the spell's number, not its type, throwing a weapon
 really deals the flag value, and an NPC walks until it reaches its target
 (the C file has that test inverted).
 
+### Added where fmj.kt had nothing
+
+| Area | Original (now followed) | fmj.kt (before) |
+| --- | --- | --- |
+| ENABLESHOWPOS / DISABLESHOWPOS (`_0023B73B`, `_00216E26`) | The map position (screen x + 4, y + 3) in small digits at 15, 8 and 34, 8, over picture 2-17 at 10, 3 when the archive has it; saved (byte 0x68) | Ignored |
+| System menu, Settings (`_869E`) | Music on / Music off | Did nothing |
+| Enhancement magic with the original rules off | Applies the original's stat change for its rounds; attacks and turn order count it | Did nothing |
+
 ## Still different (on purpose or not checkable)
 
 - **More text** (experimental player option, off by default) changes the
@@ -121,9 +129,12 @@ really deals the flag value, and an NPC walks until it reaches its target
 - **Keys**: menus act when a key is let go, the device when it is
   pressed. Held keys repeat every 100 ms after 250 ms, on the keypad and the
   keyboard alike; each repeat is one more key press, as on the device.
-- **Music** (MUSIC, MOVIE sound) is not played: the original asks the
-  device for one of its built-in melodies by number (`SysPlayMelody`), so
-  the tunes are not in the game file.
+- **Music** is not heard: MUSIC (`_0023A64B`) asks the device for one of its
+  built-in melodies by number (`SysPlayMelody`), so the tunes are not in the
+  game file. Everything around it follows the original: the melody number
+  and plays left (0 = for ever, melody 0 or music off stops it), the system
+  menu's Settings item (`_869E`: a Music on / Music off list at 80, 50), and
+  saving all three (save bytes 0x34-0x36).
 - **Unknown script opcodes** 4, 5, 8, 17, 18, 19, 25, 78 and 79 stop a
   script on the device; here they are skipped, so archives made for other
   engines keep running (setfightmiss / setarmstoss appear 149 times in the

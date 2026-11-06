@@ -16,6 +16,8 @@ import type { ScriptVM } from "../script/ScriptVM";
 import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import { Canvas, Point } from "../../graphics";
 import { SaveLoadGame } from "./SaveLoadGame";
+import type { ResImage } from "../lib/ResImage";
+import { DeviceFlags } from "../config/DeviceFlags";
 
 function emptyNpcs(): NPC[] {
   return Array.from({ length: 41 }, () => NPC.empty);
@@ -51,6 +53,7 @@ export class ScreenMainGame extends BaseScreen {
       this.playerList.length = 0;
       Player.sGoodsList.clear();
       Player.sMoney = 0;
+      DeviceFlags.reset();
       this.scriptProcess = this.doStartChapter(1, 1);
       this.scriptProcess.start();
     } else {
@@ -146,6 +149,17 @@ export class ScreenMainGame extends BaseScreen {
     }
     if (this.player && !hasPlayerBeenDrawn) this.player.drawWalkingSprite(canvas, this.mMapScreenPos);
     Util.drawSideFrame(canvas);
+    if (DeviceFlags.showPos) this.drawPosition(canvas);
+  }
+
+  /**
+   * ENABLESHOWPOS (_00216E26): the label picture 2-17, where the archive has
+   * one, and the map position in small digits.
+   */
+  private drawPosition(canvas: Canvas): void {
+    (DatLib.getRes(ResType.PIC, 2, 17, true) as ResImage | null)?.draw(canvas, 1, 10, 3);
+    Util.drawSmallNum(canvas, this.mMapScreenPos.x + 4, 15, 8);
+    Util.drawSmallNum(canvas, this.mMapScreenPos.y + 3, 34, 8);
   }
 
   onKeyDown(key: number): void {

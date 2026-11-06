@@ -58,7 +58,7 @@ export class ActionCoopMagic extends Action {
   }
 
   get priority(): number {
-    return this.mChooser.speed;
+    return this.mChooser.battleSpeed;
   }
 
   get isAttackerAlive(): boolean {

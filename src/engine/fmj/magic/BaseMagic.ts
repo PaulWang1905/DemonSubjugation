@@ -45,10 +45,12 @@ export abstract class BaseMagic extends ResBase {
   /**
    * Under the original battle rules, cast like the original engine and
    * return true; the subclasses' own (fmj.kt) effects are used otherwise.
+   * Enhancement magic always casts like the original: fmj.kt never applied it.
    */
   protected castOriginal(src: FightingCharacter, dst: FightingCharacter | FightingCharacter[]): boolean {
     this.lastResults = new Map();
-    if (!EngineSettings.originalDamageFormula || this.type < 1 || this.type > 4) return false;
+    if (this.type < 1 || this.type > 4) return false;
+    if (!EngineSettings.originalDamageFormula && this.type !== 2) return false;
     this.lastResults = castMagic(src, this, Array.isArray(dst) ? dst : [dst]);
     return true;
   }

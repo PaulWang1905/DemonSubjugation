@@ -38,7 +38,7 @@ export class ActionMagicHelpAll extends ActionMultiTarget {
     this.oy = a.combatY;
     this.animation.start();
     this.animation.setIteratorNum(2);
-    if (EngineSettings.originalDamageFormula) {
+    if (EngineSettings.originalDamageFormula || this.magic.type === 2) {
       // one cast for the whole side, paid once
       const before = this.mTargets.map((t) => t.hp);
       this.magic.use(a, this.mTargets);

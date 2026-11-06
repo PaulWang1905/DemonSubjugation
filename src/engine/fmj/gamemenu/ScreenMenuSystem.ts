@@ -7,6 +7,8 @@ import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import { SaveLoadOperate, ScreenSaveLoadGame } from "../views/ScreenSaveLoadGame";
 import { Bitmap, Canvas, Paint } from "../../graphics";
 import { listKey } from "../views/ScrollList";
+import { DeviceFlags } from "../config/DeviceFlags";
+import { ScreenCommonMenu } from "./ScreenCommonMenu";
 
 export class ScreenMenuSystem extends BaseScreen {
   private first = 0;
@@ -96,6 +98,18 @@ export class ScreenMenuSystem extends BaseScreen {
           else this.pushScreen(new ScreenSaveLoadGame(this, SaveLoadOperate.SAVE));
           break;
         case 2:
+          // Settings: music on or off, as the original (a list at 80, 50)
+          this.pushScreen(
+            new ScreenCommonMenu(
+              this,
+              T.musicMenu,
+              (sel) => {
+                if (sel === 1) DeviceFlags.setMusic(true);
+                else if (sel === 2) DeviceFlags.setMusic(false);
+              },
+              { x: 0x50, y: 0x32 },
+            ),
+          );
           break;
         case 3:
           this.game.changeScreen(ScreenViewType.SCREEN_MENU);

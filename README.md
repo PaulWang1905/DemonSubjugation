@@ -242,9 +242,17 @@ Deliberate changes:
 - The importer rejects archives without a starting script (GUT 1-1), such as
   三国霸业 (Three Kingdoms Hegemony) files, which use a different engine.
 
-Not implemented yet (also missing upstream): music, the settings item of the
-system menu, and the show-position opcodes. With the original battle rules
-off, buff/debuff rounds and enhancement magic still do nothing, as in fmj.kt.
+- Follows the original where fmj.kt left gaps: the system menu's **Settings**
+  item opens the original's Music on / Music off list, ENABLESHOWPOS /
+  DISABLESHOWPOS show the map position in the top-left corner (with the
+  archive's label picture 2-17), and the MUSIC command keeps the melody and
+  its plays. All of these are saved. Enhancement magic and buff/debuff rounds
+  also work with the original battle rules off.
+
+Music itself is silent: MUSIC asks the handheld for one of its built-in
+melodies by number, and those tunes are in the device, not in any game file.
+伏魔记 never uses MUSIC; about 10 of the 139 games in the
+[baye-fmj-app collection](https://github.com/erduoniba/baye-fmj-app) do.
 
 ## Credits and licence
 

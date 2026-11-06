@@ -1,4 +1,5 @@
 // Port of fmj/views/ScreenSaveLoadGame.kt
+import { DeviceFlags } from "../config/DeviceFlags";
 import { Global, ScreenViewType } from "../Global";
 import { T } from "../i18n";
 import { TextRender } from "../graphics/TextRender";
@@ -126,6 +127,7 @@ export class ScreenSaveLoadGame extends BaseScreen {
     const ioIn = objectInputOf(file);
     SaveLoadGame.read(this.game, ioIn);
     ScriptResources.read(ioIn);
+    DeviceFlags.read(ioIn);
     ioIn.close();
   }
 
@@ -133,6 +135,7 @@ export class ScreenSaveLoadGame extends BaseScreen {
     const o = objectOutputOf(file);
     SaveLoadGame.write(this.game, o);
     ScriptResources.write(o);
+    DeviceFlags.write(o);
     o.close();
   }
 }

@@ -8,6 +8,7 @@
 // fmj.kt; their decoders come from the erduoniba/baye-fmj-app fork so scripts
 // that use them no longer abort.
 import { EngineSettings } from "../config/EngineSettings";
+import { DeviceFlags } from "../config/DeviceFlags";
 import * as OriginalRules from "../combat/OriginalRules";
 import { rand16 } from "../combat/OriginalRules";
 import { CharacterState } from "../characters/Character";
@@ -153,7 +154,12 @@ export class ScriptVM extends Control {
     const scene = () => vm.game.mainScene;
     const drawScene = (c: Canvas) => scene().drawScene(c);
 
-    const cmd_music: Instruct = () => makeCommand(4, () => null);
+    // MUSIC n times: the device's built-in melody n (none is in the archive)
+    const cmd_music: Instruct = (code, start) =>
+      makeCommand(4, () => {
+        DeviceFlags.playMusic(g2(code, start), g2(code, start + 2));
+        return null;
+      });
 
     const cmd_loadmap: Instruct = (code, start) => {
       const type = g2(code, start);
@@ -1183,8 +1189,17 @@ export class ScriptVM extends Control {
       });
     };
 
-    const cmd_enableshowpos: Instruct = () => makeCommand(0, () => null);
-    const cmd_disableshowpos: Instruct = () => makeCommand(0, () => null);
+    // the map position in the top-left corner (_0023B73B / _0023B762)
+    const cmd_enableshowpos: Instruct = () =>
+      makeCommand(0, () => {
+        DeviceFlags.showPos = true;
+        return null;
+      });
+    const cmd_disableshowpos: Instruct = () =>
+      makeCommand(0, () => {
+        DeviceFlags.showPos = false;
+        return null;
+      });
 
     const cmd_setto: Instruct = (code, start) =>
       makeCommand(4, () => {

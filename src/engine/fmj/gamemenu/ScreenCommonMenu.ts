@@ -23,6 +23,8 @@ export class ScreenCommonMenu extends BaseScreen {
     readonly parent: GameNode,
     items: string[],
     private readonly callback: (sel: number) => void,
+    /** Where the original's list goes (top left); the MENU command's place by default. */
+    place?: { x: number; y: number },
   ) {
     super();
     const byteItems = items.map((s) => gbkBytes(s));
@@ -39,8 +41,11 @@ export class ScreenCommonMenu extends BaseScreen {
     });
     // the original's list; also with compact text, which only it can lay out
     const size = EngineSettings.textSize;
-    this.list =
-      EngineSettings.originalDamageFormula || size !== 16 ? new ScrollList(0x50 - colCount * (size >> 2), 0x0a, colCount, byteItems) : null;
+    this.list = place
+      ? new ScrollList(Math.min(place.x, Global.SCREEN_WIDTH - 6 - colCount * (size >> 1)), place.y, colCount, byteItems)
+      : EngineSettings.originalDamageFormula || size !== 16
+        ? new ScrollList(0x50 - colCount * (size >> 2), 0x0a, colCount, byteItems)
+        : null;
   }
 
   get isPopup(): boolean {
