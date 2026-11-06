@@ -14,7 +14,7 @@ import { registerResources } from "./fmj/registry";
 import { SaveLoadGame } from "./fmj/scene/SaveLoadGame";
 import { ScriptResources } from "./fmj/script/ScriptResources";
 import { ScriptVM } from "./fmj/script/ScriptVM";
-import { setPlatform, type FontFallback, type SaveStorage } from "./java";
+import { getPlatform, setPlatform, type FontFallback, type SaveStorage } from "./java";
 import { createCheats, type Cheats } from "./cheats";
 
 export { STAT_KEYS, STAT_MAX, type Cheats, type CheatSwitches, type ItemInfo, type PartyMember, type StatKey } from "./cheats";
@@ -127,6 +127,11 @@ export interface Engine {
   textLayer(): TextMark[];
   /** Redraw the current frame without advancing the game (after cheat edits). */
   redraw(): void;
+  /**
+   * Draw text with other HZK16 / ASC16 fonts from now on (null: the font
+   * fallback). The game goes on; call redraw() to see it at once.
+   */
+  setFonts(hzk16: Uint8Array | null, asc16: Uint8Array | null): void;
   /** Test tools for the debug menu. */
   readonly cheats: Cheats;
   /** Compile every script in the archive; returns the failures. */
@@ -177,6 +182,14 @@ export function createEngine(opts: EngineOptions): Engine {
       game.update(delta);
       if (EngineSettings.alwaysFull) cheats.heal();
       game.draw();
+    },
+    setFonts(hzk16, asc16) {
+      const rom = getPlatform().rom;
+      for (const [name, data] of [["HZK16", hzk16], ["ASC16", asc16]] as const) {
+        if (data && data.length > 0) rom.set(name, asInt8(data));
+        else rom.delete(name);
+      }
+      TextRender.reset();
     },
     redraw() {
       game.draw();

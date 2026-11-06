@@ -9,8 +9,16 @@ import { DebugMenu } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { HiresText, hiresScale, type TextStyle } from "./hiresText";
+import { FONT_SETS, isFontSet, loadFontSet, type FontSetId } from "./fonts";
 
-type TextMode = "pixel" | TextStyle;
+/** Pixel text with the uploaded files (or the device fallback), a bundled pixel font, or Sharp. */
+type TextMode = "pixel" | `pixel:${FontSetId}` | TextStyle;
+
+/** The bundled font set a text mode uses, if any. */
+function fontSetOf(mode: TextMode): FontSetId | null {
+  const id = mode.startsWith("pixel:") ? mode.slice(6) : "";
+  return isFontSet(id) ? id : null;
+}
 
 interface Props {
   game: StoredGame;
@@ -74,6 +82,33 @@ export function Player({ game, fonts, onExit }: Props) {
   const [textMode, setTextMode] = useState<TextMode>(() => pref<TextMode>("text", fonts.hzk16 && fonts.asc16 ? "pixel" : "sans"));
   const textRef = useRef(textMode);
   textRef.current = textMode;
+  // A bundled pixel font: loaded when chosen, then swapped in without restarting.
+  const setId = fontSetOf(textMode);
+  const [bundled, setBundled] = useState<{ id: FontSetId; hzk16: Uint8Array; asc16: Uint8Array } | null>(null);
+  useEffect(() => {
+    if (!setId) return;
+    let alive = true;
+    loadFontSet(setId).then(
+      (f) => alive && setBundled({ id: setId, ...f }),
+      (e) => alive && setNotice(String((e as Error).message ?? e)),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [setId]);
+  // The fonts the engine draws with: the chosen bundled set once loaded,
+  // otherwise the uploaded files (null: the device fallback).
+  const useBundled = !!setId && bundled?.id === setId;
+  const fontPick = useBundled
+    ? { hzk16: bundled!.hzk16, asc16: bundled!.asc16 }
+    : { hzk16: fonts.hzk16 ? new Uint8Array(fonts.hzk16) : null, asc16: fonts.asc16 ? new Uint8Array(fonts.asc16) : null };
+  const fontPickRef = useRef(fontPick);
+  fontPickRef.current = fontPick;
+  // Wait for a chosen bundled font before the first start, so the game does
+  // not open in another font; later changes only swap the font.
+  const startedRef = useRef(false);
+  if (!setId || useBundled) startedRef.current = true;
+  const canStart = startedRef.current;
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
   // The hidden debug menu: press and hold the game screen. The game is paused
@@ -125,14 +160,15 @@ export function Player({ game, fonts, onExit }: Props) {
 
   // Boot the engine and run the fixed-step loop (the original ticks every 40 ms).
   useEffect(() => {
+    if (!canStart) return;
     setError(null);
     let engine: Engine;
     try {
       engine = createEngine({
         resources: {
           datLib: new Uint8Array(game.data),
-          hzk16: fonts.hzk16 ? new Uint8Array(fonts.hzk16) : null,
-          asc16: fonts.asc16 ? new Uint8Array(fonts.asc16) : null,
+          hzk16: fontPickRef.current.hzk16,
+          asc16: fontPickRef.current.asc16,
         },
         fontFallback: fonts.hzk16 && fonts.asc16 ? undefined : createDeviceFont(),
         uiLanguage: uiLang,
@@ -174,7 +210,7 @@ export function Player({ game, fonts, onExit }: Props) {
       }
       const pal = PALETTES.find((p) => p.id === paletteRef.current) ?? PALETTES[0];
       const mode = textRef.current;
-      if (mode === "pixel") {
+      if (mode === "pixel" || fontSetOf(mode)) {
         if (cv.width !== SCREEN_WIDTH) {
           cv.width = SCREEN_WIDTH;
           cv.height = SCREEN_HEIGHT;
@@ -182,7 +218,7 @@ export function Player({ game, fonts, onExit }: Props) {
         applyPalette(frame, image.data, pal);
         ctx.putImageData(image, 0, 0);
       } else {
-        const h = (hires[mode] ??= new HiresText(mode));
+        const h = (hires[mode as TextStyle] ??= new HiresText(mode as TextStyle));
         h.draw(cv, frame, engine.textLayer(), pal, hiresScale(scaleRef.current));
       }
       raf = requestAnimationFrame(loop);
@@ -193,7 +229,17 @@ export function Player({ game, fonts, onExit }: Props) {
       cancelAnimationFrame(raf);
       engineRef.current = null;
     };
-  }, [game, fonts, onExit, generation, uiLang]);
+  }, [game, fonts, onExit, generation, uiLang, canStart]);
+
+  // Switch the engine's font when the choice (or its loading) changes.
+  useEffect(() => {
+    const e = engineRef.current;
+    if (!e) return;
+    e.setFonts(fontPick.hzk16, fontPick.asc16);
+    e.redraw();
+    // fontPick is rebuilt each render; these say when it really changed
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useBundled, bundled, setId, fonts]);
 
   // Held keys repeat at one fixed rate whatever sends them (keypad, keyboard,
   // gamepad), so walking feels the same everywhere. Each repeat is one more
@@ -400,7 +446,7 @@ export function Player({ game, fonts, onExit }: Props) {
           ))}
         </select>
       </label>
-      <label className="field" title="Sharp redraws text in your device's fonts at full resolution; Pixel keeps the original 16x16 bitmap text">
+      <label className="field" title="Sharp redraws text in your device's fonts at full resolution; Pixel (original) uses the HZK16 / ASC16 files you added; the other Pixel choices are open-source pixel fonts that come with the player">
         <span className="lbl">Text</span>
         <select
           value={textMode}
@@ -412,6 +458,11 @@ export function Player({ game, fonts, onExit }: Props) {
           <option value="sans">Sharp</option>
           <option value="serif">Sharp serif</option>
           <option value="pixel">Pixel (original)</option>
+          {FONT_SETS.map((f) => (
+            <option key={f.id} value={`pixel:${f.id}`}>
+              Pixel · {f.label}
+            </option>
+          ))}
         </select>
       </label>
     </>
@@ -489,7 +540,7 @@ export function Player({ game, fonts, onExit }: Props) {
             <option value="10">Most: 10-pixel text</option>
           </select>
         </label>
-        {textSize !== 16 && textMode === "pixel" && <p className="muted small">Small text reads best with Sharp text.</p>}
+        {textSize !== 16 && (textMode === "pixel" || setId) && <p className="muted small">Small text reads best with Sharp text.</p>}
         <label className="check">
           <input
             type="checkbox"

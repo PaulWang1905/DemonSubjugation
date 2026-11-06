@@ -34,6 +34,13 @@ the right to use.
   and the player checks the pixels each frame, so text that menus or borders
   cover keeps the covering pixels. **Pixel (original)** keeps the 16×16
   bitmap text, using HZK16/ASC16 when added.
+- **Bundled pixel fonts**: three more Text choices draw with open-source
+  pixel fonts in the device's 16-pixel layout, so games look like the
+  handheld without the original font files: **Retro 8-bit** (letters from
+  Press Start 2P, Chinese from Unifont), **Unifont** and **Cubic 11**. They
+  load only when chosen and can be switched while playing. Built by
+  `scripts/fonts/build_fonts.py`; credits and licences (SIL OFL 1.1) are in
+  [public/fonts/LICENSES.md](public/fonts/LICENSES.md).
 - Keyboard controls, and a full-screen phone layout: the screen as large as it goes, a big on-screen keypad (slide the thumb on the d-pad to turn, hold a direction and A together), controls either side of the screen when held sideways, options in a sheet that pauses the game. Add it to the home screen to play without the browser bars. Held keys repeat at one rate on every device; 1×/2×/4× speed.
 - **More text (experimental, off by default)**: dialogue, message boxes,
   script menus, descriptions and scrolling story text can use 12- or 10-pixel
