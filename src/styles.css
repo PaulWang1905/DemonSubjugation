@@ -655,9 +655,8 @@ footer {
   background: var(--bg);
 }
 
-/* Size: Larger / Largest -- only the game screen grows past the page
-   column (up to 1440 px, or the whole window); the bar and the options keep
-   the column's width, so the page looks the same at every size. (Measured
+/* Zoomed past the page column: only the game screen grows (up to the whole
+   window); the bar and the options keep the column's width. (Measured
    inside the page, not with vw, which counts the scrollbar too.) */
 #root:has(.player.large:not(.fs)) {
   max-width: none;
@@ -758,6 +757,29 @@ footer {
   gap: 6px;
   color: var(--muted);
   font-size: 13px;
+}
+
+/* Size: − 100% + */
+.field.zoom {
+  gap: 2px;
+}
+.field.zoom .lbl {
+  margin-right: 4px;
+}
+.zoom-btn,
+.zoom-pct {
+  padding: 2px 8px;
+  min-width: 32px;
+  height: 28px;
+  font-size: 14px;
+  line-height: 1;
+}
+.zoom-btn {
+  font-size: 18px;
+}
+.zoom-pct {
+  min-width: 52px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* menus that belong together (Text look and its two fonts) */

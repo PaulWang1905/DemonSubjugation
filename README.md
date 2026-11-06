@@ -27,9 +27,10 @@ the right to use.
 - Exploration, NPCs, dialogue, shops, turn-based combat (attacks, magic, items,
   combined attacks, flee, auto-attack), levelling, equipment and three save slots.
 - 160×96 screen rendered pixel-exact with integer scaling and selectable
-  palettes (classic, LCD, paper, amber). On a computer, **Size** can be Fit
-  (whole pixels, inside the page), Larger (up to half as big again) or
-  Largest (the whole window); the bigger two scale in quarter-pixel steps.
+  palettes (classic, LCD, paper, amber). On a computer, **Size** − / + zooms
+  the screen one device pixel per game pixel at a time (so every pixel stays
+  the same size), from small up to the whole window; the percentage goes back
+  to the usual size.
 - **Map view**: Original (9×6 tiles), Wider (13×8) or Widest (17×10). The
   game still runs on its 160×96 screen (same camera, scripts and events);
   the engine draws more of the map, its people and the hero around it while

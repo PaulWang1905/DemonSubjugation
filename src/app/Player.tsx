@@ -19,7 +19,6 @@ interface Props {
   onExit: () => void;
 }
 
-type ScreenSize = "fit" | "large" | "fill";
 const effectOf = (v: string): ScreenEffect => (v === "lcd" || v === "lcd-shadow" || v === "smooth" ? v : "none");
 /** Map view: how many extra tile columns (each side) and rows (above and below) to show. */
 type MapView = "normal" | "wide" | "widest";
@@ -29,9 +28,10 @@ const MAP_VIEWS: Record<MapView, { label: string; mx: number; my: number }> = {
   widest: { label: "Widest (17×10)", mx: 4, my: 2 },
 };
 const mapViewOf = (v: string): MapView => (v === "wide" || v === "widest" ? v : "normal");
-const screenSizeOf = (v: string): ScreenSize => (v === "large" || v === "fill" ? v : "fit");
 /** The page column's inner width (#root: 1400 px with 16 px padding). */
 const PAGE_WIDTH = 1368;
+/** The width the game screen starts at, at most (zoom from there). */
+const DEFAULT_WIDTH = 948;
 
 function pref<T extends string>(key: string, fallback: T): T {
   try {
@@ -87,7 +87,22 @@ export function Player({ game, fonts, onExit }: Props) {
   // Screen size on a computer: whole device pixels per game pixel inside the
   // page ("fit"); or bigger, wider than the page and in quarter-pixel steps:
   // up to half as big again ("large") or as big as the window allows ("fill").
-  const [screenSize, setScreenSize] = useState<ScreenSize>(() => screenSizeOf(pref<string>("screenSize", "fit")));
+  // Zoom on a computer: steps of one device pixel per game pixel (so the
+  // pixels stay even) from the default size, which fits the screen in the
+  // window and DEFAULT_WIDTH. Kept as the number of steps from the default.
+  const [zoom, setZoom] = useState(() => {
+    const z = Number(pref<string>("zoom", ""));
+    if (Number.isFinite(z) && pref<string>("zoom", "") !== "") return Math.round(z);
+    const old = pref<string>("screenSize", "fit"); // the earlier Size menu
+    return old === "fill" ? 99 : old === "large" ? 2 : 0;
+  });
+  const changeZoom = (z: number) => {
+    setZoom(z);
+    setPref("zoom", String(z));
+  };
+  // What the zoom allows now: device pixels per game pixel (n), at the
+  // default size, and the smallest and largest; wide: past the page column.
+  const [zoomInfo, setZoomInfo] = useState({ n: 1, def: 1, min: 1, max: 1, wide: false });
   // More of the map on screen (the game itself still runs on 160x96).
   const [mapView, setMapView] = useState<MapView>(() => mapViewOf(pref<string>("mapView", "normal")));
   const view = MAP_VIEWS[mapView];
@@ -459,16 +474,17 @@ export function Player({ game, fonts, onExit }: Props) {
       h = window.innerHeight - top - 6;
       if (kp) h -= kp.offsetHeight + 10;
       else h -= 60; // leave the options bar in view
-      // Fit: whole device pixels, within the page column
-      const pageW = Math.min(w, PAGE_WIDTH);
-      const fit = Math.max(1, Math.floor(Math.min((pageW - frame) / frameW, (h - frame) / frameH, 8) * dpr)) / dpr;
-      if (screenSize === "fit") {
-        setScale(fit);
-        return;
-      }
-      let fitted = Math.min((w - frame) / frameW, (h - frame) / frameH, 12);
-      if (screenSize === "large") fitted = Math.min(fitted, fit * 1.5);
-      setScale(Math.max(fit, Math.floor(fitted * dpr * 4) / 4 / dpr));
+      // whole device pixels per game pixel: the default fits the window's
+      // height and DEFAULT_WIDTH; zooming goes from 2 CSS pixels up to the
+      // window's width and height
+      const winW = document.documentElement.clientWidth - 32;
+      const steps = (width: number) => Math.floor(Math.min((width - frame) / frameW, (h - frame) / frameH) * dpr);
+      const max = Math.max(1, Math.min(steps(winW), Math.floor(16 * dpr)));
+      const def = Math.max(1, Math.min(steps(Math.min(winW, DEFAULT_WIDTH)), Math.floor(8 * dpr), max));
+      const min = Math.max(1, Math.min(def, Math.round(2 * dpr)));
+      const n = Math.min(max, Math.max(min, def + zoom));
+      setScale(n / dpr);
+      setZoomInfo({ n, def, min, max, wide: n / dpr * frameW + frame > PAGE_WIDTH });
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -480,7 +496,7 @@ export function Player({ game, fonts, onExit }: Props) {
       window.removeEventListener("resize", fit);
       document.removeEventListener("fullscreenchange", fit);
     };
-  }, [showPad, touch, sideways, fullscreen, screenSize, frameW, frameH]);
+  }, [showPad, touch, sideways, fullscreen, zoom, frameW, frameH]);
 
   // Change the map view while playing.
   useEffect(() => {
@@ -615,20 +631,30 @@ export function Player({ game, fonts, onExit }: Props) {
         </select>
       </label>
       {!touch && (
-        <label className="field" title="Fit keeps every game pixel the same size, inside the page. Larger (up to half as big again) and Largest (the whole window) use more of a big screen; game pixels may then differ by one screen pixel">
+        <span className="field zoom" title="The size of the game screen. Each step keeps every game pixel the same size; click the percentage to go back to the usual size">
           <span className="lbl">Size</span>
-          <select
-            value={screenSize}
-            onChange={(e) => {
-              setScreenSize(screenSizeOf(e.target.value));
-              setPref("screenSize", e.target.value);
-            }}
+          <button
+            className="ghost zoom-btn"
+            onClick={() => changeZoom(zoomInfo.n - 1 - zoomInfo.def)}
+            disabled={zoomInfo.n <= zoomInfo.min}
+            aria-label="Smaller"
+            title="Smaller"
           >
-            <option value="fit">Fit</option>
-            <option value="large">Larger</option>
-            <option value="fill">Largest</option>
-          </select>
-        </label>
+            −
+          </button>
+          <button className="ghost zoom-pct" onClick={() => changeZoom(0)} title="Back to the usual size">
+            {Math.round((zoomInfo.n / zoomInfo.def) * 100)}%
+          </button>
+          <button
+            className="ghost zoom-btn"
+            onClick={() => changeZoom(zoomInfo.n + 1 - zoomInfo.def)}
+            disabled={zoomInfo.n >= zoomInfo.max}
+            aria-label="Larger"
+            title="Larger"
+          >
+            +
+          </button>
+        </span>
       )}
       <label className="field" title="Show more of the map around the screen. The game plays the same; dialogue, menus and battles stay in the middle at their original size">
         <span className="lbl">Map</span>
@@ -768,8 +794,7 @@ export function Player({ game, fonts, onExit }: Props) {
       className={
         (touch ? (sideways ? "player touch sideways" : "player touch") : showPad ? "player with-pad" : "player") +
         (fullscreen ? " fs" : "") +
-        (!touch && screenSize !== "fit" ? " large" : "") +
-        (!touch && screenSize === "fill" ? " fill" : "")
+        (!touch && zoomInfo.wide ? " large fill" : "")
       }
     >
       {fullscreen && (
