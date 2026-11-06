@@ -49,11 +49,13 @@ the right to use.
   黑体 Hei (Noto Sans SC) and 宋体 Song (Noto Serif SC) draw text at full
   resolution the same on every device; each loads only when chosen (and
   WenKai only the parts with characters on screen).
-- **Effect**: LCD (each game pixel a cell of a handheld screen, with a fine
-  gap), LCD + shadow (the cells casting a soft shadow) and Smooth
-  (experimental: Scale2x twice, rounding off diagonal edges while keeping
-  dithering and single pixels). Effects draw at the display's resolution and
-  work with every Text choice and Map view.
+- **Effect**: LCD (each lit pixel a cell of a handheld screen, with a fine
+  gap between lit cells and a clean background; Sharp text gets the same
+  cells), LCD + shadow (lit cells and text also cast a soft shadow on the
+  glass) and Smooth (experimental: Scale2x twice on shapes, outlines and
+  portraits, while grass, dithering and text are kept exactly as drawn).
+  Effects draw at the display's resolution and work with every Text choice
+  and Map view.
 - **Bundled pixel fonts**: four more Text choices draw with open-source
   pixel fonts in the device's 16-pixel layout, so games look like the
   handheld without the original font files, each with its own Chinese

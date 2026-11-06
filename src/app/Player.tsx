@@ -275,7 +275,7 @@ export function Player({ game, fonts, onExit }: Props) {
         const key = style ?? "pixel";
         const h = (hires[key] ??= new HiresText(style));
         const k = fx === "none" ? hiresScale(scaleRef.current) : effectScale(scaleRef.current, fw);
-        h.draw(cv, frame, style ? engine.textLayer() : [], pal, k, fw, fh, fx);
+        h.draw(cv, frame, style || fx === "smooth" ? engine.textLayer() : [], pal, k, fw, fh, fx);
       }
       raf = requestAnimationFrame(loop);
     };

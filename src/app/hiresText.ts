@@ -70,39 +70,83 @@ export function effectScale(cssScale: number, frameWidth = SCREEN_WIDTH): number
   return Math.max(2, Math.min(16, Math.floor(4096 / frameWidth), Math.round(cssScale * dpr)));
 }
 
-/** A colour between `a` and `b` (t = 0: a, 1: b). */
-function mix(a: [number, number, number], b: [number, number, number], t: number): [number, number, number] {
-  return [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t)) as [number, number, number];
+/** The gap between LCD cells, in output pixels (none when cells are too small to spare one). */
+function lcdGap(k: number): number {
+  return k < 3 ? 0 : Math.max(1, Math.round(k / 10));
 }
+
 const css = (c: [number, number, number]) => `rgb(${c[0]},${c[1]},${c[2]})`;
 
 /**
  * Scale2x (EPX) on 32-bit pixels: each pixel becomes four, rounding off
  * diagonal edges but leaving lone pixels and checkerboard dithering as they are.
+ * Pixels marked in `keep` (index y * w + x) are only enlarged.
  */
-export function scale2x(src: Uint32Array, w: number, h: number, dst: Uint32Array): void {
+export function scale2x(src: Uint32Array, w: number, h: number, dst: Uint32Array, keep?: Uint8Array): void {
   const W = w * 2;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const p = src[y * w + x];
-      const a = y > 0 ? src[(y - 1) * w + x] : p; // up
-      const b = x < w - 1 ? src[y * w + x + 1] : p; // right
-      const c = x > 0 ? src[y * w + x - 1] : p; // left
-      const d = y < h - 1 ? src[(y + 1) * w + x] : p; // down
       let e0 = p, e1 = p, e2 = p, e3 = p;
       // (the outermost pixels are only enlarged: nothing is known beyond them)
-      const inner = x > 0 && y > 0 && x < w - 1 && y < h - 1;
-      if (inner && a !== d && c !== b) {
-        if (c === a) e0 = a;
-        if (a === b) e1 = b;
-        if (c === d) e2 = c;
-        if (d === b) e3 = b;
+      if (x > 0 && y > 0 && x < w - 1 && y < h - 1 && !keep?.[y * w + x]) {
+        const a = src[(y - 1) * w + x]; // up
+        const b = src[y * w + x + 1]; // right
+        const c = src[y * w + x - 1]; // left
+        const d = src[(y + 1) * w + x]; // down
+        if (a !== d && c !== b) {
+          if (c === a) e0 = a;
+          if (a === b) e1 = b;
+          if (c === d) e2 = c;
+          if (d === b) e3 = b;
+        }
       }
       const o = y * 2 * W + x * 2;
       dst[o] = e0;
       dst[o + 1] = e1;
       dst[o + W] = e2;
       dst[o + W + 1] = e3;
+    }
+  }
+}
+
+/**
+ * The pixels of fine texture (grass, dithering): where more than `limit` of
+ * the neighbouring pairs in the 7 x 7 square around a pixel differ (a
+ * lone diagonal line differs in about a third of them, grass and dithering
+ * in half or more). Smoothing
+ * would turn such texture into a different pattern, so it is kept as drawn.
+ */
+export function busyPixels(src: Uint32Array, w: number, h: number, out: Uint8Array, limit = 0.4): void {
+  // running sums of the "differs from the right / lower neighbour" maps
+  const S = w + 1;
+  const hs = new Int32Array(S * (h + 1));
+  const vs = new Int32Array(S * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let rh = 0;
+    let rv = 0;
+    for (let x = 0; x < w; x++) {
+      const p = src[y * w + x];
+      rh += x < w - 1 && src[y * w + x + 1] !== p ? 1 : 0;
+      rv += y < h - 1 && src[(y + 1) * w + x] !== p ? 1 : 0;
+      hs[(y + 1) * S + x + 1] = hs[y * S + x + 1] + rh;
+      vs[(y + 1) * S + x + 1] = vs[y * S + x + 1] + rv;
+    }
+  }
+  const sum = (t: Int32Array, x0: number, y0: number, x1: number, y1: number) =>
+    x1 <= x0 || y1 <= y0 ? 0 : t[y1 * S + x1] - t[y0 * S + x1] - t[y1 * S + x0] + t[y0 * S + x0];
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - 3);
+    const y1 = Math.min(h, y + 4);
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.max(0, x - 3);
+      const x1 = Math.min(w, x + 4);
+      // pairs (x, x+1) with both in the square, and (y, y+1) likewise
+      const hx1 = Math.min(x1, w - 1);
+      const vy1 = Math.min(y1, h - 1);
+      const pairs = Math.max(0, hx1 - x0) * (y1 - y0) + (x1 - x0) * Math.max(0, vy1 - y0);
+      const diff = sum(hs, x0, y0, hx1, y1) + sum(vs, x0, y0, x1, vy1);
+      out[y * w + x] = pairs && diff > limit * pairs ? 1 : 0;
     }
   }
 }
@@ -143,7 +187,17 @@ export class HiresText {
   /** Effect layers: the dark pixels alone, the LCD grid, the smoothed picture. */
   private mask: { surface: Surface; ctx: Ctx2D; image: ImageData } | null = null;
   private grid: { key: string; surface: Surface } | null = null;
-  private smooth: { surface: Surface; ctx: Ctx2D; image: ImageData; mid: Uint32Array; out: Uint32Array } | null = null;
+  private glass: { key: string; surface: Surface } | null = null;
+  private smoothBig: { surface: Surface; ctx: Ctx2D } | null = null;
+  private smooth: {
+    surface: Surface;
+    ctx: Ctx2D;
+    image: ImageData;
+    mid: Uint32Array;
+    out: Uint32Array;
+    keep: Uint8Array;
+    keep2: Uint8Array;
+  } | null = null;
   private readonly pending = new Set<string>();
   /** What the last draw showed, so an unchanged frame is not drawn again. */
   private last: { frame: Uint8ClampedArray; key: string; out: HTMLCanvasElement } | null = null;
@@ -166,7 +220,9 @@ export class HiresText {
     this.work = new Uint8ClampedArray(w * h * 4);
     this.mask = null;
     this.grid = null;
+    this.glass = null;
     this.smooth = null;
+    this.smoothBig = null;
   }
 
   /** Draw `frame` (engine RGBA, `fw` x `fh`) with `marks` onto `out` at `scale` x. */
@@ -180,6 +236,8 @@ export class HiresText {
     fh = SCREEN_HEIGHT,
     effect: ScreenEffect = "none",
   ): void {
+    // (with the game's own pixel text, the characters' cells are only kept unsmoothed)
+    const cells = marks;
     if (!this.style) marks = [];
     this.size(fw, fh);
     const W = fw * scale;
@@ -193,7 +251,7 @@ export class HiresText {
     const ctx = out.getContext("2d")!;
 
     // nothing changed since this drew the canvas last (a still scene, a menu): keep it
-    const key = `${scale}:${effect}:${palette.id}:${marks.map((m) => `${m.x},${m.y},${m.w},${m.h},${m.fg},${m.bg},${m.text},${m.hidden}`).join(";")}`;
+    const key = `${scale}:${effect}:${palette.id}:${cells.map((m) => `${m.x},${m.y},${m.w},${m.h},${m.fg},${m.bg},${m.text},${m.hidden}`).join(";")}`;
     const last = this.last;
     const mine = drawnBy.get(out) === this;
     drawnBy.set(out, this);
@@ -223,8 +281,9 @@ export class HiresText {
 
     // 2. the picture, scaled up
     applyPalette(work, this.image.data, palette);
-    if (effect === "lcd" || effect === "lcd-shadow") this.drawLcd(ctx, palette, scale, effect === "lcd-shadow");
-    else if (effect === "smooth") this.drawSmooth(ctx, W, H);
+    const lcd = effect === "lcd" || effect === "lcd-shadow";
+    if (lcd) this.drawLcd(ctx, palette, scale, effect === "lcd-shadow");
+    else if (effect === "smooth") this.drawSmooth(ctx, W, H, cells);
     else {
       this.smallCtx.putImageData(this.image, 0, 0);
       ctx.imageSmoothingEnabled = false;
@@ -234,24 +293,34 @@ export class HiresText {
     // 3. the characters, on the parts of their cells nothing covers
     if (this.glyphs.size > 4000) this.glyphs.clear();
     const k = scale;
+    // (on the LCD with shadow, the characters cast one too)
+    const d = effect === "lcd-shadow" ? Math.max(1, Math.round(k * 0.3)) : 0;
     for (const m of marks) {
       const g = this.glyph(m.text, m.w, m.h ?? 16, shade(m.fg, palette), k);
       for (const [cx, cy, cw, ch] of visibleRects(m)) {
+        if (d) {
+          ctx.globalAlpha = 0.2;
+          ctx.drawImage(g, cx * k, cy * k, cw * k, ch * k, (m.x + cx) * k + d, (m.y + cy) * k + d, cw * k, ch * k);
+          ctx.globalAlpha = 1;
+        }
         ctx.drawImage(g, cx * k, cy * k, cw * k, ch * k, (m.x + cx) * k, (m.y + cy) * k, cw * k, ch * k);
       }
     }
+    if (lcd) this.lcdGaps(ctx, palette, k);
   }
 
   /**
-   * The LCD look: each game pixel a cell with a fine gap round it, the dark
-   * cells (optionally) casting a soft shadow on the glass behind.
+   * The LCD look, in three layers like the real screen: the glass (with a
+   * faint outline of every cell), the soft shadow the lit cells cast on it,
+   * and the lit cells themselves. The gaps between lit cells are drawn after
+   * the text (lcdGaps), so Sharp text sits on the same screen.
    */
   private drawLcd(ctx: Ctx2D, palette: Palette, k: number, shadow: boolean): void {
     const fw = this.fw;
     const fh = this.fh;
     const W = fw * k;
     const H = fh * k;
-    // the dark (and coloured) pixels alone, on a transparent layer
+    // the lit (non-background) pixels alone, on a transparent layer
     if (!this.mask) {
       const s = surface(fw, fh);
       this.mask = { surface: s, ctx: s.getContext("2d") as Ctx2D, image: new ImageData(fw, fh) };
@@ -267,47 +336,131 @@ export class HiresText {
       m[i + 3] = off ? 0 : 255;
     }
     this.mask.ctx.putImageData(this.mask.image, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = css(palette.light);
-    ctx.fillRect(0, 0, W, H);
+
+    // the glass: background colour, a slight darkening towards the edges and
+    // a barely visible outline of the unlit cells (cached)
+    const gap = lcdGap(k);
+    const key = `${W}x${H}:${k}:${palette.light.join()}:${palette.dark.join()}`;
+    if (!this.glass || this.glass.key !== key) {
+      const g = surface(W, H);
+      const gc = g.getContext("2d") as Ctx2D;
+      gc.fillStyle = css(palette.light);
+      gc.fillRect(0, 0, W, H);
+      const v = gc.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.6);
+      v.addColorStop(0, "rgba(0,0,0,0)");
+      v.addColorStop(1, "rgba(0,0,0,0.07)");
+      gc.fillStyle = v;
+      gc.fillRect(0, 0, W, H);
+      if (gap) {
+        const [dr, dg, db] = palette.dark;
+        gc.fillStyle = `rgba(${dr},${dg},${db},0.045)`;
+        for (let x = 1; x < fw; x++) gc.fillRect(x * k - gap, 0, gap, H);
+        for (let y = 1; y < fh; y++) gc.fillRect(0, y * k - gap, W, gap);
+      }
+      this.glass = { key, surface: g };
+    }
+    ctx.drawImage(this.glass.surface, 0, 0);
+
     if (shadow) {
-      const d = Math.max(1, Math.round(k / 6));
-      ctx.globalAlpha = 0.34;
+      // drawn up from the small layer with smoothing, so the shadow is soft
+      const d = Math.max(1, Math.round(k * 0.3));
+      ctx.imageSmoothingEnabled = true;
+      ctx.globalAlpha = 0.2;
       ctx.drawImage(this.mask.surface, d, d, W, H);
       ctx.globalAlpha = 1;
     }
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.mask.surface, 0, 0, W, H);
-    // the gaps between the cells
-    const gap = k >= 6 ? Math.max(1, Math.round(k / 8)) : 1;
-    const key = `${W}x${H}:${k}:${gap}:${palette.light.join()}:${palette.dark.join()}`;
+  }
+
+  /**
+   * The thin gaps between the LCD's cells, in the glass colour and half
+   * see-through: they show between lit cells (and across Sharp text) and
+   * vanish on the unlit background.
+   */
+  private lcdGaps(ctx: Ctx2D, palette: Palette, k: number): void {
+    const gap = lcdGap(k);
+    if (!gap) return;
+    const fw = this.fw;
+    const fh = this.fh;
+    const W = fw * k;
+    const H = fh * k;
+    const key = `${W}x${H}:${k}:${palette.light.join()}`;
     if (!this.grid || this.grid.key !== key) {
       const g = surface(W, H);
       const gc = g.getContext("2d") as Ctx2D;
-      gc.fillStyle = css(mix(palette.light, palette.dark, 0.12));
-      for (let x = 0; x < fw; x++) gc.fillRect(x * k + k - gap, 0, gap, H);
-      for (let y = 0; y < fh; y++) gc.fillRect(0, y * k + k - gap, W, gap);
+      const [lr, lg, lb] = palette.light;
+      gc.fillStyle = `rgba(${lr},${lg},${lb},0.5)`;
+      for (let x = 1; x < fw; x++) gc.fillRect(x * k - gap, 0, gap, H);
+      for (let y = 1; y < fh; y++) {
+        // (the crossings are not drawn twice, so they are no lighter)
+        for (let x = 0; x < fw; x++) gc.fillRect(x * k, y * k - gap, k - (x < fw - 1 ? gap : 0), gap);
+      }
       this.grid = { key, surface: g };
     }
     ctx.drawImage(this.grid.surface, 0, 0);
   }
 
-  /** Smoothed pixels: Scale2x twice (4x), then to the output size. */
-  private drawSmooth(ctx: Ctx2D, W: number, H: number): void {
+  /**
+   * Smoothed pixels: Scale2x twice (4x), enlarged by whole pixels and then
+   * resampled smoothly to the output size. Fine texture and the text cells
+   * are left as drawn: smoothing would change the pattern of the one and
+   * break up the strokes of the pixel font in the other.
+   */
+  private drawSmooth(ctx: Ctx2D, W: number, H: number, cells: TextMark[]): void {
     const fw = this.fw;
     const fh = this.fh;
     if (!this.smooth) {
       const s = surface(fw * 4, fh * 4);
       const image = new ImageData(fw * 4, fh * 4);
-      this.smooth = { surface: s, ctx: s.getContext("2d") as Ctx2D, image, mid: new Uint32Array(fw * 2 * fh * 2), out: new Uint32Array(image.data.buffer) };
+      this.smooth = {
+        surface: s,
+        ctx: s.getContext("2d") as Ctx2D,
+        image,
+        mid: new Uint32Array(fw * 2 * fh * 2),
+        out: new Uint32Array(image.data.buffer),
+        keep: new Uint8Array(fw * fh),
+        keep2: new Uint8Array(fw * 2 * fh * 2),
+      };
     }
+    const sm = this.smooth;
     const src = new Uint32Array(this.image.data.buffer);
-    scale2x(src, fw, fh, this.smooth.mid);
-    scale2x(this.smooth.mid, fw * 2, fh * 2, this.smooth.out);
-    this.smooth.ctx.putImageData(this.smooth.image, 0, 0);
-    // whole multiples stay hard-edged; other sizes are resampled smoothly
-    ctx.imageSmoothingEnabled = W % (fw * 4) !== 0;
+    const keep = sm.keep;
+    busyPixels(src, fw, fh, keep);
+    for (const m of cells) {
+      for (const [cx, cy, cw, ch] of visibleRects(m)) {
+        for (let y = Math.max(0, m.y + cy); y < Math.min(fh, m.y + cy + ch); y++) {
+          keep.fill(1, y * fw + Math.max(0, m.x + cx), y * fw + Math.min(fw, m.x + cx + cw));
+        }
+      }
+    }
+    const keep2 = sm.keep2;
+    for (let y = 0; y < fh * 2; y++) {
+      for (let x = 0; x < fw * 2; x++) keep2[y * fw * 2 + x] = keep[(y >> 1) * fw + (x >> 1)];
+    }
+    scale2x(src, fw, fh, sm.mid, keep);
+    scale2x(sm.mid, fw * 2, fh * 2, sm.out, keep2);
+    sm.ctx.putImageData(sm.image, 0, 0);
+    // (to the next whole multiple above the output size, then down to it)
+    const n = Math.ceil(W / (fw * 4));
+    if (n * fw * 4 === W || n < 2) {
+      ctx.imageSmoothingEnabled = n * fw * 4 !== W;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(sm.surface, 0, 0, W, H);
+      return;
+    }
+    // whole pixels first, so the last smooth step only softens the edges a little
+    const bw = fw * 4 * n;
+    const bh = fh * 4 * n;
+    if (!this.smoothBig || this.smoothBig.surface.width !== bw || this.smoothBig.surface.height !== bh) {
+      const b = surface(bw, bh);
+      this.smoothBig = { surface: b, ctx: b.getContext("2d") as Ctx2D };
+    }
+    this.smoothBig.ctx.imageSmoothingEnabled = false;
+    this.smoothBig.ctx.drawImage(sm.surface, 0, 0, bw, bh);
+    ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(this.smooth.surface, 0, 0, W, H);
+    ctx.drawImage(this.smoothBig.surface, 0, 0, W, H);
   }
 
   private glyph(text: string, w: number, h: number, color: string, scale: number): Surface {
