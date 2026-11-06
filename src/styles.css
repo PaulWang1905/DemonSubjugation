@@ -77,6 +77,12 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+html {
+  /* keep room for the scrollbar on every page, so the centred column does
+     not shift sideways between pages that scroll and pages that do not */
+  scrollbar-gutter: stable;
+}
+
 #root {
   max-width: 980px;
   margin: 0 auto;
@@ -648,14 +654,29 @@ footer {
   background: var(--bg);
 }
 
-/* Size: Larger -- wider than the page column, centred in the window */
-.player.large:not(.fs) {
-  width: min(calc(100vw - 32px), 1440px);
-  margin-left: calc(50% - min(calc(50vw - 16px), 720px));
+/* Size: Larger / Largest -- only the game screen grows past the page
+   column (up to 1440 px, or the whole window); the bar and the options keep
+   the column's width, so the page looks the same at every size. (Measured
+   inside the page, not with vw, which counts the scrollbar too.) */
+#root:has(.player.large:not(.fs)) {
+  max-width: none;
 }
-.player.large.fill:not(.fs) {
-  width: calc(100vw - 32px);
-  margin-left: calc(50% - (50vw - 16px));
+.player.large:not(.fs) > .toolbar,
+.player.large:not(.fs) > .notice,
+.player.large:not(.fs) > .extras {
+  width: 100%;
+  max-width: 948px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.player.large:not(.fs) > .stage {
+  width: 100%;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.player.large.fill:not(.fs) > .stage {
+  max-width: none;
 }
 
 /* fullscreen: only the game (and the keypad on touch screens) */
