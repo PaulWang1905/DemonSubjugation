@@ -3273,16 +3273,15 @@ a:hover .h-row-link .h-arrow {
   color: var(--h-ink);
 }
 
-/* -- hero: dark, to the window's edges -- */
+/* -- hero: dark, to the window's edges. On big screens it is a tall
+   section with a sticky stage: the live game first fills the window and
+   shrinks to its place as you scroll, while the title comes in
+   (--p: 0 → 1, set from the scroll position; without it, the end state) -- */
 .h-hero {
   position: relative;
   isolation: isolate;
-  display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
-  gap: clamp(28px, 5vw, 72px);
-  align-items: center;
-  padding: clamp(40px, 7vw, 104px) 0 clamp(36px, 5vw, 72px);
   color: var(--h-paper);
+  --p: 1;
 }
 .h-hero::before {
   content: "";
@@ -3290,10 +3289,9 @@ a:hover .h-row-link .h-arrow {
   inset: 0 -100vmax;
   z-index: -1;
   background:
-    radial-gradient(60% 80% at 78% 40%, rgb(201 226 101 / 0.1), transparent 70%),
+    radial-gradient(60% 70% at 72% 45%, rgb(201 226 101 / 0.09), transparent 70%),
     linear-gradient(var(--h-ink), var(--h-ink-2));
 }
-/* a fine pixel grid over the hero, like an enlarged LCD */
 .h-hero::after {
   content: "";
   position: absolute;
@@ -3303,13 +3301,101 @@ a:hover .h-row-link .h-arrow {
     linear-gradient(to right, rgb(236 235 227 / 0.035) 1px, transparent 1px),
     linear-gradient(to bottom, rgb(236 235 227 / 0.035) 1px, transparent 1px);
   background-size: 24px 24px;
-  mask-image: linear-gradient(to bottom, #000 40%, transparent);
+  mask-image: linear-gradient(to bottom, #000 50%, transparent);
+}
+.h-stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(28px, 5vw, 80px);
+  align-items: center;
+  padding: clamp(40px, 6vw, 88px) 0;
+}
+/* the title comes in line by line, the rest after it */
+.h-title span,
+.h-kicker,
+.h-lead,
+.h-cta,
+.h-textlink {
+  --in: clamp(0, calc((var(--p) - var(--from, 0.45)) * 4), 1);
+  opacity: var(--in);
+  transform: translateY(calc((1 - var(--in)) * 28px));
+}
+.h-title span {
+  --from: calc(0.4 + var(--i, 0) * 0.08);
+}
+.h-kicker {
+  --from: 0.36;
+}
+.h-lead {
+  --from: 0.58;
+}
+.h-cta,
+.h-textlink {
+  --from: 0.66;
+}
+.h-scroll-hint {
+  display: none;
+}
+@media (min-width: 1000px) and (min-height: 620px) and (prefers-reduced-motion: no-preference) {
+  .h-hero {
+    height: 250vh;
+  }
+  .h-stage {
+    position: sticky;
+    top: var(--bar, 53px);
+    height: calc(100vh - var(--bar, 53px));
+    padding: 0;
+  }
+  .h-monitor {
+    transform-origin: 0 0;
+    will-change: transform;
+  }
+  .h-scroll-hint {
+    display: block;
+    position: absolute;
+    left: 50%;
+    bottom: 26px;
+    translate: -50% 0;
+    color: var(--h-dim);
+    font: 500 11px/1 var(--h-mono);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    opacity: clamp(0, calc(1 - var(--p) * 8), 1);
+    pointer-events: none;
+  }
+  .h-scroll-hint::after {
+    content: "";
+    display: block;
+    width: 1px;
+    height: 34px;
+    margin: 10px auto 0;
+    background: linear-gradient(var(--h-dim), transparent);
+    animation: h-drop 1.8s ease-in-out infinite;
+  }
+}
+@keyframes h-drop {
+  0% {
+    transform: scaleY(0);
+    transform-origin: top;
+  }
+  50% {
+    transform: scaleY(1);
+    transform-origin: top;
+  }
+  51% {
+    transform-origin: bottom;
+  }
+  100% {
+    transform: scaleY(0);
+    transform-origin: bottom;
+  }
 }
 .h-kicker {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 18px;
-  margin: 0 0 28px;
+  margin: 0 0 26px;
   color: var(--h-dim);
 }
 .h-kicker span:first-child {
@@ -3317,9 +3403,9 @@ a:hover .h-row-link .h-arrow {
 }
 .h-title {
   margin: 0;
-  font-size: clamp(46px, 7.4vw, 118px);
+  font-size: clamp(48px, 6.6vw, 112px);
   font-weight: 620;
-  line-height: 0.92;
+  line-height: 0.94;
   letter-spacing: -0.055em;
 }
 .h-title span {
@@ -3327,20 +3413,23 @@ a:hover .h-row-link .h-arrow {
 }
 .h-title .accent {
   color: var(--h-lcd);
-  font-style: normal;
 }
 html:lang(zh-CN) .h-title {
+  font-size: clamp(42px, 5.4vw, 92px);
   letter-spacing: -0.02em;
-  line-height: 1.04;
+  line-height: 1.12;
   font-weight: 700;
 }
+html:lang(zh-CN) .h-title span {
+  white-space: nowrap;
+}
 .h-lead {
-  max-width: 34em;
-  margin: 30px 0 0;
+  max-width: 30em;
+  margin: 28px 0 0;
   color: rgb(236 235 227 / 0.72);
-  font-size: clamp(16px, 1.3vw, 19px);
-  line-height: 1.55;
-  letter-spacing: -0.005em;
+  font-size: clamp(17px, 1.35vw, 20px);
+  line-height: 1.5;
+  letter-spacing: -0.01em;
 }
 .h-lead em {
   color: var(--h-paper);
@@ -3352,45 +3441,17 @@ html:lang(zh-CN) .h-title {
   margin-top: 34px;
 }
 .h-cta .h-btn {
-  min-width: 240px;
+  min-width: 230px;
 }
 .h-textlink {
   display: inline-block;
   margin-top: 18px;
-  color: var(--h-paper);
+  color: var(--h-dim);
   font-size: 14px;
-  text-decoration: underline;
-  text-decoration-color: rgb(236 235 227 / 0.35);
-  text-underline-offset: 4px;
+  text-decoration: none;
 }
 .h-textlink:hover {
   color: var(--h-lcd);
-  text-decoration-color: currentColor;
-}
-.h-specs {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 44px 0 0;
-  padding: 0;
-  list-style: none;
-  border-top: 1px solid var(--h-rule);
-}
-.h-specs li {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px 14px 0 0;
-  color: rgb(236 235 227 / 0.8);
-  font-size: 13.5px;
-  line-height: 1.35;
-}
-.h-specs li + li {
-  padding-left: 14px;
-  border-left: 1px solid var(--h-rule);
-}
-.h-specs .h-num {
-  color: var(--h-dim);
-  font-size: 11px;
 }
 
 /* the live demo, framed like a monitor feed */
@@ -3398,6 +3459,7 @@ html:lang(zh-CN) .h-title {
   margin: 0;
   border: 1px solid var(--h-rule);
   background: #050604;
+  box-shadow: 0 40px 120px rgb(0 0 0 / 0.45);
 }
 .h-monitor-bar {
   display: flex;
@@ -3429,7 +3491,7 @@ html:lang(zh-CN) .h-title {
   }
 }
 .h-monitor-screen {
-  padding: clamp(10px, 1.6vw, 20px);
+  padding: clamp(10px, 1.4vw, 18px);
 }
 .h-monitor-screen canvas {
   display: block;
@@ -3446,40 +3508,9 @@ html:lang(zh-CN) .h-title {
 .h-monitor figcaption em {
   color: var(--h-paper);
 }
-
-/* -- ticker under the hero -- */
-.h-ticker {
-  position: relative;
-  overflow: hidden;
-  margin: 0 calc(50% - 50vw);
-  padding: 16px 0;
-  background: var(--h-lcd);
-  color: var(--h-ink);
-  border-block: 1px solid var(--h-ink);
-}
-.h-ticker-track {
-  display: flex;
-  width: max-content;
-  animation: h-ticker 38s linear infinite;
-}
-.h-ticker-item {
-  font: 400 clamp(18px, 2vw, 26px) / 1 var(--h-pixel);
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-.h-ticker-item::after {
-  content: "✦";
-  margin: 0 0.9em;
-  font-family: var(--h-sans);
-}
-@keyframes h-ticker {
-  to {
-    transform: translateX(-50%);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  .h-ticker-track,
-  .h-rec::before {
+  .h-rec::before,
+  .h-scroll-hint::after {
     animation: none;
   }
 }
@@ -3490,7 +3521,7 @@ html:lang(zh-CN) .h-title {
 }
 .h-sec-head {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
   gap: 16px 32px;
   align-items: end;
   padding-bottom: 24px;
@@ -3624,51 +3655,107 @@ html:lang(zh-CN) .h-sec-head h2 {
   min-width: 180px;
 }
 
-/* what the player adds: a spec sheet */
-.h-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* better than the handheld: one line at a time, the picture beside it
+   follows (sticky on big screens; inline on small ones) */
+.h-show {
+  padding: clamp(80px, 11vw, 168px) 0 0;
 }
-.h-grid li {
-  position: relative;
+.h-show-head {
+  text-align: center;
+  margin-bottom: clamp(24px, 4vw, 56px);
+}
+.h-show-head h2 {
+  margin: 0;
+  font-size: clamp(44px, 6.6vw, 108px);
+  font-weight: 640;
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+html:lang(zh-CN) .h-show-head h2 {
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+.h-show-head p {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: clamp(17px, 1.5vw, 22px);
+  letter-spacing: -0.01em;
+}
+.h-show-body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: clamp(32px, 6vw, 96px);
+}
+.h-show-lines article {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-height: 300px;
-  padding: 22px 26px 30px;
-  border-bottom: 1px solid var(--line);
-  transition: background 0.2s ease;
+  justify-content: center;
+  min-height: 76vh;
+  opacity: 0.22;
+  transition: opacity 0.45s ease;
 }
-.h-grid li:not(:nth-child(3n + 1)) {
-  border-left: 1px solid var(--line);
+.h-show-lines article.on {
+  opacity: 1;
 }
-.h-grid li:hover {
-  background: color-mix(in srgb, var(--h-lcd) 22%, transparent);
-}
-.h-cell-no {
-  color: var(--muted);
-}
-.h-stat {
-  margin: auto 0 10px;
-  font-size: clamp(54px, 6vw, 92px);
+.h-show-lines h3 {
+  margin: 0;
+  font-size: clamp(36px, 4.2vw, 68px);
   font-weight: 640;
-  line-height: 0.9;
-  letter-spacing: -0.06em;
+  line-height: 0.98;
+  letter-spacing: -0.05em;
 }
-.h-grid h3 {
-  margin: 0;
-  font-size: 19px;
-  font-weight: 620;
+html:lang(zh-CN) .h-show-lines h3 {
   letter-spacing: -0.02em;
+  line-height: 1.12;
 }
-.h-grid p {
-  margin: 0;
+.h-show-lines p {
+  margin: 20px 0 0;
+  max-width: 24em;
   color: var(--muted);
-  font-size: 14.5px;
+  font-size: clamp(17px, 1.35vw, 20px);
   line-height: 1.5;
+}
+.h-show-inline {
+  display: none;
+}
+.h-show-media {
+  position: sticky;
+  top: 53px;
+  height: calc(100vh - 53px);
+  display: flex;
+  align-items: center;
+}
+.h-show-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 3;
+  padding: clamp(12px, 1.4vw, 20px);
+  background: #050604;
+  border: 1px solid var(--h-ink);
+  box-shadow: 0 30px 90px rgb(0 0 0 / 0.18);
+}
+.h-show-frame img {
+  position: absolute;
+  inset: clamp(12px, 1.4vw, 20px);
+  width: calc(100% - 2 * clamp(12px, 1.4vw, 20px));
+  height: calc(100% - 2 * clamp(12px, 1.4vw, 20px));
+  object-fit: cover;
+  image-rendering: pixelated;
+  opacity: 0;
+  transform: scale(1.02);
+  transition: opacity 0.5s ease, transform 0.8s ease;
+}
+.h-show-frame img.on {
+  opacity: 1;
+  transform: none;
+}
+.h-show-count {
+  position: absolute;
+  right: 0;
+  bottom: -30px;
+  color: var(--muted);
+  font: 500 11px/1 var(--h-mono);
+  letter-spacing: 0.1em;
 }
 
 /* what you can do: big link rows */
@@ -3833,24 +3920,31 @@ html:lang(zh-CN) .h-band h2 {
 
 /* -- narrower screens -- */
 @media (max-width: 1000px) {
-  .h-hero {
+  .h-stage {
     grid-template-columns: minmax(0, 1fr);
   }
-  .h-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .h-monitor {
+    order: -1;
   }
-  .h-grid li:not(:nth-child(3n + 1)) {
-    border-left: 0;
+  .h-show-body {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .h-grid li:nth-child(2n) {
-    border-left: 1px solid var(--line);
+  .h-show-media {
+    display: none;
   }
-  .h-sec-head {
-    grid-template-columns: 80px minmax(0, 1fr);
+  .h-show-inline {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-bottom: 22px;
+    padding: 10px;
+    background: #050604;
+    image-rendering: pixelated;
   }
-  .h-sec-head p {
-    grid-column: 2;
-    justify-self: start;
+  .h-show-lines article {
+    min-height: 0;
+    padding: 28px 0;
+    opacity: 1;
   }
   .h-row {
     grid-template-columns: 80px minmax(0, 1fr);
@@ -3861,26 +3955,14 @@ html:lang(zh-CN) .h-band h2 {
   }
 }
 @media (max-width: 760px) {
-  .h-specs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .h-specs li:nth-child(3) {
-    padding-left: 0;
-    border-left: 0;
-  }
-  .h-specs li:nth-child(n + 3) {
-    padding-top: 14px;
-  }
   .h-cta .h-btn {
     flex: 1 1 100%;
     min-width: 0;
   }
-  .h-games,
-  .h-grid {
+  .h-games {
     grid-template-columns: minmax(0, 1fr);
   }
-  .h-game + .h-game,
-  .h-grid li:nth-child(2n) {
+  .h-game + .h-game {
     border-left: 0;
   }
   .h-game + .h-game .h-game-body,
@@ -3891,14 +3973,6 @@ html:lang(zh-CN) .h-band h2 {
   .h-game:first-child .h-game-art {
     margin-right: 0;
   }
-  .h-grid li {
-    min-height: 0;
-    padding-left: 0;
-    padding-right: 0;
-  }
-  .h-stat {
-    margin-top: 12px;
-  }
   .h-sec-head,
   .h-row {
     grid-template-columns: minmax(0, 1fr);
@@ -3907,6 +3981,7 @@ html:lang(zh-CN) .h-band h2 {
   .h-row-text,
   .h-row-link {
     grid-column: auto;
+    justify-self: start;
   }
   .h-band {
     grid-template-columns: minmax(0, 1fr);

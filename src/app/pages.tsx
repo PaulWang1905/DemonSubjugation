@@ -1,6 +1,6 @@
 // The site's pages besides Games and the editor: Home, Guide and About,
 // and the footer they share.
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AttractScreen } from "./AttractScreen";
 import { GitHubMark, REPO_URL } from "./links";
 import { Link } from "./router";
@@ -16,10 +16,93 @@ const Arrow = () => (
   </span>
 );
 
+/**
+ * How far the page has scrolled through `el`, whose sticky content sits `top`
+ * pixels from the top of the window: 0 when it starts, 1 when its end is in view.
+ */
+function scrollProgress(el: HTMLElement, top: number): number {
+  const r = el.getBoundingClientRect();
+  const span = el.offsetHeight - (window.innerHeight - top);
+  return span > 0 ? Math.min(1, Math.max(0, (top - r.top) / span)) : 1;
+}
+
+/** The scroll-driven hero runs on big enough screens, unless motion is reduced. */
+const SCROLL_HERO = "(min-width: 1000px) and (min-height: 620px) and (prefers-reduced-motion: no-preference)";
+
 export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
   const [preview, setPreview] = useState(true);
   const hidePreview = useCallback(() => setPreview(false), []);
   const t = SITE_TEXT[useSiteLang()];
+  const hero = useRef<HTMLElement>(null);
+  const monitor = useRef<HTMLElement>(null);
+
+  // The hero: the live game first fills the window; scrolling shrinks it to
+  // its place on the right while the title comes in on the left.
+  useEffect(() => {
+    const el = hero.current;
+    const mon = monitor.current;
+    if (!el || !mon) return;
+    const mq = matchMedia(SCROLL_HERO);
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      if (!mq.matches) {
+        el.style.removeProperty("--p");
+        mon.style.transform = "";
+        return;
+      }
+      // (the stage sticks under the top bar)
+      const bar = (document.querySelector(".topbar") as HTMLElement | null)?.offsetHeight ?? 0;
+      el.style.setProperty("--bar", `${bar}px`);
+      const p = scrollProgress(el, bar);
+      el.style.setProperty("--p", p.toFixed(4));
+      // from the window-filling size (q = 1) to the monitor's place in the grid (q = 0)
+      const stage = mon.offsetParent as HTMLElement | null;
+      if (!stage) return;
+      const w = mon.offsetWidth;
+      const h = mon.offsetHeight;
+      const pad = 28;
+      const s0 = Math.min((stage.clientWidth - 2 * pad) / w, (stage.clientHeight - 2 * pad) / h);
+      const x0 = (stage.clientWidth - w * s0) / 2 - mon.offsetLeft;
+      const y0 = (stage.clientHeight - h * s0) / 2 - mon.offsetTop;
+      const k = Math.min(1, p / 0.5);
+      const q = 1 - k * k * (3 - 2 * k); // smoothstep
+      mon.style.transform = `translate(${(x0 * q).toFixed(1)}px, ${(y0 * q).toFixed(1)}px) scale(${(1 + (s0 - 1) * q).toFixed(4)})`;
+    };
+    const queue = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    // (again once the game's canvas has its size, and whenever it changes)
+    const ro = new ResizeObserver(queue);
+    ro.observe(mon);
+    ro.observe(el);
+    addEventListener("scroll", queue, { passive: true });
+    addEventListener("resize", queue);
+    mq.addEventListener("change", queue);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      removeEventListener("scroll", queue);
+      removeEventListener("resize", queue);
+      mq.removeEventListener("change", queue);
+    };
+  }, [preview]);
+
+  // The showcase: the picture follows the line being read.
+  const [shown, setShown] = useState(0);
+  const lines = useRef<(HTMLElement | null)[]>([]);
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) if (e.isIntersecting) setShown(Number((e.target as HTMLElement).dataset.i));
+      },
+      { rootMargin: "-45% 0px -45% 0px" },
+    );
+    for (const l of lines.current) if (l) io.observe(l);
+    return () => io.disconnect();
+  }, []);
+
   const games = [
     { key: "bell" as const, art: "THE SILENT BELL", name: "The Silent Bell", meta: t.bellMeta, text: t.bellText },
     { key: "lantern" as const, art: "LANTERN PATH", name: "Lantern Path", meta: t.lanternMeta, text: t.lanternText },
@@ -40,90 +123,73 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
     },
     { to: "about" as const, title: t.doPrivate.title, text: <>{t.doPrivate.text}</>, link: t.doPrivate.link },
   ];
+  const noArrow = (s: string) => s.replace(/^▶\s*/, "").replace(/\s*→$/, "");
   return (
     <div className="h-home">
-      <section className="h-hero" id="top">
-        <div className="h-hero-copy">
-          <p className="h-kicker">
-            <span>{t.kicker[0]}</span>
-            <span>{t.kicker[1]}</span>
-          </p>
-          <h1 className="h-title">
-            {t.heroLines.map((l, i) => (
-              <span key={i} className={i === 1 ? "accent" : undefined}>
-                {l}
-              </span>
-            ))}
-          </h1>
-          <p className="h-lead">
-            {t.heroLead[0]}
-            <em>{t.heroLead[1]}</em>
-            {t.heroLead[2]}
-          </p>
-          <div className="h-cta">
-            <button className="h-btn h-btn-primary" onClick={() => onPlayDemo("bell")}>
-              {t.playBell.replace(/^▶\s*/, "")}
-              <Arrow />
-            </button>
-            <Link to="games" className="h-btn h-btn-line">
-              {t.browse}
-              <Arrow />
-            </Link>
-          </div>
-          <Link to="editor" className="h-textlink">
-            {t.makeOwn}
-          </Link>
-          <ul className="h-specs" aria-label={t.highlightsLabel}>
-            {t.highlights.map((h, i) => (
-              <li key={h}>
-                <span className="h-num">{String(i + 1).padStart(2, "0")}</span>
-                {h}
-              </li>
-            ))}
-          </ul>
-        </div>
-        {preview && (
-          <figure className="h-monitor">
-            <div className="h-monitor-bar" aria-hidden="true">
-              <span className="h-rec">{t.monitor.live}</span>
-              <span>{t.monitor.title}</span>
-              <span>{t.monitor.res}</span>
-            </div>
-            <div className="h-monitor-screen">
-              <AttractScreen onError={hidePreview} />
-            </div>
-            <figcaption>
-              <em>{t.caption[0]}</em>
-              {t.caption[1]}
-            </figcaption>
-          </figure>
-        )}
-      </section>
-
-      <div className="h-ticker" aria-hidden="true">
-        <div className="h-ticker-track">
-          {[0, 1].map((k) => (
-            <span key={k}>
-              {t.ticker.map((w) => (
-                <span key={w} className="h-ticker-item">
-                  {w}
+      <section className="h-hero" id="top" ref={hero}>
+        <div className="h-stage">
+          <div className="h-hero-copy">
+            <p className="h-kicker">
+              <span>{t.kicker[0]}</span>
+              <span>{t.kicker[1]}</span>
+            </p>
+            <h1 className="h-title">
+              {t.heroLines.map((l, i) => (
+                <span key={i} className={i === 1 ? "accent" : undefined} style={{ "--i": i } as React.CSSProperties}>
+                  {l}
                 </span>
               ))}
-            </span>
-          ))}
+            </h1>
+            <p className="h-lead">
+              {t.heroLead[0]}
+              <em>{t.heroLead[1]}</em>
+              {t.heroLead[2]}
+            </p>
+            <div className="h-cta">
+              <button className="h-btn h-btn-primary" onClick={() => onPlayDemo("bell")}>
+                {noArrow(t.playBell)}
+                <Arrow />
+              </button>
+              <Link to="games" className="h-btn h-btn-line">
+                {t.browse}
+                <Arrow />
+              </Link>
+            </div>
+            <Link to="editor" className="h-textlink">
+              {t.makeOwn}
+            </Link>
+          </div>
+          {preview && (
+            <figure className="h-monitor" ref={monitor}>
+              <div className="h-monitor-bar" aria-hidden="true">
+                <span className="h-rec">{t.monitor.live}</span>
+                <span>{t.monitor.title}</span>
+                <span>{t.monitor.res}</span>
+              </div>
+              <div className="h-monitor-screen">
+                <AttractScreen onError={hidePreview} />
+              </div>
+              <figcaption>
+                <em>{t.caption[0]}</em>
+                {t.caption[1]}
+              </figcaption>
+            </figure>
+          )}
+          <span className="h-scroll-hint" aria-hidden="true">
+            {t.scrollHint}
+          </span>
         </div>
-      </div>
+      </section>
 
       <section className="h-section">
         <header className="h-sec-head">
-          <span className="h-index">01</span>
           <h2>{t.startTitle}</h2>
           <p>{t.startSub}</p>
         </header>
         <div className="h-games">
           {games.map((g, i) => (
             <article key={g.key} className="h-game">
-              <button className="h-game-art" onClick={() => onPlayDemo(g.key)} aria-label={`${t.play.replace(/^▶\s*/, "")} ${g.name}`}>
+              <button className="h-game-art" onClick={() => onPlayDemo(g.key)} aria-label={`${noArrow(t.play)} ${g.name}`}>
                 <span className="h-game-no">{String(i + 1).padStart(2, "0")}</span>
                 <span className="h-game-logo">{g.art}</span>
               </button>
@@ -132,7 +198,7 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
                 <h3>{g.name}</h3>
                 <p>{g.text}</p>
                 <button className="h-btn h-btn-dark" onClick={() => onPlayDemo(g.key)}>
-                  {t.play.replace(/^▶\s*/, "")}
+                  {noArrow(t.play)}
                   <Arrow />
                 </button>
               </div>
@@ -141,31 +207,40 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
         </div>
       </section>
 
-      <section className="h-section">
-        <header className="h-sec-head">
-          <span className="h-index">02</span>
+      <section className="h-show">
+        <header className="h-show-head">
           <h2>{t.betterTitle}</h2>
           <p>{t.betterSub}</p>
         </header>
-        <ul className="h-grid">
-          {t.better.map((b, i) => (
-            <li key={b.title}>
-              <span className="h-cell-no">{`A.${String(i + 1).padStart(2, "0")}`}</span>
-              <span className="h-stat" aria-hidden="true">
-                {b.stat}
+        <div className="h-show-body">
+          <div className="h-show-lines">
+            {t.better.map((b, i) => (
+              <article key={b.title} className={i === shown ? "on" : undefined} data-i={i} ref={(el) => {
+                  lines.current[i] = el;
+                }}
+              >
+                <img className="h-show-inline" src={b.img} alt={b.alt} width={800} height={480} loading="lazy" />
+                <h3>{b.title}</h3>
+                <p>{b.text}</p>
+              </article>
+            ))}
+          </div>
+          <div className="h-show-media" aria-hidden="true">
+            <div className="h-show-frame">
+              {t.better.map((b, i) => (
+                <img key={b.img} src={b.img} alt="" className={i === shown ? "on" : undefined} width={800} height={480} />
+              ))}
+              <span className="h-show-count">
+                {String(shown + 1).padStart(2, "0")} / {String(t.better.length).padStart(2, "0")}
               </span>
-              <h3>{b.title}</h3>
-              <p>{b.text}</p>
-            </li>
-          ))}
-        </ul>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="h-section">
         <header className="h-sec-head">
-          <span className="h-index">03</span>
           <h2>{t.doTitle}</h2>
-          <p>{t.doSub}</p>
         </header>
         <div className="h-rows">
           {does.map((d, i) => (
@@ -174,7 +249,7 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
               <span className="h-row-title">{d.title}</span>
               <span className="h-row-text">{d.text}</span>
               <span className="h-row-link">
-                {d.link.replace(/\s*→$/, "")}
+                {noArrow(d.link)}
                 <Arrow />
               </span>
             </Link>
@@ -184,7 +259,6 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
 
       <section className="h-band">
         <div>
-          <span className="h-index">04</span>
           <h2>{t.ctaTitle}</h2>
           <p>{t.ctaText}</p>
         </div>
