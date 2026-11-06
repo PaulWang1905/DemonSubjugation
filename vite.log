@@ -1,7 +1,0 @@
-
-  VITE v8.3.5  ready in 170 ms
-
-  ➜  Local:   http://localhost:5179/
-  ➜  Network: use --host to expose
-10:09:18 PM [vite] (client) hmr update /src/app/App.tsx, /src/app/Player.tsx, /src/app/pages.tsx
-10:10:14 PM [vite] (client) hmr update /src/app/App.tsx, /src/app/Player.tsx, /src/app/pages.tsx

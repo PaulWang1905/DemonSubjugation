@@ -8,3 +8,4 @@ dist/
 HZK16
 ASC16
 /fixtures/private/
+*.log
