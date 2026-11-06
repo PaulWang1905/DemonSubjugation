@@ -56,12 +56,12 @@ the right to use.
   portraits, while grass, dithering and text are kept exactly as drawn).
   Effects draw at the display's resolution and work with every Text choice
   and Map view.
-- **Bundled pixel fonts**: four more Text choices draw with open-source
+- **Bundled pixel fonts**: three more Text choices draw with open-source
   pixel fonts in the device's 16-pixel layout, so games look like the
   handheld without the original font files, each with its own Chinese
   style: **Retro 8-bit** (粗体: Press Start 2P letters, bold Ark Pixel
-  Chinese; the default without the original files), **Ark Pixel** (黑体),
-  **Cubic 11** (圆体) and **Unifont** (宋体). They load only when chosen and
+  Chinese; the default without the original files), **Ark Pixel** (黑体)
+  and **Unifont** (宋体). They load only when chosen and
   can be switched while playing. Built by
   `scripts/fonts/build_fonts.py`; credits and licences (SIL OFL 1.1) are in
   [public/fonts/LICENSES.md](public/fonts/LICENSES.md).
@@ -73,8 +73,8 @@ the right to use.
   layout folds the spaces games used to break lines, keeps Latin words whole
   and keeps closing punctuation off the start of a line. Pixel text at these
   sizes uses fonts drawn for them (Cubic 11 and X11 6x12 at 12 pixels,
-  Boutique Bitmap 9×9 and X11 5x8 at 10) instead of shrinking the 16-pixel
-  ones.
+  Boutique Bitmap 9×9 and X11 5x8 at 10, in bold for Retro 8-bit) instead
+  of shrinking the 16-pixel ones.
 - **Hidden debug menu** for testing: press and hold the game screen for two
   seconds (mouse or finger; a ring fills while you hold). The game pauses while
   it is open. It edits party stats, money, items, spells and story flags, and

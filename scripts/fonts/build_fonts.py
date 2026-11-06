@@ -8,7 +8,9 @@ reads these exactly like the device's own font files.
 Sources (SIL Open Font License 1.1 or public domain, see public/fonts/LICENSES.md):
   unifont-*.hex.gz      Unifont, https://unifoundry.com/unifont/
   PressStart2P-*.ttf    Press Start 2P, https://github.com/google/fonts/tree/main/ofl/pressstart2p
-  Cubic_11.woff2        Cubic 11 1.451, https://github.com/ACh-K/Cubic-11
+  Cubic_11.woff2        Cubic 11 1.451, https://github.com/ACh-K/Cubic-11 (Chinese
+                        characters Ark Pixel lacks; it had a set of its own until
+                        it proved to look the same as Ark Pixel at this size)
 
 For the 12- and 10-pixel cells of the More text option it also writes
 small/cjk12.bin, latin12.bin, cjk10.bin and latin10.bin (see small_fonts.py):
@@ -207,12 +209,6 @@ def main():
         # Retro 8-bit letters only (its Chinese needs ARK12_DIR)
         build(os.path.join(out, "retro"), uni16, lambda ch: ps.rows(ch, 8) if ps.has(ch) else uni8(ch), cjk=False)
 
-    # Cubic 11, with Unifont for the characters it lacks
-    build(
-        os.path.join(out, "cubic"),
-        lambda ch: cu.rows(ch, 16) if cu.has(ch) else uni16(ch),
-        lambda ch: cu.rows(ch, 8) if cu.has(ch) else uni8(ch),
-    )
 
 
 if __name__ == "__main__":

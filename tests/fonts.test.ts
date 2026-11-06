@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { createEngine, Keys, type Engine } from "../src/engine";
 import { writeLib } from "../src/editor/format/lib";
 import { lanternPath } from "../src/editor/template/demo";
-import { FONT_SETS } from "../src/app/fonts";
+import { boldSmallFonts, FONT_SETS } from "../src/app/fonts";
 import { memorySaves } from "./helpers";
 import { TextRender } from "../src/engine/fmj/graphics/TextRender";
 import { Bitmap, Canvas } from "../src/engine/graphics";
@@ -63,5 +63,34 @@ describe("bundled pixel fonts", () => {
         }
       }
     }
+  });
+
+  it("makes a bold More text that keeps the gaps between strokes", () => {
+    const small = { hzk12: file("/fonts/small/cjk12.bin"), asc12: file("/fonts/small/latin12.bin"), hzk10: file("/fonts/small/cjk10.bin"), asc10: file("/fonts/small/latin10.bin") };
+    const bold = boldSmallFonts(small);
+    const bits = (n: number) => [...n.toString(2)].filter((c) => c === "1").length;
+    for (const k of ["hzk12", "asc12", "hzk10", "asc10"] as const) {
+      const a = small[k];
+      const b = bold[k];
+      expect(b.length).toBe(a.length);
+      let more = 0;
+      for (let i = 0; i < a.length; i++) {
+        expect(b[i] & a[i]).toBe(a[i]); // nothing taken away
+        more += bits(b[i]) - bits(a[i]);
+      }
+      expect(more).toBeGreaterThan(0);
+    }
+    // (vertical strokes:) one-pixel gaps stay open, a stroke with room to its right grows into it
+    const bin = (s: string) => parseInt(s.replace(/#/g, "1").replace(/\./g, "0").padEnd(8, "0"), 2);
+    const glyph = (rows: string[]) => {
+      const asc12 = new Uint8Array(12);
+      rows.forEach((r, i) => (asc12[i] = bin(r)));
+      return boldSmallFonts({ hzk12: new Uint8Array(24), asc12, hzk10: new Uint8Array(20), asc10: new Uint8Array(10) }).asc12;
+    };
+    const bars = (r: string) => glyph(Array(12).fill(r))[5];
+    expect(bars("#.#.#")).toBe(bin("#.#.##"));
+    expect(bars("#..#")).toBe(bin("##.##"));
+    // dots (as in ……) stay dots
+    expect(Array.from(glyph(["", "", "#..#..#"]).subarray(0, 4))).toEqual([0, 0, bin("#..#..#"), 0]);
   });
 });

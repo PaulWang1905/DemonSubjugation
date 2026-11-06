@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createDeviceFont } from "./deviceFont";
 import { createEngine, EngineSettings, type SmallFonts, type UiLanguage, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, Keys, type Engine, type EngineKey } from "../engine";
 import { exportSaves, importSaves, savesFor } from "../storage/saves";
@@ -8,8 +8,8 @@ import { Keypad } from "./Keypad";
 import { DebugMenu } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
-import { effectScale, HiresText, hiresScale, type ScreenEffect, type TextStyle } from "./hiresText";
-import { FONT_SETS, isFontSet, loadFontSet, loadSmallFonts, SMALL_FONT_CREDIT, type FontSetId } from "./fonts";
+import { effectScale, HiresText, hiresScale, SHARP_STYLES, type ScreenEffect, type TextStyle } from "./hiresText";
+import { boldSmallFonts, FONT_SETS, isFontSet, loadFontSet, loadSmallFonts, SMALL_FONT_CREDIT, type FontSetId } from "./fonts";
 
 /** Pixel text with the uploaded files (or the device fallback), a bundled pixel font, or Sharp. */
 type TextMode = "pixel" | `pixel:${FontSetId}` | TextStyle;
@@ -108,7 +108,13 @@ export function Player({ game, fonts, onExit }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [uiLang, setUiLang] = useState<UiLanguage | "auto">(() => pref<string>("uiLanguage", "auto") as UiLanguage | "auto");
   // The original bitmap fonts when they were added, Retro 8-bit pixel text otherwise.
-  const [textMode, setTextMode] = useState<TextMode>(() => pref<TextMode>("text", fonts.hzk16 && fonts.asc16 ? "pixel" : "pixel:retro"));
+  const [textMode, setTextMode] = useState<TextMode>(() => {
+    const fallback: TextMode = fonts.hzk16 && fonts.asc16 ? "pixel" : "pixel:retro";
+    const saved = pref<string>("text", fallback);
+    // (Cubic 11 looked like Ark Pixel and was taken out; other unknown choices go back to the default)
+    if (saved === "pixel:cubic") return "pixel:ark";
+    return saved === "pixel" || fontSetOf(saved as TextMode) || SHARP_STYLES.includes(saved as TextStyle) ? (saved as TextMode) : fallback;
+  });
   const textRef = useRef(textMode);
   textRef.current = textMode;
   // A bundled pixel font: loaded when chosen, then swapped in without restarting.
@@ -186,8 +192,11 @@ export function Player({ game, fonts, onExit }: Props) {
   EngineSettings.textSize = textSize === 12 || textSize === 10 ? textSize : 16;
   // Fonts drawn for those sizes, loaded the first time they are needed.
   const [small, setSmall] = useState<SmallFonts | null>(null);
-  const smallRef = useRef(small);
-  smallRef.current = small;
+  // (bold for the sets whose 16-pixel Chinese is bold)
+  const boldSmall = !!setId && !!FONT_SETS.find((f) => f.id === setId)?.boldSmall;
+  const smallPick = useMemo(() => (small && boldSmall ? boldSmallFonts(small) : small), [small, boldSmall]);
+  const smallRef = useRef(smallPick);
+  smallRef.current = smallPick;
   useEffect(() => {
     if (textSize === 16 || small) return;
     let alive = true;
@@ -291,11 +300,11 @@ export function Player({ game, fonts, onExit }: Props) {
   useEffect(() => {
     const e = engineRef.current;
     if (!e) return;
-    e.setFonts(fontPick.hzk16, fontPick.asc16, small);
+    e.setFonts(fontPick.hzk16, fontPick.asc16, smallPick);
     e.redraw();
     // fontPick is rebuilt each render; these say when it really changed
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useBundled, bundled, setId, fonts, small]);
+  }, [useBundled, bundled, setId, fonts, smallPick]);
 
   // Held keys repeat at one fixed rate whatever sends them (keypad, keyboard,
   // gamepad), so walking feels the same everywhere. Each repeat is one more
@@ -661,7 +670,7 @@ export function Player({ game, fonts, onExit }: Props) {
             <option value="10">Most: 10-pixel text</option>
           </select>
         </label>
-        {textSize !== 16 && (textMode === "pixel" || setId) && <p className="muted small">Pixel text at this size uses fonts drawn for it: {SMALL_FONT_CREDIT}.</p>}
+        {textSize !== 16 && (textMode === "pixel" || setId) && <p className="muted small">Pixel text at this size uses fonts drawn for it{boldSmall ? ", in bold" : ""}: {SMALL_FONT_CREDIT}.</p>}
         <label className="check">
           <input
             type="checkbox"

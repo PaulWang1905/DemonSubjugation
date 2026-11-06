@@ -14,6 +14,7 @@ import { loadSharpFont } from "./sharpFonts";
 
 /** Sharp text: the device's fonts (sans, serif) or fonts that come with the player. */
 export type TextStyle = "sans" | "serif" | "kai" | "hei" | "song";
+export const SHARP_STYLES: readonly TextStyle[] = ["sans", "serif", "kai", "hei", "song"];
 
 /** How the picture is scaled up. */
 export type ScreenEffect = "none" | "lcd" | "lcd-shadow" | "smooth";
