@@ -30,6 +30,13 @@ the right to use.
   palettes (classic, LCD, paper, amber). On a computer, **Size** can be Fit
   (whole pixels, inside the page), Larger (up to half as big again) or
   Largest (the whole window); the bigger two scale in quarter-pixel steps.
+- **Map view**: Original (9×6 tiles), Wider (13×8) or Widest (17×10). The
+  game still runs on its 160×96 screen (same camera, scripts and events);
+  the engine draws more of the map, its people and the hero around it while
+  the map is shown. Dialogue, menus and effects stay in the middle as on the
+  device (each frame keeps the pixels where the game's screen differs from
+  its plain map), and battles and full-screen pictures get plain margins.
+  `engine.setView(mx, my)` sets it while playing.
 - **Sharp text**: characters are redrawn at the display's full
   resolution with the device's fonts (sans or serif), while the rest of the
   picture stays pixel-exact. The engine reports where it drew each character

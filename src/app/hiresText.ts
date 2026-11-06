@@ -63,18 +63,34 @@ function visibleRects(m: TextMark): [number, number, number, number][] {
 }
 
 export class HiresText {
-  private readonly small = surface(SCREEN_WIDTH, SCREEN_HEIGHT);
-  private readonly smallCtx = this.small.getContext("2d") as Ctx2D;
-  private readonly image = new ImageData(SCREEN_WIDTH, SCREEN_HEIGHT);
-  private readonly work = new Uint8ClampedArray(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
+  private fw = 0;
+  private fh = 0;
+  private small!: Surface;
+  private smallCtx!: Ctx2D;
+  private image!: ImageData;
+  private work!: Uint8ClampedArray;
   private readonly glyphs = new Map<string, Surface>();
 
-  constructor(private readonly style: TextStyle = "sans") {}
+  constructor(private readonly style: TextStyle = "sans") {
+    this.size(SCREEN_WIDTH, SCREEN_HEIGHT);
+  }
 
-  /** Draw `frame` (engine RGBA) with `marks` onto `out` at `scale` x. */
-  draw(out: HTMLCanvasElement, frame: Uint8ClampedArray, marks: TextMark[], palette: Palette, scale: number): void {
-    const W = SCREEN_WIDTH * scale;
-    const H = SCREEN_HEIGHT * scale;
+  /** Buffers for frames of `w` x `h` (the device's screen, or the wider map view). */
+  private size(w: number, h: number): void {
+    if (w === this.fw && h === this.fh) return;
+    this.fw = w;
+    this.fh = h;
+    this.small = surface(w, h);
+    this.smallCtx = this.small.getContext("2d") as Ctx2D;
+    this.image = new ImageData(w, h);
+    this.work = new Uint8ClampedArray(w * h * 4);
+  }
+
+  /** Draw `frame` (engine RGBA, `fw` x `fh`) with `marks` onto `out` at `scale` x. */
+  draw(out: HTMLCanvasElement, frame: Uint8ClampedArray, marks: TextMark[], palette: Palette, scale: number, fw = SCREEN_WIDTH, fh = SCREEN_HEIGHT): void {
+    this.size(fw, fh);
+    const W = fw * scale;
+    const H = fh * scale;
     if (out.width !== W || out.height !== H) {
       out.width = W;
       out.height = H;
@@ -89,9 +105,9 @@ export class HiresText {
       const bg = (m.bg >>> 8) & 0xff;
       const bb = (m.bg >>> 16) & 0xff;
       for (const [cx, cy, cw, ch] of visibleRects(m)) {
-        for (let y = Math.max(0, m.y + cy); y < Math.min(SCREEN_HEIGHT, m.y + cy + ch); y++) {
-          for (let x = Math.max(0, m.x + cx); x < Math.min(SCREEN_WIDTH, m.x + cx + cw); x++) {
-            const o = (y * SCREEN_WIDTH + x) * 4;
+        for (let y = Math.max(0, m.y + cy); y < Math.min(fh, m.y + cy + ch); y++) {
+          for (let x = Math.max(0, m.x + cx); x < Math.min(fw, m.x + cx + cw); x++) {
+            const o = (y * fw + x) * 4;
             work[o] = br;
             work[o + 1] = bg;
             work[o + 2] = bb;

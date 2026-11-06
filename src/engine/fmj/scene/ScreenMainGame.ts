@@ -18,6 +18,7 @@ import { Canvas, Point } from "../../graphics";
 import { SaveLoadGame } from "./SaveLoadGame";
 import type { ResImage } from "../lib/ResImage";
 import { DeviceFlags } from "../config/DeviceFlags";
+import { WideView } from "../config/WideView";
 
 function emptyNpcs(): NPC[] {
   return Array.from({ length: 41 }, () => NPC.empty);
@@ -136,18 +137,31 @@ export class ScreenMainGame extends BaseScreen {
   }
 
   drawScene(canvas: Canvas): void {
-    this.currentMap?.drawMap(canvas, this.mMapScreenPos.x, this.mMapScreenPos.y);
+    if (canvas === WideView.screen) WideView.sceneDrawn = true;
+    this.drawSceneAt(canvas, 0, 0);
+  }
+
+  /**
+   * The map, NPCs and hero with `mx` more tile columns on each side and `my`
+   * more rows above and below than the device shows (0, 0: the device's
+   * screen). For the wider view, on a canvas of 160 + 32 mx by 96 + 32 my.
+   */
+  drawSceneAt(canvas: Canvas, mx: number, my: number): void {
+    const screen = mx || my ? new Point(this.mMapScreenPos.x - mx, this.mMapScreenPos.y - my) : this.mMapScreenPos;
+    if (mx || my) this.currentMap?.drawMapArea(canvas, screen.x, screen.y, ResMap.WIDTH + 2 * mx, ResMap.HEIGHT + 2 * my);
+    else this.currentMap?.drawMap(canvas, screen.x, screen.y);
     const playY = this.player ? this.player.posInMap.y : 10000;
     let hasPlayerBeenDrawn = false;
     const npcs = this.sortedNpcObjs;
     for (let i = npcs.length - 1; i >= 0; i--) {
       if (!hasPlayerBeenDrawn && playY < npcs[i].posInMap.y) {
-        this.player!.drawWalkingSprite(canvas, this.mMapScreenPos);
+        this.player!.drawWalkingSprite(canvas, screen);
         hasPlayerBeenDrawn = true;
       }
-      npcs[i].drawWalkingSprite(canvas, this.mMapScreenPos);
+      npcs[i].drawWalkingSprite(canvas, screen);
     }
-    if (this.player && !hasPlayerBeenDrawn) this.player.drawWalkingSprite(canvas, this.mMapScreenPos);
+    if (this.player && !hasPlayerBeenDrawn) this.player.drawWalkingSprite(canvas, screen);
+    if (mx || my) return; // the coordinates and borders belong to the device's screen
     Util.drawSideFrame(canvas);
     if (DeviceFlags.showPos) this.drawPosition(canvas);
   }

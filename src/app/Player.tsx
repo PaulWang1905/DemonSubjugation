@@ -28,6 +28,14 @@ interface Props {
 }
 
 type ScreenSize = "fit" | "large" | "fill";
+/** Map view: how many extra tile columns (each side) and rows (above and below) to show. */
+type MapView = "normal" | "wide" | "widest";
+const MAP_VIEWS: Record<MapView, { label: string; mx: number; my: number }> = {
+  normal: { label: "Original (9×6)", mx: 0, my: 0 },
+  wide: { label: "Wider (13×8)", mx: 2, my: 1 },
+  widest: { label: "Widest (17×10)", mx: 4, my: 2 },
+};
+const mapViewOf = (v: string): MapView => (v === "wide" || v === "widest" ? v : "normal");
 const screenSizeOf = (v: string): ScreenSize => (v === "large" || v === "fill" ? v : "fit");
 /** The page column's inner width (#root: 980 px with 16 px padding). */
 const PAGE_WIDTH = 948;
@@ -83,6 +91,13 @@ export function Player({ game, fonts, onExit }: Props) {
   // page ("fit"); or bigger, wider than the page and in quarter-pixel steps:
   // up to half as big again ("large") or as big as the window allows ("fill").
   const [screenSize, setScreenSize] = useState<ScreenSize>(() => screenSizeOf(pref<string>("screenSize", "fit")));
+  // More of the map on screen (the game itself still runs on 160x96).
+  const [mapView, setMapView] = useState<MapView>(() => mapViewOf(pref<string>("mapView", "normal")));
+  const view = MAP_VIEWS[mapView];
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const frameW = SCREEN_WIDTH + 32 * view.mx;
+  const frameH = SCREEN_HEIGHT + 32 * view.my;
   const [showPad, setShowPad] = useState(() => pref("keypad", matchMedia("(pointer: coarse)").matches ? "on" : "off") === "on");
   const [originalFormula, setOriginalFormula] = useState(() => pref("originalDamage", "on") === "on");
   const [notice, setNotice] = useState<string | null>(null);
@@ -205,10 +220,11 @@ export function Player({ game, fonts, onExit }: Props) {
       return;
     }
     if (smallRef.current) engine.setFonts(fontPickRef.current.hzk16, fontPickRef.current.asc16, smallRef.current);
+    engine.setView(viewRef.current.mx, viewRef.current.my);
     engineRef.current = engine;
     const cv = canvasRef.current!;
     const ctx = cv.getContext("2d")!;
-    const image = ctx.createImageData(SCREEN_WIDTH, SCREEN_HEIGHT);
+    let image = ctx.createImageData(engine.width, engine.height);
     const hires: Partial<Record<TextStyle, HiresText>> = {};
     let frame = engine.render();
     let raf = 0;
@@ -236,16 +252,19 @@ export function Player({ game, fonts, onExit }: Props) {
       }
       const pal = PALETTES.find((p) => p.id === paletteRef.current) ?? PALETTES[0];
       const mode = textRef.current;
+      const fw = engine.width;
+      const fh = engine.height;
       if (mode === "pixel" || fontSetOf(mode)) {
-        if (cv.width !== SCREEN_WIDTH) {
-          cv.width = SCREEN_WIDTH;
-          cv.height = SCREEN_HEIGHT;
+        if (cv.width !== fw || cv.height !== fh) {
+          cv.width = fw;
+          cv.height = fh;
         }
+        if (image.width !== fw || image.height !== fh) image = ctx.createImageData(fw, fh);
         applyPalette(frame, image.data, pal);
         ctx.putImageData(image, 0, 0);
       } else {
         const h = (hires[mode as TextStyle] ??= new HiresText(mode as TextStyle));
-        h.draw(cv, frame, engine.textLayer(), pal, hiresScale(scaleRef.current));
+        h.draw(cv, frame, engine.textLayer(), pal, hiresScale(scaleRef.current), fw, fh);
       }
       raf = requestAnimationFrame(loop);
     };
@@ -382,7 +401,7 @@ export function Player({ game, fonts, onExit }: Props) {
           // what the keypad needs at least, measured by its parts (it stretches)
           h -= Math.max(size(".kp-pad", false), size(".kp-ab", false)) + size(".kp-pages", false) + 36;
         }
-        const fitted = Math.min((w - frame) / SCREEN_WIDTH, (h - frame) / SCREEN_HEIGHT, 8);
+        const fitted = Math.min((w - frame) / frameW, (h - frame) / frameH, 8);
         setScale(Math.max(1, Math.floor(fitted * dpr * 4) / 4) / dpr);
         return;
       }
@@ -391,7 +410,7 @@ export function Player({ game, fonts, onExit }: Props) {
         // fullscreen: the game takes the whole screen (above the keypad, if shown)
         h = window.innerHeight - (kp ? kp.offsetHeight + 10 : 0);
         w = window.innerWidth;
-        const fitted = Math.min((w - frame) / SCREEN_WIDTH, (h - frame) / SCREEN_HEIGHT, 16);
+        const fitted = Math.min((w - frame) / frameW, (h - frame) / frameH, 16);
         setScale(Math.max(1, Math.floor(fitted * dpr * 4) / 4) / dpr);
         return;
       }
@@ -401,12 +420,12 @@ export function Player({ game, fonts, onExit }: Props) {
       else h -= 60; // leave the options bar in view
       // Fit: whole device pixels, within the page column
       const pageW = Math.min(w, PAGE_WIDTH);
-      const fit = Math.max(1, Math.floor(Math.min((pageW - frame) / SCREEN_WIDTH, (h - frame) / SCREEN_HEIGHT, 8) * dpr)) / dpr;
+      const fit = Math.max(1, Math.floor(Math.min((pageW - frame) / frameW, (h - frame) / frameH, 8) * dpr)) / dpr;
       if (screenSize === "fit") {
         setScale(fit);
         return;
       }
-      let fitted = Math.min((w - frame) / SCREEN_WIDTH, (h - frame) / SCREEN_HEIGHT, 12);
+      let fitted = Math.min((w - frame) / frameW, (h - frame) / frameH, 12);
       if (screenSize === "large") fitted = Math.min(fitted, fit * 1.5);
       setScale(Math.max(fit, Math.floor(fitted * dpr * 4) / 4 / dpr));
     };
@@ -420,7 +439,14 @@ export function Player({ game, fonts, onExit }: Props) {
       window.removeEventListener("resize", fit);
       document.removeEventListener("fullscreenchange", fit);
     };
-  }, [showPad, touch, sideways, fullscreen, screenSize]);
+  }, [showPad, touch, sideways, fullscreen, screenSize, frameW, frameH]);
+
+  // Change the map view while playing.
+  useEffect(() => {
+    const e = engineRef.current;
+    if (!e) return;
+    e.setView(view.mx, view.my);
+  }, [view]);
 
   // The phone layout covers the page; stop the page behind it scrolling.
   useEffect(() => {
@@ -515,6 +541,22 @@ export function Player({ game, fonts, onExit }: Props) {
           </select>
         </label>
       )}
+      <label className="field" title="Show more of the map around the screen. The game plays the same; dialogue, menus and battles stay in the middle at their original size">
+        <span className="lbl">Map</span>
+        <select
+          value={mapView}
+          onChange={(e) => {
+            setMapView(mapViewOf(e.target.value));
+            setPref("mapView", e.target.value);
+          }}
+        >
+          {(Object.keys(MAP_VIEWS) as MapView[]).map((k) => (
+            <option key={k} value={k}>
+              {MAP_VIEWS[k].label}
+            </option>
+          ))}
+        </select>
+      </label>
     </>
   );
 
@@ -669,8 +711,8 @@ export function Player({ game, fonts, onExit }: Props) {
             <canvas
               ref={canvasRef}
               style={{
-                width: SCREEN_WIDTH * scale,
-                height: SCREEN_HEIGHT * scale,
+                width: frameW * scale,
+                height: frameH * scale,
               }}
               aria-label="Game screen"
               {...hold.bind}

@@ -117,6 +117,9 @@ really deals the flag value, and an NPC walks until it reaches its target
   dialogue, message boxes, MENU lists and descriptions on purpose: smaller
   text and taller boxes, so fewer pages. With it off they are as described
   above.
+- **Map view** (Wider, Widest; off by default) shows more tiles around the
+  device's screen. The game still runs on 160x96, so nothing it does changes;
+  people outside the device's screen can be seen there before they would be.
 - **Descriptions that run on** (items, equipment, magic) show a small down
   arrow on the bottom edge of their box, and Page Down on the last page goes
   back to the first; the device shows nothing and stops at the last page.

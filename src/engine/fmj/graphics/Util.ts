@@ -105,6 +105,14 @@ class UtilImpl {
     canvas.drawBitmap(this.bmpSideFrame, 152, 0);
   }
 
+  /** The striped side borders down both edges of a canvas of any size (WideView). */
+  drawSideFramesAround(canvas: Canvas): void {
+    for (let y = 0; y < canvas.height; y += this.bmpSideFrame.height) {
+      canvas.drawBitmap(this.bmpSideFrame, 0, y);
+      canvas.drawBitmap(this.bmpSideFrame, canvas.width - this.bmpSideFrame.width, y);
+    }
+  }
+
   getFrameBitmap(w: number, h: number): Bitmap {
     const bmp = Bitmap.createBitmap(w, h);
     const tmpC = new Canvas(bmp);
@@ -162,6 +170,7 @@ export const Util = {
   showInformation: (c: Canvas, m: string) => Util.get().showInformation(c, m),
   showMessage: (c: Canvas, m: string | Int8Array) => Util.get().showMessage(c, m),
   drawSideFrame: (c: Canvas) => Util.get().drawSideFrame(c),
+  drawSideFramesAround: (c: Canvas) => Util.get().drawSideFramesAround(c),
   getFrameBitmap: (w: number, h: number) => Util.get().getFrameBitmap(w, h),
   drawTriangleCursor: (c: Canvas, x: number, y: number) => Util.get().drawTriangleCursor(c, x, y),
   drawSmallNum: (c: Canvas, n: number, x: number, y: number) => Util.get().drawSmallNum(c, n, x, y),

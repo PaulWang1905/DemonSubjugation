@@ -4,11 +4,13 @@ import { MainGame } from "./fmj/Game";
 import { Player } from "./fmj/characters/Player";
 import { Combat } from "./fmj/combat/Combat";
 import { EngineSettings } from "./fmj/config/EngineSettings";
+import { WideView } from "./fmj/config/WideView";
 import { setUiLanguage, type UiLanguage } from "./fmj/i18n";
 
 export type { UiLanguage };
 import { glyphChar, glyphVisibility, TextRender } from "./fmj/graphics/TextRender";
 import { Util } from "./fmj/graphics/Util";
+import { Canvas } from "./graphics";
 import { DatLib } from "./fmj/lib/DatLib";
 import { registerResources } from "./fmj/registry";
 import { SaveLoadGame } from "./fmj/scene/SaveLoadGame";
@@ -147,6 +149,15 @@ export interface Engine {
   /** Compile every script in the archive; returns the failures. */
   checkScripts(): string[];
   readonly game: MainGame;
+  /**
+   * Show more of the map: `mx` extra tile columns on each side and `my` rows
+   * above and below (0, 0: the device's 160x96 screen). The game itself is
+   * unchanged; render() and textLayer() then use the larger frame.
+   */
+  setView(mx: number, my: number): void;
+  /** The size of the frame render() returns. */
+  readonly width: number;
+  readonly height: number;
 }
 
 /**
@@ -176,8 +187,58 @@ export function createEngine(opts: EngineOptions): Engine {
 
   const game = new MainGame();
   game.start();
-  game.draw();
   const frame = new Uint8ClampedArray(game.canvas.buffer.buffer);
+
+  // The wider map view (WideView): a larger canvas with the map drawn around
+  // the device's screen. Where the game's own frame differs from its plain map
+  // (dialogue, menus, effects), its pixels go on top.
+  WideView.mx = 0;
+  WideView.my = 0;
+  WideView.screen = game.canvas;
+  game.canvas.onCover = () => {
+    if (WideView.sceneDrawn) WideView.covered = true;
+  };
+  let wide: { canvas: Canvas; ref: Canvas; frame: Uint8ClampedArray } | null = null;
+  const compose = (): void => {
+    const { mx, my } = WideView;
+    const W = Global.SCREEN_WIDTH + 32 * mx;
+    const H = Global.SCREEN_HEIGHT + 32 * my;
+    if (!wide || wide.canvas.width !== W || wide.canvas.height !== H) {
+      const canvas = Canvas.ofSize(W, H);
+      wide = { canvas, ref: Canvas.ofSize(Global.SCREEN_WIDTH, Global.SCREEN_HEIGHT), frame: new Uint8ClampedArray(canvas.buffer.buffer) };
+    }
+    const big = wide.canvas;
+    big.drawColor(Global.COLOR_WHITE);
+    const scene = game.mainScene;
+    const showMap = WideView.sceneDrawn && !WideView.covered && !!scene?.currentMap;
+    const out = big.buffer;
+    const src = game.canvas.buffer;
+    const ox = 16 * mx;
+    const oy = 16 * my;
+    if (showMap) {
+      scene.drawSceneAt(big, mx, my);
+      const ref = wide.ref;
+      ref.drawColor(Global.COLOR_WHITE);
+      scene.drawSceneAt(ref, 0, 0);
+      const rb = ref.buffer;
+      for (let y = 0; y < Global.SCREEN_HEIGHT; y++) {
+        for (let x = 0; x < Global.SCREEN_WIDTH; x++) {
+          const i = y * Global.SCREEN_WIDTH + x;
+          if (src[i] !== rb[i]) out[(y + oy) * W + x + ox] = src[i];
+        }
+      }
+    } else {
+      for (let y = 0; y < Global.SCREEN_HEIGHT; y++) out.set(src.subarray(y * Global.SCREEN_WIDTH, (y + 1) * Global.SCREEN_WIDTH), (y + oy) * W + ox);
+    }
+    Util.drawSideFramesAround(big);
+  };
+  const draw = (): void => {
+    WideView.sceneDrawn = false;
+    WideView.covered = false;
+    game.draw();
+    if (WideView.mx || WideView.my) compose();
+  };
+  draw();
 
   // Debug switches are per session, never carried over from another game.
   EngineSettings.noRandomBattles = false;
@@ -191,7 +252,7 @@ export function createEngine(opts: EngineOptions): Engine {
     update(delta = TICK_MS) {
       game.update(delta);
       if (EngineSettings.alwaysFull) cheats.heal();
-      game.draw();
+      draw();
     },
     setFonts(hzk16, asc16, small) {
       const rom = getPlatform().rom;
@@ -206,10 +267,21 @@ export function createEngine(opts: EngineOptions): Engine {
       TextRender.reset();
     },
     redraw() {
-      game.draw();
+      draw();
     },
     render() {
-      return frame;
+      return WideView.mx || WideView.my ? wide!.frame : frame;
+    },
+    setView(mx, my) {
+      WideView.mx = Math.max(0, Math.min(8, Math.trunc(mx)));
+      WideView.my = Math.max(0, Math.min(8, Math.trunc(my)));
+      draw();
+    },
+    get width() {
+      return Global.SCREEN_WIDTH + 32 * WideView.mx;
+    },
+    get height() {
+      return Global.SCREEN_HEIGHT + 32 * WideView.my;
     },
     keyDown(key) {
       game.keyDown(key);
@@ -229,7 +301,7 @@ export function createEngine(opts: EngineOptions): Engine {
         keep.push(g);
         const text = glyphChar(g);
         const hidden = vis.length === 4 ? (vis as [number, number, number, number]) : null;
-        if (text.trim()) out.push({ x: g.x, y: g.y, w: g.w, h: g.h ?? 16, text, fg: g.fg, bg: g.bg, hidden });
+        if (text.trim()) out.push({ x: g.x + 16 * WideView.mx, y: g.y + 16 * WideView.my, w: g.w, h: g.h ?? 16, text, fg: g.fg, bg: g.bg, hidden });
       }
       bmp.glyphs = keep;
       return out;

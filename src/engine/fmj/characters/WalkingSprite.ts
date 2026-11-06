@@ -49,7 +49,9 @@ export class WalkingSprite {
   draw(canvas: Canvas, x: number, y: number): void {
     const img = this.resImage;
     const tmpY = y + 16 - img.height;
-    if (x + img.width > 0 && x < 160 - 16 && tmpY + img.height > 0 && tmpY < 96) {
+    // on the map area: between the side borders of the device's screen, or
+    // all of a wider canvas (WideView)
+    if (x + img.width > 0 && x < canvas.width - 16 && tmpY + img.height > 0 && tmpY < canvas.height) {
       img.draw(canvas, this.offset + OFFSET[this._step], x + Global.MAP_LEFT_OFFSET, tmpY);
     }
   }

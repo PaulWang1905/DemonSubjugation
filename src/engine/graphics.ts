@@ -232,6 +232,8 @@ export const SCREEN_HEIGHT = 96;
 
 export class Canvas {
   private bg: Bitmap;
+  /** Called when a drawing covers the whole canvas (see WideView). */
+  onCover: (() => void) | null = null;
 
   constructor(b?: Bitmap) {
     this.bg = b ?? Bitmap.createBitmap(SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -259,10 +261,12 @@ export class Canvas {
   }
 
   drawBitmap(bitmap: Bitmap, left: number, top: number): void {
+    if (this.onCover && left <= 0 && top <= 0 && left + bitmap.width >= this.bg.width && top + bitmap.height >= this.bg.height) this.onCover();
     this.bg.drawImage(bitmap, Math.trunc(left), Math.trunc(top));
   }
 
   drawColor(color: Color): void {
+    this.onCover?.();
     this.bg.color = color;
     this.bg.fillRect(0, 0, this.bg.width, this.bg.height);
   }
@@ -277,6 +281,7 @@ export class Canvas {
     if (paint.style === PaintStyle.STROKE) {
       this.bg.drawRect(x, y, i, j);
     } else {
+      if (this.onCover && x <= 0 && y <= 0 && x + i >= this.bg.width - 1 && y + j >= this.bg.height - 1) this.onCover();
       this.bg.fillRect(x, y, i, j);
     }
   }

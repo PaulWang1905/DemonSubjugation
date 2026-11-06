@@ -72,6 +72,23 @@ export class ResMap extends ResBase {
     }
   }
 
+  /**
+   * `cols` x `rows` tiles from map tile (left, top), the first at (8, 0) as on
+   * the device's screen; tiles outside the map are left as they are.
+   */
+  drawMapArea(canvas: Canvas, left: number, top: number, cols: number, rows: number): void {
+    const tiles = this.tiles();
+    for (let y = 0; y < rows; y++) {
+      const ty = top + y;
+      if (ty < 0 || ty >= this.mapHeight) continue;
+      for (let x = 0; x < cols; x++) {
+        const tx = left + x;
+        if (tx < 0 || tx >= this.mapWidth) continue;
+        tiles.draw(canvas, x * Tiles.WIDTH + Global.MAP_LEFT_OFFSET, y * Tiles.HEIGHT, this.getTileIndex(tx, ty));
+      }
+    }
+  }
+
   drawWholeMap(canvas: Canvas, x: number, y: number): void {
     const tiles = this.tiles();
     for (let ty = 0; ty < this.mapHeight; ty++) {
