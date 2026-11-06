@@ -3,12 +3,14 @@
 // public/fonts/LICENSES.md). They are loaded only when chosen.
 import type { SmallFonts } from "../engine";
 
-export type FontSetId = "retro" | "unifont" | "cubic";
+export type FontSetId = "retro" | "ark" | "cubic" | "unifont";
 
+/** Each set has its own Chinese style, named in the menu. */
 export const FONT_SETS: { id: FontSetId; label: string; cjk: string; latin: string }[] = [
-  { id: "retro", label: "Retro 8-bit", cjk: "/fonts/unifont/cjk16.bin", latin: "/fonts/retro/latin16.bin" },
-  { id: "unifont", label: "Unifont", cjk: "/fonts/unifont/cjk16.bin", latin: "/fonts/unifont/latin16.bin" },
-  { id: "cubic", label: "Cubic 11", cjk: "/fonts/cubic/cjk16.bin", latin: "/fonts/cubic/latin16.bin" },
+  { id: "retro", label: "Retro 8-bit (粗体 bold)", cjk: "/fonts/retro/cjk16.bin", latin: "/fonts/retro/latin16.bin" },
+  { id: "ark", label: "Ark Pixel (黑体 sans)", cjk: "/fonts/ark/cjk16.bin", latin: "/fonts/ark/latin16.bin" },
+  { id: "cubic", label: "Cubic 11 (圆体 round)", cjk: "/fonts/cubic/cjk16.bin", latin: "/fonts/cubic/latin16.bin" },
+  { id: "unifont", label: "Unifont (宋体 serif)", cjk: "/fonts/unifont/cjk16.bin", latin: "/fonts/unifont/latin16.bin" },
 ];
 
 export function isFontSet(id: string): id is FontSetId {
@@ -19,7 +21,7 @@ export function isFontSet(id: string): id is FontSetId {
  * Bump when the font files are rebuilt: browsers keep /fonts/ for a year
  * (vercel.json), and the version makes them fetch the new files.
  */
-const FONT_VERSION = 1;
+const FONT_VERSION = 2;
 
 const files = new Map<string, Promise<Uint8Array>>();
 
