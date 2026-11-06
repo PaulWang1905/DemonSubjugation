@@ -146,10 +146,6 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
       <section className="h-hero" id="top" ref={hero}>
         <div className="h-stage">
           <div className="h-hero-copy">
-            <p className="h-kicker">
-              <span>{t.kicker[0]}</span>
-              <span>{t.kicker[1]}</span>
-            </p>
             <h1 className="h-title">
               {t.heroLines.map((l, i) => (
                 <span key={i} className={i === 1 ? "accent" : undefined} style={{ "--i": i } as React.CSSProperties}>
@@ -169,14 +165,13 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
                   ↑
                 </span>
               </button>
-              <button className="h-btn h-btn-line" onClick={() => onPlayDemo("bell")}>
+              <button className="h-link" onClick={() => onPlayDemo("bell")}>
                 {t.tryBell}
-                <Arrow />
+                <span className="h-arrow" aria-hidden="true">
+                  ›
+                </span>
               </button>
             </div>
-            <Link to="editor" className="h-textlink">
-              {t.makeOwn}
-            </Link>
           </div>
           {preview && (
             <figure className="h-monitor" ref={monitor}>
@@ -188,10 +183,6 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
               <div className="h-monitor-screen">
                 <AttractScreen onError={hidePreview} />
               </div>
-              <figcaption>
-                <em>{t.caption[0]}</em>
-                {t.caption[1]}
-              </figcaption>
             </figure>
           )}
           <span className="h-scroll-hint" aria-hidden="true">

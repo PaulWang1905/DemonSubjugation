@@ -3316,13 +3316,19 @@ a:hover .h-row-link .h-arrow {
   background-size: 24px 24px;
   mask-image: linear-gradient(to bottom, #000 50%, transparent);
 }
+/* the end state: a centred headline, one action, the game below it */
 .h-stage {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: clamp(28px, 5vw, 80px);
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: clamp(40px, 6vw, 88px) 0;
+  justify-content: center;
+  gap: clamp(28px, 3.4vw, 48px);
+  padding: clamp(48px, 7vw, 104px) 0;
+  text-align: center;
+}
+.h-hero-copy {
+  max-width: 1120px;
 }
 /* the title comes in line by line, the rest after it */
 .h-title span,
@@ -3416,14 +3422,18 @@ a:hover .h-row-link .h-arrow {
 }
 .h-title {
   margin: 0;
-  font-size: clamp(44px, 5.2vw, 92px);
-  font-weight: 620;
-  line-height: 0.98;
+  font-size: clamp(40px, 5vw, 84px);
+  font-weight: 640;
+  line-height: 1.02;
   letter-spacing: -0.05em;
+  text-wrap: balance;
 }
 .h-title span {
-  display: block;
+  display: inline-block;
   white-space: nowrap;
+}
+.h-title span + span {
+  margin-left: 0.24em;
 }
 .h-title .accent {
   color: var(--h-lcd);
@@ -3434,12 +3444,12 @@ html:lang(zh-CN) .h-title {
   line-height: 1.12;
   font-weight: 700;
 }
-html:lang(zh-CN) .h-title span {
-  white-space: nowrap;
+html:lang(zh-CN) .h-title span + span {
+  margin-left: 0;
 }
 .h-lead {
   max-width: 28em;
-  margin: 26px 0 0;
+  margin: 18px auto 0;
   color: rgb(236 235 227 / 0.7);
   font-size: clamp(16px, 1.2vw, 19px);
   line-height: 1.5;
@@ -3447,15 +3457,38 @@ html:lang(zh-CN) .h-title span {
 }
 .h-lead em {
   color: var(--h-paper);
+  font-style: normal;
 }
 .h-cta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 34px;
+  justify-content: center;
+  align-items: center;
+  gap: 14px 32px;
+  margin-top: 30px;
 }
 .h-cta .h-btn {
   min-width: 230px;
+}
+/* a quiet text action beside the button */
+.h-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--h-paper);
+  font: 500 16px/1 var(--h-sans);
+  letter-spacing: -0.01em;
+  cursor: pointer;
+}
+.h-link .h-arrow {
+  font-size: 20px;
+  line-height: 0.8;
+}
+.h-link:hover {
+  color: var(--h-lcd);
 }
 .h-textlink {
   display: inline-block;
@@ -3468,8 +3501,10 @@ html:lang(zh-CN) .h-title span {
   color: var(--h-lcd);
 }
 
-/* the live demo, framed like a monitor feed */
+/* the live demo, framed like a monitor feed, as big as the window allows
+   under the headline */
 .h-monitor {
+  width: min(1040px, 100%, calc((100vh - var(--bar, 53px) - 330px) * 1.55));
   margin: 0;
   border: 1px solid var(--h-rule);
   background: #050604;
@@ -4007,6 +4042,7 @@ html:lang(zh-CN) .h-band h2 {
   }
   .h-monitor {
     order: -1;
+    width: 100%;
   }
   .h-show-body {
     grid-template-columns: minmax(0, 1fr);

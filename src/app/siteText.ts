@@ -23,12 +23,12 @@ const en = {
 
   heroTitle: "Pocket RPGs, in your browser.",
   /** The headline: two lines, the second in the accent colour. */
-  heroLines: ["Pocket RPGs.", "In your browser."],
+  heroLines: ["Pocket RPGs,", "in your browser."],
   kicker: ["FMJ / REACT", "The BBK engine, rebuilt for the web"],
   monitor: { live: "Live", title: "Lantern Path", res: "160 × 96 px" },
   scrollHint: "Scroll",
   wordmark: "FMJ REACT",
-  heroLead: ["The engine behind 伏魔记, now on the web. Bring your own game, or try ", "The Silent Bell", "."],
+  heroLead: ["The engine behind ", "伏魔记", ", rebuilt for the web."],
   uploadCta: "Upload your game",
   tryBell: "Try The Silent Bell",
   upload: {
@@ -146,12 +146,12 @@ const zh: SiteText = {
   },
 
   heroTitle: "掌上 RPG，就在浏览器里。",
-  heroLines: ["掌上 RPG。", "就在浏览器里。"],
+  heroLines: ["掌上 RPG，", "就在浏览器里。"],
   kicker: ["FMJ / REACT", "步步高引擎，为网页重新打造"],
   monitor: { live: "实时", title: "Lantern Path", res: "160 × 96 像素" },
   scrollHint: "向下滚动",
   wordmark: "FMJ REACT",
-  heroLead: ["《伏魔记》背后的引擎，现在来到了网页上。带上你自己的游戏，或者试试 ", "The Silent Bell", "。"],
+  heroLead: ["", "《伏魔记》", "背后的引擎，为网页重新打造。"],
   uploadCta: "上传你的游戏",
   tryBell: "试玩 The Silent Bell",
   upload: {
