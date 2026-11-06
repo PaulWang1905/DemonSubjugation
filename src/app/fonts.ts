@@ -113,3 +113,11 @@ export async function loadFontSet(id: FontSetId): Promise<{ hzk16: Uint8Array; a
   const [hzk16, asc16] = await Promise.all([file(set.cjk), file(set.latin)]);
   return { hzk16, asc16 };
 }
+
+/** One set's Chinese with another's (or the same) letters. */
+export async function loadPixelFonts(chinese: FontSetId, english: FontSetId): Promise<{ hzk16: Uint8Array; asc16: Uint8Array }> {
+  const c = FONT_SETS.find((f) => f.id === chinese)!;
+  const e = FONT_SETS.find((f) => f.id === english)!;
+  const [hzk16, asc16] = await Promise.all([file(c.cjk), file(e.latin)]);
+  return { hzk16, asc16 };
+}

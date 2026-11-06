@@ -39,34 +39,37 @@ the right to use.
   and battles and full-screen pictures get plain margins. Frames the game
   does not redraw keep the view as it was, so nothing flickers.
   `engine.setView(mx, my)` sets it while playing.
-- **Sharp text**: characters are redrawn at the display's full
-  resolution with the device's fonts (sans or serif), while the rest of the
-  picture stays pixel-exact. The engine reports where it drew each character
-  and the player checks the pixels each frame, so text that menus or borders
-  cover keeps the covering pixels. **Pixel (original)** keeps the 16×16
-  bitmap text, using HZK16/ASC16 when added.
-- **Sharp text with bundled fonts**: Sharp · 楷体 Kai (LXGW WenKai Mono),
-  黑体 Hei (Noto Sans SC) and 宋体 Song (Noto Serif SC) draw text at full
-  resolution the same on every device; each loads only when chosen (and
-  WenKai only the parts with characters on screen).
-- **Letters** (with Sharp text): English letters and numbers in a font of
-  their own, whatever the Chinese style: IBM Plex Mono, JetBrains Mono, Fira
-  Mono, Space Mono, Atkinson Hyperlegible Mono, Courier Prime or VT323 (old
-  terminal), all bundled and loaded only when chosen.
+- **Text**: three menus. **Text** is the look: **Pixel** (the device's
+  16×16 bitmap fonts, enlarged with hard edges) or **HD** (characters redrawn
+  at the display's full resolution while the rest of the picture stays
+  pixel-exact). **Chinese** and **English** pick a font for each, from lists
+  that follow the look, and can be mixed; each look keeps its own pair, and an
+  English game lists English first.
+  - Pixel fonts: the bundled ones below, or the HZK16 / ASC16 files when
+    added ("Original files").
+  - HD Chinese: 黑体 Sans (Noto Sans SC), 宋体 Serif (Noto Serif SC) and
+    楷体 Brush (LXGW WenKai Mono), the same on every device, or the device's
+    own sans or serif; each loads only when chosen (WenKai only the parts with
+    characters on screen).
+  - HD English: the Chinese font's own letters, or IBM Plex Mono, JetBrains
+    Mono, Fira Mono, Space Mono, Atkinson Hyperlegible Mono, Courier Prime or
+    VT323 (old terminal).
+  - For HD the engine reports where it drew each character and the player
+    checks the pixels each frame, so text that menus or borders cover keeps
+    the covering pixels.
 - **Effect**: LCD (each lit pixel a cell of a handheld screen, with a fine
-  gap between lit cells and a clean background; Sharp text gets the same
+  gap between lit cells and a clean background; HD text gets the same
   cells), LCD + shadow (lit cells and text also cast a soft shadow on the
   glass) and Smooth (experimental: Scale2x twice on shapes, outlines and
   portraits, while grass, dithering and text are kept exactly as drawn).
   Effects draw at the display's resolution and work with every Text choice
   and Map view.
-- **Bundled pixel fonts**: three more Text choices draw with open-source
-  pixel fonts in the device's 16-pixel layout, so games look like the
-  handheld without the original font files, each with its own Chinese
-  style: **Retro 8-bit** (粗体: Press Start 2P letters, bold Ark Pixel
-  Chinese; the default without the original files), **Ark Pixel** (黑体)
-  and **Unifont** (宋体). They load only when chosen and
-  can be switched while playing. Built by
+- **Bundled pixel fonts** in the device's 16-pixel layout, so games look
+  like the handheld without the original font files: **Retro** (bold Ark
+  Pixel Chinese, Press Start 2P letters; the default without the original
+  files), **Ark Pixel** (sans) and **Unifont** (serif). Chinese and letters
+  can come from different ones; they load only when chosen and can be
+  switched while playing. Built by
   `scripts/fonts/build_fonts.py`; credits and licences (SIL OFL 1.1) are in
   [public/fonts/LICENSES.md](public/fonts/LICENSES.md).
 - Keyboard controls, and a full-screen phone layout: the screen as large as it goes, a big on-screen keypad (slide the thumb on the d-pad to turn, hold a direction and A together), controls either side of the screen when held sideways, options in a sheet that pauses the game. Add it to the home screen to play without the browser bars. Held keys repeat at one rate on every device; 1×/2×/4× speed.

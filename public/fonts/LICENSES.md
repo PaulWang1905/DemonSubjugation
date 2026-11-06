@@ -29,25 +29,25 @@ author). Licences: [BoutiqueBitmap9x9-OFL.txt](licenses/BoutiqueBitmap9x9-OFL.tx
 [X11-misc-fixed-COPYING.txt](licenses/X11-misc-fixed-COPYING.txt) (public
 domain, from X.Org font-misc-misc 1.1.3).
 
-## Sharp text fonts
+## HD text fonts
 
-The Sharp · 楷体 / 黑体 / 宋体 choices draw text at full resolution with these
+The HD Chinese fonts (黑体 Sans / 宋体 Serif / 楷体 Brush) draw text at full resolution with these
 fonts, bundled from npm and split into files by character range (the browser
 loads only what the screen needs). They are used unmodified.
 
 | Choice | Fonts | Licence |
 | --- | --- | --- |
-| Sharp · 楷体 Kai | LXGW WenKai Mono by LXGW (https://github.com/lxgw/LxgwWenKai), web build `lxgw-wenkai-webfont` 1.7.0 by Chawye Hsu | [LXGWWenKai-OFL.txt](licenses/LXGWWenKai-OFL.txt) |
-| Sharp · 黑体 Hei | Noto Sans SC (Google), letters from Noto Sans Mono (The Noto Project Authors); `@fontsource` builds | [NotoSansSC-OFL.txt](licenses/NotoSansSC-OFL.txt), [NotoSansMono-OFL.txt](licenses/NotoSansMono-OFL.txt) |
-| Sharp · 宋体 Song | Noto Serif SC (Google), letters from Courier Prime (The Courier Prime Project Authors); `@fontsource` builds | [NotoSerifSC-OFL.txt](licenses/NotoSerifSC-OFL.txt), [CourierPrime-OFL.txt](licenses/CourierPrime-OFL.txt) |
+| 楷体 Brush | LXGW WenKai Mono by LXGW (https://github.com/lxgw/LxgwWenKai), web build `lxgw-wenkai-webfont` 1.7.0 by Chawye Hsu | [LXGWWenKai-OFL.txt](licenses/LXGWWenKai-OFL.txt) |
+| 黑体 Sans | Noto Sans SC (Google), letters from Noto Sans Mono (The Noto Project Authors); `@fontsource` builds | [NotoSansSC-OFL.txt](licenses/NotoSansSC-OFL.txt), [NotoSansMono-OFL.txt](licenses/NotoSansMono-OFL.txt) |
+| 宋体 Serif | Noto Serif SC (Google), letters from Courier Prime (The Courier Prime Project Authors); `@fontsource` builds | [NotoSerifSC-OFL.txt](licenses/NotoSerifSC-OFL.txt), [CourierPrime-OFL.txt](licenses/CourierPrime-OFL.txt) |
 
-### Letters for Sharp text
+### HD English fonts
 
-The Letters choice (shown with Sharp text) draws English letters and numbers
+The English menu (with HD text) draws English letters and numbers
 in one of these monospaced fonts, unmodified `@fontsource` builds (Latin
 only), loaded only when chosen:
 
-| Letters | Font | Licence |
+| English | Font | Licence |
 | --- | --- | --- |
 | IBM Plex Mono | IBM Plex Mono, © 2017 IBM Corp. | [IBMPlexMono-OFL.txt](licenses/IBMPlexMono-OFL.txt) |
 | JetBrains Mono | JetBrains Mono, © 2020 The JetBrains Mono Project Authors | [JetBrainsMono-OFL.txt](licenses/JetBrainsMono-OFL.txt) |

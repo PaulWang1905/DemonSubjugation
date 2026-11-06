@@ -226,8 +226,11 @@ export function GuidePage() {
             <p>The ⛶ button shows only the game. On an iPhone, add the site to your home screen to play without the browser bars.</p>
           </li>
           <li>
-            <h3>Sharp or pixel text</h3>
-            <p>Text is redrawn sharply by default. Choose Pixel in the options for the original 16×16 bitmap look.</p>
+            <h3>Pixel or HD text</h3>
+            <p>
+              Text is Pixel (the handheld's 16×16 bitmap look) or HD (redrawn at your screen's full resolution). Pick a font for Chinese and one for English
+              under it; each look remembers its own.
+            </p>
           </li>
           <li>
             <h3>More text per page</h3>

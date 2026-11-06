@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createDeviceFont } from "./deviceFont";
-import { createEngine, EngineSettings, type SmallFonts, type UiLanguage, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, Keys, type Engine, type EngineKey } from "../engine";
+import { createEngine, detectUiLanguage, EngineSettings, type SmallFonts, type UiLanguage, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, Keys, type Engine, type EngineKey } from "../engine";
 import { exportSaves, importSaves, savesFor } from "../storage/saves";
 import type { StoredGame } from "../storage/db";
 import { KEY_HELP, KEYMAP } from "./keys";
@@ -8,18 +8,9 @@ import { Keypad } from "./Keypad";
 import { DebugMenu } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
-import { HiresText, outputScale, SHARP_STYLES, type ScreenEffect, type TextStyle } from "./hiresText";
-import { isLetterFont, LETTER_FONTS, type LetterFont } from "./sharpFonts";
-import { boldSmallFonts, FONT_SETS, isFontSet, loadFontSet, loadSmallFonts, SMALL_FONT_CREDIT, type FontSetId } from "./fonts";
-
-/** Pixel text with the uploaded files (or the device fallback), a bundled pixel font, or Sharp. */
-type TextMode = "pixel" | `pixel:${FontSetId}` | TextStyle;
-
-/** The bundled font set a text mode uses, if any. */
-function fontSetOf(mode: TextMode): FontSetId | null {
-  const id = mode.startsWith("pixel:") ? mode.slice(6) : "";
-  return isFontSet(id) ? id : null;
-}
+import { HiresText, outputScale, type ScreenEffect, type TextStyle } from "./hiresText";
+import { boldSmallFonts, FONT_SETS, loadPixelFonts, loadSmallFonts, SMALL_FONT_CREDIT, type FontSetId } from "./fonts";
+import { HD_CHINESE, HD_ENGLISH, ORIGINAL_LABEL, PIXEL_CHINESE, PIXEL_ENGLISH, readTextChoice, textChoiceEntries, type TextChoice } from "./textChoice";
 
 interface Props {
   game: StoredGame;
@@ -92,13 +83,6 @@ export function Player({ game, fonts, onExit }: Props) {
   const [effect, setEffect] = useState<ScreenEffect>(() => effectOf(pref<string>("effect", "none")));
   const effectRef = useRef(effect);
   effectRef.current = effect;
-  // Sharp text: the font letters are drawn in ("auto": the style's own).
-  const [letters, setLetters] = useState<LetterFont>(() => {
-    const v = pref<string>("letters", "auto");
-    return isLetterFont(v) ? v : "auto";
-  });
-  const lettersRef = useRef(letters);
-  lettersRef.current = letters;
   const [scale, setScale] = useState(3);
   // Screen size on a computer: whole device pixels per game pixel inside the
   // page ("fit"); or bigger, wider than the page and in quarter-pixel steps:
@@ -115,36 +99,53 @@ export function Player({ game, fonts, onExit }: Props) {
   const [originalFormula, setOriginalFormula] = useState(() => pref("originalDamage", "on") === "on");
   const [notice, setNotice] = useState<string | null>(null);
   const [uiLang, setUiLang] = useState<UiLanguage | "auto">(() => pref<string>("uiLanguage", "auto") as UiLanguage | "auto");
-  // The original bitmap fonts when they were added, Retro 8-bit pixel text otherwise.
-  const [textMode, setTextMode] = useState<TextMode>(() => {
-    const fallback: TextMode = fonts.hzk16 && fonts.asc16 ? "pixel" : "pixel:retro";
-    const saved = pref<string>("text", fallback);
-    // (Cubic 11 looked like Ark Pixel and was taken out; other unknown choices go back to the default)
-    if (saved === "pixel:cubic") return "pixel:ark";
-    return saved === "pixel" || fontSetOf(saved as TextMode) || SHARP_STYLES.includes(saved as TextStyle) ? (saved as TextMode) : fallback;
-  });
-  const textRef = useRef(textMode);
-  textRef.current = textMode;
-  // A bundled pixel font: loaded when chosen, then swapped in without restarting.
-  const setId = fontSetOf(textMode);
-  const [bundled, setBundled] = useState<{ id: FontSetId; hzk16: Uint8Array; asc16: Uint8Array } | null>(null);
+  // How text is drawn: the look (Pixel or HD) and a font for Chinese and one
+  // for English, for each look. Pixel defaults to the original font files
+  // when they were added, Retro 8-bit otherwise.
+  const [text, setText] = useState<TextChoice>(() =>
+    readTextChoice((k) => {
+      try {
+        return localStorage.getItem("fmj-react:" + k);
+      } catch {
+        return null;
+      }
+    }, !!(fonts.hzk16 && fonts.asc16)),
+  );
+  const textRef = useRef(text);
+  textRef.current = text;
+  const changeText = (part: Partial<TextChoice>) => {
+    const next = { ...text, ...part };
+    setText(next);
+    for (const [k, v] of textChoiceEntries(next)) setPref(k, v);
+  };
+  // The game's language: its English font menu comes first.
+  const englishGame = useMemo(() => (uiLang === "auto" ? detectUiLanguage(new Uint8Array(game.data)) : uiLang) === "en", [game, uiLang]);
+  // The pixel fonts the engine draws with (also under HD text, which is
+  // drawn over them): bundled ones are loaded when chosen, then swapped in
+  // without restarting; "original" is the uploaded files.
+  const cjkSet: FontSetId | null = text.pixelChinese === "original" ? null : text.pixelChinese;
+  const latinSet: FontSetId | null = text.pixelEnglish === "original" ? null : text.pixelEnglish;
+  const wantKey = `${cjkSet ?? "-"}|${latinSet ?? "-"}`;
+  const [bundled, setBundled] = useState<{ key: string; hzk16: Uint8Array; asc16: Uint8Array } | null>(null);
   useEffect(() => {
-    if (!setId) return;
+    if (!cjkSet && !latinSet) return;
     let alive = true;
-    loadFontSet(setId).then(
-      (f) => alive && setBundled({ id: setId, ...f }),
+    loadPixelFonts(cjkSet ?? latinSet!, latinSet ?? cjkSet!).then(
+      (f) => alive && setBundled({ key: wantKey, ...f }),
       (e) => alive && setNotice(String((e as Error).message ?? e)),
     );
     return () => {
       alive = false;
     };
-  }, [setId]);
-  // The fonts the engine draws with: the chosen bundled set once loaded,
-  // otherwise the uploaded files (null: the device fallback).
-  const useBundled = !!setId && bundled?.id === setId;
-  const fontPick = useBundled
-    ? { hzk16: bundled!.hzk16, asc16: bundled!.asc16 }
-    : { hzk16: fonts.hzk16 ? new Uint8Array(fonts.hzk16) : null, asc16: fonts.asc16 ? new Uint8Array(fonts.asc16) : null };
+  }, [cjkSet, latinSet, wantKey]);
+  const needBundled = !!(cjkSet || latinSet);
+  const useBundled = needBundled && bundled?.key === wantKey;
+  const uploadedHzk = fonts.hzk16 ? new Uint8Array(fonts.hzk16) : null;
+  const uploadedAsc = fonts.asc16 ? new Uint8Array(fonts.asc16) : null;
+  const fontPick = {
+    hzk16: cjkSet && useBundled ? bundled!.hzk16 : uploadedHzk,
+    asc16: latinSet && useBundled ? bundled!.asc16 : uploadedAsc,
+  };
   const fontPickRef = useRef(fontPick);
   fontPickRef.current = fontPick;
   // Wait for a chosen bundled font before the first start, so the game does
@@ -200,9 +201,20 @@ export function Player({ game, fonts, onExit }: Props) {
   EngineSettings.textSize = textSize === 12 || textSize === 10 ? textSize : 16;
   // Fonts drawn for those sizes, loaded the first time they are needed.
   const [small, setSmall] = useState<SmallFonts | null>(null);
-  // (bold for the sets whose 16-pixel Chinese is bold)
-  const boldSmall = !!setId && !!FONT_SETS.find((f) => f.id === setId)?.boldSmall;
-  const smallPick = useMemo(() => (small && boldSmall ? boldSmallFonts(small) : small), [small, boldSmall]);
+  // (bold for the fonts that are bold at full size: Retro's Chinese, its letters)
+  const isBold = (id: FontSetId | null) => !!id && !!FONT_SETS.find((f) => f.id === id)?.boldSmall;
+  const boldCjk = isBold(cjkSet);
+  const boldLatin = isBold(latinSet);
+  const smallPick = useMemo(() => {
+    if (!small || (!boldCjk && !boldLatin)) return small;
+    const b = boldSmallFonts(small);
+    return {
+      hzk12: boldCjk ? b.hzk12 : small.hzk12,
+      hzk10: boldCjk ? b.hzk10 : small.hzk10,
+      asc12: boldLatin ? b.asc12 : small.asc12,
+      asc10: boldLatin ? b.asc10 : small.asc10,
+    };
+  }, [small, boldCjk, boldLatin]);
   const smallRef = useRef(smallPick);
   smallRef.current = smallPick;
   useEffect(() => {
@@ -217,7 +229,7 @@ export function Player({ game, fonts, onExit }: Props) {
     };
   }, [textSize, small]);
   // (also wait for these on the first start)
-  if ((!setId || useBundled) && (textSize === 16 || small)) startedRef.current = true;
+  if ((!needBundled || useBundled) && (textSize === 16 || small)) startedRef.current = true;
   const canStart = startedRef.current;
 
   // Boot the engine and run the fixed-step loop (the original ticks every 40 ms).
@@ -273,11 +285,11 @@ export function Player({ game, fonts, onExit }: Props) {
         return;
       }
       const pal = PALETTES.find((p) => p.id === paletteRef.current) ?? PALETTES[0];
-      const mode = textRef.current;
+      const tc = textRef.current;
       const fw = engine.width;
       const fh = engine.height;
       const fx = effectRef.current;
-      const pixelText = mode === "pixel" || !!fontSetOf(mode);
+      const pixelText = tc.look === "pixel";
       if (pixelText && fx === "none") {
         if (cv.width !== fw || cv.height !== fh) {
           cv.width = fw;
@@ -288,10 +300,10 @@ export function Player({ game, fonts, onExit }: Props) {
         ctx.putImageData(image, 0, 0);
       } else {
         // Sharp text and/or a picture effect, at the display's resolution
-        const style = pixelText ? null : (mode as TextStyle);
+        const style = pixelText ? null : tc.hdChinese;
         const key = style ?? "pixel";
         const h = (hires[key] ??= new HiresText(style));
-        h.setLetters(lettersRef.current);
+        h.setLetters(tc.hdEnglish);
         const k = outputScale(scaleRef.current, fw);
         h.draw(cv, frame, style || fx === "smooth" ? engine.textLayer() : [], pal, k, fw, fh, fx);
       }
@@ -313,7 +325,7 @@ export function Player({ game, fonts, onExit }: Props) {
     e.redraw();
     // fontPick is rebuilt each render; these say when it really changed
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useBundled, bundled, setId, fonts, smallPick]);
+  }, [useBundled, bundled, wantKey, fonts, smallPick]);
 
   // Held keys repeat at one fixed rate whatever sends them (keypad, keyboard,
   // gamepad), so walking feels the same everywhere. Each repeat is one more
@@ -517,6 +529,58 @@ export function Player({ game, fonts, onExit }: Props) {
   };
 
   // Screen colours and text style: in the toolbar, or under options on a phone.
+  // The two font menus (their lists follow the look).
+  const chineseFont =
+    text.look === "pixel" ? (
+      <label key="zh" className="field" title="The font Chinese is drawn in">
+        <span className="lbl">Chinese</span>
+        <select value={text.pixelChinese} onChange={(e) => changeText({ pixelChinese: e.target.value as TextChoice["pixelChinese"] })}>
+          {PIXEL_CHINESE.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+          {fonts.hzk16 && <option value="original">{ORIGINAL_LABEL}</option>}
+        </select>
+      </label>
+    ) : (
+      <label key="zh" className="field" title="The font Chinese is drawn in. The first three come with the player and look the same everywhere">
+        <span className="lbl">Chinese</span>
+        <select value={text.hdChinese} onChange={(e) => changeText({ hdChinese: e.target.value as TextChoice["hdChinese"] })}>
+          {HD_CHINESE.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  const englishFont =
+    text.look === "pixel" ? (
+      <label key="en" className="field" title="The font English letters and numbers are drawn in">
+        <span className="lbl">English</span>
+        <select value={text.pixelEnglish} onChange={(e) => changeText({ pixelEnglish: e.target.value as TextChoice["pixelEnglish"] })}>
+          {PIXEL_ENGLISH.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+          {fonts.asc16 && <option value="original">{ORIGINAL_LABEL}</option>}
+        </select>
+      </label>
+    ) : (
+      <label key="en" className="field" title="The font English letters and numbers are drawn in">
+        <span className="lbl">English</span>
+        <select value={text.hdEnglish} onChange={(e) => changeText({ hdEnglish: e.target.value as TextChoice["hdEnglish"] })}>
+          {HD_ENGLISH.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+
   const lookOptions = (
     <>
       <label className="field">
@@ -550,49 +614,6 @@ export function Player({ game, fonts, onExit }: Props) {
           <option value="smooth">Smooth (experimental)</option>
         </select>
       </label>
-      <label className="field" title="Sharp redraws text in your device's fonts at full resolution; Pixel (original) uses the HZK16 / ASC16 files you added; the other Pixel choices are open-source pixel fonts that come with the player">
-        <span className="lbl">Text</span>
-        <select
-          value={textMode}
-          onChange={(e) => {
-            setTextMode(e.target.value as TextMode);
-            setPref("text", e.target.value);
-          }}
-        >
-          <option value="sans">Sharp</option>
-          <option value="serif">Sharp serif</option>
-          <option value="kai">Sharp · 楷体 Kai (LXGW WenKai)</option>
-          <option value="hei">Sharp · 黑体 Hei (Noto Sans)</option>
-          <option value="song">Sharp · 宋体 Song (Noto Serif)</option>
-          <option value="pixel">Pixel (original)</option>
-          {FONT_SETS.map((f) => (
-            <option key={f.id} value={`pixel:${f.id}`}>
-              Pixel · {f.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      {!(textMode === "pixel" || setId) && (
-        <label className="field" title="The font English letters and numbers are drawn in (Chinese keeps the Text choice's font)">
-          <span className="lbl">Letters</span>
-          <select
-            value={letters}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!isLetterFont(v)) return;
-              setLetters(v);
-              setPref("letters", v);
-            }}
-          >
-            <option value="auto">Matching the text</option>
-            {LETTER_FONTS.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
       {!touch && (
         <label className="field" title="Fit keeps every game pixel the same size, inside the page. Larger (up to half as big again) and Largest (the whole window) use more of a big screen; game pixels may then differ by one screen pixel">
           <span className="lbl">Size</span>
@@ -625,6 +646,17 @@ export function Player({ game, fonts, onExit }: Props) {
           ))}
         </select>
       </label>
+      {/* (the three text menus stay together when the bar wraps) */}
+      <span className="field-group">
+        <label className="field" title="Pixel: the handheld's bitmap fonts, enlarged with hard edges. HD: fonts drawn at your screen's full resolution">
+          <span className="lbl">Text</span>
+          <select value={text.look} onChange={(e) => changeText({ look: e.target.value === "hd" ? "hd" : "pixel" })}>
+            <option value="pixel">Pixel</option>
+            <option value="hd">HD</option>
+          </select>
+        </label>
+        {englishGame ? [englishFont, chineseFont] : [chineseFont, englishFont]}
+      </span>
     </>
   );
 
@@ -700,7 +732,11 @@ export function Player({ game, fonts, onExit }: Props) {
             <option value="10">Most: 10-pixel text</option>
           </select>
         </label>
-        {textSize !== 16 && (textMode === "pixel" || setId) && <p className="muted small">Pixel text at this size uses fonts drawn for it{boldSmall ? ", in bold" : ""}: {SMALL_FONT_CREDIT}.</p>}
+        {textSize !== 16 && text.look === "pixel" && (
+          <p className="muted small">
+            Pixel text at this size uses fonts drawn for it{boldCjk || boldLatin ? " (in bold with Retro)" : ""}: {SMALL_FONT_CREDIT}.
+          </p>
+        )}
         <label className="check">
           <input
             type="checkbox"

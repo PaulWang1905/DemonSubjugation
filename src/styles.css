@@ -738,6 +738,14 @@ footer {
   font-size: 13px;
 }
 
+/* menus that belong together (Text look and its two fonts) */
+.field-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .screen-wrap {
   width: 100%;
   display: flex;
