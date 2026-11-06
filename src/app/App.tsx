@@ -8,7 +8,9 @@ import { Editor } from "../editor/ui/Editor";
 import { bellGame, demoGame } from "./demoGame";
 import { GitHubMark, REPO_URL } from "./links";
 import { AboutPage, GuidePage, HomePage, NotFoundPage, SiteFooter } from "./pages";
-import { Link, PAGES, navigate, titleOf, usePage } from "./router";
+import { Link, PAGES, navigate, usePage } from "./router";
+import { setSiteLang, useSiteLang } from "./siteLang";
+import { SITE_TEXT } from "./siteText";
 import { Analytics } from "@vercel/analytics/react";
 
 function copyBuffer(u: Uint8Array): ArrayBuffer {
@@ -38,10 +40,12 @@ export function App() {
   const [editorAnyway, setEditorAnyway] = useState(false);
   const [playing, setPlaying] = useState<StoredGame | null>(null);
   const page = usePage();
+  const lang = useSiteLang();
+  const t = SITE_TEXT[lang];
   // each page has its own title in the browser tab
   useEffect(() => {
-    document.title = titleOf(page);
-  }, [page]);
+    document.title = SITE_TEXT[lang].titles[page];
+  }, [page, lang]);
   const [playtestFrom, setPlaytestFrom] = useState(false);
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
@@ -130,7 +134,7 @@ export function App() {
           <nav className={menuOpen ? "site-nav open" : "site-nav"} id="site-nav" aria-label="Site">
             {PAGES.filter((p) => p.page !== "home").map((p) => (
               <Link key={p.page} to={p.page} onClick={closeMenu}>
-                {p.label}
+                {t.nav[p.page]}
               </Link>
             ))}
             <a className="nav-ext" href={REPO_URL} target="_blank" rel="noreferrer" onClick={closeMenu}>
@@ -138,12 +142,15 @@ export function App() {
             </a>
           </nav>
           <div className="topbar-actions">
+            <button className="ghost nav-lang" onClick={() => setSiteLang(lang === "zh" ? "en" : "zh")} title={t.switchTitle} lang={lang === "zh" ? "en" : "zh-CN"}>
+              {t.switchTo}
+            </button>
             <button className="nav-play" onClick={() => playDemo("bell")}>
-              ▶ Play
+              {t.navPlay}
             </button>
             <button
               className="ghost nav-toggle"
-              aria-label="Menu"
+              aria-label={t.menu}
               aria-expanded={menuOpen}
               aria-controls="site-nav"
               onClick={() => setMenuOpen((o) => !o)}

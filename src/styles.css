@@ -1282,6 +1282,13 @@ footer {
   margin-left: auto;
 }
 
+/* 中文 / EN: the site's language */
+.nav-lang {
+  padding: 6px 10px;
+  min-width: 44px;
+  font-size: 14px;
+  font-weight: 600;
+}
 .nav-play {
   font-weight: 600;
 }
