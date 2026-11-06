@@ -2,7 +2,6 @@
 // and the footer they share.
 import { useCallback, useState } from "react";
 import { AttractScreen } from "./AttractScreen";
-import { KEY_HELP } from "./keys";
 import { GitHubMark, REPO_URL } from "./links";
 import { Link } from "./router";
 import { useSiteLang } from "./siteLang";
@@ -166,38 +165,49 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
 }
 
 export function GuidePage() {
+  const g = SITE_TEXT[useSiteLang()].guide;
   return (
     <div className="library page">
       <header className="page-head">
-        <p className="eyebrow">Guide</p>
-        <h1>How to play</h1>
-        <p className="lead">Everything you need to pick up a game, play it on any device and keep your progress.</p>
+        <p className="eyebrow">{g.eyebrow}</p>
+        <h1>{g.title}</h1>
+        <p className="lead">{g.lead}</p>
       </header>
 
       <section className="how">
         <header className="section-head">
-          <h2 className="section-title">Three steps</h2>
+          <h2 className="section-title">{g.stepsTitle}</h2>
         </header>
         <ol className="steps">
           <li>
             <span className="step-n">1</span>
-            <h3>Pick a game</h3>
+            <h3>{g.step1.title}</h3>
             <p>
-              Start with <em>The Silent Bell</em> or <em>Lantern Path</em>, open a <code>.lib</code> archive you own, or add one from a link on the{" "}
-              <Link to="games">Games</Link> page.
+              {g.step1.text[0]}
+              <em>{g.step1.text[1]}</em>
+              {g.step1.text[2]}
+              <em>{g.step1.text[3]}</em>
+              {g.step1.text[4]}
+              <code>{g.step1.text[5]}</code>
+              {g.step1.text[6]}
+              <Link to="games">{g.step1.text[7]}</Link>
+              {g.step1.text[8]}
             </p>
           </li>
           <li>
             <span className="step-n">2</span>
-            <h3>Play anywhere</h3>
-            <p>Keyboard on a computer, a full-screen keypad on a phone. Save at any time; saves stay in this browser.</p>
+            <h3>{g.step2.title}</h3>
+            <p>{g.step2.text}</p>
           </li>
           <li>
             <span className="step-n">3</span>
-            <h3>Make your own</h3>
+            <h3>{g.step3.title}</h3>
             <p>
-              On a computer, open the <Link to="editor">editor</Link>: paint maps, write the story, draw sprites, playtest in one click and export a{" "}
-              <code>.lib</code>.
+              {g.step3.text[0]}
+              <Link to="editor">{g.step3.text[1]}</Link>
+              {g.step3.text[2]}
+              <code>{g.step3.text[3]}</code>
+              {g.step3.text[4]}
             </p>
           </li>
         </ol>
@@ -205,24 +215,24 @@ export function GuidePage() {
 
       <section>
         <header className="section-head">
-          <h2 className="section-title">Controls</h2>
-          <p className="section-sub">On a phone the keypad appears by itself: slide your thumb on the d-pad to turn, and hold a direction with A.</p>
+          <h2 className="section-title">{g.controlsTitle}</h2>
+          <p className="section-sub">{g.controlsSub}</p>
         </header>
         <div className="about-body">
           <table className="keys guide-keys">
             <thead>
               <tr>
-                <th>Action</th>
-                <th>Keyboard</th>
-                <th>Phone keypad</th>
+                {g.keysHead.map((h) => (
+                  <th key={h}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {KEY_HELP.map(([what, keys], i) => (
+              {g.keys.map(([what, keys, pad]) => (
                 <tr key={what}>
                   <th>{what}</th>
                   <td>{keys}</td>
-                  <td>{["D-pad", "A (OK)", "B (Back)", "PgUp / PgDn"][i] ?? ""}</td>
+                  <td>{pad}</td>
                 </tr>
               ))}
             </tbody>
@@ -232,38 +242,15 @@ export function GuidePage() {
 
       <section>
         <header className="section-head">
-          <h2 className="section-title">Tips</h2>
+          <h2 className="section-title">{g.tipsTitle}</h2>
         </header>
         <ul className="tips">
-          <li>
-            <h3>Saving</h3>
-            <p>Press Back on the map to open the menu, then System → Save. Each game has three save slots, kept in this browser.</p>
-          </li>
-          <li>
-            <h3>Full screen</h3>
-            <p>The ⛶ button shows only the game. On an iPhone, add the site to your home screen to play without the browser bars.</p>
-          </li>
-          <li>
-            <h3>Pixel or HD text</h3>
-            <p>
-              Text is Pixel (the handheld's 16×16 bitmap look) or HD (redrawn at your screen's full resolution). Pick a font for Chinese and one for English
-              under it; each look remembers its own.
-            </p>
-          </li>
-          <li>
-            <h3>More text per page</h3>
-            <p>The experimental More text option fits more words into dialogue, menus and descriptions, so there is less paging.</p>
-          </li>
-          <li>
-            <h3>Original engine rules</h3>
-            <p>On by default: battles, items and scripts follow the original device's engine. Turn it off for fmj.kt's simpler rules.</p>
-          </li>
-          <li>
-            <h3>Your own fonts</h3>
-            <p>
-              Have the device's <code>HZK16</code> and <code>ASC16</code> files? Add them on the Games page for the original font.
-            </p>
-          </li>
+          {g.tips.map((tip) => (
+            <li key={tip.title}>
+              <h3>{tip.title}</h3>
+              <p>{tip.text}</p>
+            </li>
+          ))}
         </ul>
       </section>
     </div>
@@ -271,48 +258,40 @@ export function GuidePage() {
 }
 
 export function AboutPage() {
+  const a = SITE_TEXT[useSiteLang()].about;
   return (
     <div className="library page">
       <header className="page-head">
-        <p className="eyebrow">About</p>
-        <h1>A pocket RPG engine, rebuilt for the web</h1>
+        <p className="eyebrow">{a.eyebrow}</p>
+        <h1>{a.title}</h1>
       </header>
       <div className="about-body">
         <p>
-          In the 2000s, BBK electronic dictionaries shipped with a small role-playing game engine. <em>伏魔记</em> was its best-known game, and fans went on
-          to make many more for it.
+          {a.p1[0]}
+          <em>{a.p1[1]}</em>
+          {a.p1[2]}
         </p>
-        <p>
-          FMJ React brings that engine to the web. It is a TypeScript port of the open-source fmj.kt re-implementation, checked against a reconstruction
-          of the original engine so that battles, scripts and items behave as they did on the device. On top it adds sharp text, a phone layout, more
-          text per page and a complete game editor.
-        </p>
+        <p>{a.p2}</p>
         <dl className="facts">
-          <div>
-            <dt>Engine</dt>
-            <dd>TypeScript and React, no plugins</dd>
-          </div>
-          <div>
-            <dt>Licence</dt>
-            <dd>GPL-2.0, like fmj.kt</dd>
-          </div>
-          <div>
-            <dt>Game data</dt>
-            <dd>None included apart from the demos</dd>
-          </div>
-          <div>
-            <dt>Source</dt>
-            <dd>
-              <a href={REPO_URL} target="_blank" rel="noreferrer">
-                GitHub
-              </a>
-            </dd>
-          </div>
+          {a.facts.map(([k, v], i) => (
+            <div key={k}>
+              <dt>{k}</dt>
+              <dd>
+                {i === a.facts.length - 1 ? (
+                  <a href={REPO_URL} target="_blank" rel="noreferrer">
+                    {v}
+                  </a>
+                ) : (
+                  v
+                )}
+              </dd>
+            </div>
+          ))}
         </dl>
       </div>
 
       <header className="section-head">
-        <h2 className="section-title">Built on</h2>
+        <h2 className="section-title">{a.builtTitle}</h2>
       </header>
       <ul className="tips">
         <li>
@@ -321,7 +300,7 @@ export function AboutPage() {
               fmj.kt
             </a>
           </h3>
-          <p>An open-source re-implementation of the BBK engine. FMJ React's engine is ported from it (GPL-2.0).</p>
+          <p>{a.fmjkt}</p>
         </li>
         <li>
           <h3>
@@ -329,28 +308,25 @@ export function AboutPage() {
               fmj-engine
             </a>
           </h3>
-          <p>A reconstruction of the original engine from its machine code, used to check how the device really behaved.</p>
+          <p>{a.fmjEngine}</p>
         </li>
         <li>
           <h3>baye-fmj-app</h3>
-          <p>A fork of the engine whose fixes and extra script commands were taken in.</p>
+          <p>{a.baye}</p>
         </li>
       </ul>
 
       <header className="section-head">
-        <h2 className="section-title">Privacy</h2>
+        <h2 className="section-title">{a.privacyTitle}</h2>
       </header>
       <div className="about-body">
+        <p>{a.privacy}</p>
         <p>
-          Nothing you open is uploaded: games, saves, fonts and editor projects stay in this browser. The site counts page visits with Vercel Web
-          Analytics, without cookies. Game content belongs to its respective owners.
-        </p>
-        <p>
-          Found a problem or have an idea?{" "}
+          {a.issue[0]}
           <a href={`${REPO_URL}/issues`} target="_blank" rel="noreferrer">
-            Open an issue on GitHub
+            {a.issue[1]}
           </a>
-          .
+          {a.issue[2]}
         </p>
       </div>
     </div>

@@ -83,6 +83,11 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Chinese is not set in italics: emphasis and titles stay upright */
+html:lang(zh-CN) em {
+  font-style: normal;
+}
+
 #root {
   /* one column width for every page (the editor's workspace included) */
   max-width: 1400px;
