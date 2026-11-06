@@ -3,13 +3,16 @@ import { createDeviceFont } from "./deviceFont";
 import { createEngine, detectUiLanguage, EngineSettings, type SmallFonts, type UiLanguage, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, Keys, type Engine, type EngineKey } from "../engine";
 import { exportSaves, importSaves, savesFor } from "../storage/saves";
 import type { StoredGame } from "../storage/db";
-import { KEY_HELP, KEYMAP } from "./keys";
+import { KEYMAP } from "./keys";
 import { Keypad } from "./Keypad";
 import { DebugMenu } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { HiresText, outputScale, type ScreenEffect, type TextStyle } from "./hiresText";
-import { boldSmallFonts, FONT_SETS, loadPixelFonts, loadSmallFonts, SMALL_FONT_CREDIT, type FontSetId } from "./fonts";
+import { boldSmallFonts, FONT_SETS, loadPixelFonts, loadSmallFonts, type FontSetId } from "./fonts";
+import { PLAYER_TEXT } from "./playerText";
+import { SITE_TEXT } from "./siteText";
+import { useSiteLang } from "./siteLang";
 import { HD_CHINESE, HD_ENGLISH, ORIGINAL_LABEL, PIXEL_CHINESE, PIXEL_ENGLISH, readTextChoice, textChoiceEntries, type TextChoice } from "./textChoice";
 
 interface Props {
@@ -22,10 +25,10 @@ interface Props {
 const effectOf = (v: string): ScreenEffect => (v === "lcd" || v === "lcd-shadow" || v === "smooth" ? v : "none");
 /** Map view: how many extra tile columns (each side) and rows (above and below) to show. */
 type MapView = "normal" | "wide" | "widest";
-const MAP_VIEWS: Record<MapView, { label: string; mx: number; my: number }> = {
-  normal: { label: "Original (9×6)", mx: 0, my: 0 },
-  wide: { label: "Wider (13×8)", mx: 2, my: 1 },
-  widest: { label: "Widest (17×10)", mx: 4, my: 2 },
+const MAP_VIEWS: Record<MapView, { mx: number; my: number }> = {
+  normal: { mx: 0, my: 0 },
+  wide: { mx: 2, my: 1 },
+  widest: { mx: 4, my: 2 },
 };
 const mapViewOf = (v: string): MapView => (v === "wide" || v === "widest" ? v : "normal");
 /** The page column's inner width (#root: 1400 px with 16 px padding). */
@@ -72,6 +75,10 @@ function useMedia(query: string): boolean {
 const REPEATS = new Set<EngineKey>([Keys.UP, Keys.DOWN, Keys.LEFT, Keys.RIGHT, Keys.PAGEUP, Keys.PAGEDOWN]);
 
 export function Player({ game, fonts, onExit }: Props) {
+  // the player's own text follows the site language
+  const lang = useSiteLang();
+  const pt = PLAYER_TEXT[lang];
+  const nm = (o: { label: string; zh: string }) => (lang === "zh" ? o.zh : o.label);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
@@ -533,9 +540,12 @@ export function Player({ game, fonts, onExit }: Props) {
       .text()
       .then((t) => {
         const n = importSaves(game.id, t);
-        flash(`Imported ${n} save slot${n === 1 ? "" : "s"}. Load them from the title menu.`);
+        flash(pt.importedSaves(n));
       })
-      .catch((e) => flash(`Could not import saves: ${(e as Error).message}`));
+      .catch((e) => {
+        const why = (e as Error).message;
+        flash(pt.importFailed(why === "Not a save backup file" ? pt.notSaves : why));
+      });
   };
 
   const toggleFullscreen = () => {
@@ -548,24 +558,24 @@ export function Player({ game, fonts, onExit }: Props) {
   // The two font menus (their lists follow the look).
   const chineseFont =
     text.look === "pixel" ? (
-      <label key="zh" className="field" title="The font Chinese is drawn in">
-        <span className="lbl">Chinese</span>
+      <label key="zh" className="field" title={pt.chineseTitle}>
+        <span className="lbl">{pt.chinese}</span>
         <select value={text.pixelChinese} onChange={(e) => changeText({ pixelChinese: e.target.value as TextChoice["pixelChinese"] })}>
           {PIXEL_CHINESE.map((f) => (
             <option key={f.id} value={f.id}>
-              {f.label}
+              {nm(f)}
             </option>
           ))}
-          {fonts.hzk16 && <option value="original">{ORIGINAL_LABEL}</option>}
+          {fonts.hzk16 && <option value="original">{nm(ORIGINAL_LABEL)}</option>}
         </select>
       </label>
     ) : (
-      <label key="zh" className="field" title="The font Chinese is drawn in. The first three come with the player and look the same everywhere">
-        <span className="lbl">Chinese</span>
+      <label key="zh" className="field" title={pt.chineseTitleHd}>
+        <span className="lbl">{pt.chinese}</span>
         <select value={text.hdChinese} onChange={(e) => changeText({ hdChinese: e.target.value as TextChoice["hdChinese"] })}>
           {HD_CHINESE.map((f) => (
             <option key={f.id} value={f.id}>
-              {f.label}
+              {nm(f)}
             </option>
           ))}
         </select>
@@ -573,24 +583,24 @@ export function Player({ game, fonts, onExit }: Props) {
     );
   const englishFont =
     text.look === "pixel" ? (
-      <label key="en" className="field" title="The font English letters and numbers are drawn in">
-        <span className="lbl">English</span>
+      <label key="en" className="field" title={pt.englishTitle}>
+        <span className="lbl">{pt.english}</span>
         <select value={text.pixelEnglish} onChange={(e) => changeText({ pixelEnglish: e.target.value as TextChoice["pixelEnglish"] })}>
           {PIXEL_ENGLISH.map((f) => (
             <option key={f.id} value={f.id}>
-              {f.label}
+              {nm(f)}
             </option>
           ))}
-          {fonts.asc16 && <option value="original">{ORIGINAL_LABEL}</option>}
+          {fonts.asc16 && <option value="original">{nm(ORIGINAL_LABEL)}</option>}
         </select>
       </label>
     ) : (
-      <label key="en" className="field" title="The font English letters and numbers are drawn in">
-        <span className="lbl">English</span>
+      <label key="en" className="field" title={pt.englishTitle}>
+        <span className="lbl">{pt.english}</span>
         <select value={text.hdEnglish} onChange={(e) => changeText({ hdEnglish: e.target.value as TextChoice["hdEnglish"] })}>
           {HD_ENGLISH.map((f) => (
             <option key={f.id} value={f.id}>
-              {f.label}
+              {nm(f)}
             </option>
           ))}
         </select>
@@ -600,7 +610,7 @@ export function Player({ game, fonts, onExit }: Props) {
   const lookOptions = (
     <>
       <label className="field">
-        <span className="lbl">Screen</span>
+        <span className="lbl">{pt.screen}</span>
         <select
           value={paletteId}
           onChange={(e) => {
@@ -610,13 +620,13 @@ export function Player({ game, fonts, onExit }: Props) {
         >
           {PALETTES.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.label}
+              {nm(p)}
             </option>
           ))}
         </select>
       </label>
-      <label className="field" title="How the picture is drawn: LCD shows each game pixel as a cell of a handheld screen (with a soft shadow if chosen); Smooth rounds off jagged edges (experimental)">
-        <span className="lbl">Effect</span>
+      <label className="field" title={pt.effectTitle}>
+        <span className="lbl">{pt.effect}</span>
         <select
           value={effect}
           onChange={(e) => {
@@ -624,40 +634,41 @@ export function Player({ game, fonts, onExit }: Props) {
             setPref("effect", e.target.value);
           }}
         >
-          <option value="none">None</option>
-          <option value="lcd">LCD</option>
-          <option value="lcd-shadow">LCD + shadow</option>
-          <option value="smooth">Smooth (experimental)</option>
+          {(["none", "lcd", "lcd-shadow", "smooth"] as const).map((v) => (
+            <option key={v} value={v}>
+              {pt.effects[v]}
+            </option>
+          ))}
         </select>
       </label>
       {!touch && (
-        <span className="field zoom" title="The size of the game screen. Each step keeps every game pixel the same size; click the percentage to go back to the usual size">
-          <span className="lbl">Size</span>
+        <span className="field zoom" title={pt.sizeTitle}>
+          <span className="lbl">{pt.size}</span>
           <button
             className="ghost zoom-btn"
             onClick={() => changeZoom(zoomInfo.n - 1 - zoomInfo.def)}
             disabled={zoomInfo.n <= zoomInfo.min}
-            aria-label="Smaller"
-            title="Smaller"
+            aria-label={pt.smaller}
+            title={pt.smaller}
           >
             −
           </button>
-          <button className="ghost zoom-pct" onClick={() => changeZoom(0)} title="Back to the usual size">
+          <button className="ghost zoom-pct" onClick={() => changeZoom(0)} title={pt.usualSize}>
             {Math.round((zoomInfo.n / zoomInfo.def) * 100)}%
           </button>
           <button
             className="ghost zoom-btn"
             onClick={() => changeZoom(zoomInfo.n + 1 - zoomInfo.def)}
             disabled={zoomInfo.n >= zoomInfo.max}
-            aria-label="Larger"
-            title="Larger"
+            aria-label={pt.larger}
+            title={pt.larger}
           >
             +
           </button>
         </span>
       )}
-      <label className="field" title="Show more of the map around the screen. The game plays the same; dialogue, menus and battles stay in the middle at their original size">
-        <span className="lbl">Map</span>
+      <label className="field" title={pt.mapTitle}>
+        <span className="lbl">{pt.map}</span>
         <select
           value={mapView}
           onChange={(e) => {
@@ -667,18 +678,18 @@ export function Player({ game, fonts, onExit }: Props) {
         >
           {(Object.keys(MAP_VIEWS) as MapView[]).map((k) => (
             <option key={k} value={k}>
-              {MAP_VIEWS[k].label}
+              {pt.mapViews[k]}
             </option>
           ))}
         </select>
       </label>
       {/* (the three text menus stay together when the bar wraps) */}
       <span className="field-group">
-        <label className="field" title="Pixel: the handheld's bitmap fonts, enlarged with hard edges. HD: fonts drawn at your screen's full resolution">
-          <span className="lbl">Text</span>
+        <label className="field" title={pt.textTitle}>
+          <span className="lbl">{pt.text}</span>
           <select value={text.look} onChange={(e) => changeText({ look: e.target.value === "hd" ? "hd" : "pixel" })}>
-            <option value="pixel">Pixel</option>
-            <option value="hd">HD</option>
+            <option value="pixel">{pt.looks.pixel}</option>
+            <option value="hd">{pt.looks.hd}</option>
           </select>
         </label>
         {englishGame ? [englishFont, chineseFont] : [chineseFont, englishFont]}
@@ -688,7 +699,7 @@ export function Player({ game, fonts, onExit }: Props) {
 
   const speedField = (
     <label className="field">
-      <span className="lbl">Speed</span>
+      <span className="lbl">{pt.speed}</span>
       <select
         value={speed}
         onChange={(e) => {
@@ -709,7 +720,7 @@ export function Player({ game, fonts, onExit }: Props) {
     <div className="extras-grid">
       <table className="keys">
         <tbody>
-          {KEY_HELP.map(([what, keys]) => (
+          {SITE_TEXT[lang].guide.keys.map(([what, keys]) => (
             <tr key={what}>
               <th>{what}</th>
               <td>{keys}</td>
@@ -728,10 +739,10 @@ export function Player({ game, fonts, onExit }: Props) {
               setPref("keypad", e.target.checked ? "on" : "off");
             }}
           />
-          On-screen keypad
+          {pt.keypad}
         </label>
         <label className="field">
-          Menu language
+          {pt.menuLanguage}
           <select
             value={uiLang}
             onChange={(e) => {
@@ -739,13 +750,13 @@ export function Player({ game, fonts, onExit }: Props) {
               setPref("uiLanguage", e.target.value);
             }}
           >
-            <option value="auto">Auto (from the game title)</option>
+            <option value="auto">{pt.menuAuto}</option>
             <option value="zh">中文</option>
             <option value="en">English</option>
           </select>
         </label>
-        <label className="field" title="Smaller text in dialogue, message boxes, script menus and descriptions, so more fits on the screen">
-          More text (experimental)
+        <label className="field" title={pt.moreTextTitle}>
+          {pt.moreText}
           <select
             value={textSize}
             onChange={(e) => {
@@ -753,15 +764,15 @@ export function Player({ game, fonts, onExit }: Props) {
               setPref("textSize", e.target.value);
             }}
           >
-            <option value="16">Off (device size)</option>
-            <option value="12">More: 12-pixel text</option>
-            <option value="10">Most: 10-pixel text</option>
+            {([16, 12, 10] as const).map((v) => (
+              <option key={v} value={v}>
+                {pt.moreSizes[v]}
+              </option>
+            ))}
           </select>
         </label>
         {textSize !== 16 && text.look === "pixel" && (
-          <p className="muted small">
-            Pixel text at this size uses fonts drawn for it{boldCjk || boldLatin ? " (in bold with Retro)" : ""}: {SMALL_FONT_CREDIT}.
-          </p>
+          <p className="muted small">{pt.smallFonts(boldCjk || boldLatin, pt.smallCredit)}</p>
         )}
         <label className="check">
           <input
@@ -772,14 +783,14 @@ export function Player({ game, fonts, onExit }: Props) {
               setPref("originalDamage", e.target.checked ? "on" : "off");
             }}
           />
-          Original engine rules
+          {pt.originalRules}
         </label>
         <div className="row">
           <button className="ghost" onClick={downloadSaves}>
-            Export saves
+            {pt.exportSaves}
           </button>
           <label className="button ghost">
-            Import saves
+            {pt.importSaves}
             <input type="file" accept=".json,application/json" hidden onChange={(e) => uploadSaves(e.target.files?.[0])} />
           </label>
         </div>
@@ -798,29 +809,29 @@ export function Player({ game, fonts, onExit }: Props) {
       }
     >
       {fullscreen && (
-        <button className="fs-exit" onClick={toggleFullscreen} aria-label="Exit fullscreen" title="Exit fullscreen (Esc)">
+        <button className="fs-exit" onClick={toggleFullscreen} aria-label={pt.exitFullscreen} title={pt.exitFullscreen}>
           ✕
         </button>
       )}
       {touch ? (
         <div className="tbar">
-          <button className="tb-btn" onClick={onExit} aria-label="Back to library" title="Back to library">
+          <button className="tb-btn" onClick={onExit} aria-label={pt.backToLibrary} title={pt.backToLibrary}>
             ←
           </button>
           <span className="title">{game.name}</span>
           {canFullscreen && (
-            <button className="tb-btn" onClick={toggleFullscreen} aria-label="Fullscreen" title="Fullscreen">
+            <button className="tb-btn" onClick={toggleFullscreen} aria-label={pt.fullscreen} title={pt.fullscreen}>
               ⛶
             </button>
           )}
-          <button className="tb-btn" onClick={openOptions} aria-label="Options" title="Options">
+          <button className="tb-btn" onClick={openOptions} aria-label={pt.options} title={pt.options}>
             ⚙
           </button>
         </div>
       ) : (
         <div className="toolbar">
-          <button className="ghost" onClick={onExit} title="Back to library">
-            ← Library
+          <button className="ghost" onClick={onExit} title={pt.backToLibrary}>
+            {pt.library}
           </button>
           <span className="title" title={game.fileName}>
             {game.name}
@@ -828,7 +839,7 @@ export function Player({ game, fonts, onExit }: Props) {
           <div className="spacer" />
           {speedField}
           <span className="tb-opt">{lookOptions}</span>
-          <button className="ghost" onClick={toggleFullscreen} title="Fullscreen" aria-label="Fullscreen">
+          <button className="ghost" onClick={toggleFullscreen} title={pt.fullscreen} aria-label={pt.fullscreen}>
             ⛶
           </button>
         </div>
@@ -844,26 +855,26 @@ export function Player({ game, fonts, onExit }: Props) {
                 width: frameW * scale,
                 height: frameH * scale,
               }}
-              aria-label="Game screen"
+              aria-label={pt.gameScreen}
               {...hold.bind}
             />
             {hold.ring}
             {error && (
               <div className="crash" role="alert">
-                <strong>The engine stopped.</strong>
-                <p>This archive may use something the engine does not support yet.</p>
+                <strong>{pt.crashTitle}</strong>
+                <p>{pt.crashText}</p>
                 <pre>{error.split("\n").slice(0, 6).join("\n")}</pre>
                 <div className="row">
-                  <button onClick={() => setGeneration((g) => g + 1)}>Restart</button>
+                  <button onClick={() => setGeneration((g) => g + 1)}>{pt.restart}</button>
                   <button className="ghost" onClick={onExit}>
-                    Back to library
+                    {pt.backToLibrary}
                   </button>
                 </div>
               </div>
             )}
           </div>
         </div>
-        {showPad && <Keypad onDown={keyDown} onUp={keyUp} />}
+        {showPad && <Keypad onDown={keyDown} onUp={keyUp} labels={pt.keys} />}
       </div>
 
       {notice && <div className="notice">{notice}</div>}
@@ -872,12 +883,12 @@ export function Player({ game, fonts, onExit }: Props) {
 
       {touch ? (
         optionsOpen && (
-          <div className="sheet" role="dialog" aria-label="Options" onClick={(e) => e.target === e.currentTarget && setOptionsOpen(false)}>
+          <div className="sheet" role="dialog" aria-label={pt.options} onClick={(e) => e.target === e.currentTarget && setOptionsOpen(false)}>
             <div className="sheet-body">
               <div className="sheet-head">
-                <strong>Options</strong>
-                <span className="muted small">The game is paused</span>
-                <button onClick={() => setOptionsOpen(false)}>Resume</button>
+                <strong>{pt.options}</strong>
+                <span className="muted small">{pt.paused}</span>
+                <button onClick={() => setOptionsOpen(false)}>{pt.resume}</button>
               </div>
               <div className="sheet-row">{speedField}</div>
               {optionsPanel}
@@ -886,7 +897,7 @@ export function Player({ game, fonts, onExit }: Props) {
         )
       ) : (
         <details className="extras">
-          <summary>Controls &amp; options</summary>
+          <summary>{pt.controlsOptions}</summary>
           {optionsPanel}
         </details>
       )}

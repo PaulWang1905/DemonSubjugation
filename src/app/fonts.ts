@@ -2,6 +2,7 @@
 // layout (built by scripts/fonts/build_fonts.py from open-source fonts; see
 // public/fonts/LICENSES.md). They are loaded only when chosen.
 import type { SmallFonts } from "../engine";
+import { playerText } from "./playerText";
 
 export type FontSetId = "retro" | "ark" | "unifont";
 
@@ -31,7 +32,7 @@ function file(url: string): Promise<Uint8Array> {
   let p = files.get(url);
   if (!p) {
     p = fetch(`${url}?v=${FONT_VERSION}`).then(async (r) => {
-      if (!r.ok) throw new Error(`Could not load the font (${r.status}).`);
+      if (!r.ok) throw new Error(playerText().fontFailed(r.status));
       return new Uint8Array(await r.arrayBuffer());
     });
     p.catch(() => files.delete(url)); // try again next time
@@ -40,8 +41,6 @@ function file(url: string): Promise<Uint8Array> {
   return p;
 }
 
-/** Fonts drawn for the 12- and 10-pixel cells of More text (any Text choice). */
-export const SMALL_FONT_CREDIT = "Cubic 11 and Boutique Bitmap 9×9 for Chinese, X11 fixed for letters";
 
 /**
  * A pixel-font bold of the small fonts, as the Retro set's Chinese is made

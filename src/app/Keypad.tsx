@@ -3,6 +3,8 @@ import { Keys, type EngineKey } from "../engine";
 
 interface Props {
   onDown: (k: EngineKey) => void;
+  /** The keypad's names (in the site's language). */
+  labels: { controls: string; pad: string; pageUp: string; pageDown: string; cancel: string; back: string; confirm: string; ok: string };
   onUp: (k: EngineKey) => void;
 }
 
@@ -48,7 +50,7 @@ function dirAt(el: HTMLElement, x: number, y: number, cur: Dir | null): Dir | nu
  * thumb to turn without lifting it. Each control follows its own finger, so
  * a direction and A can be held together. Holding keys repeats (in Player).
  */
-export function Keypad({ onDown, onUp }: Props) {
+export function Keypad({ onDown, onUp, labels }: Props) {
   const [dir, setDir] = useState<Dir | null>(null);
   const dirRef = useRef<Dir | null>(null);
   const dirPointer = useRef<number | null>(null);
@@ -161,9 +163,9 @@ export function Keypad({ onDown, onUp }: Props) {
   });
 
   return (
-    <div className="kp" ref={root} aria-label="On-screen controls">
+    <div className="kp" ref={root} aria-label={labels.controls}>
       <div className="kp-dir">
-        <div className="kp-pad" data-dir={dir ?? undefined} role="group" aria-label="Direction pad" {...pad}>
+        <div className="kp-pad" data-dir={dir ?? undefined} role="group" aria-label={labels.pad} {...pad}>
           <i className="arm up" />
           <i className="arm down" />
           <i className="arm left" />
@@ -173,21 +175,21 @@ export function Keypad({ onDown, onUp }: Props) {
       </div>
       <div className="kp-act">
         <div className="kp-pages">
-          <button className="kp-pill" aria-label="Page up" {...button(Keys.PAGEUP)}>
+          <button className="kp-pill" aria-label={labels.pageUp} {...button(Keys.PAGEUP)}>
             PgUp
           </button>
-          <button className="kp-pill" aria-label="Page down" {...button(Keys.PAGEDOWN)}>
+          <button className="kp-pill" aria-label={labels.pageDown} {...button(Keys.PAGEDOWN)}>
             PgDn
           </button>
         </div>
         <div className="kp-ab">
-          <button className="kp-round b" aria-label="Cancel" {...button(Keys.CANCEL)}>
+          <button className="kp-round b" aria-label={labels.cancel} {...button(Keys.CANCEL)}>
             <span>B</span>
-            <small>Back</small>
+            <small>{labels.back}</small>
           </button>
-          <button className="kp-round a" aria-label="Confirm" {...button(Keys.ENTER)}>
+          <button className="kp-round a" aria-label={labels.confirm} {...button(Keys.ENTER)}>
             <span>A</span>
-            <small>OK</small>
+            <small>{labels.ok}</small>
           </button>
         </div>
       </div>

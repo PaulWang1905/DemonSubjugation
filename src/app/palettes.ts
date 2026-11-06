@@ -3,15 +3,17 @@
 export interface Palette {
   id: string;
   label: string;
+  /** The name in Simplified Chinese. */
+  zh: string;
   light: [number, number, number];
   dark: [number, number, number];
 }
 
 export const PALETTES: Palette[] = [
-  { id: "classic", label: "Classic", light: [180, 180, 180], dark: [0, 0, 0] },
-  { id: "lcd", label: "LCD", light: [167, 186, 130], dark: [30, 44, 32] },
-  { id: "paper", label: "Paper", light: [236, 228, 210], dark: [52, 40, 32] },
-  { id: "amber", label: "Amber", light: [36, 22, 6], dark: [255, 176, 64] },
+  { id: "classic", label: "Classic", zh: "经典灰", light: [180, 180, 180], dark: [0, 0, 0] },
+  { id: "lcd", label: "LCD", zh: "液晶绿", light: [167, 186, 130], dark: [30, 44, 32] },
+  { id: "paper", label: "Paper", zh: "纸张", light: [236, 228, 210], dark: [52, 40, 32] },
+  { id: "amber", label: "Amber", zh: "琥珀", light: [36, 22, 6], dark: [255, 176, 64] },
 ];
 
 export function applyPalette(src: Uint8ClampedArray, dst: Uint8ClampedArray, p: Palette): void {

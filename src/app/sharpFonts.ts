@@ -16,14 +16,14 @@ export type LetterFont = "auto" | "plex" | "jetbrains" | "fira" | "space" | "atk
  * The letter fonts, all monospaced. `size`: the font size (in pixels of a
  * 16-pixel cell) at which a letter fills the 8-pixel half cell.
  */
-export const LETTER_FONTS: { id: Exclude<LetterFont, "auto">; label: string; family: string; size: number; sheet: () => Promise<unknown> }[] = [
+export const LETTER_FONTS: { id: Exclude<LetterFont, "auto">; label: string; zh?: string; family: string; size: number; sheet: () => Promise<unknown> }[] = [
   { id: "plex", label: "IBM Plex Mono", family: '"IBM Plex Mono"', size: 13, sheet: () => import("@fontsource/ibm-plex-mono/latin-400.css") },
   { id: "jetbrains", label: "JetBrains Mono", family: '"JetBrains Mono"', size: 13, sheet: () => import("@fontsource/jetbrains-mono/latin-400.css") },
   { id: "fira", label: "Fira Mono", family: '"Fira Mono"', size: 13, sheet: () => import("@fontsource/fira-mono/latin-400.css") },
   { id: "space", label: "Space Mono", family: '"Space Mono"', size: 12.7, sheet: () => import("@fontsource/space-mono/latin-400.css") },
   { id: "atkinson", label: "Atkinson Hyperlegible Mono", family: '"Atkinson Hyperlegible Mono"', size: 12.3, sheet: () => import("@fontsource/atkinson-hyperlegible-mono/latin-400.css") },
-  { id: "courier", label: "Courier Prime (typewriter)", family: '"Courier Prime"', size: 13, sheet: () => import("@fontsource/courier-prime/400.css") },
-  { id: "vt323", label: "VT323 (old terminal)", family: '"VT323"', size: 18, sheet: () => import("@fontsource/vt323/latin-400.css") },
+  { id: "courier", label: "Courier Prime (typewriter)", zh: "Courier Prime（打字机）", family: '"Courier Prime"', size: 13, sheet: () => import("@fontsource/courier-prime/400.css") },
+  { id: "vt323", label: "VT323 (old terminal)", zh: "VT323（老式终端）", family: '"VT323"', size: 18, sheet: () => import("@fontsource/vt323/latin-400.css") },
 ];
 
 export function isLetterFont(id: string): id is LetterFont {

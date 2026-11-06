@@ -19,28 +19,29 @@ export interface TextChoice {
   hdEnglish: LetterFont;
 }
 
-export const PIXEL_CHINESE: { id: FontSetId; label: string }[] = [
-  { id: "retro", label: "粗体 Bold (Retro)" },
-  { id: "ark", label: "黑体 Sans (Ark Pixel)" },
-  { id: "unifont", label: "宋体 Serif (Unifont)" },
+/** The choices of each menu, named in English (`label`) and Simplified Chinese (`zh`). */
+export const PIXEL_CHINESE: { id: FontSetId; label: string; zh: string }[] = [
+  { id: "retro", label: "粗体 Bold (Retro)", zh: "粗体（Retro）" },
+  { id: "ark", label: "黑体 Sans (Ark Pixel)", zh: "黑体（Ark Pixel）" },
+  { id: "unifont", label: "宋体 Serif (Unifont)", zh: "宋体（Unifont）" },
 ];
-export const PIXEL_ENGLISH: { id: FontSetId; label: string }[] = [
-  { id: "retro", label: "Retro 8-bit (Press Start 2P)" },
-  { id: "ark", label: "Sans (Ark Pixel)" },
-  { id: "unifont", label: "Serif (Unifont)" },
+export const PIXEL_ENGLISH: { id: FontSetId; label: string; zh: string }[] = [
+  { id: "retro", label: "Retro 8-bit (Press Start 2P)", zh: "复古 8 位（Press Start 2P）" },
+  { id: "ark", label: "Sans (Ark Pixel)", zh: "无衬线（Ark Pixel）" },
+  { id: "unifont", label: "Serif (Unifont)", zh: "衬线（Unifont）" },
 ];
-export const HD_CHINESE: { id: TextStyle; label: string }[] = [
-  { id: "hei", label: "黑体 Sans (Noto Sans)" },
-  { id: "song", label: "宋体 Serif (Noto Serif)" },
-  { id: "kai", label: "楷体 Brush (LXGW WenKai)" },
-  { id: "sans", label: "This device's sans" },
-  { id: "serif", label: "This device's serif" },
+export const HD_CHINESE: { id: TextStyle; label: string; zh: string }[] = [
+  { id: "hei", label: "黑体 Sans (Noto Sans)", zh: "黑体（Noto Sans）" },
+  { id: "song", label: "宋体 Serif (Noto Serif)", zh: "宋体（Noto Serif）" },
+  { id: "kai", label: "楷体 Brush (LXGW WenKai)", zh: "楷体（霞鹜文楷）" },
+  { id: "sans", label: "This device's sans", zh: "本机的黑体" },
+  { id: "serif", label: "This device's serif", zh: "本机的宋体" },
 ];
-export const HD_ENGLISH: { id: LetterFont; label: string }[] = [
-  { id: "auto", label: "Matching the Chinese" },
-  ...LETTER_FONTS.map((f) => ({ id: f.id, label: f.label })),
+export const HD_ENGLISH: { id: LetterFont; label: string; zh: string }[] = [
+  { id: "auto", label: "Matching the Chinese", zh: "与中文字体搭配" },
+  ...LETTER_FONTS.map((f) => ({ id: f.id, label: f.label, zh: f.zh ?? f.label })),
 ];
-export const ORIGINAL_LABEL = "Original files (HZK16 / ASC16)";
+export const ORIGINAL_LABEL = { label: "Original files (HZK16 / ASC16)", zh: "原版字库（HZK16 / ASC16）" };
 
 const isPixelFont = (v: string | null): v is PixelFont => v === "original" || PIXEL_CHINESE.some((f) => f.id === v);
 const isHdChinese = (v: string | null): v is TextStyle => HD_CHINESE.some((f) => f.id === v);
