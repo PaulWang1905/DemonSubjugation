@@ -30,8 +30,8 @@ const MAP_VIEWS: Record<MapView, { label: string; mx: number; my: number }> = {
 };
 const mapViewOf = (v: string): MapView => (v === "wide" || v === "widest" ? v : "normal");
 const screenSizeOf = (v: string): ScreenSize => (v === "large" || v === "fill" ? v : "fit");
-/** The page column's inner width (#root: 980 px with 16 px padding). */
-const PAGE_WIDTH = 948;
+/** The page column's inner width (#root: 1400 px with 16 px padding). */
+const PAGE_WIDTH = 1368;
 
 function pref<T extends string>(key: string, fallback: T): T {
   try {

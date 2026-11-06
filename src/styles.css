@@ -84,7 +84,8 @@ html {
 }
 
 #root {
-  max-width: 980px;
+  /* one column width for every page (the editor's workspace included) */
+  max-width: 1400px;
   margin: 0 auto;
   padding: 16px;
 }
@@ -665,7 +666,7 @@ footer {
 .player.large:not(.fs) > .notice,
 .player.large:not(.fs) > .extras {
   width: 100%;
-  max-width: 948px;
+  max-width: 1368px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -1319,9 +1320,6 @@ footer {
 
 /* ---------- editor ---------- */
 
-#root:has(.editor) {
-  max-width: 1400px;
-}
 
 .editor-home section {
   background: var(--panel);
