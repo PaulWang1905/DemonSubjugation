@@ -211,6 +211,16 @@ export function glyphVisibility(m: GlyphMark, buf: Uint32Array, width: number, h
   return shown ? [x0, y0, x1, y1] : null;
 }
 
+/** Whether the text (up to its NUL) has an ASCII letter. */
+function hasLatin(b: Int8Array): boolean {
+  for (let i = 0; i < b.length && b[i] !== 0; i++) {
+    const c = b[i] & 0xff;
+    if (c >= 0x80) i++; // second byte of a GBK character
+    else if ((c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a)) return true;
+  }
+  return false;
+}
+
 function toBytes(text: string | Int8Array): Int8Array {
   return typeof text === "string" ? gbkBytes(text) : text;
 }
@@ -405,15 +415,21 @@ export const TextRender = {
   },
 
   /**
-   * Text in a rectangle: fmj.kt's drawTextFrom at the device's size, the
-   * wrapping compact layout at a smaller `size`.
+   * A description in a rectangle (items, equipment, magic). Chinese text at
+   * the device's size is drawn as the device does (drawTextFrom). Text with
+   * Latin letters, and any text at a smaller `size`, keeps words whole.
+   *
+   * Descriptions are not laid out for one box (the same item text shows in
+   * boxes 13 and 16 characters wide), so the device's line ends say nothing
+   * about where words end: no spaces are put back there, unlike dialogue.
    */
   drawBlock(canvas: Canvas, text: string | Int8Array, start: number, r: Rect, size: number): number {
-    if (size === 16) return TextRender.drawTextFrom(canvas, text, start, r);
+    const b = toBytes(text);
+    if (size === 16 && !hasLatin(b)) return TextRender.drawTextFrom(canvas, text, start, r);
     return TextRender.withSize(size, () => {
       const rows: { x: number; y: number; right: number }[] = [];
       for (let y = r.top; y + size <= r.bottom + 1; y += size) rows.push({ x: r.left, y, right: r.right });
-      return TextRender.drawWrapped(canvas, text, start, rows, [{ left: r.left, right: r.right }]).next;
+      return wrapBytes(canvas, b, start, rows).next;
     });
   },
 

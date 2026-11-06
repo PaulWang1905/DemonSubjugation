@@ -117,6 +117,10 @@ really deals the flag value, and an NPC walks until it reaches its target
   dialogue, message boxes, MENU lists and descriptions on purpose: smaller
   text and taller boxes, so fewer pages. With it off they are as described
   above.
+- **Descriptions with Latin letters** (items, equipment, magic) keep words
+  whole at any text size; the device breaks them at the box edge, which
+  splits English words. Chinese descriptions at the device's size are laid
+  out exactly as on the device.
 
 - **Save files** use fmj.kt's layout plus what scripts set with ATTRIBSET
   9-14; the device stored a memory image. What is saved is the same game

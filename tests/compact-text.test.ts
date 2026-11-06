@@ -69,4 +69,31 @@ describe("compact text layout", () => {
   it("splits a word longer than a line", () => {
     expect(lines("abcdefghij", 10, 20)).toEqual(["abcd", "efgh", "ij"]);
   });
+
+  it("keeps description words whole, at both text sizes", () => {
+    // the shop's description box; the device's 16-pixel lines end mid-word here
+    const desc = "Calms the mind and guards against madness. Cures confusion, seal, sleep.";
+    createEngine({ resources: { datLib: writeLib(lanternPath()), hzk16: new Uint8Array(267616), asc16: new Uint8Array(4096) }, saves: memorySaves() });
+    for (const size of [12, 16]) {
+      const canvas = new Canvas(new Bitmap(160, 96));
+      const r = { left: 44, top: 40, right: 156, bottom: 94 } as never;
+      const words: string[] = [];
+      let at = 0;
+      const b = gbkBytes(desc);
+      for (let page = 0; page < 6 && at < b.length; page++) {
+        canvas.bitmap.glyphs = [];
+        at = TextRender.drawBlock(canvas, b, at, r, size);
+        const gs = (canvas.bitmap.glyphs ?? []).slice().sort((p, q) => p.y - q.y || p.x - q.x);
+        let line = "";
+        let last: (typeof gs)[number] | null = null;
+        for (const g of gs) {
+          if (last && (g.y !== last.y || g.x > last.x + last.w)) line += " ";
+          line += String.fromCharCode(g.code);
+          last = g;
+        }
+        words.push(...line.split(" ").filter(Boolean));
+      }
+      expect(words.join(" ")).toBe(desc);
+    }
+  });
 });
