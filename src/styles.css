@@ -3845,21 +3845,65 @@ html:lang(zh-CN) .h-show-lines h3 {
   border: 1px solid var(--h-ink);
   box-shadow: 0 30px 90px rgb(0 0 0 / 0.18);
 }
-.h-show-frame img {
+/* the screen inside the frame: it clips the pictures (and their zoom) */
+.h-show-win {
   position: absolute;
   inset: clamp(12px, 1.4vw, 20px);
-  width: calc(100% - 2 * clamp(12px, 1.4vw, 20px));
-  height: calc(100% - 2 * clamp(12px, 1.4vw, 20px));
+  overflow: hidden;
+}
+.h-show-frame img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   image-rendering: pixelated;
   opacity: 0;
   transform: scale(1.02);
-  transition: opacity 0.5s ease, transform 0.8s ease;
+  /* (the one leaving fades only once the new one, on top, has come in, so
+     the screen never dims between them) */
+  transition:
+    opacity 0.3s ease 0.35s,
+    transform 0.8s ease;
 }
 .h-show-frame img.on {
+  z-index: 1;
   opacity: 1;
   transform: none;
+  transition:
+    opacity 0.35s ease,
+    transform 0.8s ease;
 }
+/* LCD → See more of the world: the same scene, the camera pulling back.
+   The wide picture (17 x 10 tiles) shows the 9 x 6 one at its centre at
+   1.8x, so it comes in zoomed to that and widens out; the LCD picture
+   shrinks into its place in the bigger map. Scrolling back reverses it. */
+.h-show-frame img.wide {
+  object-fit: contain;
+  transform-origin: 50% 50%;
+}
+.h-show-frame[data-shown="lcd"] img.wide {
+  transform: scale(1.8);
+}
+.h-show-frame[data-shown="wide"] img.lcd {
+  transform: scale(0.5556);
+}
+.h-show-frame[data-shown="wide"] img.wide,
+.h-show-frame[data-shown="lcd"] img.lcd {
+  transition:
+    opacity 0.35s ease,
+    transform 1.6s cubic-bezier(0.22, 0.7, 0.18, 1);
+}
+.h-show-frame[data-shown="wide"] img.lcd,
+.h-show-frame[data-shown="lcd"] img.wide {
+  transition:
+    opacity 0.3s ease 0.35s,
+    transform 1.6s cubic-bezier(0.22, 0.7, 0.18, 1);
+}
+.h-show-frame[data-shown="wide"] img.wide {
+  transform: none;
+}
+
 .h-show-count {
   position: absolute;
   right: 0;

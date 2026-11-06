@@ -265,10 +265,20 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
             ))}
           </div>
           <div className="h-show-media" aria-hidden="true">
-            <div className="h-show-frame">
-              {t.better.map((b, i) => (
-                <img key={b.img} src={b.img} alt="" className={i === shown ? "on" : undefined} width={800} height={480} />
-              ))}
+            {/* (data-shown lets the LCD and wide-map pictures zoom into each other) */}
+            <div className="h-show-frame" data-shown={t.better[shown]?.img.replace(/^.*\/|\.webp$/g, "")}>
+              <div className="h-show-win">
+                {t.better.map((b, i) => (
+                  <img
+                    key={b.img}
+                    src={b.img}
+                    alt=""
+                    className={`${b.img.replace(/^.*\/|\.webp$/g, "")}${i === shown ? " on" : ""}`}
+                    width={800}
+                    height={480}
+                  />
+                ))}
+              </div>
               <span className="h-show-count">
                 {String(shown + 1).padStart(2, "0")} / {String(t.better.length).padStart(2, "0")}
               </span>
