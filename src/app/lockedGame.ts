@@ -23,7 +23,7 @@ export interface LockedGame {
 /** The locked games on the Games page. */
 export const LOCKED_GAMES: LockedGame[] = [
   {
-    id: "6d9cd6598ed515b7",
+    id: "4ddb8b2519662c8f",
     name: "Fumo Ji (English)",
     fileName: "Fumo Ji (English).lib",
     url: "/locked/fumo-ji-en.fmje",

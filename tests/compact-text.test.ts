@@ -2,11 +2,13 @@
 import { describe, expect, it } from "vitest";
 import { TextRender } from "../src/engine/fmj/graphics/TextRender";
 import { gbkBytes, gbkString } from "../src/engine/java";
-import { SAY_WITH_PORTRAIT, wrapForBox } from "../src/editor/format/text";
+import { MESSAGE_BOX, SAY_PLAIN, SAY_WITH_PORTRAIT, wrapForBox } from "../src/editor/format/text";
 import { createEngine } from "../src/engine";
 import { Bitmap, Canvas } from "../src/engine/graphics";
 import { writeLib } from "../src/editor/format/lib";
 import { lanternPath } from "../src/editor/template/demo";
+import { silentBell } from "../src/editor/template/silentBell";
+import { disassemble } from "../src/editor/format/gut";
 import { memorySaves } from "./helpers";
 
 /** Lines of `text` in `size`-pixel cells, `width` pixels wide. */
@@ -43,8 +45,8 @@ describe("compact text layout", () => {
   it("keeps the space at a full line of the device's layout", () => {
     // wrapped for the device's portrait box: "went" ends a full 15-character
     // line, so no space separates it from "into"
-    const text = wrapForBox("Bram the woodcutter went into the Whisperwood yesterday. Look for him.", SAY_WITH_PORTRAIT);
-    expect(text).toContain("wentinto");
+    // (as games pad their text; the demos' own wrapping now always leaves a space)
+    const text = "Bram the   woodcutter wentinto the   Whisperwood    yesterday. Look for him.";
     createEngine({ resources: { datLib: writeLib(lanternPath()), hzk16: new Uint8Array(267616), asc16: new Uint8Array(4096) }, saves: memorySaves() });
     const canvas = new Canvas(new Bitmap(160, 96));
     const device = [{ left: 44, right: 145 }, { left: 14, right: 145 }];
@@ -94,6 +96,38 @@ describe("compact text layout", () => {
         words.push(...line.split(" ").filter(Boolean));
       }
       expect(words.join(" ")).toBe(desc);
+    }
+  });
+
+  it("wraps the demos' text so every line break keeps a space", () => {
+    for (const widths of [SAY_WITH_PORTRAIT, SAY_PLAIN, MESSAGE_BOX]) {
+      for (const text of [
+        "The glade lies east, past the path. Rest if you are hurt.",
+        "Bram the woodcutter went into the Whisperwood yesterday. Look for him.",
+      ]) {
+        const w = wrapForBox(text, widths);
+        // the words come back exactly, whatever box they are shown in
+        expect(w.split(/ +/).join(" ")).toBe(text);
+      }
+    }
+  });
+});
+
+describe("the demos' dialogue", () => {
+  it("has a space at every line break of the device's boxes", () => {
+    for (const archive of [lanternPath(), silentBell()]) {
+      for (const e of archive.entries) {
+        if (e.resType !== 1) continue;
+        for (const m of disassemble(e.data).matchAll(/^\s*(say (\d+), |message )"((?:[^"\\]|\\.)*)"/gm)) {
+          const text = m[3].replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+          // the device's lines: beside the portrait (or not), then the full width; message boxes
+          const device = m[1].startsWith("say") ? [{ left: m[2] !== "0" ? 44 : 14, right: 145 }, { left: 14, right: 145 }] : [{ left: 16, right: 144 }];
+          const b = gbkBytes(text);
+          for (const k of TextRender.deviceLineEnds(Int8Array.from(b), device)) {
+            expect(String.fromCharCode(b[k - 1]), `«${text}» at ${k}`).toMatch(/[ -]/);
+          }
+        }
+      }
     }
   });
 });

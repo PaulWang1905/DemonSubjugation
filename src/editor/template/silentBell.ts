@@ -12,7 +12,7 @@ import {
 } from "../format/encode";
 import { assemble } from "../format/gut";
 import type { LibArchive, LibEntry } from "../format/lib";
-import { MESSAGE_BOX, SAY_PLAIN, SAY_WITH_PORTRAIT, wrapForBox } from "../format/text";
+import { wrapMessage, SAY_PLAIN, SAY_WITH_PORTRAIT, wrapForBox } from "../format/text";
 import { gbkBytes } from "../../engine/java";
 import { Pix } from "./draw";
 import { CHEST, CLOUD, ICONS, MOTH, SHELLBUG, STONE, TUFT, WISP, bolt, glow, sparkle } from "./demo";
@@ -175,7 +175,7 @@ function mapEntry(m: MapDef): LibEntry {
 // Variables: 0 where the party came from, 10 lever progress.
 
 const say = (portraitId: number, text: string) => `  say ${portraitId}, "${wrapForBox(text, portraitId ? SAY_WITH_PORTRAIT : SAY_PLAIN)}"`;
-const msg = (text: string) => `  message "${wrapForBox(text, MESSAGE_BOX)}"`;
+const msg = (text: string) => `  message "${wrapMessage(text)}"`;
 const RIN_P = 1;
 const BRAM_P = 2;
 const ELDER_P = 3;

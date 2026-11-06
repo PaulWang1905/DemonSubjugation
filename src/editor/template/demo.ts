@@ -8,7 +8,7 @@ import {
 } from "../format/encode";
 import { assemble } from "../format/gut";
 import type { LibArchive, LibEntry } from "../format/lib";
-import { MESSAGE_BOX, SAY_WITH_PORTRAIT, wrapForBox } from "../format/text";
+import { wrapMessage, SAY_PLAIN, SAY_WITH_PORTRAIT, wrapForBox } from "../format/text";
 import { gbkBytes } from "../../engine/java";
 import { B, Pix, T, W } from "./draw";
 import { systemResources } from "./system";
@@ -388,8 +388,8 @@ export function glow(): LibEntry {
 // ---------------------------------------------------------------------------
 // scripts
 
-const say = (portraitId: number, text: string) => `  say ${portraitId}, "${wrapForBox(text, SAY_WITH_PORTRAIT)}"`;
-const msg = (text: string) => `  message "${wrapForBox(text, MESSAGE_BOX)}"`;
+const say = (portraitId: number, text: string) => `  say ${portraitId}, "${wrapForBox(text, portraitId ? SAY_WITH_PORTRAIT : SAY_PLAIN)}"`;
+const msg = (text: string) => `  message "${wrapMessage(text)}"`;
 
 const HAMLET = `
 .gut 1 1
