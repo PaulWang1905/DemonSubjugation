@@ -13,10 +13,16 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/atkinson-hyperlegible-mono": "^5.3.0",
     "@fontsource/courier-prime": "^5.3.0",
+    "@fontsource/fira-mono": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/noto-sans-mono": "^5.3.0",
     "@fontsource/noto-sans-sc": "^5.3.1",
     "@fontsource/noto-serif-sc": "^5.3.1",
+    "@fontsource/space-mono": "^5.3.0",
+    "@fontsource/vt323": "^5.3.0",
     "@vercel/analytics": "^2.0.1",
     "lxgw-wenkai-webfont": "^1.7.0",
     "react": "^19.3.1",

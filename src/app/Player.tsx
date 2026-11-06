@@ -9,6 +9,7 @@ import { DebugMenu } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { HiresText, outputScale, SHARP_STYLES, type ScreenEffect, type TextStyle } from "./hiresText";
+import { isLetterFont, LETTER_FONTS, type LetterFont } from "./sharpFonts";
 import { boldSmallFonts, FONT_SETS, isFontSet, loadFontSet, loadSmallFonts, SMALL_FONT_CREDIT, type FontSetId } from "./fonts";
 
 /** Pixel text with the uploaded files (or the device fallback), a bundled pixel font, or Sharp. */
@@ -91,6 +92,13 @@ export function Player({ game, fonts, onExit }: Props) {
   const [effect, setEffect] = useState<ScreenEffect>(() => effectOf(pref<string>("effect", "none")));
   const effectRef = useRef(effect);
   effectRef.current = effect;
+  // Sharp text: the font letters are drawn in ("auto": the style's own).
+  const [letters, setLetters] = useState<LetterFont>(() => {
+    const v = pref<string>("letters", "auto");
+    return isLetterFont(v) ? v : "auto";
+  });
+  const lettersRef = useRef(letters);
+  lettersRef.current = letters;
   const [scale, setScale] = useState(3);
   // Screen size on a computer: whole device pixels per game pixel inside the
   // page ("fit"); or bigger, wider than the page and in quarter-pixel steps:
@@ -283,6 +291,7 @@ export function Player({ game, fonts, onExit }: Props) {
         const style = pixelText ? null : (mode as TextStyle);
         const key = style ?? "pixel";
         const h = (hires[key] ??= new HiresText(style));
+        h.setLetters(lettersRef.current);
         const k = outputScale(scaleRef.current, fw);
         h.draw(cv, frame, style || fx === "smooth" ? engine.textLayer() : [], pal, k, fw, fh, fx);
       }
@@ -563,6 +572,27 @@ export function Player({ game, fonts, onExit }: Props) {
           ))}
         </select>
       </label>
+      {!(textMode === "pixel" || setId) && (
+        <label className="field" title="The font English letters and numbers are drawn in (Chinese keeps the Text choice's font)">
+          <span className="lbl">Letters</span>
+          <select
+            value={letters}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!isLetterFont(v)) return;
+              setLetters(v);
+              setPref("letters", v);
+            }}
+          >
+            <option value="auto">Matching the text</option>
+            {LETTER_FONTS.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {!touch && (
         <label className="field" title="Fit keeps every game pixel the same size, inside the page. Larger (up to half as big again) and Largest (the whole window) use more of a big screen; game pixels may then differ by one screen pixel">
           <span className="lbl">Size</span>

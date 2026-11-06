@@ -10,7 +10,7 @@
 // borders, sprites) keeps its own pixels.
 import { SCREEN_HEIGHT, SCREEN_WIDTH, type TextMark } from "../engine";
 import { applyPalette, type Palette } from "./palettes";
-import { loadSharpFont } from "./sharpFonts";
+import { LETTER_FONTS, loadSharpFont, type LetterFont } from "./sharpFonts";
 
 /** Sharp text: the device's fonts (sans, serif) or fonts that come with the player. */
 export type TextStyle = "sans" | "serif" | "kai" | "hei" | "song";
@@ -217,6 +217,16 @@ export class HiresText {
   private incomplete = false;
 
   /** `style` null: keep the game's own pixel text (only the picture effect applies). */
+  private letters: LetterFont = "auto";
+
+  /** Draw letters in their own font ("auto": the style's). */
+  setLetters(id: LetterFont): void {
+    if (id === this.letters) return;
+    this.letters = id;
+    this.glyphs.clear();
+    this.last = null;
+  }
+
   constructor(private readonly style: TextStyle | null = "sans") {
     this.size(SCREEN_WIDTH, SCREEN_HEIGHT);
   }
@@ -518,11 +528,17 @@ export class HiresText {
     const style = this.style!;
     const f = FONTS[style];
     const u = (h / 16) * scale; // output pixels per pixel of a 16-pixel cell
+    const lf = w !== h && this.letters !== "auto" ? LETTER_FONTS.find((l) => l.id === this.letters) : undefined;
     // (WenKai Mono's letters are half its em wide, narrower than the others: a larger size fills the cell)
-    const spec = w === h ? `${(14.5 * u).toFixed(1)}px ${f.cjk}` : `${((style === "kai" ? 15.5 : 13) * u).toFixed(1)}px ${f.latin}`;
+    const spec =
+      w === h
+        ? `${(14.5 * u).toFixed(1)}px ${f.cjk}`
+        : lf
+          ? `${(lf.size * u).toFixed(1)}px ${lf.family}, ${f.latin}`
+          : `${((style === "kai" ? 15.5 : 13) * u).toFixed(1)}px ${f.latin}`;
     // a bundled font draws once its file (or the part with this character) is in;
     // until then the fallback font stands in and is not kept
-    const ready = loadSharpFont(style, spec, text, () => this.glyphs.delete(key), this.pending);
+    const ready = loadSharpFont(lf ? `letters:${lf.id}` : style, spec, text, () => this.glyphs.delete(key), this.pending);
     s = surface(Math.ceil(w * scale), Math.ceil(h * scale));
     const ctx = s.getContext("2d") as Ctx2D;
     ctx.fillStyle = color;

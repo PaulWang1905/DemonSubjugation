@@ -40,10 +40,8 @@ function bgImage(size = 16): Bitmap {
   const c = new Canvas(bmp);
   c.drawColor(Global.COLOR_WHITE);
   c.drawLines(pts, Util.sBlackPaint);
-  TextRender.withSize(size, () => {
-    TextRender.drawText(c, T.goodsName, 45, 23);
-    TextRender.drawText(c, T.goodsPrice, 45, size === 16 ? 40 : 23 + size);
-  });
+  // (the labels are drawn with the rest of the text, not kept in here: the
+  // interface language and the font can change while the page is open)
   bgCache.set(size, bmp);
   return bmp;
 }
@@ -112,6 +110,8 @@ export class ScreenGoodsList extends BaseScreen {
     const g = this.goodsList[this.curItemIndex];
     TextRender.drawText(canvas, this.mode === GoodsListMode.Buy ? T.money + Player.sMoney : T.goodsCount + g.goodsNum, 60, 2);
     TextRender.withSize(size, () => {
+      TextRender.drawText(canvas, T.goodsName, 45, 23);
+      TextRender.drawText(canvas, T.goodsPrice, 45, size === 16 ? 40 : 23 + size);
       TextRender.drawText(canvas, g.name, valueX(T.goodsName, size), 23);
       TextRender.drawText(canvas, "" + (this.mode === GoodsListMode.Buy ? g.buyPrice : g.sellPrice), valueX(T.goodsPrice, size), size === 16 ? 40 : 23 + size);
     });

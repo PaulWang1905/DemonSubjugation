@@ -40,3 +40,19 @@ loads only what the screen needs). They are used unmodified.
 | Sharp · 楷体 Kai | LXGW WenKai Mono by LXGW (https://github.com/lxgw/LxgwWenKai), web build `lxgw-wenkai-webfont` 1.7.0 by Chawye Hsu | [LXGWWenKai-OFL.txt](licenses/LXGWWenKai-OFL.txt) |
 | Sharp · 黑体 Hei | Noto Sans SC (Google), letters from Noto Sans Mono (The Noto Project Authors); `@fontsource` builds | [NotoSansSC-OFL.txt](licenses/NotoSansSC-OFL.txt), [NotoSansMono-OFL.txt](licenses/NotoSansMono-OFL.txt) |
 | Sharp · 宋体 Song | Noto Serif SC (Google), letters from Courier Prime (The Courier Prime Project Authors); `@fontsource` builds | [NotoSerifSC-OFL.txt](licenses/NotoSerifSC-OFL.txt), [CourierPrime-OFL.txt](licenses/CourierPrime-OFL.txt) |
+
+### Letters for Sharp text
+
+The Letters choice (shown with Sharp text) draws English letters and numbers
+in one of these monospaced fonts, unmodified `@fontsource` builds (Latin
+only), loaded only when chosen:
+
+| Letters | Font | Licence |
+| --- | --- | --- |
+| IBM Plex Mono | IBM Plex Mono, © 2017 IBM Corp. | [IBMPlexMono-OFL.txt](licenses/IBMPlexMono-OFL.txt) |
+| JetBrains Mono | JetBrains Mono, © 2020 The JetBrains Mono Project Authors | [JetBrainsMono-OFL.txt](licenses/JetBrainsMono-OFL.txt) |
+| Fira Mono | Fira Mono, © 2012-2015 The Mozilla Foundation and Telefonica S.A. (Google Fonts build) | [FiraMono-OFL.txt](licenses/FiraMono-OFL.txt) |
+| Space Mono | Space Mono, © 2016 The Space Mono Project Authors | [SpaceMono-OFL.txt](licenses/SpaceMono-OFL.txt) |
+| Atkinson Hyperlegible Mono | Atkinson Hyperlegible Mono, © 2020-2024 The Atkinson Hyperlegible Mono Project Authors (Braille Institute of America) | [AtkinsonHyperlegibleMono-OFL.txt](licenses/AtkinsonHyperlegibleMono-OFL.txt) |
+| Courier Prime | Courier Prime (above) | [CourierPrime-OFL.txt](licenses/CourierPrime-OFL.txt) |
+| VT323 | VT323, © 2011 The VT323 Project Authors (Peter Hull) | [VT323-OFL.txt](licenses/VT323-OFL.txt) |

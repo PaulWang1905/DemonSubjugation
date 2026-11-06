@@ -49,6 +49,10 @@ the right to use.
   黑体 Hei (Noto Sans SC) and 宋体 Song (Noto Serif SC) draw text at full
   resolution the same on every device; each loads only when chosen (and
   WenKai only the parts with characters on screen).
+- **Letters** (with Sharp text): English letters and numbers in a font of
+  their own, whatever the Chinese style: IBM Plex Mono, JetBrains Mono, Fira
+  Mono, Space Mono, Atkinson Hyperlegible Mono, Courier Prime or VT323 (old
+  terminal), all bundled and loaded only when chosen.
 - **Effect**: LCD (each lit pixel a cell of a handheld screen, with a fine
   gap between lit cells and a clean background; Sharp text gets the same
   cells), LCD + shadow (lit cells and text also cast a soft shadow on the
