@@ -45,6 +45,15 @@ the right to use.
   and the player checks the pixels each frame, so text that menus or borders
   cover keeps the covering pixels. **Pixel (original)** keeps the 16×16
   bitmap text, using HZK16/ASC16 when added.
+- **Sharp text with bundled fonts**: Sharp · 楷体 Kai (LXGW WenKai Mono),
+  黑体 Hei (Noto Sans SC) and 宋体 Song (Noto Serif SC) draw text at full
+  resolution the same on every device; each loads only when chosen (and
+  WenKai only the parts with characters on screen).
+- **Effect**: LCD (each game pixel a cell of a handheld screen, with a fine
+  gap), LCD + shadow (the cells casting a soft shadow) and Smooth
+  (experimental: Scale2x twice, rounding off diagonal edges while keeping
+  dithering and single pixels). Effects draw at the display's resolution and
+  work with every Text choice and Map view.
 - **Bundled pixel fonts**: four more Text choices draw with open-source
   pixel fonts in the device's 16-pixel layout, so games look like the
   handheld without the original font files, each with its own Chinese

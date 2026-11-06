@@ -8,7 +8,7 @@ import { Keypad } from "./Keypad";
 import { DebugMenu } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
-import { HiresText, hiresScale, type TextStyle } from "./hiresText";
+import { effectScale, HiresText, hiresScale, type ScreenEffect, type TextStyle } from "./hiresText";
 import { FONT_SETS, isFontSet, loadFontSet, loadSmallFonts, SMALL_FONT_CREDIT, type FontSetId } from "./fonts";
 
 /** Pixel text with the uploaded files (or the device fallback), a bundled pixel font, or Sharp. */
@@ -28,6 +28,7 @@ interface Props {
 }
 
 type ScreenSize = "fit" | "large" | "fill";
+const effectOf = (v: string): ScreenEffect => (v === "lcd" || v === "lcd-shadow" || v === "smooth" ? v : "none");
 /** Map view: how many extra tile columns (each side) and rows (above and below) to show. */
 type MapView = "normal" | "wide" | "widest";
 const MAP_VIEWS: Record<MapView, { label: string; mx: number; my: number }> = {
@@ -86,6 +87,10 @@ export function Player({ game, fonts, onExit }: Props) {
   const [generation, setGeneration] = useState(0);
   const [speed, setSpeed] = useState(() => Number(pref("speed", "1")) || 1);
   const [paletteId, setPaletteId] = useState<string>(() => pref<string>("palette", "lcd"));
+  // How the picture is drawn at the display's resolution (LCD cells, smoothed).
+  const [effect, setEffect] = useState<ScreenEffect>(() => effectOf(pref<string>("effect", "none")));
+  const effectRef = useRef(effect);
+  effectRef.current = effect;
   const [scale, setScale] = useState(3);
   // Screen size on a computer: whole device pixels per game pixel inside the
   // page ("fit"); or bigger, wider than the page and in quarter-pixel steps:
@@ -225,7 +230,7 @@ export function Player({ game, fonts, onExit }: Props) {
     const cv = canvasRef.current!;
     const ctx = cv.getContext("2d")!;
     let image = ctx.createImageData(engine.width, engine.height);
-    const hires: Partial<Record<TextStyle, HiresText>> = {};
+    const hires: Partial<Record<TextStyle | "pixel", HiresText>> = {};
     let frame = engine.render();
     let raf = 0;
     let last = performance.now();
@@ -254,7 +259,9 @@ export function Player({ game, fonts, onExit }: Props) {
       const mode = textRef.current;
       const fw = engine.width;
       const fh = engine.height;
-      if (mode === "pixel" || fontSetOf(mode)) {
+      const fx = effectRef.current;
+      const pixelText = mode === "pixel" || !!fontSetOf(mode);
+      if (pixelText && fx === "none") {
         if (cv.width !== fw || cv.height !== fh) {
           cv.width = fw;
           cv.height = fh;
@@ -263,8 +270,12 @@ export function Player({ game, fonts, onExit }: Props) {
         applyPalette(frame, image.data, pal);
         ctx.putImageData(image, 0, 0);
       } else {
-        const h = (hires[mode as TextStyle] ??= new HiresText(mode as TextStyle));
-        h.draw(cv, frame, engine.textLayer(), pal, hiresScale(scaleRef.current), fw, fh);
+        // Sharp text and/or a picture effect, at the display's resolution
+        const style = pixelText ? null : (mode as TextStyle);
+        const key = style ?? "pixel";
+        const h = (hires[key] ??= new HiresText(style));
+        const k = fx === "none" ? hiresScale(scaleRef.current) : effectScale(scaleRef.current, fw);
+        h.draw(cv, frame, style ? engine.textLayer() : [], pal, k, fw, fh, fx);
       }
       raf = requestAnimationFrame(loop);
     };
@@ -506,6 +517,21 @@ export function Player({ game, fonts, onExit }: Props) {
           ))}
         </select>
       </label>
+      <label className="field" title="How the picture is drawn: LCD shows each game pixel as a cell of a handheld screen (with a soft shadow if chosen); Smooth rounds off jagged edges (experimental)">
+        <span className="lbl">Effect</span>
+        <select
+          value={effect}
+          onChange={(e) => {
+            setEffect(effectOf(e.target.value));
+            setPref("effect", e.target.value);
+          }}
+        >
+          <option value="none">None</option>
+          <option value="lcd">LCD</option>
+          <option value="lcd-shadow">LCD + shadow</option>
+          <option value="smooth">Smooth (experimental)</option>
+        </select>
+      </label>
       <label className="field" title="Sharp redraws text in your device's fonts at full resolution; Pixel (original) uses the HZK16 / ASC16 files you added; the other Pixel choices are open-source pixel fonts that come with the player">
         <span className="lbl">Text</span>
         <select
@@ -517,6 +543,9 @@ export function Player({ game, fonts, onExit }: Props) {
         >
           <option value="sans">Sharp</option>
           <option value="serif">Sharp serif</option>
+          <option value="kai">Sharp · 楷体 Kai (LXGW WenKai)</option>
+          <option value="hei">Sharp · 黑体 Hei (Noto Sans)</option>
+          <option value="song">Sharp · 宋体 Song (Noto Serif)</option>
           <option value="pixel">Pixel (original)</option>
           {FONT_SETS.map((f) => (
             <option key={f.id} value={`pixel:${f.id}`}>
@@ -710,6 +739,7 @@ export function Player({ game, fonts, onExit }: Props) {
           <div className="bezel">
             <canvas
               ref={canvasRef}
+              className={effect !== "none" ? "fx" : undefined}
               style={{
                 width: frameW * scale,
                 height: frameH * scale,

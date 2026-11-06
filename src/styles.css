@@ -763,6 +763,11 @@ footer {
   border-radius: 3px;
 }
 
+/* a picture effect is drawn at the display's resolution: show it as it is */
+.bezel canvas.fx {
+  image-rendering: auto;
+}
+
 .crash {
   position: absolute;
   inset: 8px;

@@ -29,3 +29,15 @@ author). Licences: [BoutiqueBitmap9x9-OFL.txt](licenses/BoutiqueBitmap9x9-OFL.tx
 [BoutiqueBitmap7x7-OFL.txt](licenses/BoutiqueBitmap7x7-OFL.txt) (SIL OFL 1.1),
 [X11-misc-fixed-COPYING.txt](licenses/X11-misc-fixed-COPYING.txt) (public
 domain, from X.Org font-misc-misc 1.1.3).
+
+## Sharp text fonts
+
+The Sharp · 楷体 / 黑体 / 宋体 choices draw text at full resolution with these
+fonts, bundled from npm and split into files by character range (the browser
+loads only what the screen needs). They are used unmodified.
+
+| Choice | Fonts | Licence |
+| --- | --- | --- |
+| Sharp · 楷体 Kai | LXGW WenKai Mono by LXGW (https://github.com/lxgw/LxgwWenKai), web build `lxgw-wenkai-webfont` 1.7.0 by Chawye Hsu | [LXGWWenKai-OFL.txt](licenses/LXGWWenKai-OFL.txt) |
+| Sharp · 黑体 Hei | Noto Sans SC (Google), letters from Noto Sans Mono (The Noto Project Authors); `@fontsource` builds | [NotoSansSC-OFL.txt](licenses/NotoSansSC-OFL.txt), [NotoSansMono-OFL.txt](licenses/NotoSansMono-OFL.txt) |
+| Sharp · 宋体 Song | Noto Serif SC (Google), letters from Courier Prime (The Courier Prime Project Authors); `@fontsource` builds | [NotoSerifSC-OFL.txt](licenses/NotoSerifSC-OFL.txt), [CourierPrime-OFL.txt](licenses/CourierPrime-OFL.txt) |
