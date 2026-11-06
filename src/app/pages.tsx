@@ -29,9 +29,6 @@ function scrollProgress(el: HTMLElement, top: number): number {
 /** The scroll-driven hero runs on big enough screens, unless motion is reduced. */
 const SCROLL_HERO = "(min-width: 1000px) and (min-height: 620px) and (prefers-reduced-motion: no-preference)";
 
-/** Smaller screens start with the title hidden below the game (it rises when scrolled to). */
-const revealAtFirst = () =>
-  typeof matchMedia === "function" && !matchMedia(SCROLL_HERO).matches && !matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDemo; onOpenGames: (files: File[]) => void; busy: boolean }) {
   const [preview, setPreview] = useState(true);
@@ -40,7 +37,8 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
   const choose = () => input.current?.click();
   const [drag, setDrag] = useState(false);
   const hidePreview = useCallback(() => setPreview(false), []);
-  const t = SITE_TEXT[useSiteLang()];
+  const lang = useSiteLang();
+  const t = SITE_TEXT[lang];
   const hero = useRef<HTMLElement>(null);
   const monitor = useRef<HTMLElement>(null);
 
@@ -100,6 +98,7 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
     const ro = new ResizeObserver(queue);
     ro.observe(mon);
     ro.observe(el);
+    if (copy) ro.observe(copy); // (its height changes with the language, which moves the game's place)
     addEventListener("scroll", queue, { passive: true });
     addEventListener("resize", queue);
     mq.addEventListener("change", queue);
@@ -125,7 +124,8 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
     );
     for (const l of lines.current) if (l) io.observe(l);
     return () => io.disconnect();
-  }, []);
+    // (again after a language change, in case the lines were replaced)
+  }, [lang]);
 
   const games = [
     { key: "bell" as const, art: "THE SILENT BELL", name: "The Silent Bell", meta: t.bellMeta, text: t.bellText },
@@ -150,7 +150,7 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
   const noArrow = (s: string) => s.replace(/^▶\s*/, "").replace(/\s*→$/, "");
   return (
     <div className="h-home">
-      <section className={revealAtFirst() ? "h-hero h-reveal" : "h-hero"} id="top" ref={hero}>
+      <section className="h-hero" id="top" ref={hero}>
         <div className="h-stage">
           <div className="h-hero-copy">
             <h1 className="h-title">
@@ -254,7 +254,7 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
         <div className="h-show-body">
           <div className="h-show-lines">
             {t.better.map((b, i) => (
-              <article key={b.title} className={i === shown ? "on" : undefined} data-i={i} ref={(el) => {
+              <article key={b.img} className={i === shown ? "on" : undefined} data-i={i} ref={(el) => {
                   lines.current[i] = el;
                 }}
               >
