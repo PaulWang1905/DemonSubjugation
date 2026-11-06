@@ -8,7 +8,7 @@ import { Keypad } from "./Keypad";
 import { DebugMenu } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
-import { effectScale, HiresText, hiresScale, SHARP_STYLES, type ScreenEffect, type TextStyle } from "./hiresText";
+import { HiresText, outputScale, SHARP_STYLES, type ScreenEffect, type TextStyle } from "./hiresText";
 import { boldSmallFonts, FONT_SETS, isFontSet, loadFontSet, loadSmallFonts, SMALL_FONT_CREDIT, type FontSetId } from "./fonts";
 
 /** Pixel text with the uploaded files (or the device fallback), a bundled pixel font, or Sharp. */
@@ -283,7 +283,7 @@ export function Player({ game, fonts, onExit }: Props) {
         const style = pixelText ? null : (mode as TextStyle);
         const key = style ?? "pixel";
         const h = (hires[key] ??= new HiresText(style));
-        const k = fx === "none" ? hiresScale(scaleRef.current) : effectScale(scaleRef.current, fw);
+        const k = outputScale(scaleRef.current, fw);
         h.draw(cv, frame, style || fx === "smooth" ? engine.textLayer() : [], pal, k, fw, fh, fx);
       }
       raf = requestAnimationFrame(loop);

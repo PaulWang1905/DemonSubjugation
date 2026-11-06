@@ -55,21 +55,32 @@ function shade(c: number, p: Palette): string {
   return `rgb(${cr},${cg},${cb})`;
 }
 
-/** Output scale for a screen shown `cssScale` times larger on this display. */
+/** A whole-number output scale, for pixel art the browser enlarges with hard edges. */
 export function hiresScale(cssScale: number): number {
   const dpr = typeof devicePixelRatio === "number" && devicePixelRatio > 0 ? devicePixelRatio : 1;
   return Math.max(2, Math.min(8, Math.ceil(cssScale * dpr)));
 }
 
 /**
- * Output scale for the picture effects: as near as possible one output pixel
- * per screen pixel, so the LCD grid lines land on whole pixels.
+ * Output scale for a screen shown `cssScale` times larger on this display:
+ * one output pixel per screen pixel (not a whole number at most sizes), so the
+ * browser shows the picture as drawn instead of resampling it, which would
+ * blur the text and smear the LCD's fine gaps into grey.
  */
-export function effectScale(cssScale: number, frameWidth = SCREEN_WIDTH): number {
+export function outputScale(cssScale: number, frameWidth = SCREEN_WIDTH): number {
   const dpr = typeof devicePixelRatio === "number" && devicePixelRatio > 0 ? devicePixelRatio : 1;
   // at most 4096 output pixels across (the wider map view at high scales)
-  return Math.max(2, Math.min(16, Math.floor(4096 / frameWidth), Math.round(cssScale * dpr)));
+  return Math.max(1, Math.min(4096 / frameWidth, cssScale * dpr));
 }
+
+/** How strongly the LCD's lit cells and text cast their shadow, and how far. */
+const SHADOW_ALPHA = 0.15;
+const shadowOffset = (k: number) => Math.max(1, Math.round(k * 0.25));
+/**
+ * How much of the glass shows in the gaps between lit cells: enough to see
+ * the cells, little enough that dark areas stay dark.
+ */
+const GAP_ALPHA = 0.3;
 
 /** The gap between LCD cells, in output pixels (none when cells are too small to spare one). */
 function lcdGap(k: number): number {
@@ -241,8 +252,8 @@ export class HiresText {
     const cells = marks;
     if (!this.style) marks = [];
     this.size(fw, fh);
-    const W = fw * scale;
-    const H = fh * scale;
+    const W = Math.round(fw * scale);
+    const H = Math.round(fh * scale);
     let resized = false;
     if (out.width !== W || out.height !== H) {
       out.width = W;
@@ -283,7 +294,7 @@ export class HiresText {
     // 2. the picture, scaled up
     applyPalette(work, this.image.data, palette);
     const lcd = effect === "lcd" || effect === "lcd-shadow";
-    if (lcd) this.drawLcd(ctx, palette, scale, effect === "lcd-shadow");
+    if (lcd) this.drawLcd(ctx, palette, W, H, effect === "lcd-shadow");
     else if (effect === "smooth") this.drawSmooth(ctx, W, H, cells);
     else {
       this.smallCtx.putImageData(this.image, 0, 0);
@@ -294,54 +305,50 @@ export class HiresText {
     // 3. the characters, on the parts of their cells nothing covers
     if (this.glyphs.size > 4000) this.glyphs.clear();
     const k = scale;
+    // (game pixel edges on whole output pixels, the same as the picture's)
+    const X = (x: number) => Math.round((x * W) / fw);
+    const Y = (y: number) => Math.round((y * H) / fh);
     // (on the LCD with shadow, the characters cast one too)
-    const d = effect === "lcd-shadow" ? Math.max(1, Math.round(k * 0.3)) : 0;
+    const d = effect === "lcd-shadow" ? shadowOffset(k) : 0;
     for (const m of marks) {
       const g = this.glyph(m.text, m.w, m.h ?? 16, shade(m.fg, palette), k);
       for (const [cx, cy, cw, ch] of visibleRects(m)) {
+        const x0 = X(m.x + cx);
+        const y0 = Y(m.y + cy);
+        const dw = X(m.x + cx + cw) - x0;
+        const dh = Y(m.y + cy + ch) - y0;
         if (d) {
-          ctx.globalAlpha = 0.2;
-          ctx.drawImage(g, cx * k, cy * k, cw * k, ch * k, (m.x + cx) * k + d, (m.y + cy) * k + d, cw * k, ch * k);
+          ctx.globalAlpha = SHADOW_ALPHA;
+          ctx.drawImage(g, cx * k, cy * k, cw * k, ch * k, x0 + d, y0 + d, dw, dh);
           ctx.globalAlpha = 1;
         }
-        ctx.drawImage(g, cx * k, cy * k, cw * k, ch * k, (m.x + cx) * k, (m.y + cy) * k, cw * k, ch * k);
+        ctx.drawImage(g, cx * k, cy * k, cw * k, ch * k, x0, y0, dw, dh);
       }
     }
-    if (lcd) this.lcdGaps(ctx, palette, k);
+    if (lcd) this.lcdGaps(ctx, palette, W, H);
   }
 
   /**
    * The LCD look, in three layers like the real screen: the glass (with a
    * faint outline of every cell), the soft shadow the lit cells cast on it,
-   * and the lit cells themselves. The gaps between lit cells are drawn after
-   * the text (lcdGaps), so Sharp text sits on the same screen.
+   * and the lit cells themselves, solid and edged on whole output pixels. The
+   * gaps between lit cells are drawn after the text (lcdGaps), so Sharp text
+   * sits on the same screen.
    */
-  private drawLcd(ctx: Ctx2D, palette: Palette, k: number, shadow: boolean): void {
+  private drawLcd(ctx: Ctx2D, palette: Palette, W: number, H: number, shadow: boolean): void {
     const fw = this.fw;
     const fh = this.fh;
-    const W = fw * k;
-    const H = fh * k;
-    // the lit (non-background) pixels alone, on a transparent layer
-    if (!this.mask) {
-      const s = surface(fw, fh);
-      this.mask = { surface: s, ctx: s.getContext("2d") as Ctx2D, image: new ImageData(fw, fh) };
-    }
+    const k = W / fw;
+    const X = (x: number) => Math.round((x * W) / fw);
+    const Y = (y: number) => Math.round((y * H) / fh);
     const src = this.image.data;
-    const m = this.mask.image.data;
     const [lr, lg, lb] = palette.light;
-    for (let i = 0; i < src.length; i += 4) {
-      const off = src[i] === lr && src[i + 1] === lg && src[i + 2] === lb;
-      m[i] = src[i];
-      m[i + 1] = src[i + 1];
-      m[i + 2] = src[i + 2];
-      m[i + 3] = off ? 0 : 255;
-    }
-    this.mask.ctx.putImageData(this.mask.image, 0, 0);
+    const isOff = (i: number) => src[i] === lr && src[i + 1] === lg && src[i + 2] === lb;
 
     // the glass: background colour, a slight darkening towards the edges and
     // a barely visible outline of the unlit cells (cached)
     const gap = lcdGap(k);
-    const key = `${W}x${H}:${k}:${palette.light.join()}:${palette.dark.join()}`;
+    const key = `${W}x${H}:${fw}x${fh}:${palette.light.join()}:${palette.dark.join()}`;
     if (!this.glass || this.glass.key !== key) {
       const g = surface(W, H);
       const gc = g.getContext("2d") as Ctx2D;
@@ -349,53 +356,93 @@ export class HiresText {
       gc.fillRect(0, 0, W, H);
       const v = gc.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.6);
       v.addColorStop(0, "rgba(0,0,0,0)");
-      v.addColorStop(1, "rgba(0,0,0,0.07)");
+      v.addColorStop(1, "rgba(0,0,0,0.05)");
       gc.fillStyle = v;
       gc.fillRect(0, 0, W, H);
       if (gap) {
         const [dr, dg, db] = palette.dark;
-        gc.fillStyle = `rgba(${dr},${dg},${db},0.045)`;
-        for (let x = 1; x < fw; x++) gc.fillRect(x * k - gap, 0, gap, H);
-        for (let y = 1; y < fh; y++) gc.fillRect(0, y * k - gap, W, gap);
+        gc.fillStyle = `rgba(${dr},${dg},${db},0.04)`;
+        for (let x = 1; x < fw; x++) gc.fillRect(X(x) - gap, 0, gap, H);
+        for (let y = 1; y < fh; y++) gc.fillRect(0, Y(y) - gap, W, gap);
       }
       this.glass = { key, surface: g };
     }
     ctx.drawImage(this.glass.surface, 0, 0);
 
     if (shadow) {
-      // drawn up from the small layer with smoothing, so the shadow is soft
-      const d = Math.max(1, Math.round(k * 0.3));
+      // the lit pixels alone, drawn up with smoothing so the shadow is soft
+      if (!this.mask) {
+        const s = surface(fw, fh);
+        this.mask = { surface: s, ctx: s.getContext("2d") as Ctx2D, image: new ImageData(fw, fh) };
+      }
+      const m = this.mask.image.data;
+      for (let i = 0; i < src.length; i += 4) {
+        m[i] = src[i];
+        m[i + 1] = src[i + 1];
+        m[i + 2] = src[i + 2];
+        m[i + 3] = isOff(i) ? 0 : 255;
+      }
+      this.mask.ctx.putImageData(this.mask.image, 0, 0);
+      const d = shadowOffset(k);
       ctx.imageSmoothingEnabled = true;
-      ctx.globalAlpha = 0.2;
+      ctx.globalAlpha = SHADOW_ALPHA;
       ctx.drawImage(this.mask.surface, d, d, W, H);
       ctx.globalAlpha = 1;
     }
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.mask.surface, 0, 0, W, H);
+
+    // the lit cells: runs of one colour in each row, as rectangles
+    const paths = new Map<number, Path2D>();
+    for (let y = 0; y < fh; y++) {
+      const y0 = Y(y);
+      const y1 = Y(y + 1);
+      let x = 0;
+      while (x < fw) {
+        const i = (y * fw + x) * 4;
+        if (isOff(i)) {
+          x++;
+          continue;
+        }
+        const c = (src[i] << 16) | (src[i + 1] << 8) | src[i + 2];
+        let e = x + 1;
+        while (e < fw) {
+          const j = (y * fw + e) * 4;
+          if (isOff(j) || ((src[j] << 16) | (src[j + 1] << 8) | src[j + 2]) !== c) break;
+          e++;
+        }
+        let p = paths.get(c);
+        if (!p) paths.set(c, (p = new Path2D()));
+        p.rect(X(x), y0, X(e) - X(x), y1 - y0);
+        x = e;
+      }
+    }
+    for (const [c, p] of paths) {
+      ctx.fillStyle = `rgb(${c >> 16},${(c >> 8) & 0xff},${c & 0xff})`;
+      ctx.fill(p);
+    }
   }
 
   /**
-   * The thin gaps between the LCD's cells, in the glass colour and half
+   * The thin gaps between the LCD's cells, in the glass colour and partly
    * see-through: they show between lit cells (and across Sharp text) and
    * vanish on the unlit background.
    */
-  private lcdGaps(ctx: Ctx2D, palette: Palette, k: number): void {
-    const gap = lcdGap(k);
-    if (!gap) return;
+  private lcdGaps(ctx: Ctx2D, palette: Palette, W: number, H: number): void {
     const fw = this.fw;
     const fh = this.fh;
-    const W = fw * k;
-    const H = fh * k;
-    const key = `${W}x${H}:${k}:${palette.light.join()}`;
+    const gap = lcdGap(W / fw);
+    if (!gap) return;
+    const X = (x: number) => Math.round((x * W) / fw);
+    const Y = (y: number) => Math.round((y * H) / fh);
+    const key = `${W}x${H}:${fw}x${fh}:${palette.light.join()}`;
     if (!this.grid || this.grid.key !== key) {
       const g = surface(W, H);
       const gc = g.getContext("2d") as Ctx2D;
       const [lr, lg, lb] = palette.light;
-      gc.fillStyle = `rgba(${lr},${lg},${lb},0.5)`;
-      for (let x = 1; x < fw; x++) gc.fillRect(x * k - gap, 0, gap, H);
+      gc.fillStyle = `rgba(${lr},${lg},${lb},${GAP_ALPHA})`;
+      for (let x = 1; x < fw; x++) gc.fillRect(X(x) - gap, 0, gap, H);
       for (let y = 1; y < fh; y++) {
         // (the crossings are not drawn twice, so they are no lighter)
-        for (let x = 0; x < fw; x++) gc.fillRect(x * k, y * k - gap, k - (x < fw - 1 ? gap : 0), gap);
+        for (let x = 0; x < fw; x++) gc.fillRect(X(x), Y(y) - gap, X(x + 1) - X(x) - (x < fw - 1 ? gap : 0), gap);
       }
       this.grid = { key, surface: g };
     }
@@ -476,7 +523,7 @@ export class HiresText {
     // a bundled font draws once its file (or the part with this character) is in;
     // until then the fallback font stands in and is not kept
     const ready = loadSharpFont(style, spec, text, () => this.glyphs.delete(key), this.pending);
-    s = surface(w * scale, h * scale);
+    s = surface(Math.ceil(w * scale), Math.ceil(h * scale));
     const ctx = s.getContext("2d") as Ctx2D;
     ctx.fillStyle = color;
     ctx.textAlign = "center";

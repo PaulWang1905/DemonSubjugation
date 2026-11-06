@@ -3,7 +3,7 @@ import { createEngine, Keys, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, type Engine, 
 import type { SaveStorage } from "../engine/java";
 import { createDeviceFont } from "./deviceFont";
 import { demoArchive } from "./demoGame";
-import { HiresText, hiresScale } from "./hiresText";
+import { HiresText, hiresScale, outputScale } from "./hiresText";
 import { applyPalette, PALETTES } from "./palettes";
 import { loadFontSet } from "./fonts";
 
@@ -61,7 +61,7 @@ export function AttractScreen({ onError }: { onError?: () => void }) {
       const css = c.clientWidth / SCREEN_WIDTH || 2;
       const frame = engine!.render();
       if (!pixelFont) {
-        text.draw(c, frame, engine!.textLayer(), palette, hiresScale(css));
+        text.draw(c, frame, engine!.textLayer(), palette, outputScale(css));
         return;
       }
       // the 160x96 frame, scaled up with hard pixel edges
