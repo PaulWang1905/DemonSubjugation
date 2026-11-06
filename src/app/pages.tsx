@@ -1,6 +1,6 @@
 // The site's pages besides Games and the editor: Home, Guide and About,
 // and the footer they share.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AttractScreen } from "./AttractScreen";
 import { GitHubMark, REPO_URL } from "./links";
 import { Link } from "./router";
@@ -29,6 +29,10 @@ function scrollProgress(el: HTMLElement, top: number): number {
 /** The scroll-driven hero runs on big enough screens, unless motion is reduced. */
 const SCROLL_HERO = "(min-width: 1000px) and (min-height: 620px) and (prefers-reduced-motion: no-preference)";
 
+/** Smaller screens start with the title hidden below the game (it rises when scrolled to). */
+const revealAtFirst = () =>
+  typeof matchMedia === "function" && !matchMedia(SCROLL_HERO).matches && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDemo; onOpenGames: (files: File[]) => void; busy: boolean }) {
   const [preview, setPreview] = useState(true);
   // the visitor's own game: a file picker, and the upload section takes a drop
@@ -41,8 +45,9 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
   const monitor = useRef<HTMLElement>(null);
 
   // The hero: the live game first fills the window; scrolling shrinks it to
-  // its place on the right while the title comes in on the left.
-  useEffect(() => {
+  // its place while the title comes in below it. (A layout effect: the first
+  // state is set before the page is painted, so the end state never flashes.)
+  useLayoutEffect(() => {
     const el = hero.current;
     const mon = monitor.current;
     if (!el || !mon) return;
@@ -77,11 +82,13 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
       if (!stage) return;
       const w = mon.offsetWidth;
       const h = mon.offsetHeight;
-      const pad = 28;
-      const s0 = Math.min((stage.clientWidth - 2 * pad) / w, (stage.clientHeight - 2 * pad) / h);
+      // (room above, and below for the scroll hint)
+      const top = 20;
+      const bottom = 84;
+      const s0 = Math.min((stage.clientWidth - 2 * top) / w, (stage.clientHeight - top - bottom) / h);
       const x0 = (stage.clientWidth - w * s0) / 2 - mon.offsetLeft;
-      const y0 = (stage.clientHeight - h * s0) / 2 - mon.offsetTop;
-      const k = Math.min(1, p / 0.5);
+      const y0 = top + (stage.clientHeight - top - bottom - h * s0) / 2 - mon.offsetTop;
+      const k = Math.min(1, p / 0.45);
       const q = 1 - k * k * (3 - 2 * k); // smoothstep
       mon.style.transform = `translate(${(x0 * q).toFixed(1)}px, ${(y0 * q).toFixed(1)}px) scale(${(1 + (s0 - 1) * q).toFixed(4)})`;
     };
@@ -143,7 +150,7 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
   const noArrow = (s: string) => s.replace(/^▶\s*/, "").replace(/\s*→$/, "");
   return (
     <div className="h-home">
-      <section className="h-hero" id="top" ref={hero}>
+      <section className={revealAtFirst() ? "h-hero h-reveal" : "h-hero"} id="top" ref={hero}>
         <div className="h-stage">
           <div className="h-hero-copy">
             <h1 className="h-title">

@@ -3291,10 +3291,11 @@ a:hover .h-row-link .h-arrow {
 }
 .h-hero.h-reveal {
   --p: 0;
-  transition: --p 1.5s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
+/* (the transition only on the way in, so nothing fades out on load) */
 .h-hero.h-reveal.h-in {
   --p: 1;
+  transition: --p 1.5s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .h-hero::before {
   content: "";
@@ -3341,24 +3342,24 @@ a:hover .h-row-link .h-arrow {
   transform: translateY(calc((1 - var(--in)) * 28px));
 }
 .h-title span {
-  --from: calc(0.4 + var(--i, 0) * 0.08);
+  --from: calc(0.36 + var(--i, 0) * 0.07);
 }
 .h-kicker {
   --from: 0.36;
 }
 .h-lead {
-  --from: 0.58;
+  --from: 0.52;
 }
 .h-cta,
 .h-textlink {
-  --from: 0.66;
+  --from: 0.6;
 }
 .h-scroll-hint {
   display: none;
 }
 @media (min-width: 1000px) and (min-height: 620px) and (prefers-reduced-motion: no-preference) {
   .h-hero {
-    height: 250vh;
+    height: 215vh;
   }
   .h-stage {
     position: sticky;
@@ -3547,6 +3548,8 @@ html:lang(zh-CN) .h-title span + span {
   display: block;
   width: 100%;
   height: auto;
+  /* the game's 160 x 96 from the start, before the canvas has its size */
+  aspect-ratio: 5 / 3;
   image-rendering: pixelated;
 }
 .h-monitor figcaption {
