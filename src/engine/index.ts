@@ -4,13 +4,13 @@ import { MainGame } from "./fmj/Game";
 import { Player } from "./fmj/characters/Player";
 import { Combat } from "./fmj/combat/Combat";
 import { EngineSettings } from "./fmj/config/EngineSettings";
-import { WideView } from "./fmj/config/WideView";
+import { WideView, type DialogPart } from "./fmj/config/WideView";
 import { setUiLanguage, type UiLanguage } from "./fmj/i18n";
 
 export type { UiLanguage };
 import { glyphChar, glyphVisibility, TextRender } from "./fmj/graphics/TextRender";
 import { Util } from "./fmj/graphics/Util";
-import { Canvas } from "./graphics";
+import { Bitmap, Canvas } from "./graphics";
 import { DatLib } from "./fmj/lib/DatLib";
 import { registerResources } from "./fmj/registry";
 import { SaveLoadGame } from "./fmj/scene/SaveLoadGame";
@@ -196,9 +196,28 @@ export function createEngine(opts: EngineOptions): Engine {
   WideView.my = 0;
   WideView.screen = game.canvas;
   game.canvas.onCover = () => {
-    if (WideView.sceneDrawn) WideView.covered = true;
+    WideView.last = "cover";
+    WideView.dialog = false;
   };
   let wide: { canvas: Canvas; ref: Canvas; frame: Uint8ClampedArray } | null = null;
+  // what the view showed last frame, kept while the game does not redraw
+  let lastShowMap = false;
+  let lastDialog = false;
+  let lastDialogTop = 50;
+  // the portrait's opaque pixels, drawn on a transparent bitmap
+  let headMask: { part: DialogPart; bmp: Bitmap } | null = null;
+  const maskOf = (part: DialogPart | null): Uint32Array | null => {
+    if (!part) return null;
+    const h = headMask?.part;
+    if (!h || h.key !== part.key || h.x !== part.x || h.y !== part.y) {
+      const bmp = new Bitmap(Global.SCREEN_WIDTH, Global.SCREEN_HEIGHT, new Uint32Array(Global.SCREEN_WIDTH * Global.SCREEN_HEIGHT));
+      part.draw(new Canvas(bmp), part.x, part.y);
+      headMask = { part, bmp };
+      return bmp.buffer;
+    }
+    return headMask!.bmp.buffer;
+  };
+  let lastHead: DialogPart | null = null;
   const compose = (): void => {
     const { mx, my } = WideView;
     const W = Global.SCREEN_WIDTH + 32 * mx;
@@ -210,11 +229,23 @@ export function createEngine(opts: EngineOptions): Engine {
     const big = wide.canvas;
     big.drawColor(Global.COLOR_WHITE);
     const scene = game.mainScene;
-    const showMap = WideView.sceneDrawn && !WideView.covered && !!scene?.currentMap;
+    let showMap = WideView.last === "scene" ? true : WideView.last === "cover" ? false : lastShowMap;
+    let dialog = WideView.last === null ? lastDialog : WideView.dialog;
+    const top = WideView.last === null ? lastDialogTop : WideView.dialogTop;
+    const head = WideView.last === null ? lastHead : WideView.dialogHead;
+    showMap &&= !!scene?.currentMap;
+    dialog &&= showMap;
+    lastShowMap = showMap;
+    lastDialog = dialog;
+    lastDialogTop = top;
+    lastHead = head;
     const out = big.buffer;
     const src = game.canvas.buffer;
     const ox = 16 * mx;
     const oy = 16 * my;
+    // the dialogue box (and portrait) sit at the bottom of the wider view, as on the device
+    const dy = dialog ? oy : 0;
+    const mask = dialog ? maskOf(head) : null;
     if (showMap) {
       scene.drawSceneAt(big, mx, my);
       const ref = wide.ref;
@@ -224,7 +255,9 @@ export function createEngine(opts: EngineOptions): Engine {
       for (let y = 0; y < Global.SCREEN_HEIGHT; y++) {
         for (let x = 0; x < Global.SCREEN_WIDTH; x++) {
           const i = y * Global.SCREEN_WIDTH + x;
-          if (src[i] !== rb[i]) out[(y + oy) * W + x + ox] = src[i];
+          const inBox = dialog && y >= top && x >= 9 && x <= 151;
+          if (inBox || (mask && mask[i] >>> 24)) out[(y + oy + dy) * W + x + ox] = src[i];
+          else if (src[i] !== rb[i]) out[(y + oy) * W + x + ox] = src[i];
         }
       }
     } else {
@@ -233,8 +266,7 @@ export function createEngine(opts: EngineOptions): Engine {
     Util.drawSideFramesAround(big);
   };
   const draw = (): void => {
-    WideView.sceneDrawn = false;
-    WideView.covered = false;
+    WideView.last = null;
     game.draw();
     if (WideView.mx || WideView.my) compose();
   };
@@ -301,7 +333,7 @@ export function createEngine(opts: EngineOptions): Engine {
         keep.push(g);
         const text = glyphChar(g);
         const hidden = vis.length === 4 ? (vis as [number, number, number, number]) : null;
-        if (text.trim()) out.push({ x: g.x + 16 * WideView.mx, y: g.y + 16 * WideView.my, w: g.w, h: g.h ?? 16, text, fg: g.fg, bg: g.bg, hidden });
+        if (text.trim()) out.push({ x: g.x + 16 * WideView.mx, y: g.y + 16 * WideView.my * (lastDialog && g.y + (g.h ?? 16) > lastDialogTop ? 2 : 1), w: g.w, h: g.h ?? 16, text, fg: g.fg, bg: g.bg, hidden });
       }
       bmp.glyphs = keep;
       return out;

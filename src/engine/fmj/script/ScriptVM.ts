@@ -9,6 +9,7 @@
 // that use them no longer abort.
 import { EngineSettings } from "../config/EngineSettings";
 import { DeviceFlags } from "../config/DeviceFlags";
+import { WideView } from "../config/WideView";
 import * as OriginalRules from "../combat/OriginalRules";
 import { rand16 } from "../combat/OriginalRules";
 import { CharacterState } from "../characters/Character";
@@ -59,6 +60,13 @@ class DrawSceneOnce extends OperateDrawOnce {
  * same box and portrait tab, grown upwards to hold more, smaller lines.
  * Returns the index of the first byte that did not fit.
  */
+/** Tell the wider map view where this frame's dialogue box and portrait are. */
+function wideDialog(top: number, head: ResImage | null, hx: number, hy: number): void {
+  WideView.dialog = true;
+  WideView.dialogTop = Math.floor(top);
+  WideView.dialogHead = head ? { key: head, draw: (c, x, y) => head.draw(c, 1, x, y), width: head.width, height: head.height, x: hx, y: hy } : null;
+}
+
 function drawCompactSay(canvas: Canvas, text: Int8Array, from: number, headImg: ResImage | null, size: number, paint: Paint): number {
   const maxLines = size === 12 ? 4 : 5;
   const bottom = 94;
@@ -86,6 +94,7 @@ function drawCompactSay(canvas: Canvas, text: Int8Array, from: number, headImg: 
   paint.color = Global.COLOR_WHITE;
   paint.style = PaintStyle.FILL;
   const r = new RectF(9, frameTop, 151, 96 - 0.5);
+  if (canvas === WideView.screen) wideDialog(frameTop, headImg, 13, textTop - 12);
   canvas.drawRectR(r, paint);
   paint.color = Global.COLOR_BLACK;
   paint.style = PaintStyle.STROKE;
@@ -324,6 +333,7 @@ export class ScriptVM extends Control {
               return;
             }
             const r = headImg == null ? rWithoutPic : rWithPic;
+            if (canvas === WideView.screen) wideDialog(r.top, headImg, 13, 46);
             paint.color = Global.COLOR_WHITE;
             paint.style = PaintStyle.FILL;
             canvas.drawRectR(r, paint);

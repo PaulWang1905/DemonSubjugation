@@ -137,7 +137,11 @@ export class ScreenMainGame extends BaseScreen {
   }
 
   drawScene(canvas: Canvas): void {
-    if (canvas === WideView.screen) WideView.sceneDrawn = true;
+    if (canvas === WideView.screen) {
+      WideView.last = "scene";
+      WideView.dialog = false;
+      WideView.dialogHead = null;
+    }
     this.drawSceneAt(canvas, 0, 0);
   }
 

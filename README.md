@@ -33,9 +33,11 @@ the right to use.
 - **Map view**: Original (9×6 tiles), Wider (13×8) or Widest (17×10). The
   game still runs on its 160×96 screen (same camera, scripts and events);
   the engine draws more of the map, its people and the hero around it while
-  the map is shown. Dialogue, menus and effects stay in the middle as on the
-  device (each frame keeps the pixels where the game's screen differs from
-  its plain map), and battles and full-screen pictures get plain margins.
+  the map is shown. Dialogue boxes (with their portraits) go to the bottom
+  of the view, as on the device; menus and effects stay in the middle (each
+  frame keeps the pixels where the game's screen differs from its plain map),
+  and battles and full-screen pictures get plain margins. Frames the game
+  does not redraw keep the view as it was, so nothing flickers.
   `engine.setView(mx, my)` sets it while playing.
 - **Sharp text**: characters are redrawn at the display's full
   resolution with the device's fonts (sans or serif), while the rest of the

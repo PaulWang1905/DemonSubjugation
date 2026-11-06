@@ -32,6 +32,18 @@ function centreMatches(e: Engine, mx: number, my: number): boolean {
   return true;
 }
 
+/** The dialogue box (rows 50-95, x 9-151 of the device's screen) at the bottom of the wide frame, unchanged. */
+function boxAtBottom(e: Engine, mx: number, my: number): boolean {
+  e.setView(0, 0);
+  const plain = Uint32Array.from(new Uint32Array(e.render().buffer.slice(0)));
+  e.setView(mx, my);
+  const wide = new Uint32Array(e.render().buffer.slice(0));
+  const W = e.width;
+  const H = e.height;
+  for (let y = 50; y < 96; y++) for (let x = 9; x <= 151; x++) if (wide[(H - 96 + y) * W + x + 16 * mx] !== plain[y * 160 + x]) return false;
+  return true;
+}
+
 /** Whether the left margin (inside the border stripes) is all one colour. */
 function marginBlank(e: Engine, mx: number): boolean {
   const px = new Uint32Array(e.render().buffer.slice(0));
@@ -53,7 +65,7 @@ describe("wider map view", () => {
       e.setView(mx, my);
       expect([e.width, e.height]).toEqual([160 + 32 * mx, 96 + 32 * my]);
       expect(marginBlank(e, mx)).toBe(false); // map around it
-      expect(centreMatches(e, mx, my)).toBe(true);
+      expect(boxAtBottom(e, mx, my)).toBe(true);
     }
     for (let i = 0; i < 300 && e.game.mainScene.scriptProcess.running; i++) press(e, Keys.ENTER, 4);
     press(e, Keys.CANCEL, 4); // the main menu over the map
@@ -63,6 +75,24 @@ describe("wider map view", () => {
     const marks = e.textLayer().map((m) => [m.x, m.y]);
     e.setView(4, 2);
     expect(e.textLayer().map((m) => [m.x, m.y])).toEqual(marks.map(([x, y]) => [x + 64, y + 32]));
+  });
+
+  it("does not flicker: frames never change and change straight back", () => {
+    for (const [mx, my] of [[0, 0], [4, 2]]) {
+      let s = 3;
+      const e = createEngine({ resources: { datLib: writeLib(silentBell()), hzk16: f("unifont/cjk16.bin"), asc16: f("retro/latin16.bin") }, saves: memorySaves(), random: () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32) });
+      e.setView(mx, my);
+      const hash = () => { const px = new Uint32Array(e.render().buffer.slice(0)); let h = 0; for (let i = 0; i < px.length; i++) h = (Math.imul(h, 31) + px[i]) | 0; return h; };
+      const hs: number[] = [];
+      const step = (k: number | null, n: number) => { for (let i = 0; i < n; i++) { if (k !== null && i === 0) e.keyDown(k as never); e.update(); if (k !== null && i === 0) e.keyUp(k as never); hs.push(hash()); } };
+      step(null, 200);
+      step(Keys.ENTER, 20);
+      for (let i = 0; i < 150; i++) step(Keys.ENTER, 5);
+      for (const k of [Keys.DOWN, Keys.RIGHT, Keys.RIGHT, Keys.UP, Keys.LEFT]) step(k, 8);
+      let aba = 0;
+      for (let i = 2; i < hs.length; i++) if (hs[i] === hs[i - 2] && hs[i] !== hs[i - 1]) aba++;
+      expect(aba, `view ${mx}x${my}`).toBe(0);
+    }
   });
 
   it("leaves the margins plain when the screen is not the map", () => {
