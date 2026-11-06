@@ -73,10 +73,10 @@ the right to use.
   switched while playing. Built by
   `scripts/fonts/build_fonts.py`; credits and licences (SIL OFL 1.1) are in
   [public/fonts/LICENSES.md](public/fonts/LICENSES.md).
-- **Site language**: the front page, Guide, About, the top bar and the
-  footer are in Simplified Chinese or English, following the browser's
-  languages, with a 中文 / EN switch in the top bar (the Games page, the
-  player and the editor are still English).
+- **Site language**: the front page, Games, Guide, About, the top bar and
+  the footer are in Simplified Chinese or English, following the browser's
+  languages, with a 中文 / EN switch in the top bar (the player and the
+  editor are still English).
 - Keyboard controls, and a full-screen phone layout: the screen as large as it goes, a big on-screen keypad (slide the thumb on the d-pad to turn, hold a direction and A together), controls either side of the screen when held sideways, options in a sheet that pauses the game. Add it to the home screen to play without the browser bars. Held keys repeat at one rate on every device; 1×/2×/4× speed.
 - **More text (experimental, off by default)**: dialogue, message boxes,
   script menus, descriptions and scrolling story text can use 12- or 10-pixel

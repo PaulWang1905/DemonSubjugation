@@ -11,6 +11,7 @@ import { AboutPage, GuidePage, HomePage, NotFoundPage, SiteFooter } from "./page
 import { Link, PAGES, navigate, usePage } from "./router";
 import { setSiteLang, useSiteLang } from "./siteLang";
 import { SITE_TEXT } from "./siteText";
+import { gamesText } from "./gamesText";
 import { Analytics } from "@vercel/analytics/react";
 
 function copyBuffer(u: Uint8Array): ArrayBuffer {
@@ -72,7 +73,7 @@ export function App() {
         for (const it of items) {
           if (it.kind === "font") {
             await putFont(it.font, copyBuffer(it.data));
-            notes.push(`Added font ${it.font}.`);
+            notes.push(gamesText().imported.font(it.font));
           } else {
             const id = await archiveId(it.data);
             await putGame({
@@ -83,7 +84,7 @@ export function App() {
               addedAt: Date.now(),
               data: copyBuffer(it.data),
             });
-            notes.push(`Added ${it.name}: ${it.info.maps} maps, ${it.info.scripts} scripts.`);
+            notes.push(gamesText().imported.game(it.name, it.info.maps, it.info.scripts));
           }
         }
         setMessages(notes);
@@ -97,7 +98,7 @@ export function App() {
 
   const onDelete = useCallback(
     async (g: StoredGame) => {
-      if (!confirm(`Remove “${g.name}” and its save slots from this browser?`)) return;
+      if (!confirm(gamesText().removeConfirm(g.name))) return;
       await deleteGame(g.id);
       deleteSavesFor(g.id);
       await refresh();

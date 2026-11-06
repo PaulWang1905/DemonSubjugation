@@ -6,6 +6,8 @@
 // - a plain web folder listing (an HTML page linking to .lib files)
 // Nothing is bundled: the files are downloaded into this browser only.
 
+import { gamesText } from "./gamesText";
+
 export interface RemoteEntry {
   name: string;
   /** "file" can be added; "dir" can be opened. */
@@ -70,10 +72,10 @@ export function fileLink(link: string): string | null {
 
 async function failure(res: Response, what: string): Promise<Error> {
   if (res.status === 403 || res.status === 429) {
-    return new Error(`GitHub's limit for listing folders without signing in was reached (60 an hour). Try again later, or open a file link directly.`);
+    return new Error(gamesText().remote.rateLimit);
   }
-  if (res.status === 404) return new Error(`${what} was not found (404). Check the link; private repositories cannot be read.`);
-  return new Error(`${what} could not be read (HTTP ${res.status}).`);
+  if (res.status === 404) return new Error(gamesText().remote.notFound(what));
+  return new Error(gamesText().remote.unreadable(what, res.status));
 }
 
 /** List a folder link. Throws with a readable message when it cannot. */
@@ -82,7 +84,7 @@ export async function listFolder(link: string): Promise<RemoteFolder> {
   try {
     u = new URL(link.trim());
   } catch {
-    throw new Error("That is not a web address. Paste a link starting with https://");
+    throw new Error(gamesText().remote.notUrl);
   }
   const g = parseGitHub(u);
   if (g) {
@@ -94,9 +96,9 @@ export async function listFolder(link: string): Promise<RemoteFolder> {
     }
     const api = `https://api.github.com/repos/${g.owner}/${g.repo}/contents/${encodePath(g.path)}${g.ref ? `?ref=${encodeURIComponent(g.ref)}` : ""}`;
     const res = await fetch(api, { headers: { Accept: "application/vnd.github+json" } });
-    if (!res.ok) throw await failure(res, "The folder");
+    if (!res.ok) throw await failure(res, gamesText().remote.theFolder);
     const data = (await res.json()) as unknown;
-    if (!Array.isArray(data)) throw new Error("That link is a file, not a folder.");
+    if (!Array.isArray(data)) throw new Error(gamesText().remote.isFile);
     const entries: RemoteEntry[] = [];
     for (const it of data as { name: string; type: string; path: string; size: number; download_url: string | null }[]) {
       if (it.type === "dir") entries.push({ name: it.name, type: "dir", url: treeUrl(g, it.path) });
@@ -115,9 +117,9 @@ export async function listFolder(link: string): Promise<RemoteFolder> {
   try {
     res = await fetch(u.href);
   } catch {
-    throw new Error("That server does not let other websites read its files (CORS). GitHub links work; so do servers that allow it.");
+    throw new Error(gamesText().remote.corsList);
   }
-  if (!res.ok) throw await failure(res, "The folder");
+  if (!res.ok) throw await failure(res, gamesText().remote.theFolder);
   const html = await res.text();
   const doc = new DOMParser().parseFromString(html, "text/html");
   const seen = new Set<string>();
@@ -140,7 +142,7 @@ export async function listFolder(link: string): Promise<RemoteFolder> {
       entries.push({ name, type: "dir", url: abs.href });
     }
   }
-  if (entries.length === 0) throw new Error("No .lib files were found at that link.");
+  if (entries.length === 0) throw new Error(gamesText().remote.noGames);
   return { title: decodeURIComponent(u.pathname) || u.host, entries: sortEntries(entries) };
 }
 
@@ -154,9 +156,9 @@ export async function downloadFile(url: string, name?: string): Promise<File> {
   try {
     res = await fetch(url);
   } catch {
-    throw new Error("That server does not let other websites download its files (CORS).");
+    throw new Error(gamesText().remote.corsDownload);
   }
-  if (!res.ok) throw await failure(res, name ?? "The file");
+  if (!res.ok) throw await failure(res, name ?? gamesText().remote.theFile);
   const blob = await res.blob();
   const fileName = name ?? decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "game.lib");
   return new File([blob], fileName);

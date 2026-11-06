@@ -4,6 +4,8 @@ import type { Imported } from "./importFiles";
 import { RemoteAdd } from "./RemoteAdd";
 import { LockedCard } from "./LockedCard";
 import { LOCKED_GAMES } from "./lockedGame";
+import { GAMES_TEXT } from "./gamesText";
+import { useSiteLang, type SiteLang } from "./siteLang";
 
 interface Props {
   games: StoredGame[];
@@ -22,9 +24,9 @@ function size(n: number): string {
   return n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 }
 
-function added(t: number): string {
+function added(t: number, lang: SiteLang): string {
   try {
-    return new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    return new Date(t).toLocaleDateString(lang === "zh" ? "zh-CN" : undefined, { year: "numeric", month: "short", day: "numeric" });
   } catch {
     return "";
   }
@@ -35,6 +37,8 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const choose = () => input.current?.click();
+  const lang = useSiteLang();
+  const t = GAMES_TEXT[lang];
   // a locked game is shown until this version of it has been unlocked and added
   const locked = LOCKED_GAMES.filter((l) => !games.some((g) => g.id === l.id));
 
@@ -67,17 +71,18 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
       />
 
       <header className="page-head">
-        <p className="eyebrow">Games</p>
-        <h1>Your games</h1>
+        <p className="eyebrow">{t.eyebrow}</p>
+        <h1>{t.title}</h1>
         <p className="lead">
-          The built-in demos and the games you have added. Everything stays in this browser; drop <code>.lib</code> files anywhere on this page to
-          add more.
+          {t.lead[0]}
+          <code>{t.lead[1]}</code>
+          {t.lead[2]}
         </p>
       </header>
 
       {(busy || messages.length > 0) && (
         <section className="notice" role="status">
-          {busy && <p>Reading files…</p>}
+          {busy && <p>{t.reading}</p>}
           {messages.length > 0 && (
             <ul>
               {messages.map((m, i) => (
@@ -90,10 +95,8 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
 
       <section className="shelf" id="games">
         <div className="shelf-head">
-          <h2>Library</h2>
-          <span className="muted small">
-            {games.length + 2} game{games.length + 2 === 1 ? "" : "s"}
-          </span>
+          <h2>{t.library}</h2>
+          <span className="muted small">{t.count(games.length + 2 + locked.length)}</span>
         </div>
         <ul className="cards">
           <li className="card demo">
@@ -102,11 +105,11 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
             </div>
             <div className="card-body">
               <strong>The Silent Bell</strong>
-              <span className="muted small">Built-in demo · about 20 minutes</span>
-              <span className="card-desc">Bring back the three shards of Bellhaven's bell before the fog wins.</span>
+              <span className="muted small">{t.bellMeta}</span>
+              <span className="card-desc">{t.bellDesc}</span>
             </div>
             <div className="card-actions">
-              <button onClick={() => onPlayDemo("bell")}>Play</button>
+              <button onClick={() => onPlayDemo("bell")}>{t.play}</button>
             </div>
           </li>
           <li className="card demo">
@@ -115,11 +118,11 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
             </div>
             <div className="card-body">
               <strong>Lantern Path</strong>
-              <span className="muted small">Built-in short demo · 3 minutes</span>
-              <span className="card-desc">Relight the hamlet's lantern with a stone from the glade.</span>
+              <span className="muted small">{t.lanternMeta}</span>
+              <span className="card-desc">{t.lanternDesc}</span>
             </div>
             <div className="card-actions">
-              <button onClick={() => onPlayDemo("lantern")}>Play</button>
+              <button onClick={() => onPlayDemo("lantern")}>{t.play}</button>
             </div>
           </li>
           {locked.map((l) => (
@@ -134,14 +137,14 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
                 <strong title={g.name}>{g.name}</strong>
                 <span className="muted small" title={g.fileName}>
                   {g.fileName} · {size(g.size)}
-                  {g.addedAt ? ` · ${added(g.addedAt)}` : ""}
+                  {g.addedAt ? ` · ${added(g.addedAt, lang)}` : ""}
                 </span>
                 {(() => {
                   const src = LOCKED_GAMES.find((l) => l.name === g.name)?.source;
                   return (
                     src && (
                       <span className="card-source small">
-                        Original from{" "}
+                        {t.originalFrom}
                         <a href={src.url} target="_blank" rel="noreferrer">
                           {src.label}
                         </a>
@@ -151,9 +154,9 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
                 })()}
               </div>
               <div className="card-actions">
-                <button onClick={() => onPlay(g)}>Play</button>
+                <button onClick={() => onPlay(g)}>{t.play}</button>
                 <button className="ghost danger" onClick={() => onDelete(g)}>
-                  Remove
+                  {t.remove}
                 </button>
               </div>
             </li>
@@ -163,29 +166,31 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
               <span className="plus" aria-hidden="true">
                 +
               </span>
-              <strong>Add a game</strong>
+              <strong>{t.addGame}</strong>
               <span className="muted small">
-                <code>DAT.LIB</code> or any <code>*.lib</code>
+                <code>{t.addGameHint[0]}</code>
+                {t.addGameHint[1]}
+                <code>{t.addGameHint[2]}</code>
               </span>
             </button>
           </li>
         </ul>
         <div className="fonts-line">
-          <span className="muted small">Original bitmap fonts (optional):</span>
+          <span className="muted small">{t.fontsLabel}</span>
           <span className={`chip ${fonts.HZK16 ? "ok" : "soft"}`}>{fonts.HZK16 ? "✓ HZK16" : "HZK16"}</span>
           <span className={`chip ${fonts.ASC16 ? "ok" : "soft"}`}>{fonts.ASC16 ? "✓ ASC16" : "ASC16"}</span>
           <span className="muted small">
-            {fonts.HZK16 && fonts.ASC16 ? "Games use the original fonts." : "Without them, text uses your device's fonts. Drop the files here to add them."}
+            {fonts.HZK16 && fonts.ASC16 ? t.fontsHave : t.fontsMissing}
           </span>
         </div>
-        {!persistent && <p className="muted small">Browser storage is unavailable, so imported files last for this tab only.</p>}
+        {!persistent && <p className="muted small">{t.noStorage}</p>}
       </section>
 
       <RemoteAdd busy={busy} onImport={onImport} />
 
       {drag && (
         <div className="drop-overlay" aria-hidden="true">
-          <div>Drop to add games or fonts</div>
+          <div>{t.dropHere}</div>
         </div>
       )}
     </div>

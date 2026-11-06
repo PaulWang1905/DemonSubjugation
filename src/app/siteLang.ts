@@ -45,6 +45,11 @@ function apply(): void {
 }
 apply();
 
+/** The current language, for code outside components (messages, errors). */
+export function currentSiteLang(): SiteLang {
+  return lang;
+}
+
 export function setSiteLang(l: SiteLang): void {
   lang = l;
   try {

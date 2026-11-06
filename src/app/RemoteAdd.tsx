@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { downloadFile, fileLink, listFolder, type RemoteFolder } from "./remote";
+import { GAMES_TEXT } from "./gamesText";
+import { useSiteLang } from "./siteLang";
 
 interface Props {
   busy: boolean;
@@ -32,6 +34,7 @@ export function RemoteAdd({ busy, onImport }: Props) {
   const [loading, setLoading] = useState<string | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [done, setDone] = useState<Set<string>>(new Set());
+  const t = GAMES_TEXT[useSiteLang()].remote;
 
   const remember = (l: string) => {
     try {
@@ -50,10 +53,10 @@ export function RemoteAdd({ busy, onImport }: Props) {
     const direct = fileLink(url);
     try {
       if (direct) {
-        setLoading("Downloading…");
+        setLoading(t.downloading);
         await onImport([await downloadFile(direct)]);
       } else {
-        setLoading("Opening the folder…");
+        setLoading(t.opening);
         setFolder(await listFolder(url));
         setPicked(new Set());
       }
@@ -71,7 +74,7 @@ export function RemoteAdd({ busy, onImport }: Props) {
     try {
       for (const [i, u] of urls.entries()) {
         const entry = folder.entries.find((e) => e.url === u)!;
-        setLoading(`Downloading ${entry.name}${urls.length > 1 ? ` (${i + 1} of ${urls.length})` : ""}…`);
+        setLoading(t.downloadingOne(entry.name, i + 1, urls.length));
         files.push(await downloadFile(u, entry.name));
       }
     } catch (e) {
@@ -105,7 +108,7 @@ export function RemoteAdd({ busy, onImport }: Props) {
           void open(link);
         }}
       >
-        <label htmlFor="remote-link">Add from a link</label>
+        <label htmlFor="remote-link">{t.label}</label>
         <div className="row">
           <input
             id="remote-link"
@@ -116,13 +119,10 @@ export function RemoteAdd({ busy, onImport }: Props) {
             onChange={(e) => setLink(e.target.value)}
           />
           <button type="submit" disabled={busy || !!loading || !link.trim()}>
-            Open
+            {t.open}
           </button>
         </div>
-        <p className="muted small">
-          A GitHub folder or file, a direct link to a .lib file, or a web folder that lists them. The games are downloaded into this
-          browser only.
-        </p>
+        <p className="muted small">{t.hint}</p>
       </form>
 
       {loading && <p className="muted">{loading}</p>}
@@ -136,21 +136,19 @@ export function RemoteAdd({ busy, onImport }: Props) {
         <div className="remote-folder">
           <div className="remote-head">
             {folder.parent && (
-              <button className="ghost small" onClick={() => void open(folder.parent!)} disabled={!!loading} aria-label="Up one folder">
+              <button className="ghost small" onClick={() => void open(folder.parent!)} disabled={!!loading} aria-label={t.up}>
                 ↑
               </button>
             )}
             <strong className="remote-title" title={folder.title}>
               {folder.title}
             </strong>
-            <span className="muted small">
-              {files.length} game file{files.length === 1 ? "" : "s"}
-            </span>
-            <button className="ghost small" onClick={() => setFolder(null)} aria-label="Close the folder">
+            <span className="muted small">{t.files(files.length)}</span>
+            <button className="ghost small" onClick={() => setFolder(null)} aria-label={t.close}>
               ✕
             </button>
           </div>
-          {folder.entries.length === 0 && <p className="muted">No .lib files in this folder.</p>}
+          {folder.entries.length === 0 && <p className="muted">{t.empty}</p>}
           <ul className="remote-list">
             {folder.entries.map((e) =>
               e.type === "dir" ? (
@@ -167,10 +165,10 @@ export function RemoteAdd({ busy, onImport }: Props) {
                     <span className="muted small">{size(e.size)}</span>
                   </label>
                   {done.has(e.url) ? (
-                    <span className="muted small">Added</span>
+                    <span className="muted small">{t.added}</span>
                   ) : (
                     <button className="ghost small" onClick={() => void add([e.url])} disabled={!!loading || busy}>
-                      Add
+                      {t.add}
                     </button>
                   )}
                 </li>
@@ -180,7 +178,7 @@ export function RemoteAdd({ busy, onImport }: Props) {
           {picked.size > 0 && (
             <div className="remote-actions">
               <button onClick={() => void add([...picked])} disabled={!!loading || busy}>
-                Add {picked.size} selected
+                {t.addSelected(picked.size)}
               </button>
             </div>
           )}

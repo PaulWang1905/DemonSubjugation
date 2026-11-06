@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { browserLang } from "../src/app/siteLang";
 import { SITE_TEXT } from "../src/app/siteText";
 import { KEY_HELP } from "../src/app/keys";
+import { GAMES_TEXT } from "../src/app/gamesText";
 
 describe("site language", () => {
   it("follows the browser's first Chinese or English choice", () => {
@@ -16,6 +17,7 @@ describe("site language", () => {
   it("has the same texts in both languages", () => {
     const shape = (o: unknown): unknown => (Array.isArray(o) ? o.map(shape) : o && typeof o === "object" ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, shape(v)])) : typeof o);
     expect(shape(SITE_TEXT.zh)).toEqual(shape(SITE_TEXT.en));
+    expect(shape(GAMES_TEXT.zh)).toEqual(shape(GAMES_TEXT.en));
   });
 
   it("lists the player's own keys in the guide", () => {

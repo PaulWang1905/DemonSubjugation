@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { decryptGame, WrongPassword, type LockedGame } from "./lockedGame";
+import { GAMES_TEXT } from "./gamesText";
+import { useSiteLang } from "./siteLang";
 
 interface Props {
   game: LockedGame;
@@ -14,6 +16,8 @@ export function LockedCard({ game, update, busy, onImport }: Props) {
   const [password, setPassword] = useState("");
   const [state, setState] = useState<"idle" | "working">("idle");
   const [error, setError] = useState<string | null>(null);
+  const lang = useSiteLang();
+  const t = GAMES_TEXT[lang];
 
   const unlock = async () => {
     if (!password) return;
@@ -21,12 +25,12 @@ export function LockedCard({ game, update, busy, onImport }: Props) {
     setState("working");
     try {
       const res = await fetch(game.url);
-      if (!res.ok) throw new Error(`Could not download the game (${res.status}).`);
+      if (!res.ok) throw new Error(t.locked.download(res.status));
       const data = await decryptGame(new Uint8Array(await res.arrayBuffer()), password);
       await onImport([new File([data as BlobPart], game.fileName)]);
       setPassword("");
     } catch (e) {
-      setError(e instanceof WrongPassword ? "Wrong password." : e instanceof Error ? e.message : String(e));
+      setError(e instanceof WrongPassword ? t.locked.wrong : e instanceof Error ? e.message : String(e));
     } finally {
       setState("idle");
     }
@@ -39,11 +43,11 @@ export function LockedCard({ game, update, busy, onImport }: Props) {
       </div>
       <div className="card-body">
         <strong>{game.name}</strong>
-        <span className="muted small">{update ? "New version · needs the password" : "Locked · needs a password"}</span>
-        <span className="card-desc">{game.desc}</span>
+        <span className="muted small">{update ? t.locked.update : t.locked.status}</span>
+        <span className="card-desc">{lang === "zh" && game.descZh ? game.descZh : game.desc}</span>
         {game.source && (
           <span className="card-source small">
-            Original from{" "}
+            {t.originalFrom}
             <a href={game.source.url} target="_blank" rel="noreferrer">
               {game.source.label}
             </a>
@@ -59,14 +63,14 @@ export function LockedCard({ game, update, busy, onImport }: Props) {
       >
         <input
           type="password"
-          aria-label={`Password for ${game.name}`}
-          placeholder="Password"
+          aria-label={t.locked.passwordFor(game.name)}
+          placeholder={t.locked.password}
           autoComplete="off"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
         <button type="submit" disabled={busy || state === "working" || !password}>
-          {state === "working" ? "Unlocking…" : "Unlock"}
+          {state === "working" ? t.locked.unlocking : t.locked.unlock}
         </button>
         {error && (
           <p className="lock-error small" role="alert">

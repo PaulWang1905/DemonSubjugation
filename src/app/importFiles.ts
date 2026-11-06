@@ -1,6 +1,7 @@
 // Classify files the player drops in: game archives (*.lib / DAT.LIB),
 // fonts (HZK16 / ASC16) and the hex-encoded "*.js" bundles used by the
 // fmj.kt web builds (`fmj.rom["NAME"] = "HEX";`).
+import { gamesText } from "./gamesText";
 import { inspectDatLib } from "../engine";
 
 export interface ImportedArchive {
@@ -66,7 +67,7 @@ function classify(name: string, data: Uint8Array, errors: string[]): Imported | 
   if (looksLikeLib(data) || upper.endsWith(".LIB")) {
     try {
       const info = inspectDatLib(data);
-      if (!info.playable) throw new Error("it has no starting script (GUT 1-1), so it is not a BBK RPG archive or it is damaged");
+      if (!info.playable) throw new Error(gamesText().imported.noStart);
       const title = libTitle(data);
       const fileTitle = name.replace(/\.lib$/i, "");
       // The header has room for a short title only; a file name that carries
@@ -74,11 +75,11 @@ function classify(name: string, data: Uint8Array, errors: string[]): Imported | 
       const full = title && fileTitle.length > title.length && fileTitle.startsWith(title) ? fileTitle : null;
       return { kind: "game", name: full ?? title ?? fileTitle, fileName: name, data, info };
     } catch (e) {
-      errors.push(`${name}: not a valid game archive (${(e as Error).message})`);
+      errors.push(gamesText().imported.invalid(name, (e as Error).message));
       return null;
     }
   }
-  errors.push(`${name}: unrecognised file (expected a .lib archive, HZK16 or ASC16)`);
+  errors.push(gamesText().imported.unknown(name));
   return null;
 }
 
@@ -97,7 +98,7 @@ export async function importFiles(files: File[]): Promise<ImportResult> {
           const item = classify(m[1], hexToBytes(m[2]), errors);
           if (item) items.push(item);
         }
-        if (!found) errors.push(`${f.name}: no fmj.rom["…"] entries found`);
+        if (!found) errors.push(gamesText().imported.noRom(f.name));
       } else {
         const item = classify(f.name, new Uint8Array(await f.arrayBuffer()), errors);
         if (item) items.push(item);
