@@ -12,6 +12,7 @@ import { Point, Rect, type Canvas } from "../../graphics";
 import { Stack, gbkBytes } from "../../java";
 import { ScreenChgEquipment } from "./ScreenChgEquipment";
 import { GoodsListMode, ScreenGoodsList } from "./ScreenGoodsList";
+import { drawMoreMark } from "../views/ScrollList";
 
 const sRectDesc = new Rect(9 + 3, 28 + 3, 151, 65);
 
@@ -66,6 +67,7 @@ export class ScreenActorWearing extends BaseScreen {
       canvas.drawBitmap(this.bmpDesc, 9, 28);
       TextRender.drawText(canvas, this.mTextName, 12, 13);
       this.mNextToDraw = TextRender.drawBlock(canvas, this.mTextDesc, this.mToDraw, sRectDesc, EngineSettings.textSize);
+      if (this.mNextToDraw < this.mTextDesc.length) drawMoreMark(canvas, sRectDesc);
     }
   }
 
@@ -99,6 +101,9 @@ export class ScreenActorWearing extends BaseScreen {
         if (this.mNextToDraw < this.mTextDesc.length) {
           this.mStackLastToDraw.push(this.mToDraw);
           this.mToDraw = this.mNextToDraw;
+        } else if (this.mToDraw !== 0) {
+          this.mToDraw = 0;
+          this.mStackLastToDraw.clear();
         }
       } else if (key === Global.KEY_PAGEUP && this.mToDraw !== 0) {
         const v = this.mStackLastToDraw.pop();

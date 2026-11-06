@@ -6,6 +6,9 @@ import { writeLib } from "../src/editor/format/lib";
 import { lanternPath } from "../src/editor/template/demo";
 import { FONT_SETS } from "../src/app/fonts";
 import { memorySaves } from "./helpers";
+import { TextRender } from "../src/engine/fmj/graphics/TextRender";
+import { Bitmap, Canvas } from "../src/engine/graphics";
+import { Global } from "../src/engine/fmj/Global";
 
 const file = (url: string) => new Uint8Array(readFileSync("public" + url));
 const tick = (e: Engine, n: number) => { for (let i = 0; i < n; i++) e.update(); };
@@ -41,5 +44,24 @@ describe("bundled pixel fonts", () => {
     e.setFonts(file(a.cjk), file(a.latin));
     e.redraw();
     expect(Array.from(e.render())).toEqual(before);
+  });
+
+  it("draws More text with the fonts made for 12 and 10 pixels", () => {
+    const small = { hzk12: file("/fonts/small/cjk12.bin"), asc12: file("/fonts/small/latin12.bin"), hzk10: file("/fonts/small/cjk10.bin"), asc10: file("/fonts/small/latin10.bin") };
+    expect([small.hzk12.length, small.asc12.length, small.hzk10.length, small.asc10.length]).toEqual([8363 * 24, 256 * 12, 8363 * 20, 256 * 10]);
+    const set = FONT_SETS[0];
+    const e = createEngine({ resources: { datLib: writeLib(lanternPath()), hzk16: file(set.cjk), asc16: file(set.latin) }, saves: memorySaves() });
+    e.setFonts(file(set.cjk), file(set.latin), small);
+    for (const size of [12, 10] as const) {
+      const canvas = new Canvas(new Bitmap(32, 16));
+      TextRender.withSize(size, () => TextRender.drawText(canvas, "A", 0, 0));
+      const asc = size === 12 ? small.asc12 : small.asc10;
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size / 2; c++) {
+          const ink = (asc[0x41 * size + r] & (0x80 >> c)) !== 0;
+          expect(canvas.bitmap.buffer[r * 32 + c] === Global.fgColor, `A at ${size}px, row ${r} col ${c}`).toBe(ink);
+        }
+      }
+    }
   });
 });

@@ -21,6 +21,14 @@ export { STAT_KEYS, STAT_MAX, type Cheats, type CheatSwitches, type ItemInfo, ty
 
 export type { FontFallback };
 
+/** Fonts drawn for the More text cells (see Engine.setFonts). */
+export interface SmallFonts {
+  hzk12: Uint8Array;
+  asc12: Uint8Array;
+  hzk10: Uint8Array;
+  asc10: Uint8Array;
+}
+
 export { EngineSettings };
 
 /** Virtual keys understood by the engine (same values as the original device). */
@@ -129,9 +137,11 @@ export interface Engine {
   redraw(): void;
   /**
    * Draw text with other HZK16 / ASC16 fonts from now on (null: the font
-   * fallback). The game goes on; call redraw() to see it at once.
+   * fallback), and optionally fonts drawn for the 12- and 10-pixel cells
+   * (null: shrink the 16-pixel ones). The game goes on; call redraw() to see
+   * it at once.
    */
-  setFonts(hzk16: Uint8Array | null, asc16: Uint8Array | null): void;
+  setFonts(hzk16: Uint8Array | null, asc16: Uint8Array | null, small?: SmallFonts | null): void;
   /** Test tools for the debug menu. */
   readonly cheats: Cheats;
   /** Compile every script in the archive; returns the failures. */
@@ -183,9 +193,13 @@ export function createEngine(opts: EngineOptions): Engine {
       if (EngineSettings.alwaysFull) cheats.heal();
       game.draw();
     },
-    setFonts(hzk16, asc16) {
+    setFonts(hzk16, asc16, small) {
       const rom = getPlatform().rom;
-      for (const [name, data] of [["HZK16", hzk16], ["ASC16", asc16]] as const) {
+      const files: [string, Uint8Array | null | undefined][] = [["HZK16", hzk16], ["ASC16", asc16]];
+      if (small !== undefined) {
+        files.push(["HZK12", small?.hzk12], ["ASC12", small?.asc12], ["HZK10", small?.hzk10], ["ASC10", small?.asc10]);
+      }
+      for (const [name, data] of files) {
         if (data && data.length > 0) rom.set(name, asInt8(data));
         else rom.delete(name);
       }

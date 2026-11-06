@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
-import { createEngine, Keys, SCREEN_WIDTH, TICK_MS, type Engine, type EngineKey } from "../engine";
+import { createEngine, Keys, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, type Engine, type EngineKey } from "../engine";
 import type { SaveStorage } from "../engine/java";
 import { createDeviceFont } from "./deviceFont";
 import { demoArchive } from "./demoGame";
 import { HiresText, hiresScale } from "./hiresText";
-import { PALETTES } from "./palettes";
+import { applyPalette, PALETTES } from "./palettes";
+import { loadFontSet } from "./fonts";
 
 /** Ticks after boot at which the attract loop presses OK, then starts walking. */
 const OK_PRESSES = [120, 150, 190, 235, 280, 325, 370, 415, 460, 505, 550];
@@ -42,16 +43,49 @@ export function AttractScreen({ onError }: { onError?: () => void }) {
     let visible = true;
     let raf = 0;
     let stopped = false;
+    // The player's default pixel font (Retro 8-bit) once it has loaded; Sharp text until then.
+    let pixelFont: { hzk16: Uint8Array; asc16: Uint8Array } | null = null;
+    const small = document.createElement("canvas");
+    small.width = SCREEN_WIDTH;
+    small.height = SCREEN_HEIGHT;
+    const smallCtx = small.getContext("2d")!;
+    const image = smallCtx.createImageData(SCREEN_WIDTH, SCREEN_HEIGHT);
 
     const boot = () => {
       engine = createEngine({ resources: { datLib: demoArchive() }, saves: memorySaves(), fontFallback: createDeviceFont(), uiLanguage: "en" });
+      if (pixelFont) engine.setFonts(pixelFont.hzk16, pixelFont.asc16);
       t = 0;
       held = null;
     };
     const paint = () => {
       const css = c.clientWidth / SCREEN_WIDTH || 2;
-      text.draw(c, engine!.render(), engine!.textLayer(), palette, hiresScale(css));
+      const frame = engine!.render();
+      if (!pixelFont) {
+        text.draw(c, frame, engine!.textLayer(), palette, hiresScale(css));
+        return;
+      }
+      // the 160x96 frame, scaled up with hard pixel edges
+      applyPalette(frame, image.data, palette);
+      smallCtx.putImageData(image, 0, 0);
+      const k = hiresScale(css);
+      if (c.width !== SCREEN_WIDTH * k) {
+        c.width = SCREEN_WIDTH * k;
+        c.height = SCREEN_HEIGHT * k;
+      }
+      const ctx = c.getContext("2d")!;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(small, 0, 0, c.width, c.height);
     };
+    loadFontSet("retro").then(
+      (f) => {
+        if (stopped || !engine) return;
+        pixelFont = f;
+        engine.setFonts(f.hzk16, f.asc16);
+        engine.redraw();
+        if (still) paint();
+      },
+      () => {}, // keep Sharp text
+    );
     const step = () => {
       const e = engine!;
       if (OK_PRESSES.includes(t)) e.keyDown(Keys.ENTER);

@@ -9,6 +9,7 @@ import { EngineSettings } from "../config/EngineSettings";
 import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import { Bitmap, Canvas, Rect } from "../../graphics";
 import { Stack, gbkBytes } from "../../java";
+import { drawMoreMark } from "../views/ScrollList";
 
 export enum GoodsListMode {
   Sale,
@@ -125,6 +126,7 @@ export class ScreenGoodsList extends BaseScreen {
     }
     // the description (in smaller text with the compact text option)
     this.nextToDraw = TextRender.drawBlock(canvas, this.description, this.toDraw, descRect(size), size);
+    if (this.nextToDraw < this.description.length) drawMoreMark(canvas, descRect(size));
   }
 
   private showNextItem(): void {
@@ -148,6 +150,9 @@ export class ScreenGoodsList extends BaseScreen {
       if (this.nextToDraw < this.description.length) {
         this.stackLastToDraw.push(this.toDraw);
         this.toDraw = this.nextToDraw;
+      } else if (this.toDraw !== 0) {
+        this.toDraw = 0;
+        this.stackLastToDraw.clear();
       }
     } else if (key === Global.KEY_PAGEUP && this.toDraw !== 0) {
       const v = this.stackLastToDraw.pop();

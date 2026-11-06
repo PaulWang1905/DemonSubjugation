@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createDeviceFont } from "./deviceFont";
-import { createEngine, EngineSettings, type UiLanguage, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, Keys, type Engine, type EngineKey } from "../engine";
+import { createEngine, EngineSettings, type SmallFonts, type UiLanguage, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, Keys, type Engine, type EngineKey } from "../engine";
 import { exportSaves, importSaves, savesFor } from "../storage/saves";
 import type { StoredGame } from "../storage/db";
 import { KEY_HELP, KEYMAP } from "./keys";
@@ -9,7 +9,7 @@ import { DebugMenu } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { HiresText, hiresScale, type TextStyle } from "./hiresText";
-import { FONT_SETS, isFontSet, loadFontSet, type FontSetId } from "./fonts";
+import { FONT_SETS, isFontSet, loadFontSet, loadSmallFonts, SMALL_FONT_CREDIT, type FontSetId } from "./fonts";
 
 /** Pixel text with the uploaded files (or the device fallback), a bundled pixel font, or Sharp. */
 type TextMode = "pixel" | `pixel:${FontSetId}` | TextStyle;
@@ -26,6 +26,11 @@ interface Props {
   fonts: { hzk16: ArrayBuffer | null; asc16: ArrayBuffer | null };
   onExit: () => void;
 }
+
+type ScreenSize = "fit" | "large" | "fill";
+const screenSizeOf = (v: string): ScreenSize => (v === "large" || v === "fill" ? v : "fit");
+/** The page column's inner width (#root: 980 px with 16 px padding). */
+const PAGE_WIDTH = 948;
 
 function pref<T extends string>(key: string, fallback: T): T {
   try {
@@ -74,12 +79,16 @@ export function Player({ game, fonts, onExit }: Props) {
   const [speed, setSpeed] = useState(() => Number(pref("speed", "1")) || 1);
   const [paletteId, setPaletteId] = useState<string>(() => pref<string>("palette", "lcd"));
   const [scale, setScale] = useState(3);
+  // Screen size on a computer: whole device pixels per game pixel inside the
+  // page ("fit"); or bigger, wider than the page and in quarter-pixel steps:
+  // up to half as big again ("large") or as big as the window allows ("fill").
+  const [screenSize, setScreenSize] = useState<ScreenSize>(() => screenSizeOf(pref<string>("screenSize", "fit")));
   const [showPad, setShowPad] = useState(() => pref("keypad", matchMedia("(pointer: coarse)").matches ? "on" : "off") === "on");
   const [originalFormula, setOriginalFormula] = useState(() => pref("originalDamage", "on") === "on");
   const [notice, setNotice] = useState<string | null>(null);
   const [uiLang, setUiLang] = useState<UiLanguage | "auto">(() => pref<string>("uiLanguage", "auto") as UiLanguage | "auto");
-  // Sharp text by default; the original bitmap look when the font files were added.
-  const [textMode, setTextMode] = useState<TextMode>(() => pref<TextMode>("text", fonts.hzk16 && fonts.asc16 ? "pixel" : "sans"));
+  // The original bitmap fonts when they were added, Retro 8-bit pixel text otherwise.
+  const [textMode, setTextMode] = useState<TextMode>(() => pref<TextMode>("text", fonts.hzk16 && fonts.asc16 ? "pixel" : "pixel:retro"));
   const textRef = useRef(textMode);
   textRef.current = textMode;
   // A bundled pixel font: loaded when chosen, then swapped in without restarting.
@@ -107,8 +116,6 @@ export function Player({ game, fonts, onExit }: Props) {
   // Wait for a chosen bundled font before the first start, so the game does
   // not open in another font; later changes only swap the font.
   const startedRef = useRef(false);
-  if (!setId || useBundled) startedRef.current = true;
-  const canStart = startedRef.current;
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
   // The hidden debug menu: press and hold the game screen. The game is paused
@@ -157,6 +164,24 @@ export function Player({ game, fonts, onExit }: Props) {
   // Experimental: smaller text cells so dialogue, menus and descriptions hold more.
   const [textSize, setTextSize] = useState(() => Number(pref("textSize", "16")) as 16 | 12 | 10);
   EngineSettings.textSize = textSize === 12 || textSize === 10 ? textSize : 16;
+  // Fonts drawn for those sizes, loaded the first time they are needed.
+  const [small, setSmall] = useState<SmallFonts | null>(null);
+  const smallRef = useRef(small);
+  smallRef.current = small;
+  useEffect(() => {
+    if (textSize === 16 || small) return;
+    let alive = true;
+    loadSmallFonts().then(
+      (f) => alive && setSmall(f),
+      (e) => alive && setNotice(String((e as Error).message ?? e)),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [textSize, small]);
+  // (also wait for these on the first start)
+  if ((!setId || useBundled) && (textSize === 16 || small)) startedRef.current = true;
+  const canStart = startedRef.current;
 
   // Boot the engine and run the fixed-step loop (the original ticks every 40 ms).
   useEffect(() => {
@@ -179,6 +204,7 @@ export function Player({ game, fonts, onExit }: Props) {
       setError(String((e as Error).stack ?? e));
       return;
     }
+    if (smallRef.current) engine.setFonts(fontPickRef.current.hzk16, fontPickRef.current.asc16, smallRef.current);
     engineRef.current = engine;
     const cv = canvasRef.current!;
     const ctx = cv.getContext("2d")!;
@@ -235,11 +261,11 @@ export function Player({ game, fonts, onExit }: Props) {
   useEffect(() => {
     const e = engineRef.current;
     if (!e) return;
-    e.setFonts(fontPick.hzk16, fontPick.asc16);
+    e.setFonts(fontPick.hzk16, fontPick.asc16, small);
     e.redraw();
     // fontPick is rebuilt each render; these say when it really changed
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useBundled, bundled, setId, fonts]);
+  }, [useBundled, bundled, setId, fonts, small]);
 
   // Held keys repeat at one fixed rate whatever sends them (keypad, keyboard,
   // gamepad), so walking feels the same everywhere. Each repeat is one more
@@ -373,8 +399,16 @@ export function Player({ game, fonts, onExit }: Props) {
       h = window.innerHeight - top - 6;
       if (kp) h -= kp.offsetHeight + 10;
       else h -= 60; // leave the options bar in view
-      const fitted = Math.min((w - frame) / SCREEN_WIDTH, (h - frame) / SCREEN_HEIGHT, 8);
-      setScale(Math.max(1, Math.floor(fitted * dpr)) / dpr);
+      // Fit: whole device pixels, within the page column
+      const pageW = Math.min(w, PAGE_WIDTH);
+      const fit = Math.max(1, Math.floor(Math.min((pageW - frame) / SCREEN_WIDTH, (h - frame) / SCREEN_HEIGHT, 8) * dpr)) / dpr;
+      if (screenSize === "fit") {
+        setScale(fit);
+        return;
+      }
+      let fitted = Math.min((w - frame) / SCREEN_WIDTH, (h - frame) / SCREEN_HEIGHT, 12);
+      if (screenSize === "large") fitted = Math.min(fitted, fit * 1.5);
+      setScale(Math.max(fit, Math.floor(fitted * dpr * 4) / 4 / dpr));
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -386,7 +420,7 @@ export function Player({ game, fonts, onExit }: Props) {
       window.removeEventListener("resize", fit);
       document.removeEventListener("fullscreenchange", fit);
     };
-  }, [showPad, touch, sideways, fullscreen]);
+  }, [showPad, touch, sideways, fullscreen, screenSize]);
 
   // The phone layout covers the page; stop the page behind it scrolling.
   useEffect(() => {
@@ -465,6 +499,22 @@ export function Player({ game, fonts, onExit }: Props) {
           ))}
         </select>
       </label>
+      {!touch && (
+        <label className="field" title="Fit keeps every game pixel the same size, inside the page. Larger (up to half as big again) and Largest (the whole window) use more of a big screen; game pixels may then differ by one screen pixel">
+          <span className="lbl">Size</span>
+          <select
+            value={screenSize}
+            onChange={(e) => {
+              setScreenSize(screenSizeOf(e.target.value));
+              setPref("screenSize", e.target.value);
+            }}
+          >
+            <option value="fit">Fit</option>
+            <option value="large">Larger</option>
+            <option value="fill">Largest</option>
+          </select>
+        </label>
+      )}
     </>
   );
 
@@ -540,7 +590,7 @@ export function Player({ game, fonts, onExit }: Props) {
             <option value="10">Most: 10-pixel text</option>
           </select>
         </label>
-        {textSize !== 16 && (textMode === "pixel" || setId) && <p className="muted small">Small text reads best with Sharp text.</p>}
+        {textSize !== 16 && (textMode === "pixel" || setId) && <p className="muted small">Pixel text at this size uses fonts drawn for it: {SMALL_FONT_CREDIT}.</p>}
         <label className="check">
           <input
             type="checkbox"
@@ -569,7 +619,12 @@ export function Player({ game, fonts, onExit }: Props) {
 
   return (
     <div
-      className={(touch ? (sideways ? "player touch sideways" : "player touch") : showPad ? "player with-pad" : "player") + (fullscreen ? " fs" : "")}
+      className={
+        (touch ? (sideways ? "player touch sideways" : "player touch") : showPad ? "player with-pad" : "player") +
+        (fullscreen ? " fs" : "") +
+        (!touch && screenSize !== "fit" ? " large" : "") +
+        (!touch && screenSize === "fill" ? " fill" : "")
+      }
     >
       {fullscreen && (
         <button className="fs-exit" onClick={toggleFullscreen} aria-label="Exit fullscreen" title="Exit fullscreen (Esc)">

@@ -89,14 +89,37 @@ const CLOSING = new Set(
 let cell = 16;
 
 /**
- * A glyph shrunk to an h-pixel cell, as one 0/1 per pixel (row by row). A
- * target pixel is inked when enough of the source pixels under it are.
+ * Fonts drawn for the small cells, when given: "HZK12" / "HZK10" (GB2312
+ * order, h rows of 2 bytes) and "ASC12" / "ASC10" (256 glyphs, h rows of 1
+ * byte), as the player's bundled pixel fonts provide.
+ */
+function nativeSmall(font: 0 | 1, h: number): Int8Array | null {
+  return getPlatform().rom.get(`${font === 0 ? "HZK" : "ASC"}${h}`) ?? null;
+}
+
+/**
+ * A glyph in an h-pixel cell, as one 0/1 per pixel (row by row): from a font
+ * drawn for that size when there is one, otherwise shrunk from the 16-pixel
+ * font (a target pixel is inked when enough of the source pixels under it are).
  */
 const scaledCache = new Map<string, Uint8Array>();
 function scaledBits(font: 0 | 1, code: number, h: number): Uint8Array {
   const key = `${font}:${code}:${h}`;
   let bits = scaledCache.get(key);
   if (bits) return bits;
+  const native = nativeSmall(font, h);
+  if (native) {
+    const w = font === 0 ? h : h >> 1;
+    const bpr = font === 0 ? 2 : 1;
+    const base = code * h * bpr;
+    bits = new Uint8Array(w * h);
+    for (let r = 0; r < h; r++) {
+      for (let c = 0; c < w; c++) bits[r * w + c] = (native[base + r * bpr + (c >> 3)] ?? 0) & (0x80 >> (c & 7)) ? 1 : 0;
+    }
+    if (scaledCache.size > 6000) scaledCache.clear();
+    scaledCache.set(key, bits);
+    return bits;
+  }
   const src = font === 0 ? hzk() : asc();
   const sw = font === 0 ? 16 : 8;
   const bpr = font === 0 ? 2 : 1;

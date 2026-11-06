@@ -648,6 +648,16 @@ footer {
   background: var(--bg);
 }
 
+/* Size: Larger -- wider than the page column, centred in the window */
+.player.large:not(.fs) {
+  width: min(calc(100vw - 32px), 1440px);
+  margin-left: calc(50% - min(calc(50vw - 16px), 720px));
+}
+.player.large.fill:not(.fs) {
+  width: calc(100vw - 32px);
+  margin-left: calc(50% - (50vw - 16px));
+}
+
 /* fullscreen: only the game (and the keypad on touch screens) */
 .player.fs,
 .player.touch.fs {

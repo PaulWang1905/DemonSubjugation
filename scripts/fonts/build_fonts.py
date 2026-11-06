@@ -5,12 +5,18 @@ HZK16: GB2312 characters in code order from 0xA1A1, 32 bytes each (16 rows of
 16 pixels). ASC16: 256 characters of 16 bytes (16 rows of 8 pixels). The engine
 reads these exactly like the device's own font files.
 
-Sources (all under the SIL Open Font License 1.1, see public/fonts/LICENSES.md):
+Sources (SIL Open Font License 1.1 or public domain, see public/fonts/LICENSES.md):
   unifont-*.hex.gz      Unifont, https://unifoundry.com/unifont/
   PressStart2P-*.ttf    Press Start 2P, https://github.com/google/fonts/tree/main/ofl/pressstart2p
   Cubic_11.woff2        Cubic 11 1.451, https://github.com/ACh-K/Cubic-11
 
-Usage: build_fonts.py UNIFONT_HEX_GZ PRESS_START_TTF CUBIC11_WOFF2 OUT_DIR
+For the 12- and 10-pixel cells of the More text option it also writes
+small/cjk12.bin, latin12.bin, cjk10.bin and latin10.bin (see small_fonts.py):
+the same GB2312 / ASCII order, `size` rows per glyph, 2 bytes a row for
+Chinese and 1 for letters.
+
+Usage: build_fonts.py UNIFONT_HEX_GZ PRESS_START_TTF CUBIC11_WOFF2 OUT_DIR [SMALL_SRC_DIR]
+SMALL_SRC_DIR holds the small fonts named in small_fonts.py.
 Needs Pillow, fontTools and brotli (for the woff2).
 """
 import gzip
@@ -84,8 +90,8 @@ def gb2312_char(index):
     return ch if len(ch) == 1 else None
 
 
-def build(out_dir, wide, narrow):
-    """`wide(ch)` / `narrow(ch)` give rows or None (left blank)."""
+def build(out_dir, wide, narrow, cjk=True):
+    """`wide(ch)` / `narrow(ch)` give rows or None (left blank). cjk=False: letters only."""
     os.makedirs(out_dir, exist_ok=True)
     hzk = bytearray(HZK_GLYPHS * 32)
     missing = 0
@@ -103,13 +109,42 @@ def build(out_dir, wide, narrow):
         rows = narrow(chr(c))
         if rows is not None:
             asc[c * 16 : c * 16 + 16] = pack(rows, 8)
-    open(os.path.join(out_dir, "HZK16"), "wb").write(hzk)
-    open(os.path.join(out_dir, "ASC16"), "wb").write(asc)
+    if cjk:
+        open(os.path.join(out_dir, "cjk16.bin"), "wb").write(hzk)
+    open(os.path.join(out_dir, "latin16.bin"), "wb").write(asc)
     print(out_dir, "missing", missing)
+
+
+def build_small(out_dir, size, wide, narrow):
+    os.makedirs(out_dir, exist_ok=True)
+    cjk = bytearray(HZK_GLYPHS * size * 2)
+    missing = 0
+    for i in range(HZK_GLYPHS):
+        ch = gb2312_char(i)
+        if ch is None:
+            continue
+        rows = wide(ch)
+        if rows is None:
+            missing += 1
+            continue
+        cjk[i * size * 2 : (i + 1) * size * 2] = pack([r + [0] * (16 - size) for r in rows], 16)
+    latin = bytearray(256 * size)
+    for c in range(0x21, 0x7F):
+        rows = narrow(chr(c))
+        if rows is not None:
+            latin[c * size : (c + 1) * size] = pack([r + [0] * (8 - len(r)) for r in rows], 8)
+    open(os.path.join(out_dir, f"cjk{size}.bin"), "wb").write(cjk)
+    open(os.path.join(out_dir, f"latin{size}.bin"), "wb").write(latin)
+    print(out_dir, size, "missing", missing)
 
 
 def main():
     hex_gz, press_start, cubic11, out = sys.argv[1:5]
+    if len(sys.argv) > 5:
+        from small_fonts import small_set
+
+        for size in (12, 10):
+            build_small(os.path.join(out, "small"), size, *small_set(size, sys.argv[5].rstrip("/") + "/"))
     uni = load_unifont(hex_gz)
     uni16 = lambda ch: unifont_rows(uni, ch, 16)
     uni8 = lambda ch: unifont_rows(uni, ch, 8)
@@ -119,7 +154,7 @@ def main():
 
     # Retro 8-bit: Press Start 2P's letters, Unifont's Chinese
     ps = Raster(press_start, 8)
-    build(os.path.join(out, "retro"), uni16, lambda ch: ps.rows(ch, 8) if ps.has(ch) else uni8(ch))
+    build(os.path.join(out, "retro"), uni16, lambda ch: ps.rows(ch, 8) if ps.has(ch) else uni8(ch), cjk=False)
 
     # Cubic 11, with Unifont for the characters it lacks
     cu = Raster(cubic11, 12)

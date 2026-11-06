@@ -7,7 +7,7 @@ import { BaseScreen, type GameNode } from "../views/BaseScreen";
 import { Bitmap, Canvas, Paint, PaintStyle, Point, Rect } from "../../graphics";
 import { Stack, gbkBytes } from "../../java";
 import type { BaseMagic } from "./BaseMagic";
-import { listKey } from "../views/ScrollList";
+import { listKey, drawMoreMark } from "../views/ScrollList";
 
 const ITEM_NUM = 2;
 
@@ -84,6 +84,7 @@ export class ScreenMagic extends BaseScreen {
     }
     // the description (in smaller text with the compact text option)
     this.mNextToDraw = TextRender.drawBlock(canvas, hlMagic.magicDescription, this.mToDraw, this.mRectDsp, EngineSettings.textSize);
+    if (this.mNextToDraw < gbkBytes(hlMagic.magicDescription).length) drawMoreMark(canvas, this.mRectDsp);
     TextRender.drawText(canvas, T.mpCost + hlMagic.costMp, this.mTextPos.x, this.mTextPos.y);
     canvas.drawBitmap(this.mBmpCursor, 100, this.mFirstItemIndex === this.mCurItemIndex ? 10 : 26);
     canvas.drawBitmap(this.mFirstItemIndex === 0 ? this.mBmpMarker : this.mBmpMarker2, 135, 6);
@@ -111,6 +112,10 @@ export class ScreenMagic extends BaseScreen {
       if (this.mNextToDraw < len) {
         this.mStackLastToDraw.push(this.mToDraw);
         this.mToDraw = this.mNextToDraw;
+      } else if (this.mToDraw !== 0) {
+        // the last page: back to the first
+        this.mToDraw = 0;
+        this.mStackLastToDraw.clear();
       }
     } else if (key === Global.KEY_PAGEUP && this.mToDraw !== 0) {
       const v = this.mStackLastToDraw.pop();

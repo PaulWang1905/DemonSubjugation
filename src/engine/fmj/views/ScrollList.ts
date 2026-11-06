@@ -22,6 +22,16 @@ function arrow(up: boolean): Bitmap {
   return bmp;
 }
 
+let moreMark: Bitmap | null = null;
+
+/**
+ * The mark that a description goes on (Page Down shows the rest): a small
+ * down arrow on the bottom edge of its box, `r` being the text's rectangle.
+ */
+export function drawMoreMark(canvas: CanvasT, r: { right: number; bottom: number }): void {
+  canvas.drawBitmap((moreMark ??= arrow(false)), r.right - 8, r.bottom - 1);
+}
+
 export class ScrollList {
   /** Selected line. */
   sel: number;

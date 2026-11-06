@@ -27,8 +27,10 @@ the right to use.
 - Exploration, NPCs, dialogue, shops, turn-based combat (attacks, magic, items,
   combined attacks, flee, auto-attack), levelling, equipment and three save slots.
 - 160×96 screen rendered pixel-exact with integer scaling and selectable
-  palettes (classic, LCD, paper, amber).
-- **Sharp text** (default): characters are redrawn at the display's full
+  palettes (classic, LCD, paper, amber). On a computer, **Size** can be Fit
+  (whole pixels, inside the page), Larger (up to half as big again) or
+  Largest (the whole window); the bigger two scale in quarter-pixel steps.
+- **Sharp text**: characters are redrawn at the display's full
   resolution with the device's fonts (sans or serif), while the rest of the
   picture stays pixel-exact. The engine reports where it drew each character
   and the player checks the pixels each frame, so text that menus or borders
@@ -37,8 +39,9 @@ the right to use.
 - **Bundled pixel fonts**: three more Text choices draw with open-source
   pixel fonts in the device's 16-pixel layout, so games look like the
   handheld without the original font files: **Retro 8-bit** (letters from
-  Press Start 2P, Chinese from Unifont), **Unifont** and **Cubic 11**. They
-  load only when chosen and can be switched while playing. Built by
+  Press Start 2P, Chinese from Unifont; the default without the original
+  files), **Unifont** and **Cubic 11**. They load only when chosen and can
+  be switched while playing. Built by
   `scripts/fonts/build_fonts.py`; credits and licences (SIL OFL 1.1) are in
   [public/fonts/LICENSES.md](public/fonts/LICENSES.md).
 - Keyboard controls, and a full-screen phone layout: the screen as large as it goes, a big on-screen keypad (slide the thumb on the d-pad to turn, hold a direction and A together), controls either side of the screen when held sideways, options in a sheet that pauses the game. Add it to the home screen to play without the browser bars. Held keys repeat at one rate on every device; 1×/2×/4× speed.
@@ -47,7 +50,10 @@ the right to use.
   text instead of the device's 16, so more fits on a page (the first
   dialogue of 伏魔记's opening fits in one box instead of two or three). The
   layout folds the spaces games used to break lines, keeps Latin words whole
-  and keeps closing punctuation off the start of a line. Best with Sharp text.
+  and keeps closing punctuation off the start of a line. Pixel text at these
+  sizes uses fonts drawn for them (Cubic 11 and X11 6x12 at 12 pixels,
+  Boutique Bitmap 9×9 and X11 5x8 at 10) instead of shrinking the 16-pixel
+  ones.
 - **Hidden debug menu** for testing: press and hold the game screen for two
   seconds (mouse or finger; a ring fills while you hold). The game pauses while
   it is open. It edits party stats, money, items, spells and story flags, and
