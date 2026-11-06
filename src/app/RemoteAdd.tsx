@@ -5,7 +5,7 @@ import { useSiteLang } from "./siteLang";
 
 interface Props {
   busy: boolean;
-  onImport: (files: File[]) => Promise<void> | void;
+  onImport: (files: File[]) => Promise<unknown> | void;
 }
 
 const LAST = "fmj-react:remoteLink";

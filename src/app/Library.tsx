@@ -13,7 +13,7 @@ interface Props {
   persistent: boolean;
   busy: boolean;
   messages: string[];
-  onImport: (files: File[]) => Promise<void> | void;
+  onImport: (files: File[]) => Promise<unknown> | void;
   onPlay: (g: StoredGame) => void;
   /** Play a built-in demo: The Silent Bell (default) or the short Lantern Path. */
   onPlayDemo: (which?: "bell" | "lantern") => void;

@@ -3277,10 +3277,23 @@ a:hover .h-row-link .h-arrow {
    section with a sticky stage: the live game first fills the window and
    shrinks to its place as you scroll, while the title comes in
    (--p: 0 → 1, set from the scroll position; without it, the end state) -- */
+/* (registered, so it can be animated: the smaller screens' reveal) */
+@property --p {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
 .h-hero {
   position: relative;
   isolation: isolate;
   color: var(--h-paper);
+  --p: 1;
+}
+.h-hero.h-reveal {
+  --p: 0;
+  transition: --p 1.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.h-hero.h-reveal.h-in {
   --p: 1;
 }
 .h-hero::before {
@@ -3403,19 +3416,20 @@ a:hover .h-row-link .h-arrow {
 }
 .h-title {
   margin: 0;
-  font-size: clamp(48px, 6.6vw, 112px);
+  font-size: clamp(44px, 5.2vw, 92px);
   font-weight: 620;
-  line-height: 0.94;
-  letter-spacing: -0.055em;
+  line-height: 0.98;
+  letter-spacing: -0.05em;
 }
 .h-title span {
   display: block;
+  white-space: nowrap;
 }
 .h-title .accent {
   color: var(--h-lcd);
 }
 html:lang(zh-CN) .h-title {
-  font-size: clamp(42px, 5.4vw, 92px);
+  font-size: clamp(38px, 4.8vw, 84px);
   letter-spacing: -0.02em;
   line-height: 1.12;
   font-weight: 700;
@@ -3424,10 +3438,10 @@ html:lang(zh-CN) .h-title span {
   white-space: nowrap;
 }
 .h-lead {
-  max-width: 30em;
-  margin: 28px 0 0;
-  color: rgb(236 235 227 / 0.72);
-  font-size: clamp(17px, 1.35vw, 20px);
+  max-width: 28em;
+  margin: 26px 0 0;
+  color: rgb(236 235 227 / 0.7);
+  font-size: clamp(16px, 1.2vw, 19px);
   line-height: 1.5;
   letter-spacing: -0.01em;
 }
@@ -3653,6 +3667,64 @@ html:lang(zh-CN) .h-sec-head h2 {
   align-self: flex-start;
   margin-top: auto;
   min-width: 180px;
+}
+
+/* the visitor's own game: a statement and a file picker; the whole
+   section takes a dropped file and lights up while one is dragged over */
+.h-upload {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+  gap: 28px clamp(32px, 6vw, 96px);
+  align-items: end;
+  padding: clamp(64px, 9vw, 136px) 0 clamp(56px, 7vw, 104px);
+  border-bottom: 1px solid var(--line);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+.h-upload.drag {
+  background: color-mix(in srgb, var(--h-lcd) 30%, transparent);
+  box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--h-lcd) 30%, transparent);
+  clip-path: inset(0 -100vmax);
+}
+.h-upload h2 {
+  margin: 0;
+  font-size: clamp(40px, 5.4vw, 88px);
+  font-weight: 640;
+  line-height: 0.96;
+  letter-spacing: -0.05em;
+}
+html:lang(zh-CN) .h-upload h2 {
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.h-upload p {
+  margin: 22px 0 0;
+  max-width: 26em;
+  color: var(--muted);
+  font-size: clamp(17px, 1.35vw, 20px);
+  line-height: 1.5;
+}
+.h-upload p strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.h-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.h-upload-zone .h-btn {
+  min-width: 260px;
+}
+.h-upload-drop {
+  color: var(--ink);
+  font-size: 14px;
+}
+.h-upload-hint {
+  color: var(--muted);
+  font: 500 11px/1.5 var(--h-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* better than the handheld: one line at a time, the picture beside it
@@ -3921,6 +3993,16 @@ html:lang(zh-CN) .h-band h2 {
 /* -- narrower screens -- */
 @media (max-width: 1000px) {
   .h-stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(48px, 9vw, 88px);
+  }
+  .h-title {
+    font-size: clamp(36px, 8.6vw, 72px);
+  }
+  html:lang(zh-CN) .h-title {
+    font-size: clamp(34px, 8vw, 64px);
+  }
+  .h-upload {
     grid-template-columns: minmax(0, 1fr);
   }
   .h-monitor {

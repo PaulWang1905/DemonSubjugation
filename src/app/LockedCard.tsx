@@ -8,7 +8,7 @@ interface Props {
   /** An older version is already in the library. */
   update?: boolean;
   busy: boolean;
-  onImport: (files: File[]) => Promise<void> | void;
+  onImport: (files: File[]) => Promise<unknown> | void;
 }
 
 /** A game the site serves encrypted: type the password to add it. */

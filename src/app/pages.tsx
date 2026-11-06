@@ -29,8 +29,12 @@ function scrollProgress(el: HTMLElement, top: number): number {
 /** The scroll-driven hero runs on big enough screens, unless motion is reduced. */
 const SCROLL_HERO = "(min-width: 1000px) and (min-height: 620px) and (prefers-reduced-motion: no-preference)";
 
-export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
+export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDemo; onOpenGames: (files: File[]) => void; busy: boolean }) {
   const [preview, setPreview] = useState(true);
+  // the visitor's own game: a file picker, and the upload section takes a drop
+  const input = useRef<HTMLInputElement>(null);
+  const choose = () => input.current?.click();
+  const [drag, setDrag] = useState(false);
   const hidePreview = useCallback(() => setPreview(false), []);
   const t = SITE_TEXT[useSiteLang()];
   const hero = useRef<HTMLElement>(null);
@@ -43,14 +47,26 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
     const mon = monitor.current;
     if (!el || !mon) return;
     const mq = matchMedia(SCROLL_HERO);
+    const still = matchMedia("(prefers-reduced-motion: reduce)");
+    // smaller screens: the title waits below the game and rises when scrolled to
+    const copy = el.querySelector(".h-hero-copy");
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) el.classList.add("h-in");
+      },
+      { threshold: 0.2 },
+    );
+    if (copy) io.observe(copy);
     let raf = 0;
     const update = () => {
       raf = 0;
       if (!mq.matches) {
         el.style.removeProperty("--p");
         mon.style.transform = "";
+        el.classList.toggle("h-reveal", !still.matches);
         return;
       }
+      el.classList.remove("h-reveal");
       // (the stage sticks under the top bar)
       const bar = (document.querySelector(".topbar") as HTMLElement | null)?.offsetHeight ?? 0;
       el.style.setProperty("--bar", `${bar}px`);
@@ -83,6 +99,7 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      io.disconnect();
       removeEventListener("scroll", queue);
       removeEventListener("resize", queue);
       mq.removeEventListener("change", queue);
@@ -146,14 +163,16 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
               {t.heroLead[2]}
             </p>
             <div className="h-cta">
-              <button className="h-btn h-btn-primary" onClick={() => onPlayDemo("bell")}>
-                {noArrow(t.playBell)}
+              <button className="h-btn h-btn-primary" onClick={choose} disabled={busy}>
+                {t.uploadCta}
+                <span className="h-arrow" aria-hidden="true">
+                  ↑
+                </span>
+              </button>
+              <button className="h-btn h-btn-line" onClick={() => onPlayDemo("bell")}>
+                {t.tryBell}
                 <Arrow />
               </button>
-              <Link to="games" className="h-btn h-btn-line">
-                {t.browse}
-                <Arrow />
-              </Link>
             </div>
             <Link to="editor" className="h-textlink">
               {t.makeOwn}
@@ -181,29 +200,51 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
         </div>
       </section>
 
-      <section className="h-section">
-        <header className="h-sec-head">
-          <h2>{t.startTitle}</h2>
-          <p>{t.startSub}</p>
-        </header>
-        <div className="h-games">
-          {games.map((g, i) => (
-            <article key={g.key} className="h-game">
-              <button className="h-game-art" onClick={() => onPlayDemo(g.key)} aria-label={`${noArrow(t.play)} ${g.name}`}>
-                <span className="h-game-no">{String(i + 1).padStart(2, "0")}</span>
-                <span className="h-game-logo">{g.art}</span>
-              </button>
-              <div className="h-game-body">
-                <p className="h-meta">{g.meta}</p>
-                <h3>{g.name}</h3>
-                <p>{g.text}</p>
-                <button className="h-btn h-btn-dark" onClick={() => onPlayDemo(g.key)}>
-                  {noArrow(t.play)}
-                  <Arrow />
-                </button>
-              </div>
-            </article>
-          ))}
+      <input
+        ref={input}
+        type="file"
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])];
+          e.target.value = "";
+          if (files.length) onOpenGames(files);
+        }}
+      />
+      <section
+        className={drag ? "h-upload drag" : "h-upload"}
+        onDragOver={(e) => {
+          if (![...e.dataTransfer.types].includes("Files")) return;
+          e.preventDefault();
+          setDrag(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDrag(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDrag(false);
+          const files = [...e.dataTransfer.files];
+          if (files.length) onOpenGames(files);
+        }}
+      >
+        <div className="h-upload-copy">
+          <h2>{t.upload.title}</h2>
+          <p>
+            {t.upload.text[0]}
+            <strong>{t.upload.text[1]}</strong>
+            {t.upload.text[2]}
+          </p>
+        </div>
+        <div className="h-upload-zone">
+          <button className="h-btn h-btn-dark" onClick={choose} disabled={busy}>
+            {busy ? t.upload.busy : t.upload.button}
+            <span className="h-arrow" aria-hidden="true">
+              ↑
+            </span>
+          </button>
+          <span className="h-upload-drop">{t.upload.drop}</span>
+          <span className="h-upload-hint">{t.upload.hint}</span>
         </div>
       </section>
 
@@ -257,16 +298,32 @@ export function HomePage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
         </div>
       </section>
 
-      <section className="h-band">
-        <div>
-          <h2>{t.ctaTitle}</h2>
-          <p>{t.ctaText}</p>
+      <section className="h-section">
+        <header className="h-sec-head">
+          <h2>{t.startTitle}</h2>
+          <p>{t.startSub}</p>
+        </header>
+        <div className="h-games">
+          {games.map((g, i) => (
+            <article key={g.key} className="h-game">
+              <button className="h-game-art" onClick={() => onPlayDemo(g.key)} aria-label={`${noArrow(t.play)} ${g.name}`}>
+                <span className="h-game-no">{String(i + 1).padStart(2, "0")}</span>
+                <span className="h-game-logo">{g.art}</span>
+              </button>
+              <div className="h-game-body">
+                <p className="h-meta">{g.meta}</p>
+                <h3>{g.name}</h3>
+                <p>{g.text}</p>
+                <button className="h-btn h-btn-dark" onClick={() => onPlayDemo(g.key)}>
+                  {noArrow(t.play)}
+                  <Arrow />
+                </button>
+              </div>
+            </article>
+          ))}
         </div>
-        <Link to="guide" className="h-btn h-btn-primary">
-          {t.ctaButton}
-          <Arrow />
-        </Link>
       </section>
+
     </div>
   );
 }

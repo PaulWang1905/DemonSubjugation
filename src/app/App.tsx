@@ -64,9 +64,11 @@ export function App() {
   }, [refresh]);
 
   const onImport = useCallback(
-    async (files: File[]) => {
-      if (files.length === 0) return;
+    async (files: File[]): Promise<StoredGame[]> => {
+      if (files.length === 0) return [];
       setBusy(true);
+      // (the games added, so the front page can start the one dropped there)
+      const added: StoredGame[] = [];
       try {
         const { items, errors } = await importFiles(files);
         const notes = [...errors];
@@ -76,14 +78,16 @@ export function App() {
             notes.push(gamesText().imported.font(it.font));
           } else {
             const id = await archiveId(it.data);
-            await putGame({
+            const g: StoredGame = {
               id,
               name: it.name,
               fileName: it.fileName,
               size: it.data.length,
               addedAt: Date.now(),
               data: copyBuffer(it.data),
-            });
+            };
+            await putGame(g);
+            added.push(g);
             notes.push(gamesText().imported.game(it.name, it.info.maps, it.info.scripts));
           }
         }
@@ -92,6 +96,7 @@ export function App() {
       } finally {
         setBusy(false);
       }
+      return added;
     },
     [refresh],
   );
@@ -191,7 +196,18 @@ export function App() {
         <Player key={playing!.id + (playtestFrom ? playing!.addedAt : "")} game={playing!} fonts={fontPair} onExit={onExit} />
       ) : (
         <>
-          {page === "home" && <HomePage onPlayDemo={playDemo} />}
+          {page === "home" && (
+            <HomePage
+              onPlayDemo={playDemo}
+              busy={busy}
+              onOpenGames={async (files) => {
+                // one game: play it; otherwise (several, fonts, errors) show them in the library
+                const added = await onImport(files);
+                if (added.length === 1) setPlaying(added[0]);
+                else navigate("games");
+              }}
+            />
+          )}
           {page === "games" && (
             <Library
               games={games}
