@@ -77,8 +77,9 @@ export class ScreenMagic extends BaseScreen {
     canvas.drawColor(Global.COLOR_WHITE);
     canvas.drawRectR(this.mRectTop, this.mFramePaint);
     canvas.drawRectR(this.mRectBtm, this.mFramePaint);
-    const hlMagic = this.magics[this.mFirstItemIndex];
-    TextRender.drawText(canvas, hlMagic.magicName, this.mRectTop.left + 1, this.mRectTop.top + 1);
+    // the description and cost are the highlighted magic's (the one by the cursor)
+    const hlMagic = this.magics[this.mCurItemIndex];
+    TextRender.drawText(canvas, this.magics[this.mFirstItemIndex].magicName, this.mRectTop.left + 1, this.mRectTop.top + 1);
     if (this.mFirstItemIndex + 1 < this.magics.length) {
       TextRender.drawText(canvas, this.magics[this.mFirstItemIndex + 1].magicName, this.mRectTop.left + 1, this.mRectTop.top + 1 + 16);
     }
