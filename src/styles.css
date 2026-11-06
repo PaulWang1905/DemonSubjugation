@@ -3316,7 +3316,7 @@ a:hover .h-row-link .h-arrow {
   background-size: 24px 24px;
   mask-image: linear-gradient(to bottom, #000 50%, transparent);
 }
-/* the end state: a centred headline, one action, the game below it */
+/* the end state: the game, and under it a centred headline and one action */
 .h-stage {
   position: relative;
   display: flex;
@@ -3502,8 +3502,9 @@ html:lang(zh-CN) .h-title span + span {
 }
 
 /* the live demo, framed like a monitor feed, as big as the window allows
-   under the headline */
+   above the headline */
 .h-monitor {
+  order: -1;
   width: min(1040px, 100%, calc((100vh - var(--bar, 53px) - 330px) * 1.55));
   margin: 0;
   border: 1px solid var(--h-rule);
