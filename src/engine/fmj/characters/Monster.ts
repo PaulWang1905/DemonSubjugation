@@ -23,6 +23,8 @@ export class Monster extends FightingCharacter {
   }
   money = 0;
   exp = 0;
+  /** The invisible stand-in that keeps a scripted fight's only enemy in the middle slot. */
+  isPlaceholder = false;
   /** Stealable goods: type, id, num */
   private readonly mCarryGoods1 = [0, 0, 0];
   /** Dropped goods: type, id, num */

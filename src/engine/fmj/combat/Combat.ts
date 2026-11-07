@@ -186,6 +186,7 @@ export class Combat extends BaseScreen implements CombatUICallBack {
       const n = DatLib.getRes(ResType.ARS, m.type, m.index) as Monster;
       n.hp = -1;
       n.isVisiable = false;
+      n.isPlaceholder = true;
       this.mMonsterList.unshift(n);
       this.setOriginalMonsterPos();
     }
@@ -317,10 +318,11 @@ export class Combat extends BaseScreen implements CombatUICallBack {
       for (const p of OriginalRules.recoverAfterVictory(this.mPlayerList)) {
         if (OriginalRules.gainExperience(p, this.mWinExp)) lvuplist.push(p);
       }
-      // each defeated enemy may leave one of its item
+      // each defeated enemy may leave one of its item (defeated enemies are
+      // no longer visible: only the scripted fight's stand-in is skipped)
       const leader = this.mPlayerList[0];
       for (const m of this.mMonsterList) {
-        if (!m.isVisiable) continue;
+        if (m.isPlaceholder) continue;
         const g = m.dropGoods;
         if (g != null && OriginalRules.drops(leader, m)) {
           gm.addGoods(g.type, g.index, 1);
@@ -362,6 +364,7 @@ export class Combat extends BaseScreen implements CombatUICallBack {
       else if (ppt < 0) ppt = 10;
 
       for (const m of this.mMonsterList) {
+        if (m.isPlaceholder) continue;
         const g = m.dropGoods;
         if (g != null && sRandom.nextInt(101) < ppt) {
           gm.addGoods(g.type, g.index, g.goodsNum);
