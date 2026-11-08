@@ -51,6 +51,6 @@ describe("Fulu", () => {
     const call = (entry: number) =>
       run(program([0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2, 0x60], [], [])).stopped;
     expect(call(0xe953)).toBe("Fulu has no GuiMsgBox ($E953) yet");
-    expect(call(0xe9a1)).toBe("Fulu has no OS function $E9A1 yet");
+    expect(call(0xe709)).toBe("Fulu has no OS function $E709 yet");
   });
 });
