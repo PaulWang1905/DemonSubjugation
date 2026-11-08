@@ -191,7 +191,7 @@ its size in instructions (with the resident code it uses), what it does.
 | $E877 | SysSaveScreen | 5:$77CD | 517 | (x1 in A, y1, x2, y2, buffer): the screen's bytes under a rectangle, row by row, to a buffer ($2F/$30 left after it) |
 | $E889 | SysPictureDummy | 6:$5B18 | 323 | (x1 in A, y1, x2, y2, bitmap, buffer): as SysPicture (mode 0) into a 20-byte-stride buffer; far-calls the multiply $EAEC |
 | $E8BF | | 5:$8603 | 474 | |
-| $E8EC | | 6:$624D | 333 | |
+| $E8EC | (icons off) | 6:$624D | 333 | every status icon off (all icon rows but 6, 7, 8, 13, 20, 31, 41, 68, 78, 89-91); icon n's row is 6:$6D15[n] |
 | $E932 | (GUI start-up) | 8:$5000 | 164 | clears $2B09-$2B0B, memset($2B0F, 0, $18), $2B27 = 2, $2B28 = $0F; far-calls $E9A1($FFFF), $E91C, $E848(0), $E8D7(0), $E845(0); returns 1 |
 | $E935 | GuiGetMsg | 8:$5093 | 2075 | (msg): the message pump (below) |
 | $E93B | (input mode) | 8:$5FF3 | 118 | (mode): switch the keyboard state's low 4 bits (modes 2, 4, 8, 1) with a routine per change; Fulu has only no change |

@@ -109,7 +109,29 @@ const MODES: Record<number, number[]> = { 2: [4, 8, 1], 4: [8, 2, 1], 8: [2, 4, 
 /** Where the OS keeps that switch's table (8:$8B9C: 4 modes, then their code's addresses). */
 const MODE_TABLE = 0x8b9c, MODE_ORDER = [2, 4, 8, 1], MODE_CODE = [0x6028, 0x605e, 0x6094, 0x60ca];
 
+/** The LCD rows of the status icons $E8EC leaves alone (those of icons 20-22, the GUI's three, and four more). */
+const ICONS_KEPT = [6, 7, 8, 13, 20, 31, 41, 68, 78, 89, 90, 91];
+
 export const GUI: Record<number, OsFunction> = {
+  /**
+   * $E8EC: turn the status icons off: every icon row's bit but those of
+   * ICONS_KEPT (icons 0-8 and 24, the gauges 9-16, a bar of 38 rows and four
+   * groups of 7), ending as its last one (icon 24, row 61) leaves things.
+   */
+  0xe8ec: fn(
+    0x624d,
+    () => {
+      for (let row = 0; row < 96; row++) if (!ICONS_KEPT.includes(row)) wr(0x412 + row * 32, rd(0x412 + row * 32) & 0xfe);
+      const last = 0x412 + 61 * 32;
+      ram[0x2080] = 0;
+      set16(0x38, last);
+      cpu.a = rd(last);
+      cpu.x = cpu.y = 0;
+      cmp(0, 0);
+      cpu.p &= ~0x40;
+    },
+    ICON_TEMPORARIES,
+  ),
   0xe938: fn(0x5d45, setKeyboardHigh),
   /**
    * $E93B(mode): change the input mode. Fulu has only the case of no change
