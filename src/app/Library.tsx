@@ -13,8 +13,14 @@ interface Props {
   persistent: boolean;
   busy: boolean;
   messages: string[];
+  /** The 4988 firmware: how many of its files were added; ready when it can boot. */
+  firmware: { files: number; ready: boolean };
   onImport: (files: File[]) => Promise<unknown> | void;
   onPlay: (g: StoredGame) => void;
+  /** Play a device program built on the fmj engine in this site's engine. */
+  onPlayRemastered: (g: StoredGame) => void;
+  /** Turn on the emulated 4988 itself. */
+  onTurnOn: () => void;
   /** Play a built-in demo: The Silent Bell (default) or the short Lantern Path. */
   onPlayDemo: (which?: "bell" | "lantern") => void;
   onDelete: (g: StoredGame) => void;
@@ -33,7 +39,7 @@ function added(t: number, lang: SiteLang): string {
 }
 
 /** The Games page: the demos, your games, adding more. */
-export function Library({ games, fonts, persistent, busy, messages, onImport, onPlay, onPlayDemo, onDelete }: Props) {
+export function Library({ games, fonts, persistent, busy, messages, firmware, onImport, onPlay, onPlayRemastered, onTurnOn, onPlayDemo, onDelete }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const choose = () => input.current?.click();
@@ -96,7 +102,7 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
       <section className="shelf" id="games">
         <div className="shelf-head">
           <h2>{t.library}</h2>
-          <span className="muted small">{t.count(games.length + 2 + locked.length)}</span>
+          <span className="muted small">{t.count(games.length + 2 + locked.length + (firmware.ready ? 1 : 0))}</span>
         </div>
         <ul className="cards">
           <li className="card demo">
@@ -125,6 +131,21 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
               <button onClick={() => onPlayDemo("lantern")}>{t.play}</button>
             </div>
           </li>
+          {firmware.ready && (
+            <li className="card demo device">
+              <div className="card-art" aria-hidden="true">
+                <span>LONGMAN 4988</span>
+              </div>
+              <div className="card-body">
+                <strong>{t.device.name}</strong>
+                <span className="muted small">{t.device.meta}</span>
+                <span className="card-desc">{t.device.desc}</span>
+              </div>
+              <div className="card-actions">
+                <button onClick={onTurnOn}>{t.device.turnOn}</button>
+              </div>
+            </li>
+          )}
           {locked.map((l) => (
             <LockedCard key={l.url} game={l} update={games.some((g) => g.name === l.name)} busy={busy} onImport={onImport} />
           ))}
@@ -139,6 +160,7 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
                   {g.fileName} · {size(g.size)}
                   {g.addedAt ? ` · ${added(g.addedAt, lang)}` : ""}
                 </span>
+                {g.format === "gam" && <span className="card-desc">{t.device.programMeta}</span>}
                 {(() => {
                   const src = LOCKED_GAMES.find((l) => l.name === g.name)?.source;
                   return (
@@ -155,6 +177,11 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
               </div>
               <div className="card-actions">
                 <button onClick={() => onPlay(g)}>{t.play}</button>
+                {g.libOffset !== undefined && (
+                  <button className="ghost" onClick={() => onPlayRemastered(g)} title={t.device.remasteredTitle}>
+                    {t.device.remastered}
+                  </button>
+                )}
                 <button className="ghost danger" onClick={() => onDelete(g)}>
                   {t.remove}
                 </button>
@@ -182,6 +209,11 @@ export function Library({ games, fonts, persistent, busy, messages, onImport, on
           <span className="muted small">
             {fonts.HZK16 && fonts.ASC16 ? t.fontsHave : t.fontsMissing}
           </span>
+        </div>
+        <div className="fonts-line">
+          <span className="muted small">{t.device.firmwareLabel}</span>
+          <span className={`chip ${firmware.ready ? "ok" : "soft"}`}>{firmware.ready ? "✓ 0E00 + font" : "0E00 + font"}</span>
+          <span className="muted small">{firmware.ready ? t.device.firmwareReady(firmware.files) : t.device.firmwareMissing}</span>
         </div>
         {!persistent && <p className="muted small">{t.noStorage}</p>}
       </section>

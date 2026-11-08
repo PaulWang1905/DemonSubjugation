@@ -6,7 +6,7 @@ import { currentSiteLang, type SiteLang } from "./siteLang";
 const en = {
   eyebrow: "Games",
   title: "Your games",
-  lead: ["The built-in demos and the games you have added. Everything stays in this browser; drop ", ".lib", " files anywhere on this page to add more."],
+  lead: ["The built-in demos and the games you have added. Everything stays in this browser; drop ", ".lib or .gam", " files anywhere on this page to add more."],
   reading: "Reading files…",
   library: "Library",
   count: (n: number) => `${n} game${n === 1 ? "" : "s"}`,
@@ -19,12 +19,25 @@ const en = {
   removeConfirm: (name: string) => `Remove “${name}” and its save slots from this browser?`,
   originalFrom: "Original from ",
   addGame: "Add a game",
-  addGameHint: ["DAT.LIB", " or any ", "*.lib"],
+  addGameHint: ["*.lib", " or ", "*.gam"],
   fontsLabel: "Original bitmap fonts (optional):",
   fontsHave: "Games use the original fonts.",
   fontsMissing: "Without them, games use the pixel fonts that come with the player. Drop the files here to add them.",
   noStorage: "Browser storage is unavailable, so imported files last for this tab only.",
   dropHere: "Drop to add games or fonts",
+
+  device: {
+    name: "Longman 4988",
+    meta: "The dictionary itself · its own firmware",
+    desc: "Turn on the emulated device: its dictionaries, tools and built-in games.",
+    turnOn: "Turn on",
+    programMeta: "Runs on the 4988's own firmware",
+    remastered: "Remastered",
+    remasteredTitle: "Play it in this site's engine instead: HD text, wider maps, English menus",
+    firmwareLabel: "4988 firmware:",
+    firmwareReady: (n: number) => `Device programs (.gam) run on it. ${n} of 13 files added.`,
+    firmwareMissing: "Device programs (.gam) need it: drop its files here (0E00.DAT and 4988.font at least).",
+  },
 
   locked: {
     status: "Locked · needs a password",
@@ -67,9 +80,11 @@ const en = {
   imported: {
     font: (font: string) => `Added font ${font}.`,
     game: (name: string, maps: number, scripts: number) => `Added ${name}: ${maps} maps, ${scripts} scripts.`,
+    program: (name: string) => `Added ${name}, a program for the 4988.`,
+    firmware: (file: string) => `Added firmware file ${file}.`,
     noStart: "it has no starting script (GUT 1-1), so it is not a BBK RPG archive or it is damaged",
     invalid: (file: string, why: string) => `${file}: not a valid game archive (${why})`,
-    unknown: (file: string) => `${file}: unrecognised file (expected a .lib archive, HZK16 or ASC16)`,
+    unknown: (file: string) => `${file}: unrecognised file (expected a .lib or .gam game, a font or a 4988 firmware file)`,
     noRom: (file: string) => `${file}: no fmj.rom["…"] entries found`,
   },
 };
@@ -79,7 +94,7 @@ export type GamesText = typeof en;
 const zh: GamesText = {
   eyebrow: "游戏",
   title: "你的游戏",
-  lead: ["内置的演示和你添加的游戏。所有内容都保存在这个浏览器里；把 ", ".lib", " 文件拖到这个页面的任何地方就能添加。"],
+  lead: ["内置的演示和你添加的游戏。所有内容都保存在这个浏览器里；把 ", ".lib 或 .gam", " 文件拖到这个页面的任何地方就能添加。"],
   reading: "正在读取文件…",
   library: "游戏库",
   count: (n: number) => `${n} 款游戏`,
@@ -92,12 +107,25 @@ const zh: GamesText = {
   removeConfirm: (name: string) => `要从这个浏览器中移除「${name}」和它的存档吗？`,
   originalFrom: "原版来自 ",
   addGame: "添加游戏",
-  addGameHint: ["DAT.LIB", " 或任何 ", "*.lib"],
+  addGameHint: ["*.lib", " 或 ", "*.gam"],
   fontsLabel: "原版点阵字库（可选）：",
   fontsHave: "游戏会使用原版字体。",
   fontsMissing: "没有字库时，游戏使用播放器自带的像素字体。把字库文件拖到这里即可添加。",
   noStorage: "浏览器存储不可用，导入的文件只在这个标签页里有效。",
   dropHere: "松开即可添加游戏或字库",
+
+  device: {
+    name: "朗文 4988",
+    meta: "电子词典本身 · 原机固件",
+    desc: "打开模拟的电子词典：里面的词典、工具和自带游戏都能用。",
+    turnOn: "开机",
+    programMeta: "在 4988 原机固件上运行",
+    remastered: "重制版",
+    remasteredTitle: "改用本站的引擎来玩：高清文字、更宽的地图、英文菜单",
+    firmwareLabel: "4988 固件：",
+    firmwareReady: (n: number) => `可以运行词典程序（.gam）。已添加 ${n}/13 个文件。`,
+    firmwareMissing: "运行词典程序（.gam）需要固件：把固件文件拖到这里（至少要 0E00.DAT 和 4988.font）。",
+  },
 
   locked: {
     status: "已加密 · 需要密码",
@@ -139,9 +167,11 @@ const zh: GamesText = {
   imported: {
     font: (font: string) => `已添加字库 ${font}。`,
     game: (name: string, maps: number, scripts: number) => `已添加 ${name}：${maps} 张地图，${scripts} 个脚本。`,
+    program: (name: string) => `已添加 ${name}（4988 程序）。`,
+    firmware: (file: string) => `已添加固件文件 ${file}。`,
     noStart: "它没有起始脚本（GUT 1-1），所以不是步步高 RPG 游戏文件，或者文件已损坏",
     invalid: (file: string, why: string) => `${file}：不是有效的游戏文件（${why}）`,
-    unknown: (file: string) => `${file}：无法识别的文件（应为 .lib 游戏文件、HZK16 或 ASC16）`,
+    unknown: (file: string) => `${file}：无法识别的文件（应为 .lib 或 .gam 游戏、字库或 4988 固件文件）`,
     noRom: (file: string) => `${file}：没有找到 fmj.rom["…"] 条目`,
   },
 };

@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { deleteGame, getFont, isPersistent, listGames, putFont, putGame, type StoredGame } from "../storage/db";
+import { deleteGame, getFont, isPersistent, listFirmware, listGames, putFirmwareFile, putFont, putGame, type StoredGame } from "../storage/db";
+import { REQUIRED_REGIONS, type RegionId } from "../bbk/firmware";
+import { findLib } from "../bbk/gam";
+import { DevicePlayer } from "./DevicePlayer";
+import { forgetDevice } from "./deviceStore";
 import { deleteSavesFor } from "../storage/saves";
 import { archiveId, importFiles } from "./importFiles";
 import { Library } from "./Library";
@@ -40,6 +44,9 @@ export function App() {
   const smallScreen = useMedia(SMALL_SCREEN);
   const [editorAnyway, setEditorAnyway] = useState(false);
   const [playing, setPlaying] = useState<StoredGame | null>(null);
+  // a program on the emulated 4988 (null: the device itself; undefined: none)
+  const [device, setDevice] = useState<StoredGame | null | undefined>(undefined);
+  const [firmware, setFirmware] = useState<RegionId[]>([]);
   const page = usePage();
   const lang = useSiteLang();
   const t = SITE_TEXT[lang];
@@ -53,8 +60,9 @@ export function App() {
   const [persistent, setPersistent] = useState(true);
 
   const refresh = useCallback(async () => {
-    const [g, h, a] = await Promise.all([listGames(), getFont("HZK16"), getFont("ASC16")]);
+    const [g, h, a, fw] = await Promise.all([listGames(), getFont("HZK16"), getFont("ASC16"), listFirmware()]);
     setGames(g);
+    setFirmware(fw);
     setFonts({ hzk16: h, asc16: a });
     setPersistent(isPersistent());
   }, []);
@@ -76,6 +84,9 @@ export function App() {
           if (it.kind === "font") {
             await putFont(it.font, copyBuffer(it.data));
             notes.push(gamesText().imported.font(it.font));
+          } else if (it.kind === "firmware") {
+            await putFirmwareFile(it.region, copyBuffer(it.data));
+            notes.push(gamesText().imported.firmware(it.fileName));
           } else {
             const id = await archiveId(it.data);
             const g: StoredGame = {
@@ -85,10 +96,11 @@ export function App() {
               size: it.data.length,
               addedAt: Date.now(),
               data: copyBuffer(it.data),
+              ...(it.kind === "program" && { format: "gam" as const, libOffset: findLib(it.data) >= 0 ? findLib(it.data) : undefined }),
             };
             await putGame(g);
             added.push(g);
-            notes.push(gamesText().imported.game(it.name, it.info.maps, it.info.scripts));
+            notes.push(it.kind === "program" ? gamesText().imported.program(it.name) : gamesText().imported.game(it.name, it.info.maps, it.info.scripts));
           }
         }
         setMessages(notes);
@@ -106,6 +118,8 @@ export function App() {
       if (!confirm(gamesText().removeConfirm(g.name))) return;
       await deleteGame(g.id);
       deleteSavesFor(g.id);
+      deleteSavesFor(`${g.id}-lib`);
+      if (g.format === "gam") await forgetDevice(`gam:${g.id}`);
       await refresh();
     },
     [refresh],
@@ -113,7 +127,14 @@ export function App() {
 
   const onExit = useCallback(() => {
     setPlaying(null);
+    setDevice(undefined);
     setPlaytestFrom(false);
+  }, []);
+  /** A device program runs on the emulated 4988; an archive in this site's engine. */
+  const play = useCallback((g: StoredGame) => (g.format === "gam" ? setDevice(g) : setPlaying(g)), []);
+  /** A device program built on the fmj engine, in this site's engine instead (its own saves). */
+  const playRemastered = useCallback((g: StoredGame) => {
+    setPlaying({ ...g, id: `${g.id}-lib`, format: undefined, data: g.data.slice(g.libOffset) });
   }, []);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -128,7 +149,7 @@ export function App() {
   // Uploaded fonts are optional: the player falls back to the device's fonts.
   const fontPair = useMemo(() => ({ hzk16: fonts.hzk16, asc16: fonts.asc16 }), [fonts]);
 
-  const showPlayer = !!playing;
+  const showPlayer = !!playing || device !== undefined;
   return (
     <>
       {!showPlayer && (
@@ -192,8 +213,10 @@ export function App() {
       <div hidden={showPlayer || page !== "editor" || (smallScreen && !editorAnyway)}>
         <Editor onPlaytest={onPlaytest} />
       </div>
-      {showPlayer ? (
-        <Player key={playing!.id + (playtestFrom ? playing!.addedAt : "")} game={playing!} fonts={fontPair} onExit={onExit} />
+      {device !== undefined ? (
+        <DevicePlayer key={device?.id ?? "4988"} game={device} onExit={onExit} />
+      ) : playing ? (
+        <Player key={playing.id + (playtestFrom ? playing.addedAt : "")} game={playing} fonts={fontPair} onExit={onExit} />
       ) : (
         <>
           {page === "home" && (
@@ -203,7 +226,7 @@ export function App() {
               onOpenGames={async (files) => {
                 // one game: play it; otherwise (several, fonts, errors) show them in the library
                 const added = await onImport(files);
-                if (added.length === 1) setPlaying(added[0]);
+                if (added.length === 1) play(added[0]);
                 else navigate("games");
               }}
             />
@@ -216,7 +239,10 @@ export function App() {
               busy={busy}
               messages={messages}
               onImport={onImport}
-              onPlay={setPlaying}
+              firmware={{ files: firmware.length, ready: REQUIRED_REGIONS.every((r) => firmware.includes(r)) }}
+              onPlay={play}
+              onPlayRemastered={playRemastered}
+              onTurnOn={() => setDevice(null)}
               onPlayDemo={playDemo}
               onDelete={onDelete}
             />

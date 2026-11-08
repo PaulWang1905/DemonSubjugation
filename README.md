@@ -5,6 +5,10 @@ A browser port of the engine behind the BBK electronic-dictionary RPGs
 format), written in TypeScript with a React shell and deployable as a static
 site on Vercel.
 
+It also emulates the **Longman 4988 dictionary itself** (步步高朗文 4988): a
+65C02 and the device's hardware, running its own firmware, so any program made
+for it (`*.gam`) plays as on the device. See [Device emulator](#device-emulator-longman-4988).
+
 **No game content is included.** The engine plays resource archives that you
 import yourself in the browser: a game archive (`DAT.LIB` or any `*.lib`).
 The original bitmap fonts `HZK16` and `ASC16` are optional: without them, text
@@ -101,6 +105,44 @@ the right to use.
 - Also imports the hex-encoded `*.lib.js` / `rom.js` bundles used by the fmj.kt web
   builds.
 
+## Device emulator (Longman 4988)
+
+`src/bbk/` emulates the dictionary the games were made for, at the hardware
+level, so it runs whatever the device runs: every program, not only those
+built on the fmj engine, and the dictionary itself.
+
+- **CPU**: a WDC 65C02 core with every instruction and its cycle count
+  (`cpu.ts`), checked against the SingleStepTests suite and Klaus Dormann's
+  functional tests.
+- **Hardware** (`machine.ts`): 16 banks of 4 KB over 16 MB of physical memory
+  (32 KB RAM, 2 MB NOR flash, font, data and OS ROMs, four dictionary channels
+  switched by port B), the DATA1-4 address ports, the four system timers, the
+  CT timer, the real-time clock with its alarm, the interrupt controller with
+  the OS's vector table at `$0300`, halt, and the keyboard controller. The
+  flash (`flash.ts`) answers the JEDEC command sequences: byte program, sector,
+  block and chip erase, software ID and CFI.
+- **Screen** (`lcd.ts`): 159×96 from RAM `$0400`, in the controller's line
+  order, plus its status icons.
+- **Programs** go into the OS's flash file system the way the PC download tool
+  put them there (`flashfs.ts`), and start from the OS's own 游戏 menu with the
+  key presses a person would use (`device.ts`), so the OS sets everything up as
+  on the device. Nothing of the OS is imitated.
+
+The firmware is not included. Add the dumps on the Games page; the OS
+(`0E00.DAT` or `E.BIN`) and the font ROM (`4988.font` or `8.BIN`) are enough,
+and the data ROMs, dictionary channels and factory flash (`4988.flash`) make
+the dictionary complete. With a blank flash the OS formats it itself.
+
+In the player, a device program installs, boots and opens in about a second.
+The device is kept as it was left (memory and flash, so the game's own saves
+too) and resumes there next time; **Restart the device** starts afresh.
+Programs built on the fmj engine also offer **Remastered**: the same game in
+this site's engine, with HD text, the wider map views and English menus.
+**Longman 4988** on the Games page turns on the dictionary itself.
+
+On a 138-program collection (RPGs, card and board games, puzzles, action
+games, the dictionary's built-in programs) every program installs and starts.
+
 ## Editor (work in progress)
 
 The **Editor** tab builds games in the same format:
@@ -187,8 +229,16 @@ FMJ_DATA_DIR=/path/to/folder/with/DAT.LIB+HZK16+ASC16 npm test
 FMJ_DATA_DIR=... FMJ_SNAPSHOT_DIR=/tmp/frames npm test   # also writes PNG frames
 ```
 
-`.gitignore` excludes `*.lib`, `HZK16` and `ASC16` so resources are not committed
-by accident.
+`.gitignore` excludes `*.lib`, `*.gam`, `HZK16`, `ASC16` and the firmware dumps
+so resources are not committed by accident.
+
+The device emulator has its own optional tests:
+
+```bash
+BBK_CPU_TESTS=/path/to/cpu-tests npm test     # wdc/<op>.json (SingleStepTests 65x02, wdc65c02/v1)
+                                              # and Dormann's 6502_functional_test.bin, 65C02_extended_opcodes_test.bin
+BBK_FIRMWARE=/path/to/4988-dumps BBK_GAMES=/path/to/gams npm test   # boot, then install and start every .gam
+```
 
 ### Compatibility sweep
 
@@ -236,7 +286,8 @@ src/
     format/            LIB reader/writer, script assembler, encoders, decoders
     template/          original starter art, blank project and the demo game
     ui/                editor screens (resource list, map and script editors)
-  app/                 React shell: library/importer, player, keypad
+  bbk/                 the Longman 4988: 65C02, hardware, flash, LCD, file system, device
+  app/                 React shell: library/importer, players, keypad
   storage/             IndexedDB (archives, fonts) and localStorage (saves)
 tests/                 vitest: unit tests + optional real-data tests
 ```
@@ -309,7 +360,14 @@ melodies by number, and those tunes are in the device, not in any game file.
   a GPL-2.0 C reconstruction of the original engine (no code copied; the
   formulas are re-implemented).
 - Earlier lineage: the Android, Java and C# ports listed in those projects.
+- The 4988's hardware was worked out from the emulators
+  [BA4988/BBK-simulator](https://gitee.com/BA4988/BBK-simulator) (GPL-2.0, by 无云)
+  and [gam4980](https://codeberg.org/iyzsong/gam4980) (GPL-3.0), and from the
+  firmware itself; the emulator here is written anew (no code copied).
+- CPU tests: [SingleStepTests 65x02](https://github.com/SingleStepTests/65x02) and
+  [Klaus Dormann's functional tests](https://github.com/Klaus2m5/6502_65C02_functional_tests)
+  (fetched for testing, not included).
 
 This project is licensed under the **GNU General Public License v2.0** (see
-`LICENSE`). Game titles, story, art and other content in BBK archives belong to
-their respective owners and are not part of this project.
+`LICENSE`). Game titles, story, art and other content in BBK archives, and the
+4988's firmware, belong to their respective owners and are not part of this project.

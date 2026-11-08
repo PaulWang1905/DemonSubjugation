@@ -1,8 +1,11 @@
 // Classify files the player drops in: game archives (*.lib / DAT.LIB),
-// fonts (HZK16 / ASC16) and the hex-encoded "*.js" bundles used by the
-// fmj.kt web builds (`fmj.rom["NAME"] = "HEX";`).
+// programs for the 4988 (*.gam), its firmware dumps, fonts (HZK16 / ASC16)
+// and the hex-encoded "*.js" bundles used by the fmj.kt web builds
+// (`fmj.rom["NAME"] = "HEX";`).
 import { gamesText } from "./gamesText";
 import { inspectDatLib } from "../engine";
+import { REGION_SIZE, regionOf, type RegionId } from "../bbk/firmware";
+import { gamInfo, isGam } from "../bbk/gam";
 
 export interface ImportedArchive {
   kind: "game";
@@ -18,7 +21,22 @@ export interface ImportedFont {
   data: Uint8Array;
 }
 
-export type Imported = ImportedArchive | ImportedFont;
+/** A program for the 4988, run by its firmware. */
+export interface ImportedProgram {
+  kind: "program";
+  name: string;
+  fileName: string;
+  data: Uint8Array;
+}
+
+export interface ImportedFirmware {
+  kind: "firmware";
+  region: RegionId;
+  fileName: string;
+  data: Uint8Array;
+}
+
+export type Imported = ImportedArchive | ImportedFont | ImportedProgram | ImportedFirmware;
 
 export interface ImportResult {
   items: Imported[];
@@ -56,6 +74,9 @@ function hexToBytes(hex: string): Uint8Array {
 }
 
 function classify(name: string, data: Uint8Array, errors: string[]): Imported | null {
+  const region = regionOf(name);
+  if (region && data.length === REGION_SIZE) return { kind: "firmware", region, fileName: name, data };
+  if (isGam(data)) return { kind: "program", name: gamInfo(data).name || name.replace(/\.gam$/i, ""), fileName: name, data };
   const upper = name.toUpperCase();
   const base = upper.replace(/\.(BIN|DAT)$/, "");
   if (base === "HZK16" || (data.length >= 200_000 && data.length <= 300_000 && !looksLikeLib(data))) {

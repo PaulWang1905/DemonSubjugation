@@ -9,6 +9,7 @@ import { DebugMenu } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { HiresText, outputScale, type ScreenEffect, type TextStyle } from "./hiresText";
+import { effectOf, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
 import { boldSmallFonts, FONT_SETS, loadPixelFonts, loadSmallFonts, type FontSetId } from "./fonts";
 import { PLAYER_TEXT } from "./playerText";
 import { SITE_TEXT } from "./siteText";
@@ -22,7 +23,6 @@ interface Props {
   onExit: () => void;
 }
 
-const effectOf = (v: string): ScreenEffect => (v === "lcd" || v === "lcd-shadow" || v === "smooth" ? v : "none");
 /** Map view: how many extra tile columns (each side) and rows (above and below) to show. */
 type MapView = "normal" | "wide" | "widest";
 const MAP_VIEWS: Record<MapView, { mx: number; my: number }> = {
@@ -31,47 +31,9 @@ const MAP_VIEWS: Record<MapView, { mx: number; my: number }> = {
   widest: { mx: 4, my: 2 },
 };
 const mapViewOf = (v: string): MapView => (v === "wide" || v === "widest" ? v : "normal");
-/** The page column's inner width (#root: 1400 px with 16 px padding). */
-const PAGE_WIDTH = 1368;
-/** The width the game screen starts at, at most (zoom from there). */
-const DEFAULT_WIDTH = 948;
-
-function pref<T extends string>(key: string, fallback: T): T {
-  try {
-    return (localStorage.getItem("fmj-react:" + key) as T) ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-function setPref(key: string, v: string): void {
-  try {
-    localStorage.setItem("fmj-react:" + key, v);
-  } catch {
-    /* ignore */
-  }
-}
-
-const SPEEDS = [1, 2, 4];
 /** Key repeat: first repeat after this long, then one every REPEAT_RATE ms. */
 const REPEAT_DELAY = 250;
 const REPEAT_RATE = 100;
-/** Where the keypad goes beside the screen instead of under it. */
-const SIDE_PAD_QUERY = "(orientation: landscape) and (max-height: 560px)";
-/** Phones and small tablets: the full-screen play layout. */
-const TOUCH_QUERY = "(pointer: coarse) and (max-width: 1024px), (pointer: coarse) and (max-height: 600px), (max-width: 560px), (max-height: 480px)";
-
-/** Whether a media query matches, kept up to date. */
-function useMedia(query: string): boolean {
-  const [on, setOn] = useState(() => matchMedia(query).matches);
-  useEffect(() => {
-    const m = matchMedia(query);
-    const ch = () => setOn(m.matches);
-    ch();
-    m.addEventListener("change", ch);
-    return () => m.removeEventListener("change", ch);
-  }, [query]);
-  return on;
-}
 const REPEATS = new Set<EngineKey>([Keys.UP, Keys.DOWN, Keys.LEFT, Keys.RIGHT, Keys.PAGEUP, Keys.PAGEDOWN]);
 
 export function Player({ game, fonts, onExit }: Props) {
@@ -90,26 +52,8 @@ export function Player({ game, fonts, onExit }: Props) {
   const [effect, setEffect] = useState<ScreenEffect>(() => effectOf(pref<string>("effect", "none")));
   const effectRef = useRef(effect);
   effectRef.current = effect;
-  const [scale, setScale] = useState(3);
-  // Screen size on a computer: whole device pixels per game pixel inside the
-  // page ("fit"); or bigger, wider than the page and in quarter-pixel steps:
-  // up to half as big again ("large") or as big as the window allows ("fill").
-  // Zoom on a computer: steps of one device pixel per game pixel (so the
-  // pixels stay even) from the default size, which fits the screen in the
-  // window and DEFAULT_WIDTH. Kept as the number of steps from the default.
-  const [zoom, setZoom] = useState(() => {
-    const z = Number(pref<string>("zoom", ""));
-    if (Number.isFinite(z) && pref<string>("zoom", "") !== "") return Math.round(z);
-    const old = pref<string>("screenSize", "fit"); // the earlier Size menu
-    return old === "fill" ? 99 : old === "large" ? 2 : 0;
-  });
-  const changeZoom = (z: number) => {
-    setZoom(z);
-    setPref("zoom", String(z));
-  };
-  // What the zoom allows now: device pixels per game pixel (n), at the
-  // default size, and the smallest and largest; wide: past the page column.
-  const [zoomInfo, setZoomInfo] = useState({ n: 1, def: 1, min: 1, max: 1, wide: false });
+  // Zoom on a computer: steps of one device pixel per game pixel from the default size.
+  const [zoom, changeZoom] = useZoom();
   // More of the map on screen (the game itself still runs on 160x96).
   const [mapView, setMapView] = useState<MapView>(() => mapViewOf(pref<string>("mapView", "normal")));
   const view = MAP_VIEWS[mapView];
@@ -173,8 +117,6 @@ export function Player({ game, fonts, onExit }: Props) {
   // Wait for a chosen bundled font before the first start, so the game does
   // not open in another font; later changes only swap the font.
   const startedRef = useRef(false);
-  const scaleRef = useRef(scale);
-  scaleRef.current = scale;
   // The hidden debug menu: press and hold the game screen. The game is paused
   // while it is open.
   const [debugOpen, setDebugOpen] = useState(false);
@@ -188,12 +130,10 @@ export function Player({ game, fonts, onExit }: Props) {
   const sideways = useMedia(SIDE_PAD_QUERY);
   const touch = showPad && touchDevice;
   // True while the player fills the screen: only the game (and the keypad) show.
-  const [fullscreen, setFullscreen] = useState(false);
-  useEffect(() => {
-    const ch = () => setFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", ch);
-    return () => document.removeEventListener("fullscreenchange", ch);
-  }, []);
+  const fullscreen = useFullscreen();
+  const { scale, zoomInfo } = useScreenFit(stageRef, canvasRef, { touch, sideways, showPad, fullscreen, zoom, frameW, frameH });
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
   // Let go of every key the game still thinks is held, then pause it.
   const releaseKeys = useCallback(() => {
     if (repeat.current) window.clearTimeout(repeat.current.t);
@@ -439,72 +379,6 @@ export function Player({ game, fonts, onExit }: Props) {
     };
   }, [keyDown, keyUp]);
 
-  // Fit the screen into what is left of the window. On a computer the scale
-  // is a whole number of device pixels per game pixel, so the 160x96 pixels
-  // stay crisp. In the phone layout the screen takes all the room the
-  // controls leave: the full width when upright, the full height between
-  // the controls when sideways.
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    const fit = () => {
-      const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
-      const bezel = stage.querySelector(".bezel") as HTMLElement | null;
-      const frame = bezel ? bezel.offsetWidth - (canvasRef.current?.offsetWidth ?? 0) : 18;
-      const size = (sel: string, wide: boolean) =>
-        Math.max(0, ...Array.from(stage.querySelectorAll(sel)).map((x) => (wide ? (x as HTMLElement).offsetWidth : (x as HTMLElement).offsetHeight)));
-      let w = stage.clientWidth;
-      let h: number;
-      if (touch) {
-        h = stage.clientHeight;
-        if (sideways) {
-          // the widest control column, measured by its contents (grid cells stretch)
-          w -= 2 * (Math.max(size(".kp-pad", true), size(".kp-ab", true), size(".kp-pages", true)) + 10);
-        } else {
-          // what the keypad needs at least, measured by its parts (it stretches)
-          h -= Math.max(size(".kp-pad", false), size(".kp-ab", false)) + size(".kp-pages", false) + 36;
-        }
-        const fitted = Math.min((w - frame) / frameW, (h - frame) / frameH, 8);
-        setScale(Math.max(1, Math.floor(fitted * dpr * 4) / 4) / dpr);
-        return;
-      }
-      const kp = stage.querySelector(".kp") as HTMLElement | null;
-      if (document.fullscreenElement) {
-        // fullscreen: the game takes the whole screen (above the keypad, if shown)
-        h = window.innerHeight - (kp ? kp.offsetHeight + 10 : 0);
-        w = window.innerWidth;
-        const fitted = Math.min((w - frame) / frameW, (h - frame) / frameH, 16);
-        setScale(Math.max(1, Math.floor(fitted * dpr * 4) / 4) / dpr);
-        return;
-      }
-      const top = stage.getBoundingClientRect().top + window.scrollY;
-      h = window.innerHeight - top - 6;
-      if (kp) h -= kp.offsetHeight + 10;
-      else h -= 60; // leave the options bar in view
-      // whole device pixels per game pixel: the default fits the window's
-      // height and DEFAULT_WIDTH; zooming goes from 2 CSS pixels up to the
-      // window's width and height
-      const winW = document.documentElement.clientWidth - 32;
-      const steps = (width: number) => Math.floor(Math.min((width - frame) / frameW, (h - frame) / frameH) * dpr);
-      const max = Math.max(1, Math.min(steps(winW), Math.floor(16 * dpr)));
-      const def = Math.max(1, Math.min(steps(Math.min(winW, DEFAULT_WIDTH)), Math.floor(8 * dpr), max));
-      const min = Math.max(1, Math.min(def, Math.round(2 * dpr)));
-      const n = Math.min(max, Math.max(min, def + zoom));
-      setScale(n / dpr);
-      setZoomInfo({ n, def, min, max, wide: n / dpr * frameW + frame > PAGE_WIDTH });
-    };
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(stage);
-    window.addEventListener("resize", fit);
-    document.addEventListener("fullscreenchange", fit);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", fit);
-      document.removeEventListener("fullscreenchange", fit);
-    };
-  }, [showPad, touch, sideways, fullscreen, zoom, frameW, frameH]);
-
   // Change the map view while playing.
   useEffect(() => {
     const e = engineRef.current;
@@ -546,12 +420,6 @@ export function Player({ game, fonts, onExit }: Props) {
         const why = (e as Error).message;
         flash(pt.importFailed(why === "Not a save backup file" ? pt.notSaves : why));
       });
-  };
-
-  const toggleFullscreen = () => {
-    const el = document.querySelector(".player") as HTMLElement | null;
-    if (!document.fullscreenElement) el?.requestFullscreen?.().catch(() => {});
-    else document.exitFullscreen?.().catch(() => {});
   };
 
   // Screen colours and text style: in the toolbar, or under options on a phone.
@@ -609,64 +477,15 @@ export function Player({ game, fonts, onExit }: Props) {
 
   const lookOptions = (
     <>
-      <label className="field">
-        <span className="lbl">{pt.screen}</span>
-        <select
-          value={paletteId}
-          onChange={(e) => {
-            setPaletteId(e.target.value);
-            setPref("palette", e.target.value);
-          }}
-        >
-          {PALETTES.map((p) => (
-            <option key={p.id} value={p.id}>
-              {nm(p)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field" title={pt.effectTitle}>
-        <span className="lbl">{pt.effect}</span>
-        <select
-          value={effect}
-          onChange={(e) => {
-            setEffect(effectOf(e.target.value));
-            setPref("effect", e.target.value);
-          }}
-        >
-          {(["none", "lcd", "lcd-shadow", "smooth"] as const).map((v) => (
-            <option key={v} value={v}>
-              {pt.effects[v]}
-            </option>
-          ))}
-        </select>
-      </label>
-      {!touch && (
-        <span className="field zoom" title={pt.sizeTitle}>
-          <span className="lbl">{pt.size}</span>
-          <button
-            className="ghost zoom-btn"
-            onClick={() => changeZoom(zoomInfo.n - 1 - zoomInfo.def)}
-            disabled={zoomInfo.n <= zoomInfo.min}
-            aria-label={pt.smaller}
-            title={pt.smaller}
-          >
-            −
-          </button>
-          <button className="ghost zoom-pct" onClick={() => changeZoom(0)} title={pt.usualSize}>
-            {Math.round((zoomInfo.n / zoomInfo.def) * 100)}%
-          </button>
-          <button
-            className="ghost zoom-btn"
-            onClick={() => changeZoom(zoomInfo.n + 1 - zoomInfo.def)}
-            disabled={zoomInfo.n >= zoomInfo.max}
-            aria-label={pt.larger}
-            title={pt.larger}
-          >
-            +
-          </button>
-        </span>
-      )}
+      <ScreenOptions
+        pt={pt}
+        name={nm}
+        paletteId={paletteId}
+        onPalette={setPaletteId}
+        effect={effect}
+        onEffect={setEffect}
+        zoom={touch ? undefined : { info: zoomInfo, change: changeZoom }}
+      />
       <label className="field" title={pt.mapTitle}>
         <span className="lbl">{pt.map}</span>
         <select
@@ -697,24 +516,7 @@ export function Player({ game, fonts, onExit }: Props) {
     </>
   );
 
-  const speedField = (
-    <label className="field">
-      <span className="lbl">{pt.speed}</span>
-      <select
-        value={speed}
-        onChange={(e) => {
-          setSpeed(Number(e.target.value));
-          setPref("speed", e.target.value);
-        }}
-      >
-        {SPEEDS.map((s) => (
-          <option key={s} value={s}>
-            {s}×
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+  const speedField = <SpeedField pt={pt} speed={speed} onSpeed={setSpeed} />;
 
   const optionsPanel = (
     <div className="extras-grid">

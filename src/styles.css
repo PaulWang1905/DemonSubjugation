@@ -836,6 +836,23 @@ footer {
   font-size: 13px;
 }
 
+/* "Turning the device on…" over the dark screen */
+.screen-note {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.screen-note p {
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgb(10 10 12 / 0.82);
+  color: #f3f1ec;
+  font-size: 14px;
+}
+
 .crash pre {
   white-space: pre-wrap;
   font-size: 11px;

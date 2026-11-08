@@ -9,3 +9,12 @@ HZK16
 ASC16
 /fixtures/private/
 *.log
+
+# device programs and the 4988 firmware dumps
+*.gam
+*.GAM
+E.BIN
+8.BIN
+*.DAT
+4988.font
+4988.flash
