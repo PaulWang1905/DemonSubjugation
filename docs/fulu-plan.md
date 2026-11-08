@@ -154,6 +154,19 @@ Fulu matches the firmware exactly (registers, flags, banks, memory) on 400
 random calls per helper, and in the shadow run of the seven games (60 s of
 play each): about 910,000 entries into the OS checked, 0 mismatches.
 
+**F2 is done for six of the seven games** (the 伏魔记 series and 英雄坛说):
+every OS function they use is in `src/fulu`, and the shadow run of the six
+(60 s of play each) checks every entry into the OS with 0 mismatches, with
+the screen, string and heap functions also checked on random arguments.
+三国霸业 is deferred, on purpose, to ship first: what it alone needs is
+listed below and in docs/fulu-notes.md ("Deferred").
+
+**F3 is done for the six.** Without the firmware's files, the device player
+runs a .gam on Fulu (`src/fulu/device.ts`), with a font ROM made from the
+site's Unifont (`src/fulu/glyphs.ts`); with them, on the original OS as
+before. Saved devices are kept per OS. A program that needs a function Fulu
+lacks stops with its name and a note to add the firmware.
+
 **F2's list**, from the shadow run (games that need each):
 
 - 7 games: GuiGetMsg, GuiTranslateMsg, SysTimer1Open, SysPicture, SysGetKey,
@@ -166,3 +179,10 @@ play each): about 910,000 entries into the OS checked, 0 mismatches.
 - 1 (三国霸业): SysRand, GuiSetKbdState, $E7B8, $E709, $E712, $E718, $E7FA,
   $E8BF, and the floating-point helpers ($D506, $D81D, $DD19, $E517, $E520,
   $E52C)
+
+All done but 三国霸业's ($E7B8 too, which GuiMsgBox uses). **Deferred, still
+to do:** SysRand $E959, GuiSetKbdState $E968, $E709, $E712, $E718, $E7FA,
+$E8BF and the six floating-point helpers. Also not yet written, as no game
+reached them in the shadow run: $E92F (GuiMsgBox's message $0A 3), the input
+mode changes in $E93B, the character keys in GuiTranslateMsg, GuiGetMsg's
+system keys and other events; Fulu stops with their names if a game does.

@@ -1,7 +1,10 @@
 // Keeping an emulated device between visits: like the real 4988, it stays
 // as it was left (its memory, its flash with the program and saves).
-import type { Device } from "../bbk/device";
+import type { Machine } from "../bbk/machine";
 import { deleteDevice, getDevice, putDevice } from "../storage/db";
+
+/** A device whose state is kept: on the firmware, or on Fulu. */
+type Kept = { machine: Machine };
 
 /** A short digest of the OS ROM: a saved device only resumes on the same OS. */
 export async function osDigest(os: Uint8Array): Promise<string> {
@@ -13,13 +16,13 @@ async function pipe(data: BufferSource, stream: CompressionStream | Decompressio
   return new Response(new Blob([data]).stream().pipeThrough(stream)).arrayBuffer();
 }
 
-export async function saveDevice(id: string, os: string, device: Device): Promise<void> {
+export async function saveDevice(id: string, os: string, device: Kept): Promise<void> {
   const flash = await pipe(device.machine.flash.data as BufferSource, new CompressionStream("gzip"));
   await putDevice({ id, os, state: device.machine.saveState(), flash, savedAt: Date.now() });
 }
 
 /** Put a saved device back; false if there is none for this OS. */
-export async function restoreDevice(id: string, os: string, device: Device): Promise<boolean> {
+export async function restoreDevice(id: string, os: string, device: Kept): Promise<boolean> {
   const saved = await getDevice(id);
   if (!saved || saved.os !== os) return false;
   device.machine.flash.data.set(new Uint8Array(await pipe(saved.flash, new DecompressionStream("gzip"))));

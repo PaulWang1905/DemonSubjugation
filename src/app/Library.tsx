@@ -160,7 +160,7 @@ export function Library({ games, fonts, persistent, busy, messages, firmware, on
                   {g.fileName} · {size(g.size)}
                   {g.addedAt ? ` · ${added(g.addedAt, lang)}` : ""}
                 </span>
-                {g.format === "gam" && <span className="card-desc">{t.device.programMeta}</span>}
+                {g.format === "gam" && <span className="card-desc">{firmware.ready ? t.device.programMeta : t.device.programMetaFulu}</span>}
                 {(() => {
                   const src = LOCKED_GAMES.find((l) => l.name === g.name)?.source;
                   return (

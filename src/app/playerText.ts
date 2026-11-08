@@ -56,6 +56,12 @@ const en = {
     starting: "Turning the device on…",
     needFirmware: "This runs on the 4988's own firmware. Add its files on the Games page (0E00.DAT and 4988.font at least).",
     tooBig: "The program is larger than the device's flash.",
+    osFulu:
+      "OS: Fulu, this site's stand-in for the 4988's own operating system, so no firmware is needed. With the firmware's files added on the Games page, programs run on the original OS instead.",
+    osOriginal: "OS: the 4988's original firmware.",
+    ended: "The program has ended. Restart the device to play again.",
+    fuluCannot: (why: string) =>
+      `${why}. Fulu, the stand-in OS, cannot run this program yet. Add the 4988's firmware files on the Games page to play it on the original OS.`,
     notStarted: "The device is on, but the program did not open: choose it in the 游戏 (games) menu.",
     restart: "Restart the device",
     restartTitle: "Turn the device off and on again, with the program freshly installed (its saves are lost)",
@@ -137,6 +143,10 @@ const zh: PlayerText = {
     starting: "正在开机…",
     needFirmware: "这个程序在 4988 原机固件上运行。请先在游戏库页面添加固件文件（至少要 0E00.DAT 和 4988.font）。",
     tooBig: "程序比词典的闪存还大，放不下。",
+    osFulu: "系统：符箓，本站代替 4988 原机系统的程序，不需要固件。在游戏库页面添加固件文件后，程序改在原机系统上运行。",
+    osOriginal: "系统：4988 原机固件。",
+    ended: "程序已结束。重新开机即可再玩。",
+    fuluCannot: (why: string) => `${why}。符箓暂时还不能运行这个程序。请在游戏库页面添加 4988 固件文件，在原机系统上运行。`,
     notStarted: "词典已开机，但程序没有自动打开：请在“游戏”菜单里选择它。",
     restart: "重新开机",
     restartTitle: "关机再开机，并重新安装程序（存档会丢失）",

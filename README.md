@@ -7,7 +7,9 @@ site on Vercel.
 
 It also emulates the **Longman 4988 dictionary itself** (步步高朗文 4988): a
 65C02 and the device's hardware, running its own firmware, so any program made
-for it (`*.gam`) plays as on the device. See [Device emulator](#device-emulator-longman-4988).
+for it (`*.gam`) plays as on the device. Without the firmware, programs run on
+**Fulu** (符箓), a stand-in for its OS in TypeScript (the 伏魔记 series and
+英雄坛说 so far). See [Device emulator](#device-emulator-longman-4988).
 
 **No game content is included.** The engine plays resource archives that you
 import yourself in the browser: a game archive (`DAT.LIB` or any `*.lib`).
@@ -132,6 +134,16 @@ The firmware is not included. Add the dumps on the Games page; the OS
 (`0E00.DAT` or `E.BIN`) and the font ROM (`4988.font` or `8.BIN`) are enough,
 and the data ROMs, dictionary channels and factory flash (`4988.flash`) make
 the dictionary complete. With a blank flash the OS formats it itself.
+
+**Fulu** (`src/fulu`): without the firmware, a program runs on Fulu instead,
+which answers every call into the OS in TypeScript (the far calls through the
+API table, the C compiler's helpers, the interrupts), keeping the OS's state
+where the OS does. It draws text with the site's Unifont. It has what the
+伏魔记 series and 英雄坛说 use, checked against the firmware by a shadow run
+that compares registers, banks and all of RAM after every entry into the OS
+(`tests/fulu-shadow.test.ts`, with `BBK_FIRMWARE` and `BBK_GAMES`); a program
+needing more stops with the function's name. docs/fulu-plan.md and
+docs/fulu-notes.md have the plan and what is known of the OS.
 
 In the player, a device program installs, boots and opens in about a second.
 The device is kept as it was left (memory and flash, so the game's own saves

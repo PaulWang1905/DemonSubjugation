@@ -1,6 +1,8 @@
-// Plays a program on the emulated Longman 4988: the device runs its own
-// firmware, the program is installed in its flash and opened from the OS's
-// game menu. Like the real device it stays as it was left between visits.
+// Plays a program on the emulated Longman 4988. With the firmware's files the
+// device runs its own OS: the program is installed in its flash and opened
+// from the OS's game menu. Without them it runs on Fulu (src/fulu), the
+// site's stand-in for the OS. Like the real device it stays as it was left
+// between visits.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Device, FPS } from "../bbk/device";
 import { missingRegions } from "../bbk/firmware";
@@ -9,7 +11,9 @@ import { decodeLcd, LCD_HEIGHT, LCD_STRIDE, LCD_WIDTH } from "../bbk/lcd";
 import { CPU_HZ } from "../bbk/machine";
 import { Keys, type EngineKey } from "../engine";
 import { getFirmware, type StoredGame } from "../storage/db";
+import { FULU_OS, FuluDevice } from "../fulu/device";
 import { forgetDevice, osDigest, restoreDevice, saveDevice } from "./deviceStore";
+import { loadFontSet } from "./fonts";
 import { HiresText, outputScale, type ScreenEffect } from "./hiresText";
 import { Keypad } from "./Keypad";
 import { applyPalette, PALETTES } from "./palettes";
@@ -52,8 +56,9 @@ export function DevicePlayer({ game, onExit }: Props) {
   const id = game ? `gam:${game.id}` : "4988";
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const deviceRef = useRef<{ device: Device; os: string } | null>(null);
+  const deviceRef = useRef<{ device: Device | FuluDevice; os: string } | null>(null);
   const [status, setStatus] = useState<Status>({ kind: "loading" });
+  const [onFulu, setOnFulu] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
   const [speed, setSpeed] = useState(() => Number(pref("speed", "1")) || 1);
@@ -73,7 +78,9 @@ export function DevicePlayer({ game, onExit }: Props) {
   const textRef = useRef(dt);
   textRef.current = dt;
 
-  // Turn the device on: resume it as it was left, or install the program and open it.
+  // Turn the device on: resume it as it was left, or install the program and
+  // open it. With the firmware's files it runs the original OS; without, a
+  // program runs on Fulu, the site's stand-in for it.
   useEffect(() => {
     let alive = true;
     const fresh = generation > 0;
@@ -81,11 +88,21 @@ export function DevicePlayer({ game, onExit }: Props) {
     (async () => {
       const text = textRef.current;
       const fw = { regions: await getFirmware() };
-      if (missingRegions(fw).length) return setStatus({ kind: "error", message: text.needFirmware });
-      const device = new Device(fw);
-      const os = await osDigest(fw.regions.os!);
+      const original = !missingRegions(fw).length;
+      if (!original && !game) return setStatus({ kind: "error", message: text.needFirmware });
+      const fonts = original ? null : await loadFontSet("unifont");
+      const make = () => (fonts ? new FuluDevice(fonts) : new Device(fw));
+      let device = make();
+      const os = original ? await osDigest(fw.regions.os!) : FULU_OS;
       if (fresh) await forgetDevice(id);
-      if (fresh || !(await restoreDevice(id, os, device))) {
+      let restored = !fresh && (await restoreDevice(id, os, device));
+      // a program that had stopped on Fulu starts again
+      if (restored && device instanceof FuluDevice && device.machine.cpu.stopped) {
+        device = make();
+        restored = false;
+      }
+      if (restored && device instanceof FuluDevice) device.resumed();
+      if (!restored) {
         setStatus({ kind: "starting" });
         await new Promise((r) => setTimeout(r, 30)); // let "Turning on…" show
         if (!alive) return;
@@ -93,12 +110,13 @@ export function DevicePlayer({ game, onExit }: Props) {
           const file = device.install(new Uint8Array(game.data));
           if (!file) return setStatus({ kind: "error", message: text.tooBig });
           if (!device.launch(file)) setNotice(text.notStarted);
-        } else {
+        } else if (device instanceof Device) {
           device.boot();
         }
       }
       if (!alive) return;
       deviceRef.current = { device, os };
+      setOnFulu(!original);
       setStatus({ kind: "running" });
     })().catch((e) => alive && setStatus({ kind: "error", message: String((e as Error).message ?? e) }));
     return () => {
@@ -144,6 +162,12 @@ export function DevicePlayer({ game, onExit }: Props) {
       last = now;
       if (d) {
         for (let steps = 0; acc >= FRAME_MS && steps < 16; steps++, acc -= FRAME_MS) d.machine.run(CPU_HZ / FPS);
+        // on Fulu, a program stops when it ends or needs what Fulu does not have yet
+        if (d instanceof FuluDevice && d.stopped) {
+          const why = d.stopped, text = textRef.current;
+          d.fulu.stopped = null;
+          setStatus({ kind: "error", message: why === "The program ended" ? text.ended : text.fuluCannot(why) });
+        }
         decodeLcd(d.machine.ram, pixels);
         for (let y = 0, i = 0; y < LCD_HEIGHT; y++) {
           for (let x = 0; x < LCD_WIDTH; x++, i += 4) {
@@ -263,6 +287,7 @@ export function DevicePlayer({ game, onExit }: Props) {
             {dt.restart}
           </button>
         </div>
+        {status.kind === "running" && <p className="muted small">{onFulu ? dt.osFulu : dt.osOriginal}</p>}
       </div>
     </div>
   );

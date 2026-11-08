@@ -32,11 +32,13 @@ const en = {
     desc: "Turn on the emulated device: its dictionaries, tools and built-in games.",
     turnOn: "Turn on",
     programMeta: "Runs on the 4988's own firmware",
+    programMetaFulu: "Runs on Fulu, the site's stand-in for the 4988's OS",
     remastered: "Remastered",
     remasteredTitle: "Play it in this site's engine instead: HD text, wider maps, English menus",
     firmwareLabel: "4988 firmware:",
     firmwareReady: (n: number) => `Device programs (.gam) run on it. ${n} of 13 files added.`,
-    firmwareMissing: "Device programs (.gam) need it: drop its files here (0E00.DAT and 4988.font at least).",
+    firmwareMissing:
+      "Without it, device programs (.gam) run on Fulu, this site's stand-in OS (the 伏魔记 series and 英雄坛说 so far). To run them on the original, drop its files here (0E00.DAT and 4988.font at least).",
   },
 
   locked: {
@@ -120,11 +122,12 @@ const zh: GamesText = {
     desc: "打开模拟的电子词典：里面的词典、工具和自带游戏都能用。",
     turnOn: "开机",
     programMeta: "在 4988 原机固件上运行",
+    programMetaFulu: "在符箓（本站代替原机系统的程序）上运行",
     remastered: "重制版",
     remasteredTitle: "改用本站的引擎来玩：高清文字、更宽的地图、英文菜单",
     firmwareLabel: "4988 固件：",
     firmwareReady: (n: number) => `可以运行词典程序（.gam）。已添加 ${n}/13 个文件。`,
-    firmwareMissing: "运行词典程序（.gam）需要固件：把固件文件拖到这里（至少要 0E00.DAT 和 4988.font）。",
+    firmwareMissing: "没有固件时，词典程序（.gam）在符箓（本站代替原机系统的程序）上运行，目前支持伏魔记系列和英雄坛说。要在原机系统上运行，把固件文件拖到这里（至少要 0E00.DAT 和 4988.font）。",
   },
 
   locked: {
