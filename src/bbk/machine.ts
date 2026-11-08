@@ -67,7 +67,7 @@ export class Machine implements Bus {
 
   constructor(fw: Firmware) {
     const r = fw.regions;
-    if (!r.os || !r.font) throw new Error("The firmware needs the OS and font ROMs");
+    if (!r.os) throw new Error("The firmware needs the OS ROM");
     this.roms = r;
     this.flash = new Flash(r.flash);
     this.flash.onModeChange = () => this.mapAll();

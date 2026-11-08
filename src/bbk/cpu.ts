@@ -48,6 +48,12 @@ export class Cpu {
   stopped = false;
   /** Where BRK continues; null reads the vector at $FFFE. */
   brkTarget: number | null = null;
+  /**
+   * Called for opcode $02 (a 2-byte NOP on the WDC part) at `addr`; returning
+   * true means it was handled there (an operating system written in
+   * TypeScript, see src/fulu) and the NOP is skipped.
+   */
+  trap: ((addr: number) => boolean) | null = null;
   private extra = 0;
 
   constructor(private readonly bus: Bus) {}
@@ -446,6 +452,11 @@ export class Cpu {
       case 0xb8: this.p &= ~V; break;
       case 0xd8: this.p &= ~D; break;
       case 0xf8: this.p |= D; break;
+
+      case 0x02:
+        if (this.trap?.((this.pc - 1) & 0xffff)) break;
+        this.fetch();
+        break;
 
       // ---- WAI / STP ----
       case 0xcb: this.waiting = true; break;
