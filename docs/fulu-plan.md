@@ -11,14 +11,13 @@ the order of work decided by measurement instead of planned by hand.
 
 ---
 
-## 0. Scope: three games first
+## 0. Scope: seven games first
 
-Fulu targets **伏魔记 (1.3), 三国霸业 and 英雄坛说** first. Together they use
-**54 OS functions** (伏魔记 49, 三国霸业 44, 英雄坛说 49), half of the 107
-the whole collection uses; 伏魔记完美版 and 英雄坛说终曲版 use the same 49,
-so those versions come with them. The shadow run checks these three, and
-"done" for F2 means these three play without firmware with 0 mismatches.
-The rest of the collection follows only if wanted.
+Fulu targets the **伏魔记 series** (1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0),
+**三国霸业** and **英雄坛说** first. Together they use **55 OS functions**
+(each 44-50), half of the 107 the whole collection uses. The shadow run checks
+these seven, and "done" for F2 means they play without firmware with 0
+mismatches. The rest of the collection follows only if wanted.
 
 ## 1. Input and output
 
@@ -95,9 +94,9 @@ short per-game script is added.
 
 | # | Result | Done when | Size |
 |---|---|---|---|
-| F1 | **Foundation**: the address lookup in `src/bbk`, start and exit, the far call, the compiler helpers, interrupts; the shadow run | the three games run under the shadow run, with the helpers matching and their missing OS functions listed | 1-2 sessions |
-| F2 | **The 54 functions the three games use**, in the order the table gives | 伏魔记, 三国霸业 and 英雄坛说 play without firmware, 0 mismatches | 4-6 sessions |
-| F3 | **In the site**: Play works without firmware for them; firmware mode stays as "Original OS" when its files are there | the three start and play in the browser without firmware | 1 session |
+| F1 | **Foundation**: the address lookup in `src/bbk`, start and exit, the far call, the compiler helpers, interrupts; the shadow run | the seven games run under the shadow run, with the helpers matching and their missing OS functions listed | 1-2 sessions |
+| F2 | **The 55 functions the seven games use**, in the order the table gives | the seven play without firmware, 0 mismatches | 4-6 sessions |
+| F3 | **In the site**: Play works without firmware for the seven; firmware mode stays as "Original OS" when its files are there | the seven start and play in the browser without firmware | 1 session |
 
 Each milestone goes to main when its checks pass; work in between stays on
 the `fulu` branch.
