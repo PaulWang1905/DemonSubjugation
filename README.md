@@ -326,6 +326,11 @@ Deliberate changes:
   the option off restores fmj.kt's simplified rules. See
   [docs/original-engine-alignment.md](docs/original-engine-alignment.md) for
   the comparison and what still differs.
+- Script chapters of type 255 load (fmj.kt read resource types as signed
+  bytes, so they were missing; mods such as 伏魔圆梦 keep their extra systems there).
+- `CALLCHAPTER` runs the chapter before the caller goes on, and `RETURN` ends
+  the running script, handing back to the caller, as in the original. In
+  fmj.kt the caller ran on at once and `RETURN` let the script continue past it.
 - Healing magic now works in battle (fmj.kt's overload was never called).
 - Thrown weapons and party-wide medicine apply their effect (TODOs in fmj.kt).
 - Combined attacks deal their magic's damage (fmj.kt only played the animation).

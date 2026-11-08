@@ -69,8 +69,8 @@ export class DatLib {
     let i = 0x10;
     let j = 0x2000;
     while (i < b.length && b[i] !== -1) {
-      const resType = b[i++];
-      const type = b[i++];
+      const resType = b[i++] & 0xff;
+      const type = b[i++] & 0xff; // unsigned, as in the original engine: type 255 is a real type
       const index = b[i++] & 0xff;
       const key = DatLib.getKey(resType, type, index);
       const block = b[j++] & 0xff;

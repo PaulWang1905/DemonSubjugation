@@ -28,6 +28,23 @@ function run(body: string, original = true): Engine {
   return e;
 }
 
+describe("chapters", () => {
+  // CALLCHAPTER runs the chapter before the caller goes on; RETURN ends the
+  // running script (handing back to the caller), as in the original.
+  it("calls a chapter of type 255 (a byte, as on the device) and returns from it", () => {
+    EngineSettings.originalDamageFormula = true;
+    const lib = lanternPath();
+    const chapter = ".gut 255 3\n.events 1\n@start:\n  set 9, 77\n  return\n  set 11, 1\n";
+    const story = ".gut 1 1\n.events 40\n@start:\n  loadmap 1, 1, 4, 4\n  createactor 1, 4, 3\n  callchapter 255, 3\n  set 10, 6\n  return\n  set 12, 1\n  callback\n";
+    putEntry(lib, { resType: 1, type: 255, index: 3, data: assemble(chapter) });
+    putEntry(lib, { resType: 1, type: 1, index: 1, data: assemble(story) });
+    const e = createEngine({ resources: { datLib: writeLib(lib), ...blankFonts }, saves: memorySaves() });
+    tick(e, 120);
+    press(e, Keys.ENTER, 60); // New game
+    expect([9, 10, 11, 12].map((v) => ScriptResources.variables[v])).toEqual([77, 6, 0, 0]);
+  });
+});
+
 describe("script commands with the original rules", () => {
   it("keeps variables in one byte", () => {
     run("  set 5, 300\n  set 6, 250\n  add 6, 10\n  set 7, 3\n  sub 7, 5");

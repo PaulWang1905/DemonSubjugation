@@ -46,6 +46,13 @@ function makeCommand(len: number, run: (p: ScriptProcess) => Operate | null): Co
   return { len, run };
 }
 
+/**
+ * The caller of CALLCHAPTER waits here while the chapter runs (the original
+ * runs it inside the instruction); when the chapter returns, the caller is the
+ * running script again and goes on with its next instruction.
+ */
+class AwaitChapter extends OperateAdapter {}
+
 class DrawSceneOnce extends OperateDrawOnce {
   constructor(private readonly drawFn: (c: Canvas) => void) {
     super();
@@ -1115,7 +1122,7 @@ export class ScriptVM extends Control {
       return makeCommand(4, () => {
         log(`cmd_callchapter ${type} ${index}`);
         scene().callChapter(type, index);
-        return null;
+        return new AwaitChapter();
       });
     };
 
@@ -1128,9 +1135,13 @@ export class ScriptVM extends Control {
         return null;
       });
 
+    // RETURN ends the running script, as in the original (_0020758A); a
+    // chapter started by CALLCHAPTER hands control back to its caller.
     const cmd_return: Instruct = () =>
-      makeCommand(0, () => {
-        const prev = scene().scriptProcess.prev;
+      makeCommand(0, (p) => {
+        const prev = p.prev;
+        p.prev = null;
+        p.stop();
         if (prev) scene().scriptProcess = prev;
         return null;
       });
