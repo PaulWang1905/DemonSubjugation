@@ -65,7 +65,8 @@ class SaleGoodsScreen extends BaseScreen {
     } else if (key === Global.KEY_DOWN && this.goods.goodsNum > this.saleCnt) {
       ++this.saleCnt;
       this.money += this.goods.sellPrice;
-      const cap = EngineSettings.originalDamageFormula ? 0x1019f : 99999; // the original's money cap
+      // the original's money cap (fmj.kt's), none for a game made for large sums
+      const cap = this.game.vm.largeMoney ? Infinity : EngineSettings.originalDamageFormula ? 0x1019f : 99999;
       if (this.money > cap) this.money = cap;
     }
   }

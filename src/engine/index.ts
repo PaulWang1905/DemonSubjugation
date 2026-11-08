@@ -186,6 +186,7 @@ export function createEngine(opts: EngineOptions): Engine {
   setUiLanguage(lang === "auto" ? detectUiLanguage(opts.resources.datLib) : lang);
 
   const game = new MainGame();
+  game.vm.prepare();
   game.start();
   const frame = new Uint8ClampedArray(game.canvas.buffer.buffer);
 

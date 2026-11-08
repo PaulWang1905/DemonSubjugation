@@ -58,6 +58,11 @@ describe("script commands with the original rules", () => {
     expect(Player.sMoney).toBe(0);
   });
 
+  it("leaves money uncapped for a game made for large sums (伏魔圆梦's check)", () => {
+    run("  gainmoney 2000000\n  testmoney 1000000, @abnormal\n  set 1, 1\n  callback\n@abnormal:\n  set 1, 2");
+    expect([ScriptResources.variables[1], Player.sMoney]).toEqual([1, 2000000]);
+  });
+
   it("deletegoods takes every one of the item", () => {
     run("  gaingoods 9, 1\n  gaingoods 9, 1\n  gaingoods 9, 1\n  deletegoods 9, 1, @none\n  set 1, 1\n  callback\n@none:\n  set 1, 2");
     expect(Player.sGoodsList.getGoodsNum(9, 1)).toBe(0);

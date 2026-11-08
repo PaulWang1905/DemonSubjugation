@@ -149,10 +149,23 @@ export class ScriptVM extends Control {
   private readonly instructions: (Instruct | null)[];
   /** Problems found while decoding scripts (unknown opcodes, bad events). */
   readonly decodeWarnings: string[] = [];
+  /**
+   * The game's scripts handle sums of money of six digits or more, which
+   * neither the device (65951 at most) nor fmj.kt's shops (99999) can hold: it
+   * was made for an engine without those limits, so its money is neither
+   * capped nor compared in 16 bits, even under the original rules. Known once
+   * `prepare()` has decoded the scripts.
+   */
+  largeMoney = false;
 
   constructor(readonly parent: GameNode) {
     super();
     this.instructions = this.buildInstructions();
+  }
+
+  /** Decode every script of the archive once, before the game starts. */
+  prepare(): void {
+    DatLib.instance.tryCompileScripts(this);
   }
 
   private buildInstructions(): (Instruct | null)[] {
@@ -164,6 +177,13 @@ export class ScriptVM extends Control {
     const orig = () => EngineSettings.originalDamageFormula;
     const b8 = (v: number) => (orig() ? v & 0xff : v);
     const MONEY_MAX = 0x1019f;
+    const capMoney = () => orig() && !vm.largeMoney;
+    /** A money operand: notes a sum of six digits or more (see `largeMoney`). */
+    const money4 = (code: Int8Array, start: number) => {
+      const v = g4(code, start);
+      if (v >= 100000) vm.largeMoney = true;
+      return v;
+    };
     const str = ScriptVM.getStringBytes;
     const log = ScriptVM.cmdPrint;
     const game = () => vm.game;
@@ -666,15 +686,15 @@ export class ScriptVM extends Control {
     };
 
     const cmd_gainmoney: Instruct = (code, start) => {
-      const value = g4(code, start);
+      const value = money4(code, start);
       return makeCommand(4, () => {
-        Player.sMoney = orig() ? Math.min(MONEY_MAX, Player.sMoney + value) : Player.sMoney + value;
+        Player.sMoney = capMoney() ? Math.min(MONEY_MAX, Player.sMoney + value) : Player.sMoney + value;
         return null;
       });
     };
 
     const cmd_usemoney: Instruct = (code, start) => {
-      const value = g4(code, start);
+      const value = money4(code, start);
       return makeCommand(4, () => {
         Player.sMoney = orig() ? Math.max(0, Player.sMoney - value) : Player.sMoney - value;
         return null;
@@ -682,9 +702,9 @@ export class ScriptVM extends Control {
     };
 
     const cmd_setmoney: Instruct = (code, start) => {
-      const money = g4(code, start);
+      const money = money4(code, start);
       return makeCommand(4, () => {
-        Player.sMoney = orig() ? Math.min(MONEY_MAX, money) : money;
+        Player.sMoney = capMoney() ? Math.min(MONEY_MAX, money) : money;
         return null;
       });
     };
@@ -1106,11 +1126,11 @@ export class ScriptVM extends Control {
     };
 
     const cmd_testmoney: Instruct = (code, start) => {
-      const money = g4(code, start);
+      const money = money4(code, start);
       const address = g2(code, start + 4);
       return makeCommand(6, () => {
         // the original compares the low 16 bits of both (_0020378B)
-        const less = orig() ? (Player.sMoney & 0xffff) < (money & 0xffff) : Player.sMoney < money;
+        const less = capMoney() ? (Player.sMoney & 0xffff) < (money & 0xffff) : Player.sMoney < money;
         if (less) game().gotoAddress(address);
         return null;
       });
