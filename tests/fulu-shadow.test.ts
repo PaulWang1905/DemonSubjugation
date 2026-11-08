@@ -362,6 +362,26 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     expect(failures).toEqual([]);
   });
 
+  it("the string functions, on random arguments", { timeout: 300_000 }, () => {
+    const [m, fulu] = bareMachine();
+    let seed = 9;
+    const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
+    const failures: string[] = [];
+    for (let trial = 0; trial < 600 && !failures.length; trial++) {
+      for (let a = 0x1000; a < 0x2000; a++) m.ram[a] = rand(4) ? 1 + rand(255) : 0;
+      const p = 0x1100 + rand(0x400), q = rand(3) ? p + rand(64) - 32 : 0x1800 + rand(0x400), n = rand(0x300);
+      const w = (v: number) => [v & 0xff, v >> 8];
+      const [entry, args] = [
+        [0xe71b, [...w(rand(20) ? p : 0), ...w(rand(20) ? q : 0)]],
+        [0xe71e, w(p)],
+        [0xe700, [...w(p), ...w(n), rand(256)]],
+      ][rand(3)] as [number, number[]];
+      const diff = farCallBoth(m, fulu, entry, rand(256), args);
+      if (diff) failures.push(`$${hex(entry, 4)} (${args.map((v) => hex(v)).join(" ")}): ${diff}`);
+    }
+    expect(failures).toEqual([]);
+  });
+
   it("the heap, on random allocations and frees", { timeout: 300_000 }, () => {
     const [m, fulu] = bareMachine();
     let seed = 5;

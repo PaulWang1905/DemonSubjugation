@@ -48,6 +48,52 @@ export const FUNCTIONS: Record<number, OsFunction> = {
     cpu.y = 5;
     cpu.a = ram[0x29];
   }),
+  /**
+   * strcpy(dst, src), safe when they overlap (backwards when src is below
+   * dst); returns dst. Nothing if either is 0. Forwards, it leaves src at
+   * the string's end in its argument.
+   */
+  0xe71b: fn(0x6132, () => {
+    const args = word(0x28), dst = get16(args);
+    let src = get16(args + 2);
+    const done = () => {
+      set16(0x20, dst);
+      cpu.a = cpu.y = nz(dst >> 8);
+    };
+    set16(0x23, 0);
+    if (!src || !dst || src === dst) {
+      cmp(0, 0);
+      cpu.p &= ~0x40;
+      return done();
+    }
+    if (((src - dst) & 0x8000) !== 0) {
+      let n = 0;
+      while (rd(src + n)) n++;
+      n++;
+      for (let i = n - 1; i >= 0; i--) wr(dst + i, rd(src + i));
+      set16(0x26, src);
+      cmp(0, 0);
+      cpu.p &= ~0x40;
+      return done();
+    }
+    let at = dst;
+    cmp(0, 0);
+    cpu.p &= ~0x40;
+    for (; rd(src); ) {
+      const v = rd(src);
+      clc();
+      src = adc(src & 0xff, 1) | (adc(src >> 8, 0) << 8);
+      const to = at;
+      clc();
+      at = adc(at & 0xff, 1) | (adc(at >> 8, 0) << 8);
+      wr(to, v);
+    }
+    put16(args + 2, src);
+    set16(0x26, src);
+    set16(0x23, at);
+    wr(at, 0);
+    done();
+  }),
   // strlen(s) in $20/$21; it leaves s + length + 1 in its argument
   0xe71e: fn(0x63dd, () => {
     const args = word(0x28);
