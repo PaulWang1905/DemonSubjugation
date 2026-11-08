@@ -190,8 +190,8 @@ its size in instructions (with the resident code it uses), what it does.
 | $E889 | SysPictureDummy | 6:$5B18 | 323 | (x1 in A, y1, x2, y2, bitmap, buffer): as SysPicture (mode 0) into a 20-byte-stride buffer; far-calls the multiply $EAEC |
 | $E8BF | | 5:$8603 | 474 | |
 | $E8EC | | 6:$624D | 333 | |
-| $E932 | | 8:$5000 | 164 | |
-| $E935 | GuiGetMsg | 8:$5093 | 2075 | |
+| $E932 | (GUI start-up) | 8:$5000 | 164 | clears $2B09-$2B0B, memset($2B0F, 0, $18), $2B27 = 2, $2B28 = $0F; far-calls $E9A1($FFFF), $E91C, $E848(0), $E8D7(0), $E845(0); returns 1 |
+| $E935 | GuiGetMsg | 8:$5093 | 2075 | (msg): the message pump (in progress, below) |
 | $E93B | | 8:$5FF3 | 118 | |
 | $E93E | GuiTranslateMsg | 8:$6111 | 1269 | |
 | $E944 | | 8:$7D92 | 508 | |
@@ -199,8 +199,8 @@ its size in instructions (with the resident code it uses), what it does.
 | $E94A | SysMemFree | 8:$88DD | 1013 | |
 | $E953 | GuiMsgBox | 9:$8A7C | 1324 | |
 | $E959 | SysRand | 8:$6FAB | 483 | |
-| $E95C | | 8:$7093 | 84 | |
-| $E965 | | 8:$6A79 | 102 | |
+| $E95C | | 8:$7093 | 84 | (p, v, w): *(long *)p = v (16 bits, widened unsigned); *(int *)(p + 4) = w |
+| $E965 | | 8:$6A79 | 102 | returns $2B28 << 8 \| $2B27 in $20/$21 |
 | $E968 | GuiSetKbdState | 8:$6B12 | 98 | |
 | $E9E9 | FileNum | D:$74C5 | 350 | |
 
@@ -209,3 +209,25 @@ and if KEYCODE ($024E) bit 7 is set, clear it and add the code to the key
 buffer unless full, setting $2021 bit 0. ST1 — acknowledge (TISR bit 0),
 count $2018 up to the period $2019, then set $201E bit 0 and count from 0.
 CT — acknowledge (ISR bit 1) and blink the cursor if it is on.
+
+## GuiGetMsg ($E935), as far as read
+
+`GuiGetMsg(msg)` loops until it has a message; `msg` gets a type byte and a
+16-bit parameter, and it returns 1 (or 0 for some events it handles itself).
+It tests the OS's 32-bit event flags at $201E in this order, each with a mask
+(constants in segment 8 at $8AC2-$8B32), clearing the bit it takes:
+
+1. $02000000 → type 7, parameter 0.
+2. $00000001 (timer 1, set by the ST1 interrupt) → type 6, parameter 0.
+3. $00000002 → the next record of a queue of 8 three-byte records at
+   $2B0F ($2B09 read index, $2B0B count; mod 8) → type and parameter.
+4. Otherwise a key from SysGetKey ($E7C1); if there is one: type 1,
+   parameter the key, and a translation step at 8:$5B02.
+5. No key: $00040000 → far-calls $ECC5, returns 0; $00000004 → $EBC5,
+   returns 0; $00000080 → $E97A; then $00000040, $00000010, $00010000 and
+   $02000000 again (not read yet).
+
+Its locals are 3 bytes on the software stack. Still to read: the rest of the
+event list, the wait (presumably halting until an interrupt, which Fulu
+answers with "wait"), and the callees $E7A0, $E7A3, $E86E, $E8CB, $E8CE,
+$E8E9, $E8F5, $E96E, $E97A, $EBC5, $ECC5, $EDF7, $EE06, $EE09.
