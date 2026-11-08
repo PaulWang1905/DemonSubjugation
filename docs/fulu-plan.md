@@ -11,6 +11,15 @@ the order of work decided by measurement instead of planned by hand.
 
 ---
 
+## 0. Scope: three games first
+
+Fulu targets **伏魔记 (1.3), 三国霸业 and 英雄坛说** first. Together they use
+**54 OS functions** (伏魔记 49, 三国霸业 44, 英雄坛说 49), half of the 107
+the whole collection uses; 伏魔记完美版 and 英雄坛说终曲版 use the same 49,
+so those versions come with them. The shadow run checks these three, and
+"done" for F2 means these three play without firmware with 0 mismatches.
+The rest of the collection follows only if wanted.
+
 ## 1. Input and output
 
 | | |
@@ -86,9 +95,9 @@ short per-game script is added.
 
 | # | Result | Done when | Size |
 |---|---|---|---|
-| F1 | **Foundation**: the address lookup in `src/bbk`, start and exit, the far call, the compiler helpers, interrupts; the shadow run | the 5 simplest programs (比大小, 二十一点, 对对碰, 平面魔方, 螃蟹回家) run under the shadow run, with the helpers matching and their first OS function named | 1-2 sessions |
-| F2 | **The functions, in the order the table gives** | checkpoints: those 5 programs fully (13-17 functions); then 100 programs (52); then all 138 (107); each with 0 mismatches | 6-10 sessions |
-| F3 | **In the site**: Play works without firmware; firmware mode stays as "Original OS" when its files are there | the 138 programs start and play in the browser without firmware | 1 session |
+| F1 | **Foundation**: the address lookup in `src/bbk`, start and exit, the far call, the compiler helpers, interrupts; the shadow run | the three games run under the shadow run, with the helpers matching and their missing OS functions listed | 1-2 sessions |
+| F2 | **The 54 functions the three games use**, in the order the table gives | 伏魔记, 三国霸业 and 英雄坛说 play without firmware, 0 mismatches | 4-6 sessions |
+| F3 | **In the site**: Play works without firmware for them; firmware mode stays as "Original OS" when its files are there | the three start and play in the browser without firmware | 1 session |
 
 Each milestone goes to main when its checks pass; work in between stays on
 the `fulu` branch.
