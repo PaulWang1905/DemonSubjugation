@@ -250,6 +250,21 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xe860, () => [y(), x(), y()]],
       [0xe877, () => [y(), x(), y(), rand(256), 0x30 + rand(8)]],
       [0xe7bb, () => [rand(8) ? rand(81) : rand(100), rand(256)]],
+      // a string at $1000 of ASCII, GB2312 (hanzi, symbols), other double-byte codes, and anything
+      [0xe79a, () => {
+        const s: number[] = [];
+        for (let n = rand(12); n > 0; n--) {
+          const k = rand(6);
+          if (k === 0) s.push(0x20 + rand(0x5f));
+          else if (k === 1) s.push(0xb0 + rand(0x48), 0xa1 + rand(0x5e));
+          else if (k === 2) s.push(0xa1 + rand(9), 0xa1 + rand(0x5e));
+          else if (k === 3) s.push(0x81 + rand(0x7f), 0x40 + rand(0x61));
+          else if (k === 4) s.push(0xfd + rand(3), 0xa1 + rand(0x5e));
+          else s.push(1 + rand(255), 1 + rand(255));
+        }
+        m.ram.set([...s, 0], 0x1000);
+        return [rand(8) ? rand(81) : rand(100), 0x00, 0x10];
+      }],
       // bitmaps on screen rows, from $1000-$10FF: at most 96 rows of 32 bytes, clear of the OS's variables at $2000
       [0xe78e, () => [rand(96), x(), rand(96), rand(256), 0x10, rand(4) ? 0 : 1]],
       [0xe889, () => [rand(96), x(), rand(96), rand(256), 0x10, rand(256), 0x30 + rand(8), 0]],

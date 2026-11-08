@@ -123,6 +123,22 @@ styles at + $0810 n, through $20EF). Fulu reads them the same way, from
 the real font ROM when checked against the firmware, and from one made
 from the site's fonts otherwise (F3).
 
+16 × 16 glyphs (32 bytes, two a row) for a double-byte code hi lo are at
+32 × (row × n + column) + base, with the OS's 16 × 16 multiply ($7B73,
+whose carry into the top byte is lost):
+
+| hi | lo | row, column | n | base |
+|---|---|---|---|---|
+| $B0-$F7 | ≥ $A1 | hi - $B0, lo - $A1 | $5E | $000000 (GB2312 hanzi) |
+| $A1-$A9 | ≥ $A1 | hi - $A1, lo - $A1 | $5E | $034E00 (GB2312 symbols) |
+| $AA-$AF | ≥ $A1 | hi - $AA, lo - $A1 | $5E | $03DF40 |
+| $F8-$FF | ≥ $A1 | hi - $F8, lo - $A1 | $5E | $0425C0 (also the 8-wide $FD-$FF) |
+| $A1-$A7 | < $A1 | hi - $A1, lo - $40 | $61 | $047800 |
+| $A8-$A9 | < $A1 | hi - $A8, lo - $40 (- $41 from $80) | $60 | $03BD80 |
+| $AA-$D9 | < $A1 | hi - $AA, lo - $40 | $61 | $08D3A3 |
+
+Anything else (hi < $A1, or hi ≥ $DA with lo < $A1) is drawn as A1A1.
+
 ## The screen
 
 The LCD's memory is RAM $0400-$0FFF, 32 bytes a RAM row, wired out of order
@@ -165,7 +181,7 @@ its size in instructions (with the resident code it uses), what it does.
 | $E78E | SysPicture | 5:$67E2 | 1005 | (x1 in A, y1, x2, y2, bitmap, mode): a packed bitmap (rows of ⌈w/8⌉ bytes) onto the screen; mode 1 copies whole bytes. Corners in either order; nothing if x2 ≥ 160 or y2 ≥ 96 |
 | $E794 | SysLine | 5:$8309 | 424 | (x0 in A, y0, x1, y1): a line, unclipped; endpoints swapped when x0 ≥ x1; four octants, a 16-bit midpoint error term |
 | $E797 | SysRect | 5:$860B | 473 | (x1 in A, y1, x2, y2): an outline as four SysLines (bottom, left, top, right); nothing unless x1 ≤ x2 < 160, y1 ≤ y2 < 96 |
-| $E79A | SysPrintString | 5:$582C | 1343 | |
+| $E79A | SysPrintString | 5:$582C | 1343 | (x in A, y, s): a string: ASCII 8 wide (as SysAscii), double-byte 16 wide ($FD-$FF + ≥ $A1: 8 wide, the left halves), wrapping to x = 0 and 16 rows down, stopping at the end or below row 80; $2F/$30 left where it stopped |
 | $E7BB | SysAscii | 5:$638C | 461 | (x in A, y, c): an 8 × 16 ASCII glyph (font ROM $08B363 + 16c) at (x, y), x ≤ 152, y ≤ 80, replacing the pixels under it; at x = 152 its last column is dropped (the icons). Reads the glyph through DATA4 into $208D (far-calling $E749) |
 | $E7FA | | 5:$852A | 221 | |
 | $E85D | SysLcdPartClear | 5:$6FDE | 556 | (x1 in A, y1, x2, y2): clear a rectangle; counts $2F/$30 up once a row |
