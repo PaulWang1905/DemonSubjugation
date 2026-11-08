@@ -110,6 +110,18 @@ state in $16BD-$18CA, $2000-$21A0, $2818-$2907, $2B04-$2BB0, $2C00-$2D24 and
 $302C-$30AB. Between the seven games only these differ: the data page in the
 launcher's frame ($17C4, $17D1, $17DF) and $2088-$20AE.
 
+## The screen
+
+The LCD's memory is RAM $0400-$0FFF, 32 bytes a RAM row, wired out of order
+(src/bbk/lcd.ts). The OS addresses display row y as RAM row 65 - y for
+y ≤ 65 and y for y ≥ 66 (its pointer $3A/$3B), display byte 0 (pixels 0-7)
+as byte 19 of the neighbouring RAM row (pointer $38/$39: rows ≤ 64 → RAM
+row 64 - y, row 65 → RAM row 95, rows ≥ 66 → RAM row y - 1), and byte b ≥ 1
+as byte b - 1. The boot page's $03F8-$03FC (1, $0400, $1000) redirect RAM
+row 0's first byte to $1000. `lcd()` in src/fulu/screen.ts is this map.
+Drawing functions take x1 in A and y1, x2, y2 on the software stack, and
+keep temporaries in $38-$3B, $2081-$2089, $20B7, $20CF-$20D0, $20D8-$20EA.
+
 ## The OS functions
 
 Each line: table entry, SDK name where known, where it is (segment:address),
@@ -132,16 +144,16 @@ its size in instructions (with the resident code it uses), what it does.
 | $E718 | | 4:$604F | 129 | |
 | $E71B | | 4:$6132 | 479 | |
 | $E71E | strlen | 4:$63DD | 79 | strlen(s) in $20/$21; leaves s + length + 1 in its argument |
-| $E78E | SysPicture | 5:$67E2 | 1005 | |
+| $E78E | SysPicture | 5:$67E2 | 1005 | (x1 in A, y1, x2, y2, bitmap, mode): a packed bitmap (rows of ⌈w/8⌉ bytes) onto the screen; mode 1 copies whole bytes. Corners in either order; nothing if x2 ≥ 160 or y2 ≥ 96 |
 | $E794 | SysLine | 5:$8309 | 424 | |
 | $E797 | SysRect | 5:$860B | 473 | |
 | $E79A | SysPrintString | 5:$582C | 1343 | |
 | $E7BB | SysAscii | 5:$638C | 461 | |
 | $E7FA | | 5:$852A | 221 | |
-| $E85D | SysLcdPartClear | 5:$6FDE | 556 | |
-| $E860 | SysLcdReverse | 5:$7336 | 677 | |
+| $E85D | SysLcdPartClear | 5:$6FDE | 556 | (x1 in A, y1, x2, y2): clear a rectangle; counts $2F/$30 up once a row of more than one byte |
+| $E860 | SysLcdReverse | 5:$7336 | 677 | (x1 in A, y1, x2, y2): invert a rectangle; counts $2F/$30 up once a row |
 | $E877 | SysSaveScreen | 5:$77CD | 517 | |
-| $E889 | SysPictureDummy | 6:$5B18 | 323 | |
+| $E889 | SysPictureDummy | 6:$5B18 | 323 | (x1 in A, y1, x2, y2, bitmap, buffer): as SysPicture (mode 0) into a 20-byte-stride buffer; far-calls the multiply $EAEC |
 | $E8BF | | 5:$8603 | 474 | |
 | $E8EC | | 6:$624D | 333 | |
 | $E932 | | 8:$5000 | 164 | |

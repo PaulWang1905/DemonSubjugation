@@ -27,10 +27,16 @@ import { HELPERS } from "./runtime";
  */
 export type Handler = (os: Fulu) => void | "wait" | "jump";
 
-/** An OS function: where the OS has it in its segment, and what it does. */
+/**
+ * An OS function: where the OS has it in its segment, what it does, and the
+ * OS variables it uses only as temporaries ([from, to) ranges: always
+ * written before they are read, by every entry into the OS, and never used
+ * by programs), whose values it need not leave as the OS does.
+ */
 export interface OsFunction {
   at: number;
   run: Handler;
+  temporaries?: [number, number][];
 }
 
 /** Banks D-F: where the OS keeps its resident code. */

@@ -69,6 +69,9 @@ const RTC = [0x234, 0x239];
 const RAISED = [0x04, 0x05, 0x24e];
 /** How far below the software stack pointer the OS's dead locals can be. */
 const DEAD_SOFT_STACK = 0x300;
+/** Every OS function's declared temporaries. */
+const TEMPORARY = new Uint8Array(0x8000);
+for (const f of Object.values(FUNCTIONS)) for (const [a, b] of f.temporaries ?? []) TEMPORARY.fill(1, a, b);
 
 interface Row {
   calls: number;
@@ -95,7 +98,7 @@ interface Nested {
  * while it waits (the CPU halted until the next interrupt), and the rest
  * after its answer.
  */
-function shadow(fw: Firmware, gam: Uint8Array, seconds: number): Map<string, Row> {
+function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<string, Row>; misuse: Set<string> } {
   const d = new Device(fw), file = d.install(gam);
   if (!file) throw new Error("the game does not fit in the flash");
   const m = d.machine, cpu = m.cpu, entry = gam[0x40] | (gam[0x41] << 8), first = 0x200 + (file.offset >> 12);
@@ -105,11 +108,11 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): Map<string, Row
   const inOs = (pc: number) => vector(pc) || m.page(pc >>> 12) >= 0xe00;
 
   /** What the entry at pc is (in the state on entry), and whether Fulu answers it. */
-  function entryOf(pc: number): [string, boolean] {
+  function entryOf(pc: number): [string, boolean, [number, number][]?] {
     if (vector(pc)) return [`interrupt ${(pc - 0x300) >> 2}`, !!INTERRUPTS[(pc - 0x300) >> 2]];
     if (pc !== FAR_CALL) return [`$${hex(pc, 4)}`, pc === 0xd313 || !!HELPERS[pc]];
-    const ptr = m.ram[0x26] | (m.ram[0x27] << 8), seg = m.read((ptr + 2) & 0xffff);
-    return seg >= 0xe0 ? ["far call", true] : [`OS function $${hex(ptr, 4)}`, !!FUNCTIONS[ptr]];
+    const ptr = m.ram[0x26] | (m.ram[0x27] << 8), seg = m.read((ptr + 2) & 0xffff), f = FUNCTIONS[ptr];
+    return seg >= 0xe0 ? ["far call", true] : [`OS function $${hex(ptr, 4)}`, !!f, f?.temporaries];
   }
 
   function replay(n: Nested): void {
@@ -135,11 +138,13 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): Map<string, Row
   }
 
   let started = false, at = -1, before: Snapshot | null = null;
+  const misuse = new Set<string>();
   const nested: Nested[] = [];
   function finish(): void {
+    judging = true;
     const ref = snapshot(m);
     restore(m, before!);
-    const [name, answered] = entryOf(at);
+    const [name, answered, temporaries] = entryOf(at);
     const row = rows.get(name) ?? { calls: 0, interrupted: 0, mismatches: 0 };
     rows.set(name, row);
     row.calls++;
@@ -151,6 +156,8 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): Map<string, Row
       m.ram.set(ref.ram.subarray(0x100, 0x101 + ref.cpu.s), 0x100);
       const sp = ref.ram[0x28] | (ref.ram[0x29] << 8), low = Math.max(0x1000, sp - DEAD_SOFT_STACK);
       if (sp > low && sp <= 0x8000) m.ram.set(ref.ram.subarray(low, sp), low);
+      // the function's temporaries
+      for (const [a, b] of temporaries ?? []) m.ram.set(ref.ram.subarray(a, b), a);
       // what time did meanwhile: the clock, and interrupt flags and a key the hardware raised
       m.ram.set(ref.ram.subarray(RTC[0], RTC[1]), RTC[0]);
       for (const a of RAISED) {
@@ -165,10 +172,26 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): Map<string, Row
     }
     restore(m, ref);
     cpu.stopped = false;
+    judging = false;
   }
 
   // An entry ends back in the program; an interrupt's at its RTI, wherever it returns to.
   let back = -1, backS = 0;
+  // that a declared temporary is never read before it is written in an entry, nor used by the program
+  let entries = 1, judging = false;
+  const written = new Uint32Array(0x8000), read = m.read.bind(m), write = m.write.bind(m);
+  const temporary = (a: number) => started && !judging && (a < 0x100 || (a >= 0x2000 && a < 0x5000)) && TEMPORARY[a];
+  m.read = (a: number) => {
+    if (temporary(a) && written[a] !== entries) misuse.add(`$${hex(a, 4)} read ${at >= 0 ? `before it is written, in ${entryOf(at)[0]}` : "by the program"}`);
+    return read(a);
+  };
+  m.write = (a: number, v: number) => {
+    if (temporary(a)) {
+      if (at < 0) misuse.add(`$${hex(a, 4)} written by the program`);
+      written[a] = entries;
+    }
+    write(a, v);
+  };
   const step = cpu.step.bind(cpu);
   cpu.step = () => {
     const pc = cpu.pc;
@@ -181,6 +204,7 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): Map<string, Row
       } else if (vector(pc)) nested.push({ vector: (pc - 0x300) >> 2, isr: m.ram[0x04], tisr: m.ram[0x05], key: m.ram[0x24e] });
     }
     if (at < 0 && inOs(pc)) {
+      entries++;
       at = pc;
       before = snapshot(m);
       nested.length = 0;
@@ -199,7 +223,7 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): Map<string, Row
     d.run(0.4);
     d.press(keys[rand(keys.length)]);
   }
-  return rows;
+  return { rows, misuse };
 }
 
 /** Let the firmware answer: run until the CPU is back in program memory (pages below the OS's). */
@@ -300,7 +324,8 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     const fw = loadFirmware(), mismatches: string[] = [];
     const missing = new Map<string, Set<string>>();
     for (const g of games) {
-      const rows = shadow(fw, new Uint8Array(readFileSync(join(GAMES, g))), SECONDS);
+      const { rows, misuse } = shadow(fw, new Uint8Array(readFileSync(join(GAMES, g))), SECONDS);
+      for (const x of misuse) mismatches.push(`${g}: a temporary ${x}`);
       const lines = [...rows].sort((a, b) => b[1].calls - a[1].calls).map(([name, r]) => {
         if (r.missing) missing.set(name, (missing.get(name) ?? new Set()).add(g));
         if (r.mismatches) mismatches.push(`${g} ${name}: ${r.mismatches} of ${r.calls}, first: ${r.first}`);

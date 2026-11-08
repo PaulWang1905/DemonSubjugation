@@ -3,7 +3,8 @@
 // own variables (docs/fulu-notes.md) and leaves registers and flags as the
 // OS does.
 
-import { adc, clc, cmp, cpu, get16, nz, put16, ram, rd, set16, use, word, wr } from "./alu";
+import { adc, clc, cmp, cpu, fn, get16, nz, put16, ram, rd, set16, use, word, wr } from "./alu";
+import { SCREEN } from "./screen";
 import { compare } from "./runtime";
 import type { Handler, OsFunction } from "./fulu";
 
@@ -22,11 +23,10 @@ const KEY_EVENTS = 0x2021;
 const BLINK = 0x20cd, BLINK_PHASE = 0x20ce;
 const ICONS = [0x0f32, 0x0f52, 0x0f72];
 
-/** An OS function at `at` in its segment; it runs bound to the machine. */
-const fn = (at: number, run: () => void | "wait"): OsFunction => ({ at, run: (os) => (use(os), run()) });
 const handler = (run: () => void): Handler => (os) => (use(os), run());
 
 export const FUNCTIONS: Record<number, OsFunction> = {
+  ...SCREEN,
   // memset(p, c, n), as compiled C: it counts p up and n down in its arguments
   0xe700: fn(0x5000, () => {
     const args = word(0x28), c = rd(args + 4);

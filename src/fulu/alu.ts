@@ -4,7 +4,7 @@
 
 import { B, C, N, U, V, Z } from "../bbk/cpu";
 import type { Machine } from "../bbk/machine";
-import type { Fulu } from "./fulu";
+import type { Fulu, OsFunction } from "./fulu";
 
 export let m: Machine;
 export let ram: Uint8Array;
@@ -16,6 +16,13 @@ export function use(os: Fulu): void {
   ram = m.ram;
   cpu = m.cpu;
 }
+
+/** An OS function at `at` in its segment, run bound to the machine. */
+export const fn = (at: number, run: () => void | "wait", temporaries?: [number, number][]): OsFunction => ({
+  at,
+  run: (os) => (use(os), run()),
+  temporaries,
+});
 
 // ---- flags and arithmetic ----
 
