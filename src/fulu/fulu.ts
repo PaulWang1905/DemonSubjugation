@@ -89,12 +89,17 @@ export class Fulu {
   retrying = false;
   /** Whether the last OS function answered is waiting to be asked again. */
   waiting = false;
+  /** Called before each far call the OS makes to another of its functions (for checking Fulu: interrupts can come between them). */
+  onCall: ((entry: number) => void) | null = null;
 
-  /** Fulu with its own machine, or (for checking it) answering for the OS of another. */
-  constructor(machine?: Machine) {
+  /**
+   * Fulu with its own machine, whose font ROM is `font` (src/fulu/glyphs.ts
+   * makes one), or (for checking it) answering for the OS of another.
+   */
+  constructor(machine?: Machine, font?: Uint8Array) {
     if (machine) this.machine = machine;
     else {
-      this.machine = new Machine({ regions: { os: new Uint8Array(REGION_SIZE).fill(0x02) } });
+      this.machine = new Machine({ regions: { os: new Uint8Array(REGION_SIZE).fill(0x02), font } });
       this.machine.cpu.trap = (pc) => this.enter(pc);
     }
   }
@@ -212,15 +217,18 @@ export class Fulu {
   }
 
   /**
-   * A far call from the OS's own code to another OS function (one that does
-   * not wait): registers on entry and return as the trampoline leaves them;
-   * the banks are the caller's again afterwards, as on the device.
+   * A far call from the OS's own code to another OS function: registers on
+   * entry and return as the trampoline leaves them; the banks are the
+   * caller's again afterwards, as on the device. "wait" if the function
+   * waits (it has not returned). `resumed`: the call is one that waited,
+   * made again.
    */
-  call(entry: number): void {
+  call(entry: number, resumed = false): void | "wait" {
     const f = FUNCTIONS[entry];
     if (!f) throw new Error(`Fulu has no OS function $${hex(entry)} (called by the OS)`);
+    if (!resumed) this.onCall?.(entry);
     this.arrive(f.at);
-    f.run(this);
+    if (f.run(this) === "wait") return "wait";
     this.leave();
   }
 

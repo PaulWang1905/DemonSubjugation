@@ -79,7 +79,14 @@ except what is dead or driven by time:
 
 Interrupts the firmware took inside an entry are recorded (vector, ISR,
 TISR, KEYCODE) and given to Fulu in the same order: while its function
-waits, and after its answer. Compiled C functions change their own argument
+waits, and after its answer. Since the device can take an interrupt at any
+point and Fulu answers at once, several orders are tried, and any that
+matches is the device's: one per wait; all before; all at the first wait;
+and, for functions that call other OS functions and take long (GuiMsgBox
+draws for about 15 timer ticks before it waits), each interrupt where it
+came among those calls: the firmware's far calls to OS functions are counted
+(Fulu.onCall counts Fulu's), and an interrupt is given just before or just
+after the call it came in. Compiled C functions change their own argument
 slots (above $28), which is live memory: Fulu must leave them the same.
 
 ## The OS's RAM
@@ -178,7 +185,8 @@ its size in instructions (with the resident code it uses), what it does.
 | $E709 | | 4:$5456 | 734 | |
 | $E712 | | 4:$5EA4 | 157 | |
 | $E718 | | 4:$604F | 129 | |
-| $E71B | | 4:$6132 | 479 | |
+| $E71B | (strcpy) | 4:$6132 | 479 | strcpy(dst, src), safe when they overlap (backwards when src < dst, signed); returns dst; nothing if either is 0; forwards it leaves src at its NUL in its argument |
+| $E72D | (strncpy) | 4:$689D | | strncpy(dst, src, n): copies while a character and n > 0 (signed), then zeros while n ≠ 0; returns dst; counts src and n along in its arguments |
 | $E71E | strlen | 4:$63DD | 79 | strlen(s) in $20/$21; leaves s + length + 1 in its argument |
 | $E78E | SysPicture | 5:$67E2 | 1005 | (x1 in A, y1, x2, y2, bitmap, mode): a packed bitmap (rows of ⌈w/8⌉ bytes) onto the screen; mode 1 copies whole bytes. Corners in either order; nothing if x2 ≥ 160 or y2 ≥ 96 |
 | $E794 | SysLine | 5:$8309 | 424 | (x0 in A, y0, x1, y1): a line, unclipped; endpoints swapped when x0 ≥ x1; four octants, a 16-bit midpoint error term |
@@ -188,6 +196,9 @@ its size in instructions (with the resident code it uses), what it does.
 | $E7FA | | 5:$852A | 221 | |
 | $E85D | SysLcdPartClear | 5:$6FDE | 556 | (x1 in A, y1, x2, y2): clear a rectangle; counts $2F/$30 up once a row |
 | $E860 | SysLcdReverse | 5:$7336 | 677 | (x1 in A, y1, x2, y2): invert a rectangle; counts $2F/$30 up once a row |
+| $E874 | (screen buffer size) | 5:$7AC4 | | (x1 in A, y1, x2, y2, &n): n = (⌊x2/8⌋ − ⌊x1/8⌋ + 1) × (y2 − y1 + 1), by the multiply 5:$7BD2; off screen it writes 0 through $2F/$30 as they are |
+| $E87A | SysRestoreScreen | 5:$6CEA | | (x1 in A, y1, x2, y2, buffer): SysSaveScreen's inverse |
+| $E87D | SysFillRect | 5:$86A9 | | (x1 in A, y1, x2, y2): checks as SysRect (no swapping), then ORs each row's bytes; A = the last byte written, C = 1 |
 | $E877 | SysSaveScreen | 5:$77CD | 517 | (x1 in A, y1, x2, y2, buffer): the screen's bytes under a rectangle, row by row, to a buffer ($2F/$30 left after it) |
 | $E889 | SysPictureDummy | 6:$5B18 | 323 | (x1 in A, y1, x2, y2, bitmap, buffer): as SysPicture (mode 0) into a 20-byte-stride buffer; far-calls the multiply $EAEC |
 | $E8BF | | 5:$8603 | 474 | |
@@ -199,12 +210,12 @@ its size in instructions (with the resident code it uses), what it does.
 | $E944 | (heap set-up) | 8:$7D92 | 508 | (start, size, x): the heap (below); its memset is a JSR $5000 in segment 8, which is the GUI start-up $E932, run instead |
 | $E947 | SysMemAllocate | 8:$8515 | 1120 | (n): first fit (below) |
 | $E94A | SysMemFree | 8:$88DD | 1013 | (p): free and join (below) |
-| $E953 | GuiMsgBox | 9:$8A7C | 1324 | |
+| $E953 | GuiMsgBox | 9:$8A7C | 1324 | (text, timeout): a box with the text until a key, or `timeout` ticks of timer 1 (below) |
 | $E959 | SysRand | 8:$6FAB | 483 | |
 | $E95C | | 8:$7093 | 84 | (p, v, w): *(long *)p = v (16 bits, widened unsigned); *(int *)(p + 4) = w |
 | $E965 | | 8:$6A79 | 102 | returns $2B28 << 8 \| $2B27 in $20/$21 |
 | $E968 | GuiSetKbdState | 8:$6B12 | 98 | |
-| $E9E9 | FileNum | D:$74C5 | 350 | |
+| $E9E9 | FileNum | D:$74C5 | 350 | (type in A, &n): the number of files of a type (below) |
 
 Interrupt handlers: keyboard — acknowledge (ISR bit 7), copy $2027 to $2028,
 and if KEYCODE ($024E) bit 7 is set, clear it and add the code to the key
@@ -280,3 +291,40 @@ and pointers to them in $20/$23; src/fulu/heap.ts models that. Checked on
 
 It then writes the count through its pointer and returns 1. Still to read:
 D:$6C1C, D:$54CB, D:$718D, and which of $2100-$2184 are only temporaries.
+
+## GuiMsgBox ($E953)
+
+A wrapper (9:$8A7C) calls the body (9:$8195) as body(text, timeout, 1), the
+1 meaning "restore the screen afterwards"; 57 locals on the software stack.
+src/fulu/msgbox.ts does it through the same calls to the other OS functions,
+keeping its locals where the OS does, so that when GuiGetMsg waits it goes on
+from them when asked again.
+
+1. strlen(text); its low byte 0 → return $FF.
+2. Lines of 16 bytes, at most 5: a byte > $80 counts a run of double-byte
+   bytes; at column 16 the line breaks after this byte if the run is even,
+   before it (column 1) if odd.
+3. top = (90 − 16 × lines) / 2, bottom = top + 16 × lines + 4. The frame is
+   x 11 to $92, its shadow to $94, y top to bottom + 2.
+4. $E874 for the size, SysMemAllocate (0 → return $FE), SysSaveScreen;
+   SysLcdPartClear; each line strncpy'd into a 17-byte buffer and drawn with
+   SysPrintString at (15, top + 2 + 16i); SysRect; two SysFillRects (the
+   shadow below and to the right).
+5. With a timeout: the old period ($E7B8) kept, timer 1 closed if open and
+   opened with period 1.
+6. GuiGetMsg until: a key (type 1); message $0A with parameter 3 (then
+   $E92F(msg), result $FD; Fulu stops there: not yet); type 6 counted up to
+   the timeout.
+7. Timer 1 closed and the old period reopened; SysRestoreScreen, SysMemFree.
+   Returns 1 (A = X = Y).
+
+## Deferred: what only 三国霸业 needs
+
+Left for later, on purpose, to ship the six other games first. From the
+shadow run (三国霸业, 60 s): SysRand $E959, GuiSetKbdState $E968, $E709,
+$E712, $E718, $E7FA, $E8BF, and the C runtime's floating-point helpers
+$D506, $D81D, $DD19, $E517, $E520, $E52C. None is read yet beyond the table
+above. To pick this up: run the shadow run on 三国霸业 alone, take the first
+missing function, disassemble it (scripts/bbk/os-function.mjs, then
+scripts/bbk/fold-c.mjs for compiled C), add it with a random-argument test
+where it takes arguments, and repeat.

@@ -92,6 +92,8 @@ interface Nested {
   key: number;
   /** Taken before the firmware reached the OS function's own code (in the far call's trampoline). */
   early: boolean;
+  /** The far calls the firmware had made to other OS functions in the entry, before it. */
+  calls: number;
 }
 
 /**
@@ -132,20 +134,37 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<str
    * How Fulu is given the interrupts the firmware took in an entry: "one",
    * those taken before the firmware reached the function first, then one each
    * time Fulu waits, the rest after its answer; "first", all before; "together",
-   * the early ones first and all the rest at once the first time it waits.
+   * the early ones first and all the rest at once the first time it waits;
+   * "calls", each where it came among the function's calls to other OS
+   * functions (for one that takes long, such as GuiMsgBox drawing its box
+   * while timer ticks come): those in a call after it, then at a wait those
+   * that came in its call; "calls early", those in a call at its start.
    */
-  type Order = "one" | "first" | "together";
-  const ORDERS: Order[] = ["one", "first", "together"];
+  type Order = "one" | "first" | "together" | "calls" | "calls early";
+  const ORDERS: Order[] = ["one", "first", "together", "calls", "calls early"];
 
   /** Fulu's answer, or why there is none to compare. */
   function answer(order: Order): string {
     const queue = order === "first" ? [] : nested.filter((n) => !n.early);
     (order === "first" ? nested : nested.filter((n) => n.early)).forEach(replay);
-    fulu.enter(at);
-    while (at === FAR_CALL && cpu.pc === FAR_CALL && !cpu.stopped) {
-      if (!queue.length) return "Fulu still waits";
-      queue.splice(0, order === "together" ? queue.length : 1).forEach(replay);
+    let made = 0;
+    const upTo = (n: number) => {
+      let k = 0;
+      while (k < queue.length && queue[k].calls <= n) k++;
+      return k;
+    };
+    const byCalls = order === "calls" || order === "calls early";
+    if (byCalls) fulu.onCall = () => queue.splice(0, upTo(order === "calls" ? made++ : ++made)).forEach(replay);
+    try {
       fulu.enter(at);
+      while (at === FAR_CALL && cpu.pc === FAR_CALL && !cpu.stopped) {
+        if (!queue.length) return "Fulu still waits";
+        const n = order === "together" ? queue.length : byCalls ? Math.max(1, upTo(made)) : 1;
+        queue.splice(0, n).forEach(replay);
+        fulu.enter(at);
+      }
+    } finally {
+      fulu.onCall = null;
     }
     if (fulu.stopped) {
       const why = fulu.stopped;
@@ -156,6 +175,7 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<str
     return "";
   }
 
+  let calls = 0;
   let started = false, at = -1, before: Snapshot | null = null, reached = true;
   let function_: (typeof FUNCTIONS)[number] | undefined;
   const misuse = new Set<string>();
@@ -235,7 +255,8 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<str
       if (back >= 0 ? pc === back && cpu.s === backS : !inOs(pc)) {
         finish();
         at = -1;
-      } else if (vector(pc)) nested.push({ vector: (pc - 0x300) >> 2, isr: m.ram[0x04], tisr: m.ram[0x05], key: m.ram[0x24e], early: !reached });
+      } else if (vector(pc)) nested.push({ vector: (pc - 0x300) >> 2, isr: m.ram[0x04], tisr: m.ram[0x05], key: m.ram[0x24e], early: !reached, calls });
+      else if (pc === FAR_CALL && FUNCTIONS[m.ram[0x26] | (m.ram[0x27] << 8)]) calls++;
       else if (!reached && function_ && pc === function_.at && m.page(5) >= 0xe00) reached = true;
     }
     if (at < 0 && inOs(pc)) {
@@ -243,6 +264,7 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<str
       at = pc;
       before = snapshot(m);
       nested.length = 0;
+      calls = 0;
       function_ = pc === FAR_CALL ? FUNCTIONS[m.ram[0x26] | (m.ram[0x27] << 8)] : undefined;
       reached = !function_;
       const st = (i: number) => m.ram[0x100 | ((cpu.s + i) & 0xff)];

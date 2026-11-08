@@ -9,6 +9,7 @@ import { TEXT } from "./text";
 import { GUI } from "./gui";
 import { FILES } from "./files";
 import { HEAP } from "./heap";
+import { GuiMsgBox } from "./msgbox";
 import { compare } from "./runtime";
 import type { Handler, OsFunction } from "./fulu";
 
@@ -35,6 +36,7 @@ export const FUNCTIONS: Record<number, OsFunction> = {
   ...GUI,
   ...HEAP,
   ...FILES,
+  0xe953: GuiMsgBox,
   // memset(p, c, n), as compiled C: it counts p up and n down in its arguments
   0xe700: fn(0x5000, () => {
     const args = word(0x28), c = rd(args + 4);
