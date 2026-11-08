@@ -24,6 +24,12 @@ export const fn = (at: number, run: () => void | "wait", temporaries?: [number, 
   temporaries,
 });
 
+/** Leave $26/$27 as a far call from the OS's own code to the function at `at` (in its segment) does. */
+export const farCalled = (at: number) => {
+  ram[0x26] = (at - 1) & 0xff;
+  ram[0x27] = ((at - 1) >> 8) & 0xff;
+};
+
 // ---- flags and arithmetic ----
 
 export const setP = (mask: number, bits: number) => void (cpu.p = (cpu.p & ~mask) | bits);

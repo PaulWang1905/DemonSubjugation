@@ -43,6 +43,12 @@ export interface OsFunction {
 const OS_PAGES = [0xe88, 0xe89, 0xe8a];
 /** The OS's base page (its segment n is at page base + 4n), kept at $03E4/$03E5. */
 const OS_BASE = 0xe80;
+/**
+ * What the OS reads from the data at the end of its boot page (RAM $03E4-
+ * $03FC): its base page, the font ROM's bank, and an LCD address
+ * redirected (RAM row 0's first byte, to $1000).
+ */
+const BOOT_PAGE = [OS_BASE >> 8, OS_BASE & 0xff, 0xe9, 0x80, 0xe0, 0xcc, 0x84, 0, 0, 0, 0x72, 0, 0, 0xd0, 0x7b, 0, 0, 0xd0, 0x7b, 0, 0x01, 0x00, 0x04, 0x00, 0x10];
 /** The running program's base page (its segment n is at $E0 + n). */
 const PROGRAM_BASE = 0x2029;
 export const FAR_CALL = 0xd2f6;
@@ -102,8 +108,7 @@ export class Fulu {
     const base = 0x200 + (h >> 12);
     const data = base + ((flash[h + 0x42] | (flash[h + 0x43] << 8) | (flash[h + 0x44] << 16)) >> 12);
     const entry = flash[h + 0x40] | (flash[h + 0x41] << 8);
-    ram[0x3e4] = OS_BASE >> 8;
-    ram[0x3e5] = OS_BASE & 0xff;
+    ram.set(BOOT_PAGE, 0x3e4);
     ram[PROGRAM_BASE] = base & 0xff;
     ram[PROGRAM_BASE + 1] = base >> 8;
     const pages = [1, 2, 3, 4, base, base + 1, base + 2, base + 3, data, data + 1, data + 2, data + 3, ...OS_PAGES];

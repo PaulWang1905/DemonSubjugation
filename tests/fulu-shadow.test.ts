@@ -248,9 +248,11 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xe797, () => [y(), x(), y()]],
       [0xe85d, () => [y(), x(), y()]],
       [0xe860, () => [y(), x(), y()]],
-      // bitmaps at $1000-$1FFF (at most 1920 bytes from below $1800), clear of the OS's variables
-      [0xe78e, () => [y(), x(), y(), rand(256), 0x10 + rand(8), rand(4) ? 0 : 1]],
-      [0xe889, () => [y(), x(), y(), rand(256), 0x10 + rand(8), rand(256), 0x30 + rand(8), 0]],
+      [0xe877, () => [y(), x(), y(), rand(256), 0x30 + rand(8)]],
+      [0xe7bb, () => [rand(8) ? rand(81) : rand(100), rand(256)]],
+      // bitmaps on screen rows, from $1000-$10FF: at most 96 rows of 32 bytes, clear of the OS's variables at $2000
+      [0xe78e, () => [rand(96), x(), rand(96), rand(256), 0x10, rand(4) ? 0 : 1]],
+      [0xe889, () => [rand(96), x(), rand(96), rand(256), 0x10, rand(256), 0x30 + rand(8), 0]],
     ];
     const failures: string[] = [];
     for (const [entry, args] of cases) {

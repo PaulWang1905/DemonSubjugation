@@ -110,6 +110,19 @@ state in $16BD-$18CA, $2000-$21A0, $2818-$2907, $2B04-$2BB0, $2C00-$2D24 and
 $302C-$30AB. Between the seven games only these differ: the data page in the
 launcher's frame ($17C4, $17D1, $17DF) and $2088-$20AE.
 
+## The boot page and the fonts
+
+The boot page's data (RAM $03E3-$03FF, from the OS ROM's last page) holds,
+as far as known: $03E4/$03E5 the OS's base page ($0E80), $03E7 the font
+ROM's bank ($80: physical $800000), $03F8-$03FC the LCD redirect (1,
+$0400, $1000). Fulu.start sets $03E4-$03FC as measured.
+
+Glyphs are read from the font ROM through DATA4 ($03), with ADDR4 ($0211-
+$0213) stepping each read. ASCII 8 × 16: offset $08B363 + 16 × code (other
+styles at + $0810 n, through $20EF). Fulu reads them the same way, from
+the real font ROM when checked against the firmware, and from one made
+from the site's fonts otherwise (F3).
+
 ## The screen
 
 The LCD's memory is RAM $0400-$0FFF, 32 bytes a RAM row, wired out of order
@@ -153,11 +166,11 @@ its size in instructions (with the resident code it uses), what it does.
 | $E794 | SysLine | 5:$8309 | 424 | (x0 in A, y0, x1, y1): a line, unclipped; endpoints swapped when x0 ≥ x1; four octants, a 16-bit midpoint error term |
 | $E797 | SysRect | 5:$860B | 473 | (x1 in A, y1, x2, y2): an outline as four SysLines (bottom, left, top, right); nothing unless x1 ≤ x2 < 160, y1 ≤ y2 < 96 |
 | $E79A | SysPrintString | 5:$582C | 1343 | |
-| $E7BB | SysAscii | 5:$638C | 461 | |
+| $E7BB | SysAscii | 5:$638C | 461 | (x in A, y, c): an 8 × 16 ASCII glyph (font ROM $08B363 + 16c) at (x, y), x ≤ 152, y ≤ 80, replacing the pixels under it; at x = 152 its last column is dropped (the icons). Reads the glyph through DATA4 into $208D (far-calling $E749) |
 | $E7FA | | 5:$852A | 221 | |
 | $E85D | SysLcdPartClear | 5:$6FDE | 556 | (x1 in A, y1, x2, y2): clear a rectangle; counts $2F/$30 up once a row |
 | $E860 | SysLcdReverse | 5:$7336 | 677 | (x1 in A, y1, x2, y2): invert a rectangle; counts $2F/$30 up once a row |
-| $E877 | SysSaveScreen | 5:$77CD | 517 | |
+| $E877 | SysSaveScreen | 5:$77CD | 517 | (x1 in A, y1, x2, y2, buffer): the screen's bytes under a rectangle, row by row, to a buffer ($2F/$30 left after it) |
 | $E889 | SysPictureDummy | 6:$5B18 | 323 | (x1 in A, y1, x2, y2, bitmap, buffer): as SysPicture (mode 0) into a 20-byte-stride buffer; far-calls the multiply $EAEC |
 | $E8BF | | 5:$8603 | 474 | |
 | $E8EC | | 6:$624D | 333 | |

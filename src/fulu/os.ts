@@ -5,6 +5,7 @@
 
 import { adc, clc, cmp, cpu, fn, get16, nz, put16, ram, rd, set16, use, word, wr } from "./alu";
 import { SCREEN } from "./screen";
+import { TEXT } from "./text";
 import { compare } from "./runtime";
 import type { Handler, OsFunction } from "./fulu";
 
@@ -27,6 +28,7 @@ const handler = (run: () => void): Handler => (os) => (use(os), run());
 
 export const FUNCTIONS: Record<number, OsFunction> = {
   ...SCREEN,
+  ...TEXT,
   // memset(p, c, n), as compiled C: it counts p up and n down in its arguments
   0xe700: fn(0x5000, () => {
     const args = word(0x28), c = rd(args + 4);

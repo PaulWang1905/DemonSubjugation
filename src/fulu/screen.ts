@@ -2,14 +2,12 @@
 // screen's shape: 96 rows of 20 bytes, one bit a pixel, the most significant
 // bit leftmost.
 
-import { adc, clc, cmp, cpu, fn, get16, ram, rd, set16, word, wr } from "./alu";
+import { adc, clc, cmp, cpu, farCalled, fn, get16, ram, rd, set16, word, wr } from "./alu";
 import type { OsFunction } from "./fulu";
 
 const STRIDE = 20;
 export const WIDTH = 160, HEIGHT = 96;
 
-/** Leave $26/$27 as a far call from the OS's own code to the function at `at` does. */
-const farCalled = (at: number) => set16(0x26, at - 1);
 /** $EAEC, the OS's 8 × 8-bit multiply (at 5:$7BD2), which some screen functions far-call. */
 const MULTIPLY = 0x7bd2;
 
@@ -143,6 +141,17 @@ const LINE: [number, number][] = [[0x38, 0x3c], [0x2080, 0x208a], [0x20b7, 0x20b
 const RECTANGLE: [number, number][] = [[0x38, 0x3c], [0x2081, 0x208a], [0x20b7, 0x20b8], [0x20cf, 0x20d1], [0x20d8, 0x20eb]];
 
 export const SCREEN: Record<number, OsFunction> = {
+  // $E877 SysSaveScreen(x1 in A, y1, x2, y2, buffer): copy the screen's bytes under a rectangle, row by row, to a buffer
+  0xe877: fn(0x77cd, () => {
+    const sp = word(0x28), r = rectangle(sp);
+    if (!r) return;
+    const [x1, y1, x2, y2] = r, first = x1 >> 3, last = x2 >> 3;
+    let dst = get16(sp + 3);
+    for (let y = y1; y <= y2; y++) for (let b = first; b <= last; b++, dst = (dst + 1) & 0xffff) wr(dst, rd(lcd(b, y)));
+    set16(0x2f, dst);
+    cpu.a = cpu.x = cpu.y = 0;
+    cmp(0, 0);
+  }, RECTANGLE),
   // $E794 SysLine(x0 in A, y0, x1, y1): a line, unclipped
   0xe794: fn(0x8309, () => {
     const sp = word(0x28);
