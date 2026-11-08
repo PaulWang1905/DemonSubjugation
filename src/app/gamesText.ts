@@ -38,7 +38,7 @@ const en = {
     firmwareLabel: "4988 firmware:",
     firmwareReady: (n: number) => `Device programs (.gam) run on it. ${n} of 13 files added.`,
     firmwareMissing:
-      "Without it, device programs (.gam) run on Fulu, this site's stand-in OS (the 伏魔记 series and 英雄坛说 so far). To run them on the original, drop its files here (0E00.DAT and 4988.font at least).",
+      "Without it, device programs (.gam) run on Fulu, this site's stand-in OS, still being written: the 伏魔记 series and 英雄坛说 play, but saving and some later parts stop for now. To run them on the original, drop its files here (0E00.DAT and 4988.font at least).",
   },
 
   locked: {
@@ -127,7 +127,7 @@ const zh: GamesText = {
     remasteredTitle: "改用本站的引擎来玩：高清文字、更宽的地图、英文菜单",
     firmwareLabel: "4988 固件：",
     firmwareReady: (n: number) => `可以运行词典程序（.gam）。已添加 ${n}/13 个文件。`,
-    firmwareMissing: "没有固件时，词典程序（.gam）在符箓（本站代替原机系统的程序）上运行，目前支持伏魔记系列和英雄坛说。要在原机系统上运行，把固件文件拖到这里（至少要 0E00.DAT 和 4988.font）。",
+    firmwareMissing: "没有固件时，词典程序（.gam）在符箓（本站代替原机系统的程序，仍在编写中）上运行：伏魔记系列和英雄坛说可以玩，但存档和后面的一些部分暂时还会停下。要在原机系统上运行，把固件文件拖到这里（至少要 0E00.DAT 和 4988.font）。",
   },
 
   locked: {

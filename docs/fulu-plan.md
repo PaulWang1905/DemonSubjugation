@@ -154,8 +154,8 @@ Fulu matches the firmware exactly (registers, flags, banks, memory) on 400
 random calls per helper, and in the shadow run of the seven games (60 s of
 play each): about 910,000 entries into the OS checked, 0 mismatches.
 
-**F2 is done for six of the seven games** (the 伏魔记 series and 英雄坛说):
-every OS function they use is in `src/fulu`, and the shadow run of the six
+**F2 is done for what the shadow runs reach** in six of the seven games (the
+伏魔记 series and 英雄坛说): every OS function reached is in `src/fulu`, and the shadow run of the six
 (60 s of play each) checks every entry into the OS with 0 mismatches, with
 the screen, string and heap functions also checked on random arguments.
 三国霸业 is deferred, on purpose, to ship first: what it alone needs is
@@ -180,9 +180,13 @@ lacks stops with its name and a note to add the firmware.
   $E8BF, and the floating-point helpers ($D506, $D81D, $DD19, $E517, $E520,
   $E52C)
 
-All done but 三国霸业's ($E7B8 too, which GuiMsgBox uses). **Deferred, still
-to do:** SysRand $E959, GuiSetKbdState $E968, $E709, $E712, $E718, $E7FA,
-$E8BF and the six floating-point helpers. Also not yet written, as no game
-reached them in the shadow run: $E92F (GuiMsgBox's message $0A 3), the input
-mode changes in $E93B, the character keys in GuiTranslateMsg, GuiGetMsg's
-system keys and other events; Fulu stops with their names if a game does.
+All done but 三国霸业's ($E7B8 too, which GuiMsgBox uses).
+
+**Not done, found later:** the shadow runs reach only the first minute of
+each game. A search of the games' code (scripts/bbk/os-calls.mjs) shows the
+six also call SysRand (now done), the file functions used for saving, the
+melodies, GuiSetKbdState and $E709, $E70F, $E712, $E718, $E950; the list is
+in docs/fulu-notes.md ("Still to do"). Until those are written, a game on
+Fulu stops with the function's name when it reaches one. Also not written:
+$E92F (GuiMsgBox's message $0A 3), the input mode changes in $E93B, the
+character keys in GuiTranslateMsg, GuiGetMsg's system keys and other events.

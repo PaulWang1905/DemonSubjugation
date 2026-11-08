@@ -387,7 +387,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     expect(failures).toEqual([]);
   });
 
-  it("the string functions, on random arguments", { timeout: 300_000 }, () => {
+  it("the string functions and SysRand, on random arguments", { timeout: 300_000 }, () => {
     const [m, fulu] = bareMachine();
     let seed = 9;
     const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
@@ -400,7 +400,9 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
         [0xe71b, [...w(rand(20) ? p : 0), ...w(rand(20) ? q : 0)]],
         [0xe71e, w(p)],
         [0xe700, [...w(p), ...w(n), rand(256)]],
-      ][rand(3)] as [number, number[]];
+        [0xe959, w(p)], // SysRand(p): a seed and a range at p (small half the time)
+      ][rand(4)] as [number, number[]];
+      if (entry === 0xe959 && rand(2)) m.ram.set([rand(200), 0], p + 4);
       const diff = farCallBoth(m, fulu, entry, rand(256), args);
       if (diff) failures.push(`$${hex(entry, 4)} (${args.map((v) => hex(v)).join(" ")}): ${diff}`);
     }

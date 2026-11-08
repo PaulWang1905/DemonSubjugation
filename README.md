@@ -8,8 +8,8 @@ site on Vercel.
 It also emulates the **Longman 4988 dictionary itself** (步步高朗文 4988): a
 65C02 and the device's hardware, running its own firmware, so any program made
 for it (`*.gam`) plays as on the device. Without the firmware, programs run on
-**Fulu** (符箓), a stand-in for its OS in TypeScript (the 伏魔记 series and
-英雄坛说 so far). See [Device emulator](#device-emulator-longman-4988).
+**Fulu** (符箓), a stand-in for its OS in TypeScript, still being written (the
+伏魔记 series and 英雄坛说 play; saving is not done yet). See [Device emulator](#device-emulator-longman-4988).
 
 **No game content is included.** The engine plays resource archives that you
 import yourself in the browser: a game archive (`DAT.LIB` or any `*.lib`).

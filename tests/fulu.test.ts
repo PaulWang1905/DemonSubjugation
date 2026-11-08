@@ -50,7 +50,7 @@ describe("Fulu", () => {
   it("names an OS function it does not have", () => {
     const call = (entry: number) =>
       run(program([0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2, 0x60], [], [])).stopped;
-    expect(call(0xe959)).toBe("Fulu has no SysRand ($E959) yet");
+    expect(call(0xe968)).toBe("Fulu has no GuiSetKbdState ($E968) yet");
     expect(call(0xe709)).toBe("Fulu has no OS function $E709 yet");
   });
 });

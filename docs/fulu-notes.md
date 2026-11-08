@@ -211,7 +211,7 @@ its size in instructions (with the resident code it uses), what it does.
 | $E947 | SysMemAllocate | 8:$8515 | 1120 | (n): first fit (below) |
 | $E94A | SysMemFree | 8:$88DD | 1013 | (p): free and join (below) |
 | $E953 | GuiMsgBox | 9:$8A7C | 1324 | (text, timeout): a box with the text until a key, or `timeout` ticks of timer 1 (below) |
-| $E959 | SysRand | 8:$6FAB | 483 | |
+| $E959 | SysRand | 8:$6FAB | 483 | (r): r is { long seed; int range }; seed = seed × 1103515245 + 12345, returns (seed / 65536) % (range + 1) in $20/$21. Its constants are in segment 8 ($8BCC-$8BD7) |
 | $E95C | | 8:$7093 | 84 | (p, v, w): *(long *)p = v (16 bits, widened unsigned); *(int *)(p + 4) = w |
 | $E965 | | 8:$6A79 | 102 | returns $2B28 << 8 \| $2B27 in $20/$21 |
 | $E968 | GuiSetKbdState | 8:$6B12 | 98 | |
@@ -318,13 +318,26 @@ from them when asked again.
 7. Timer 1 closed and the old period reopened; SysRestoreScreen, SysMemFree.
    Returns 1 (A = X = Y).
 
-## Deferred: what only 三国霸业 needs
+## Still to do
 
-Left for later, on purpose, to ship the six other games first. From the
-shadow run (三国霸业, 60 s): SysRand $E959, GuiSetKbdState $E968, $E709,
-$E712, $E718, $E7FA, $E8BF, and the C runtime's floating-point helpers
-$D506, $D81D, $DD19, $E517, $E520, $E52C. None is read yet beyond the table
-above. To pick this up: run the shadow run on 三国霸业 alone, take the first
-missing function, disassemble it (scripts/bbk/os-function.mjs, then
-scripts/bbk/fold-c.mjs for compiled C), add it with a random-argument test
-where it takes arguments, and repeat.
+A shadow run only checks what its key script reaches: 60 s of play reaches
+the title, the first dialogue and the menus, not saving, battles or
+everything else. `scripts/bbk/os-calls.mjs` lists what a game's code can
+call, by searching it for the far-call pattern. For the 伏魔记 series and
+英雄坛说 that adds, besides what is done:
+
+- SysRand $E959 (done since: the games use it for battles and the like)
+- the file functions, for saving and loading: FileOpen $E9CE, FileSearch
+  $E9EC, FileDel $E9DD, and $E9C8, $E9D1, $E9D4, $E9D7, $E9EF
+- melodies: SysPlayMelody $E8A1, SysStopMelody $E8A4
+- GuiSetKbdState $E968, and $E709, $E70F, $E712, $E718; $E950 (伏魔记 1.0)
+
+and 三国霸业 needs also $E7FA, $E8BF and the C runtime's floating-point
+helpers ($D506, $D81D, $DD19, $E517, $E520, $E52C and more). Its resident
+JSR targets are candidates only (data can look like a JSR); none of the
+six games' was reached in the shadow runs.
+
+To do one: disassemble it (scripts/bbk/os-function.mjs, then
+scripts/bbk/fold-c.mjs for compiled C), write it, check it on random
+arguments against the firmware (tests/fulu-shadow.test.ts), and give the
+shadow run a key script that reaches it in a game (a save, a battle).
