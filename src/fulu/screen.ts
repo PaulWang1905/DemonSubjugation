@@ -70,10 +70,9 @@ function bitmapRow(src: number, x1: number, x2: number, at: (j: number) => numbe
 /**
  * Change the pixels of the rectangle in A and on the software stack:
  * op(byte, the byte's pixels inside). Like SysPicture's code they are made
- * from, the OS's versions count $2F/$30 up once a row (one only for rows
- * of more than one byte).
+ * from, the OS's versions count $2F/$30 up once a row.
  */
-function paint(op: (v: number, inside: number) => number, countNarrow: boolean): void {
+function paint(op: (v: number, inside: number) => number): void {
   const r = rectangle(word(0x28));
   if (!r) return;
   const [x1, y1, x2, y2] = r, first = x1 >> 3, last = x2 >> 3;
@@ -84,19 +83,90 @@ function paint(op: (v: number, inside: number) => number, countNarrow: boolean):
       wr(a, op(rd(a), inside));
     }
   }
-  if (last > first || countNarrow) set16(0x2f, word(0x2f) + y2 - y1 + 1);
+  set16(0x2f, word(0x2f) + y2 - y1 + 1);
   cpu.a = cpu.x = cpu.y = 0;
   cmp(0, 0);
 }
+
+/** Set (or with `on` false, clear) one pixel of the screen. */
+function plot(x: number, y: number, on: boolean): void {
+  const a = lcd(x >> 3, y), bit = 0x80 >> (x & 7);
+  wr(a, on ? rd(a) | bit : rd(a) & ~bit);
+}
+
+/**
+ * The OS's line from (x0, y0) to (x1, y1), coordinates of 8 bits: endpoints
+ * ordered by x (swapped when x0 ≥ x1), the line folded into one of four
+ * octants, a midpoint error term of 16 bits, each point mapped back and set.
+ */
+function line(x0: number, y0: number, x1: number, y1: number): void {
+  if (x0 >= x1) [x0, y0, x1, y1] = [x1, y1, x0, y0];
+  plot(x0, y0, true);
+  const dx = (x1 - x0) & 0xff;
+  let dy = (y1 - y0) & 0xff, octant: number;
+  if (!(dy & 0x80)) octant = dx >= dy ? 1 : 2;
+  else {
+    dy = -dy & 0xff;
+    octant = dx >= dy ? 4 : 3;
+  }
+  // the end point in the octant's frame
+  if (octant === 2 || octant === 3) {
+    x1 = (x0 + dy) & 0xff;
+    y1 = (y0 + dx) & 0xff;
+  } else if (octant === 4) y1 = (y0 + dy) & 0xff;
+  const minus = (a: number, b: number) => (a - b) & 0xffff; // a 16-bit difference of two bytes
+  const ey = minus(y0, y1), ex = minus(x1, x0);
+  let d = (2 * ey + ex) & 0xffff;
+  const flat = (2 * ey) & 0xffff, diagonal = (2 * ex + 2 * ey) & 0xffff;
+  let x = x0, y = y0;
+  while (x < x1) {
+    x = (x + 1) & 0xff;
+    if (d & 0x8000) {
+      y = (y + 1) & 0xff;
+      d = (d + diagonal) & 0xffff;
+    } else d = (d + flat) & 0xffff;
+    const along = (x - x0) & 0xff, across = (y - y0) & 0xff;
+    if (octant === 1) plot(x, y, true);
+    else if (octant === 2) plot((x0 + across) & 0xff, (y0 + along) & 0xff, true);
+    else if (octant === 3) plot((x0 + across) & 0xff, (y0 - along) & 0xff, true);
+    else plot(x, (y0 - across) & 0xff, true);
+  }
+  cpu.x = cpu.y = 0;
+  cmp((cpu.a = x), x1);
+  cpu.p &= ~0x40;
+}
+
+/** The OS variables the line functions use as temporaries. */
+const LINE: [number, number][] = [[0x38, 0x3c], [0x2080, 0x208a], [0x20b7, 0x20ba], [0x20cf, 0x20ef]];
 
 /** The OS variables the rectangle functions use as temporaries. */
 const RECTANGLE: [number, number][] = [[0x38, 0x3c], [0x2081, 0x208a], [0x20b7, 0x20b8], [0x20cf, 0x20d1], [0x20d8, 0x20eb]];
 
 export const SCREEN: Record<number, OsFunction> = {
+  // $E794 SysLine(x0 in A, y0, x1, y1): a line, unclipped
+  0xe794: fn(0x8309, () => {
+    const sp = word(0x28);
+    line(cpu.a, rd(sp), rd(sp + 1), rd(sp + 2));
+  }, LINE),
+  // $E797 SysRect(x1 in A, y1, x2, y2): a rectangle's outline; nothing unless x1 ≤ x2 < 160 and y1 ≤ y2 < 96
+  0xe797: fn(0x860b, () => {
+    const sp = word(0x28), x1 = cpu.a, y1 = rd(sp), x2 = rd(sp + 1);
+    cpu.y = 1;
+    cmp((cpu.a = x2), WIDTH);
+    if (x2 >= WIDTH || (cmp(x2, x1), x2 < x1)) return;
+    const y2 = rd(sp + 2);
+    cpu.y = 2;
+    cmp((cpu.a = y2), HEIGHT);
+    if (y2 >= HEIGHT || (cmp(y2, y1), y2 < y1)) return;
+    line(x1, y2, x2, y2);
+    line(x1, y1, x1, y2);
+    line(x1, y1, x2, y1);
+    line(x2, y1, x2, y2);
+  }, LINE),
   // $E85D SysLcdPartClear(x1 in A, y1, x2, y2): clear a rectangle of the screen
-  0xe85d: fn(0x6fde, () => paint((v, inside) => v & ~inside, false), RECTANGLE),
+  0xe85d: fn(0x6fde, () => paint((v, inside) => v & ~inside), RECTANGLE),
   // $E860 SysLcdReverse(x1 in A, y1, x2, y2): invert a rectangle of the screen
-  0xe860: fn(0x7336, () => paint((v, inside) => v ^ inside, true), RECTANGLE),
+  0xe860: fn(0x7336, () => paint((v, inside) => v ^ inside), RECTANGLE),
 
   /**
    * $E78E SysPicture(x1 in A, y1, x2, y2, bitmap, mode): draw a packed bitmap
@@ -139,9 +209,13 @@ export const SCREEN: Record<number, OsFunction> = {
       for (let rows = (y2 - y1 + 1) & 0xff; rows; rows--) {
         const row = dst;
         src = (src + bitmapRow(src, x1, x2, (j) => row + j)) & 0xffff;
+        // to the next row: 20 - (n - 1) bytes on, as 19 - (x2 >> 3) + (x1 >> 3) + 1 in bytes,
+        // whose last add takes the carry of the one before (one more when x2 is off the screen)
         const end = (dst + n - 1) & 0xffff;
         clc();
-        dst = adc(STRIDE - (n - 1), end & 0xff) | (adc(0, end >> 8) << 8);
+        const step = adc(adc((19 - (x2 >> 3)) & 0xff, x1 >> 3), 1);
+        clc();
+        dst = adc(step, end & 0xff) | (adc(0, end >> 8) << 8);
       }
       set16(0x2f, src);
       set16(0x31, dst);

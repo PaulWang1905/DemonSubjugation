@@ -232,6 +232,60 @@ function runFirmware(m: Machine, limit = 2_000_000): void {
 }
 
 describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
+  it("the screen functions, on random arguments", { timeout: 300_000 }, () => {
+    const m = new Machine(loadFirmware()), fulu = new Fulu(m);
+    [1, 2, 3, 4].forEach((b) => (m.write(0x0c, b), m.write(0x0d, b), m.write(0x0e, 0)));
+    [0xe88, 0xe89, 0xe8a].forEach((p, i) => (m.write(0x0c, 13 + i), m.write(0x0d, p & 0xff), m.write(0x0e, p >> 8)));
+    let seed = 3;
+    const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
+    // rows below 200 at most: further down, the screen's rows would be the OS's own variables
+    const x = () => (rand(8) ? rand(160) : rand(256)), y = () => (rand(8) ? rand(96) : rand(200));
+    const near = (v: number) => Math.min(199, Math.max(0, v + rand(255) - 127)); // a y the line's 8-bit difference reaches
+    const RETURN = 0x0ff0, ARGS = 0x4400;
+    // the function, and its arguments after the first (in A)
+    const cases: [number, () => number[]][] = [
+      [0xe794, () => ((y0) => [y0, x(), near(y0)])(y())],
+      [0xe797, () => [y(), x(), y()]],
+      [0xe85d, () => [y(), x(), y()]],
+      [0xe860, () => [y(), x(), y()]],
+      // bitmaps at $1000-$1FFF (at most 1920 bytes from below $1800), clear of the OS's variables
+      [0xe78e, () => [y(), x(), y(), rand(256), 0x10 + rand(8), rand(4) ? 0 : 1]],
+      [0xe889, () => [y(), x(), y(), rand(256), 0x10 + rand(8), rand(256), 0x30 + rand(8), 0]],
+    ];
+    const failures: string[] = [];
+    for (const [entry, args] of cases) {
+      for (let trial = 0; trial < 300; trial++) {
+        for (let a = 0x400; a < 0x4000; a++) m.ram[a] = rand(256);
+        m.ram.set([0x0f, 0x02], 0x2029); // a program's base page
+        m.ram[0x28] = ARGS & 0xff;
+        m.ram[0x29] = ARGS >> 8;
+        args().forEach((v, i) => (m.ram[ARGS + i] = v));
+        m.ram[0x26] = entry & 0xff;
+        m.ram[0x27] = entry >> 8;
+        const cpu = m.cpu;
+        Object.assign(cpu, { a: x(), x: rand(256), y: rand(256), p: (rand(256) | 0x24) & ~0x18, s: 0xf0 });
+        m.ram[0x1f0] = (RETURN - 1) >> 8;
+        m.ram[0x1ef] = (RETURN - 1) & 0xff;
+        cpu.s = 0xee;
+        cpu.pc = FAR_CALL;
+        const before = snapshot(m);
+        runFirmware(m);
+        const ref = snapshot(m);
+        restore(m, before);
+        fulu.enter(FAR_CALL);
+        m.ram.set(ref.ram.subarray(0x100, 0x101 + ref.cpu.s), 0x100);
+        m.ram.set(ref.ram.subarray(ARGS - DEAD_SOFT_STACK, ARGS), ARGS - DEAD_SOFT_STACK);
+        for (const [a, b] of FUNCTIONS[entry].temporaries ?? []) m.ram.set(ref.ram.subarray(a, b), a);
+        const diff = differences(ref, snapshot(m));
+        if (diff) {
+          failures.push(`$${hex(entry, 4)} trial ${trial} (A ${hex(before.cpu.a)}, ${[...before.ram.subarray(ARGS, ARGS + 8)].map((v) => hex(v)).join(" ")}): ${diff}`);
+          break;
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
   it("the C runtime's helpers, on random arguments", { timeout: 120_000 }, () => {
     const m = new Machine(loadFirmware()), fulu = new Fulu(m);
     // RAM in banks 1-4, the OS's resident code in banks D-F

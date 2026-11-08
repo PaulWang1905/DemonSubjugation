@@ -120,7 +120,12 @@ row 64 - y, row 65 → RAM row 95, rows ≥ 66 → RAM row y - 1), and byte b �
 as byte b - 1. The boot page's $03F8-$03FC (1, $0400, $1000) redirect RAM
 row 0's first byte to $1000. `lcd()` in src/fulu/screen.ts is this map.
 Drawing functions take x1 in A and y1, x2, y2 on the software stack, and
-keep temporaries in $38-$3B, $2081-$2089, $20B7, $20CF-$20D0, $20D8-$20EA.
+keep temporaries in $38-$3B, $2080-$2089, $20B7-$20B9, $20CF-$20EE. Their
+checks are loose: only the second x and y are checked before the corners
+are sorted, so a first coordinate past the screen draws past it (into the
+RAM after the LCD's rows; from row 224 on, into the OS's own variables,
+where the firmware then corrupts its own loop state; the random tests stay
+below row 200). SysPictureDummy's row step takes a stray carry when x2 ≥ 160.
 
 ## The OS functions
 
@@ -145,12 +150,12 @@ its size in instructions (with the resident code it uses), what it does.
 | $E71B | | 4:$6132 | 479 | |
 | $E71E | strlen | 4:$63DD | 79 | strlen(s) in $20/$21; leaves s + length + 1 in its argument |
 | $E78E | SysPicture | 5:$67E2 | 1005 | (x1 in A, y1, x2, y2, bitmap, mode): a packed bitmap (rows of ⌈w/8⌉ bytes) onto the screen; mode 1 copies whole bytes. Corners in either order; nothing if x2 ≥ 160 or y2 ≥ 96 |
-| $E794 | SysLine | 5:$8309 | 424 | |
-| $E797 | SysRect | 5:$860B | 473 | |
+| $E794 | SysLine | 5:$8309 | 424 | (x0 in A, y0, x1, y1): a line, unclipped; endpoints swapped when x0 ≥ x1; four octants, a 16-bit midpoint error term |
+| $E797 | SysRect | 5:$860B | 473 | (x1 in A, y1, x2, y2): an outline as four SysLines (bottom, left, top, right); nothing unless x1 ≤ x2 < 160, y1 ≤ y2 < 96 |
 | $E79A | SysPrintString | 5:$582C | 1343 | |
 | $E7BB | SysAscii | 5:$638C | 461 | |
 | $E7FA | | 5:$852A | 221 | |
-| $E85D | SysLcdPartClear | 5:$6FDE | 556 | (x1 in A, y1, x2, y2): clear a rectangle; counts $2F/$30 up once a row of more than one byte |
+| $E85D | SysLcdPartClear | 5:$6FDE | 556 | (x1 in A, y1, x2, y2): clear a rectangle; counts $2F/$30 up once a row |
 | $E860 | SysLcdReverse | 5:$7336 | 677 | (x1 in A, y1, x2, y2): invert a rectangle; counts $2F/$30 up once a row |
 | $E877 | SysSaveScreen | 5:$77CD | 517 | |
 | $E889 | SysPictureDummy | 6:$5B18 | 323 | (x1 in A, y1, x2, y2, bitmap, buffer): as SysPicture (mode 0) into a 20-byte-stride buffer; far-calls the multiply $EAEC |
