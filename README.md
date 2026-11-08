@@ -331,6 +331,10 @@ Deliberate changes:
 - `CALLCHAPTER` runs the chapter before the caller goes on, and `RETURN` ends
   the running script, handing back to the caller, as in the original. In
   fmj.kt the caller ran on at once and `RETURN` let the script continue past it.
+- Script jumps go on in the same tick, as on the device. fmj.kt waited a tick
+  (40 ms) after each jump, so loops in scripts took seconds: 伏魔圆梦 counts
+  your money out and back in a loop on map changes, which paused the game for
+  up to ten seconds.
 - A game whose scripts use sums of money of six digits or more (13 of the
   bbk-games collection, and 伏魔圆梦, which checks for it at the start and
   otherwise ends with "游戏文件异常") was made for an engine without the

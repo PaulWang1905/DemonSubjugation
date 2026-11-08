@@ -86,20 +86,29 @@ export class ScriptProcess {
     this.running = true;
   }
 
+  /**
+   * Run instructions until one has to wait (a message, a walk, a fight...).
+   * Jumps go on at once, as on the device; fmj.kt waited a tick after each,
+   * so loops in scripts took seconds. A script looping without ever waiting
+   * gets INSTRUCTIONS_PER_TICK at a time, so the page cannot hang on it.
+   */
   process(): void {
-    if (this.curOp == null) {
-      while (this.mCurExeOperateIndex < this.commands.length && this.goonExecute) {
-        const cmd = this.commands[this.mCurExeOperateIndex];
-        this.curOp = cmd.run(this);
-        if (this.curOp != null) return;
-        if (!this.goonExecute) {
-          this.goonExecute = true;
-          return;
-        }
-        ++this.mCurExeOperateIndex;
+    if (this.curOp != null) return;
+    for (let budget = ScriptProcess.INSTRUCTIONS_PER_TICK; budget > 0 && this.goonExecute && this.mCurExeOperateIndex < this.commands.length; budget--) {
+      const cmd = this.commands[this.mCurExeOperateIndex];
+      this.curOp = cmd.run(this);
+      if (this.curOp != null) return;
+      if (!this.goonExecute) {
+        // a jump (the index is already set) or the script stopped
+        this.goonExecute = true;
+        if (!this.running) return;
+        continue;
       }
+      ++this.mCurExeOperateIndex;
     }
   }
+
+  static readonly INSTRUCTIONS_PER_TICK = 100_000;
 
   update(delta: number): void {
     const op = this.curOp;

@@ -8,6 +8,7 @@ import { lanternPath } from "../src/editor/template/demo";
 import { EngineSettings } from "../src/engine/fmj/config/EngineSettings";
 import { Player } from "../src/engine/fmj/characters/Player";
 import { ScriptResources } from "../src/engine/fmj/script/ScriptResources";
+import { ScriptProcess } from "../src/engine/fmj/script/ScriptProcess";
 import { memorySaves } from "./helpers";
 
 const blankFonts = { hzk16: new Uint8Array(267616), asc16: new Uint8Array(4096) };
@@ -27,6 +28,25 @@ function run(body: string, original = true): Engine {
   EngineSettings.originalDamageFormula = true;
   return e;
 }
+
+describe("jumps", () => {
+  // A one-instruction script that jumps back to itself `limit` times.
+  const loop = (limit: number) => {
+    let turns = 0;
+    const p = new ScriptProcess([{ len: 0, run: (sp) => (++turns < limit && sp.gotoAddress(0), null) }], [], new Map([[0, 0]]), 0);
+    p.start();
+    p.process();
+    return turns;
+  };
+
+  it("run in the same tick, as on the device (伏魔圆梦 counts money in loops)", () => {
+    expect(loop(1000)).toBe(1000);
+  });
+
+  it("a script looping without waiting runs a bounded number of instructions per tick", () => {
+    expect(loop(Infinity)).toBe(ScriptProcess.INSTRUCTIONS_PER_TICK);
+  });
+});
 
 describe("chapters", () => {
   // CALLCHAPTER runs the chapter before the caller goes on; RETURN ends the
