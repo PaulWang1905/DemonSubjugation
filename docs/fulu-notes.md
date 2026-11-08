@@ -192,10 +192,10 @@ its size in instructions (with the resident code it uses), what it does.
 | $E932 | (GUI start-up) | 8:$5000 | 164 | clears $2B09-$2B0B, memset($2B0F, 0, $18), $2B27 = 2, $2B28 = $0F; far-calls $E9A1($FFFF), $E91C, $E848(0), $E8D7(0), $E845(0); returns 1 |
 | $E935 | GuiGetMsg | 8:$5093 | 2075 | (msg): the message pump (below) |
 | $E93B | | 8:$5FF3 | 118 | |
-| $E93E | GuiTranslateMsg | 8:$6111 | 1269 | |
+| $E93E | GuiTranslateMsg | 8:$6111 | 1269 | (msg): a key message becomes (class, code) by the key-class table 8:$8C36 (in src/fulu/gui.ts); $2B27 is the keyboard state (bits 2, 3 input methods, 4 caps, 5 a shift latch) |
 | $E944 | | 8:$7D92 | 508 | |
-| $E947 | SysMemAllocate | 8:$8515 | 1120 | |
-| $E94A | SysMemFree | 8:$88DD | 1013 | |
+| $E947 | SysMemAllocate | 8:$8515 | 1120 | (n): first fit (below) |
+| $E94A | SysMemFree | 8:$88DD | 1013 | (p): free and join (below) |
 | $E953 | GuiMsgBox | 9:$8A7C | 1324 | |
 | $E959 | SysRand | 8:$6FAB | 483 | |
 | $E95C | | 8:$7093 | 84 | (p, v, w): *(long *)p = v (16 bits, widened unsigned); *(int *)(p + 4) = w |
@@ -234,16 +234,27 @@ Each test leaves (scratch + 8) = events & flag; taking an event clears its
 bit through the same scratch. The event masks are constants in segment 8 at
 $8AC2-$8B32 (AND mask, value to compare, clearing mask).
 
-## The heap (SysMemAllocate $E947, SysMemFree $E94A), as far as read
+## The heap (SysMemAllocate $E947, SysMemFree $E94A)
 
-Bounds: the heap's start (32-bit) at $2BAB and its size (32-bit) at $2BAF;
-$2BB3 is set to 1 when a block is found broken. Blocks have a 4-byte header
-before their data: a marker byte ($62 'b' free, $75 'u' used, $6E 'n',
-$65 'e' the end), then the data size (16-bit, at +2). The next block is at
-p + 4 + size, and must lie within the bounds (8:$80BF, checked by 8:$7FAC).
+Bounds: the heap's start (32-bit) at $2BAB and its size (32-bit) at $2BAF
+($2C00 and $1400 when a program starts: one free block up to $4000); $2BB3
+is set to 1 when a block is found broken. Blocks have a 4-byte header before
+their data: free ($62 'b') or used ($75 'u'); another follows ($6E 'n') or
+the last ($65 'e'); the data size (16-bit). The next block is at
+p + 4 + size.
 
-SysMemAllocate(n): n rounded up to a multiple of 4; first fit from the
-first block (the word at $2BAB): a free block of size ≥ n is split
-(8:$8234) and marked used, and the data address (header + 4) returned in
-$20/$21; 0 when nothing fits. Still to read: the split, and SysMemFree
-(which presumably joins free neighbours).
+- Walking (8:$80BF): no next block if p is outside the heap, is the last, or
+  is broken (8:$7FAC: its follow byte is neither 'n' nor 'e', or the next
+  block is outside the heap).
+- SysMemAllocate(n): n rounded up to a multiple of 4 (written back into its
+  argument); first fit: a free block with size - 4 ≥ n is split when more
+  than 4 bytes would remain (the rest a free block taking over the follow
+  byte), marked used, and its data address returned in $20/$21; 0 if none.
+- SysMemFree(p): the block at p - 4, if inside the heap and found by
+  walking, is marked free and every free block then absorbs the free blocks
+  after it (8:$86D8). Returns 1 (also if it was already free), else 0.
+
+Being compiled C checking 32-bit bounds with the runtime, both leave the
+heap's end in the scratch area (+8) and the last address checked (+$10),
+and pointers to them in $20/$23; src/fulu/heap.ts models that. Checked on
+1,500 random calls.

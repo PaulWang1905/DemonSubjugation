@@ -268,6 +268,44 @@ function runFirmware(m: Machine, limit = 2_000_000): void {
   for (let n = 0; n < limit && m.page(m.cpu.pc >>> 12) >= 0xe00; n++) m.cpu.step();
 }
 
+/** The firmware's machine with RAM in banks 1-4 and the OS's resident code in banks D-F, and Fulu answering for it. */
+function bareMachine(): [Machine, Fulu] {
+  const m = new Machine(loadFirmware());
+  [1, 2, 3, 4].forEach((b) => (m.write(0x0c, b), m.write(0x0d, b), m.write(0x0e, 0)));
+  [0xe88, 0xe89, 0xe8a].forEach((p, i) => (m.write(0x0c, 13 + i), m.write(0x0d, p & 0xff), m.write(0x0e, p >> 8)));
+  return [m, new Fulu(m)];
+}
+
+const RETURN = 0x0ff0, ARGS = 0x4400;
+
+/**
+ * Far-call an OS function with A and the arguments at ARGS on the firmware,
+ * then from the same state on Fulu: what differs ("" if nothing). The
+ * machine is left as the firmware left it.
+ */
+function farCallBoth(m: Machine, fulu: Fulu, entry: number, a: number, args: number[], cpu: Partial<Regs> = {}): string {
+  m.ram.set([0x0f, 0x02], 0x2029); // a program's base page
+  m.ram[0x28] = ARGS & 0xff;
+  m.ram[0x29] = ARGS >> 8;
+  args.forEach((v, i) => (m.ram[ARGS + i] = v));
+  m.ram[0x26] = entry & 0xff;
+  m.ram[0x27] = entry >> 8;
+  m.ram[0x1f0] = (RETURN - 1) >> 8;
+  m.ram[0x1ef] = (RETURN - 1) & 0xff;
+  Object.assign(m.cpu, { x: 0, y: 0, p: 0x24, ...cpu, a, s: 0xee, pc: FAR_CALL });
+  const before = snapshot(m);
+  runFirmware(m);
+  const ref = snapshot(m);
+  restore(m, before);
+  fulu.enter(FAR_CALL);
+  m.ram.set(ref.ram.subarray(0x100, 0x101 + ref.cpu.s), 0x100);
+  m.ram.set(ref.ram.subarray(ARGS - DEAD_SOFT_STACK, ARGS), ARGS - DEAD_SOFT_STACK);
+  for (const [lo, hi] of FUNCTIONS[entry].temporaries ?? []) m.ram.set(ref.ram.subarray(lo, hi), lo);
+  const diff = differences(ref, snapshot(m));
+  restore(m, ref);
+  return diff;
+}
+
 describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
   it("the keyboard's classes are the OS's", () => {
     const os = loadFirmware().regions.os!, at = (a: number) => (0x80 + 4 * 8) * 0x1000 + a - 0x5000; // segment 8
@@ -276,15 +314,12 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
   });
 
   it("the screen functions, on random arguments", { timeout: 300_000 }, () => {
-    const m = new Machine(loadFirmware()), fulu = new Fulu(m);
-    [1, 2, 3, 4].forEach((b) => (m.write(0x0c, b), m.write(0x0d, b), m.write(0x0e, 0)));
-    [0xe88, 0xe89, 0xe8a].forEach((p, i) => (m.write(0x0c, 13 + i), m.write(0x0d, p & 0xff), m.write(0x0e, p >> 8)));
+    const [m, fulu] = bareMachine();
     let seed = 3;
     const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
     // rows below 200 at most: further down, the screen's rows would be the OS's own variables
     const x = () => (rand(8) ? rand(160) : rand(256)), y = () => (rand(8) ? rand(96) : rand(200));
     const near = (v: number) => Math.min(199, Math.max(0, v + rand(255) - 127)); // a y the line's 8-bit difference reaches
-    const RETURN = 0x0ff0, ARGS = 0x4400;
     // the function, and its arguments after the first (in A)
     const cases: [number, () => number[]][] = [
       [0xe794, () => ((y0) => [y0, x(), near(y0)])(y())],
@@ -316,32 +351,35 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     for (const [entry, args] of cases) {
       for (let trial = 0; trial < 300; trial++) {
         for (let a = 0x400; a < 0x4000; a++) m.ram[a] = rand(256);
-        m.ram.set([0x0f, 0x02], 0x2029); // a program's base page
-        m.ram[0x28] = ARGS & 0xff;
-        m.ram[0x29] = ARGS >> 8;
-        args().forEach((v, i) => (m.ram[ARGS + i] = v));
-        m.ram[0x26] = entry & 0xff;
-        m.ram[0x27] = entry >> 8;
-        const cpu = m.cpu;
-        Object.assign(cpu, { a: x(), x: rand(256), y: rand(256), p: (rand(256) | 0x24) & ~0x18, s: 0xf0 });
-        m.ram[0x1f0] = (RETURN - 1) >> 8;
-        m.ram[0x1ef] = (RETURN - 1) & 0xff;
-        cpu.s = 0xee;
-        cpu.pc = FAR_CALL;
-        const before = snapshot(m);
-        runFirmware(m);
-        const ref = snapshot(m);
-        restore(m, before);
-        fulu.enter(FAR_CALL);
-        m.ram.set(ref.ram.subarray(0x100, 0x101 + ref.cpu.s), 0x100);
-        m.ram.set(ref.ram.subarray(ARGS - DEAD_SOFT_STACK, ARGS), ARGS - DEAD_SOFT_STACK);
-        for (const [a, b] of FUNCTIONS[entry].temporaries ?? []) m.ram.set(ref.ram.subarray(a, b), a);
-        const diff = differences(ref, snapshot(m));
+        const a = x(), list = args();
+        const diff = farCallBoth(m, fulu, entry, a, list, { x: rand(256), y: rand(256), p: (rand(256) | 0x24) & ~0x18 });
         if (diff) {
-          failures.push(`$${hex(entry, 4)} trial ${trial} (A ${hex(before.cpu.a)}, ${[...before.ram.subarray(ARGS, ARGS + 8)].map((v) => hex(v)).join(" ")}): ${diff}`);
+          failures.push(`$${hex(entry, 4)} trial ${trial} (A ${hex(a)}, ${list.map((v) => hex(v)).join(" ")}): ${diff}`);
           break;
         }
       }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it("the heap, on random allocations and frees", { timeout: 300_000 }, () => {
+    const [m, fulu] = bareMachine();
+    let seed = 5;
+    const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
+    // the heap as the OS leaves it for a program: one free block at $2C00, $1400 bytes in all
+    m.ram.set([0x00, 0x2c, 0, 0, 0x00, 0x14, 0, 0, 0], 0x2bab);
+    m.ram.set([0x62, 0x65, 0xfc, 0x13], 0x2c00);
+    m.ram.set([0xd7, 0x17], 0x2a); // the C runtime's scratch area
+    const blocks: number[] = [], failures: string[] = [];
+    for (let call = 0; call < 1500 && !failures.length; call++) {
+      const free = blocks.length && rand(2);
+      const p = !free ? 0 : rand(8) ? blocks.splice(rand(blocks.length), 1)[0] : rand(4) ? blocks[rand(blocks.length)] : 0x2c00 + rand(0x1400);
+      const n = rand(4) ? rand(0x100) : rand(0x800);
+      const args = free ? [p & 0xff, p >> 8] : [n & 0xff, n >> 8];
+      const diff = farCallBoth(m, fulu, free ? 0xe94a : 0xe947, rand(256), args);
+      if (diff) failures.push(`call ${call}: ${free ? `free $${hex(p, 4)}` : `allocate ${n}`}: ${diff}`);
+      const r = m.ram[0x20] | (m.ram[0x21] << 8);
+      if (!free && r) blocks.push(r);
     }
     expect(failures).toEqual([]);
   });
