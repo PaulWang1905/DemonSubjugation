@@ -3,7 +3,7 @@
 // own variables (docs/fulu-notes.md) and leaves registers and flags as the
 // OS does.
 
-import { adc, clc, cmp, cpu, fn, get16, nz, put16, ram, rd, set16, store, use, word, wr } from "./alu";
+import { adc, clc, cmp, cpu, fn, get16, nz, put16, ram, rd, sbc, sec, set16, store, use, word, wr } from "./alu";
 import { SCREEN } from "./screen";
 import { TEXT } from "./text";
 import { GUI } from "./gui";
@@ -93,6 +93,39 @@ export const FUNCTIONS: Record<number, OsFunction> = {
     set16(0x23, at);
     wr(at, 0);
     done();
+  }),
+  /**
+   * strncpy(dst, src, n): copies while there is a character and n > 0
+   * (signed), then pads with zeros while n ≠ 0; counts src and n along in
+   * its arguments. Returns dst.
+   */
+  0xe72d: fn(0x689d, () => {
+    const args = word(0x28), dst = get16(args);
+    let src = get16(args + 2), n = get16(args + 4), at = dst;
+    const step = (v: number) => (clc(), adc(v & 0xff, 1) | (adc(v >> 8, 0) << 8));
+    const down = (v: number) => (sec(), sbc(v & 0xff, 1) | (sbc(v >> 8, 0) << 8));
+    while (rd(src) && n && !(n & 0x8000)) {
+      const from = src;
+      src = step(src);
+      const v = rd(from), to = at;
+      at = step(at);
+      wr(to, v);
+      n = down(n);
+    }
+    while (n) {
+      const to = at;
+      at = step(at);
+      wr(to, 0);
+      n = down(n);
+    }
+    put16(args + 2, src);
+    put16(args + 4, 0);
+    set16(0x26, src);
+    set16(0x23, 0);
+    set16(0x20, dst);
+    cmp(0, 0);
+    cpu.p &= ~0x40;
+    cpu.a = cpu.y = nz(dst >> 8);
   }),
   // strlen(s) in $20/$21; it leaves s + length + 1 in its argument
   0xe71e: fn(0x63dd, () => {

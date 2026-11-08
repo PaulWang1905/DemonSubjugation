@@ -2,7 +2,7 @@
 // screen's shape: 96 rows of 20 bytes, one bit a pixel, the most significant
 // bit leftmost.
 
-import { adc, clc, cmp, cpu, farCalled, fn, get16, ram, rd, set16, word, wr } from "./alu";
+import { adc, asl, carry, clc, cmp, cpu, farCalled, fn, get16, nz, ram, rd, rol, set16, word, wr } from "./alu";
 import type { OsFunction } from "./fulu";
 
 const STRIDE = 20;
@@ -10,6 +10,21 @@ export const WIDTH = 160, HEIGHT = 96;
 
 /** $EAEC, the OS's 8 × 8-bit multiply (at 5:$7BD2), which some screen functions far-call. */
 const MULTIPLY = 0x7bd2;
+
+/** The OS's 8 × 8-bit multiply (5:$7BD2): $2085:$2089 = $2085 × $2087, with its flags. */
+function multiply(): void {
+  ram[0x2089] = 0;
+  for (let y = 8; y; y--) {
+    ram[0x2089] = asl(ram[0x2089]);
+    ram[0x2085] = rol(ram[0x2085]);
+    if (carry()) {
+      clc();
+      ram[0x2089] = adc(ram[0x2087], ram[0x2089]);
+      if (carry()) ram[0x2085] = nz((ram[0x2085] + 1) & 0xff);
+    }
+    cpu.y = nz(y - 1);
+  }
+}
 
 /**
  * The address of display byte b (pixels 8b to 8b + 7) of display row y, as
@@ -151,6 +166,63 @@ export const SCREEN: Record<number, OsFunction> = {
     set16(0x2f, dst);
     cpu.a = cpu.x = cpu.y = 0;
     cmp(0, 0);
+  }, RECTANGLE),
+  // $E87A SysRestoreScreen(x1 in A, y1, x2, y2, buffer): put back what SysSaveScreen saved
+  0xe87a: fn(0x6cea, () => {
+    const sp = word(0x28), r = rectangle(sp);
+    if (!r) return;
+    const [x1, y1, x2, y2] = r, first = x1 >> 3, last = x2 >> 3;
+    let src = get16(sp + 3);
+    for (let y = y1; y <= y2; y++) for (let b = first; b <= last; b++, src = (src + 1) & 0xffff) wr(lcd(b, y), rd(src));
+    set16(0x2f, src);
+    cpu.a = cpu.x = cpu.y = 0;
+    cmp(0, 0);
+  }, RECTANGLE),
+  // $E87D SysFillRect(x1 in A, y1, x2, y2): fill a rectangle of the screen; nothing unless x1 ≤ x2 < 160 and y1 ≤ y2 < 96
+  0xe87d: fn(0x86a9, () => {
+    const sp = word(0x28), x1 = cpu.a, y1 = rd(sp), x2 = rd(sp + 1), y2 = rd(sp + 2);
+    cpu.y = 1;
+    cmp((cpu.a = x2), WIDTH);
+    if (x2 >= WIDTH || (cmp(x2, x1), x2 < x1)) return;
+    cpu.y = 2;
+    cmp((cpu.a = y2), HEIGHT);
+    if (y2 >= HEIGHT || (cmp(y2, y1), y2 < y1)) return;
+    // row by row with the OS's horizontal line (5:$7E5A), which leaves A the last byte it wrote
+    let last = 0;
+    for (let y = y1; y <= y2; y++) {
+      for (let b = x1 >> 3; b <= x2 >> 3; b++) {
+        const inside = (b === x1 >> 3 ? 0xff >> (x1 & 7) : 0xff) & (b === x2 >> 3 ? (0xff00 >> ((x2 & 7) + 1)) & 0xff : 0xff);
+        const a = lcd(b, y);
+        wr(a, (last = rd(a) | inside));
+      }
+    }
+    cpu.y = 0;
+    cpu.a = nz(last);
+    cpu.p = (cpu.p | 0x01) & ~0x40;
+  }, LINE),
+  /**
+   * $E874(x1 in A, y1, x2, y2, &n): n = the size of SysSaveScreen's buffer
+   * for the rectangle, its byte columns × its rows (0 if it is off the screen).
+   */
+  0xe874: fn(0x7ac4, () => {
+    const sp = word(0x28), r = rectangle(sp), out = get16(sp + 3);
+    if (!r) {
+      // (through $2F/$30 before it is set to the argument)
+      wr(word(0x2f), (cpu.a = 0));
+      cpu.y = 1;
+      wr(word(0x2f) + 1, 0);
+      return void nz(1);
+    }
+    const [x1, y1, x2, y2] = r;
+    set16(0x2f, out);
+    ram[0x2085] = (x2 >> 3) - (x1 >> 3) + 1;
+    ram[0x2087] = (y2 - y1 + 1) & 0xff;
+    multiply();
+    wr(out, ram[0x2089]);
+    cpu.a = ram[0x2085];
+    cpu.y = 1;
+    nz(1);
+    wr(out + 1, cpu.a);
   }, RECTANGLE),
   // $E794 SysLine(x0 in A, y0, x1, y1): a line, unclipped
   0xe794: fn(0x8309, () => {

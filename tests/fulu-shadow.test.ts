@@ -327,6 +327,9 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xe85d, () => [y(), x(), y()]],
       [0xe860, () => [y(), x(), y()]],
       [0xe877, () => [y(), x(), y(), rand(256), 0x30 + rand(8)]],
+      [0xe87a, () => [y(), x(), y(), rand(256), 0x30 + rand(8)]],
+      [0xe87d, () => [y(), x(), y()]],
+      [0xe874, () => [y(), x(), y(), rand(256), 0x30 + rand(8)]],
       [0xe7bb, () => [rand(8) ? rand(81) : rand(100), rand(256)]],
       // a string at $1000 of ASCII, GB2312 (hanzi, symbols), other double-byte codes, and anything
       [0xe79a, () => {
