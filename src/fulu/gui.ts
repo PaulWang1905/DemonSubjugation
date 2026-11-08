@@ -104,8 +104,38 @@ const icon = (at: number, row: number) =>
     ICON_TEMPORARIES,
   );
 
+/** The input modes $E93B switches between (the keyboard state's low 4 bits), and the modes each tests for a change to, in order. */
+const MODES: Record<number, number[]> = { 2: [4, 8, 1], 4: [8, 2, 1], 8: [2, 4, 1], 1: [4, 8, 2] };
+/** Where the OS keeps that switch's table (8:$8B9C: 4 modes, then their code's addresses). */
+const MODE_TABLE = 0x8b9c, MODE_ORDER = [2, 4, 8, 1], MODE_CODE = [0x6028, 0x605e, 0x6094, 0x60ca];
+
 export const GUI: Record<number, OsFunction> = {
   0xe938: fn(0x5d45, setKeyboardHigh),
+  /**
+   * $E93B(mode): change the input mode. Fulu has only the case of no change
+   * (the mode is the current one, or one the current mode has no change to).
+   */
+  0xe93b: fn(0x5ff3, () => {
+    const mode = cpu.a, current = ram[KEYBOARD] & 0x0f, order = MODES[current];
+    wr((word(0x28) - 1) & 0xffff, mode); // passed on the software stack
+    set16(0x23, current);
+    if (!order) {
+      // the switch's default
+      set16(0x20, MODE_TABLE + 16);
+      set16(0x26, 0x6100);
+    } else {
+      const i = MODE_ORDER.indexOf(current);
+      set16(0x20, MODE_TABLE + 8 + 2 * i);
+      set16(0x26, MODE_CODE[i]);
+      if (order.includes(mode)) return void os.stop(`Fulu has no change of input mode from ${current} to ${mode} yet`);
+      for (const m of order) {
+        sec();
+        sbc(mode, m);
+      }
+      cpu.y = 3;
+    }
+    cpu.a = ram[0x29];
+  }),
   0xe845: icon(0x672b, ICON_ROWS.e845),
   0xe848: icon(0x6730, ICON_ROWS.e848),
   0xe8d7: icon(0x6735, ICON_ROWS.e8d7),
