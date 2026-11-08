@@ -170,6 +170,9 @@ its size in instructions (with the resident code it uses), what it does.
 | $E7C7 | | 7:$772E | 7 | A = 1 if key sound is on |
 | $E7D9 | | 7:$759F | 3 | A = the RTC's seconds |
 | $E9C2 | | D:$6911 | 12 | clear $216A and four records at $2122 |
+| $E9A1 | | 9:$5000 | 11 | (w): $2BA8 = w |
+| $E91C | | A:$5000 | 7 | clear $2200-$227F |
+| $E845, $E848, $E8D7 | | 6:$672B, $6730, $6735 | 39 | A ≠ 0: a status icon on (bit 0 of byte 18 of RAM row 20, 31, 41; the rows from a table at 6:$6D15) |
 | $E938 | | 8:$5D45 | 30 | $2B28 = the byte argument |
 | $E700 | (memset) | 4:$5000 | 102 | memset(p, c, n); leaves p + n and 0 in its arguments, A = $29 |
 | $E709 | | 4:$5456 | 734 | |

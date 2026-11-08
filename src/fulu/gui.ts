@@ -3,7 +3,7 @@
 // parameter.
 
 import { Key, keyChar } from "../bbk/keys";
-import { adc, clc, cpu, farCalled, fn, get16, long, nz, os, put16, ram, rd, sbc, sec, set16, store, word, wr } from "./alu";
+import { adc, clc, cmp, cpu, farCalled, fn, get16, long, nz, os, put16, ram, rd, sbc, sec, set16, softPop, softPush, store, word, wr } from "./alu";
 import type { OsFunction } from "./fulu";
 
 /** The OS's 32-bit event flags (bit 0 set by timer 1's interrupt). */
@@ -72,7 +72,95 @@ export const KEY_CLASSES: [number, number][][] = [false, true].map((shift) => {
   });
 });
 
+/** $E938: $2B28 = A (passed through the software stack, which leaves A = $29). */
+function setKeyboardHigh(): void {
+  wr((word(0x28) - 1) & 0xffff, cpu.a);
+  ram[KEYBOARD + 1] = cpu.a;
+  cpu.x = cpu.a;
+  cpu.y = 0;
+  nz(cpu.a);
+  cpu.a = ram[0x29];
+}
+
+/** Status icons the GUI sets: the RAM row whose byte 18's bit 0 lights them. */
+const ICON_ROWS = { e845: 20, e848: 31, e8d7: 41 };
+const ICON_TEMPORARIES: [number, number][] = [[0x38, 0x3a], [0x2080, 0x208a]];
+/** An OS function turning a status icon on (A ≠ 0) or off. */
+const icon = (at: number, row: number) =>
+  fn(
+    at,
+    () => {
+      const on = cpu.a, a = 0x412 + row * 32;
+      ram[0x2080] = on;
+      set16(0x38, a);
+      cpu.x = on;
+      cpu.y = 0;
+      cpu.a = rd(a) & 0xfe;
+      cmp(on, 0);
+      if (on) cpu.a = nz(cpu.a | 1);
+      wr(a, cpu.a);
+      cpu.p &= ~0x40;
+    },
+    ICON_TEMPORARIES,
+  );
+
 export const GUI: Record<number, OsFunction> = {
+  0xe938: fn(0x5d45, setKeyboardHigh),
+  0xe845: icon(0x672b, ICON_ROWS.e845),
+  0xe848: icon(0x6730, ICON_ROWS.e848),
+  0xe8d7: icon(0x6735, ICON_ROWS.e8d7),
+  // $E9A1(w): $2BA8 = w
+  0xe9a1: fn(0x5000, () => {
+    const w = get16(word(0x28));
+    set16(0x20, w);
+    ram[0x2ba8] = w & 0xff;
+    ram[0x2ba9] = w >> 8;
+    cpu.y = 1;
+    cpu.a = nz(w >> 8);
+  }),
+  // $E91C: clear $2200-$227F
+  0xe91c: fn(0x5000, () => {
+    ram.fill(0, 0x2200, 0x2280);
+    cpu.a = 0;
+    cpu.y = 0x80;
+    cmp(0x80, 0x80);
+  }),
+  /**
+   * $E932, the GUI's start-up: the message queue emptied, the keyboard state
+   * 2 and $2B28 $0F, $2BA8 $FFFF, $2200-$227F cleared, three icons off.
+   * Returns 1.
+   */
+  0xe932: fn(0x5000, () => {
+    softPush([0, 0]); // 8:$6BC2's locals
+    ram[QUEUE_READ] = ram[QUEUE_READ + 1] = ram[QUEUE_COUNT] = 0;
+    softPush([QUEUE & 0xff, QUEUE >> 8, 0x18, 0, 0]);
+    os.call(0xe700); // memset(QUEUE, 0, 24)
+    softPop(7);
+    ram[KEYBOARD] = 2;
+    cpu.a = 0x0f;
+    setKeyboardHigh(); // by JSR
+    set16(0x20, 0xffff);
+    softPush([0xff, 0xff]);
+    os.call(0xe9a1);
+    softPop(2);
+    os.call(0xe91c);
+    for (const entry of [0xe848, 0xe8d7, 0xe845]) {
+      cpu.a = 0;
+      os.call(entry);
+    }
+    cpu.a = nz(1);
+  }, ICON_TEMPORARIES),
+
+  // $E965: the keyboard's state ($2B27) and $2B28 as a word in $20/$21 ($2B28 the high byte; made by shifting it 8 left)
+  0xe965: fn(0x6a79, () => {
+    const hi = ram[KEYBOARD + 1];
+    set16(0x23, hi << 8);
+    set16(0x20, (hi << 8) | ram[KEYBOARD]);
+    cpu.x = 0;
+    cpu.p &= ~0x01; // the shift's last carry
+    cpu.a = cpu.y = nz(hi);
+  }),
+
   /**
    * $E93E GuiTranslateMsg(msg): a key message (type 1) becomes what the key
    * means (KEY_CLASSES): type its class, parameter its code (a-z upper case

@@ -3,7 +3,7 @@
 // own variables (docs/fulu-notes.md) and leaves registers and flags as the
 // OS does.
 
-import { adc, clc, cmp, cpu, fn, get16, nz, put16, ram, rd, set16, use, word, wr } from "./alu";
+import { adc, clc, cmp, cpu, fn, get16, nz, put16, ram, rd, set16, store, use, word, wr } from "./alu";
 import { SCREEN } from "./screen";
 import { TEXT } from "./text";
 import { GUI } from "./gui";
@@ -108,15 +108,18 @@ export const FUNCTIONS: Record<number, OsFunction> = {
     cmp(0x30, 0x30);
     cpu.p &= ~0x40;
   }),
-  // $2B28 = A (passed through the software stack)
-  0xe938: fn(0x5d45, () => {
-    const sp = (word(0x28) - 1) & 0xffff;
-    wr(sp, cpu.a);
-    ram[0x2b28] = cpu.a;
-    cpu.x = cpu.a;
-    cpu.y = 0;
-    nz(cpu.a);
-    cpu.a = ram[0x29]; // the last thing it loads, popping the byte again (the flags are kept)
+  // (p, v, w): *(long *)p = v (unsigned), *(int *)(p + 4) = w, through the C runtime
+  0xe95c: fn(0x7093, () => {
+    const sp = word(0x28), p = get16(sp), v = get16(sp + 2), w = get16(sp + 4), s = word(0x2a) + 0x10;
+    store(s, v); // widened in the scratch area (+$10), then copied
+    store(p, v);
+    clc();
+    const at = adc(p & 0xff, 4) | (adc(p >> 8, 0) << 8);
+    set16(0x23, at);
+    set16(0x20, w);
+    put16(at, w);
+    cpu.y = 1;
+    cpu.a = nz(w >> 8);
   }),
 };
 

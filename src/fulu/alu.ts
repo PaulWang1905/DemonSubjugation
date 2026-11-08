@@ -70,6 +70,15 @@ export function set16(zp: number, v: number): void {
   ram[zp + 1] = (v >> 8) & 0xff;
 }
 export const long = (a: number) => (rd(a) | (rd(a + 1) << 8) | (rd(a + 2) << 16) | (rd(a + 3) << 24)) >>> 0;
+
+/** Push bytes onto the software stack ($28/$29), the first at the lowest address (as compiled C passes arguments). */
+export function softPush(bytes: number[]): void {
+  const sp = (word(0x28) - bytes.length) & 0xffff;
+  set16(0x28, sp);
+  bytes.forEach((v, i) => wr(sp + i, v));
+}
+/** Remove n bytes from the software stack. */
+export const softPop = (n: number) => set16(0x28, word(0x28) + n);
 export function store(a: number, v: number): void {
   for (let i = 0; i < 4; i++) wr(a + i, (v >>> (8 * i)) & 0xff);
 }
