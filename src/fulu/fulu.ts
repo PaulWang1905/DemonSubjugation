@@ -7,8 +7,9 @@
 // far call through $D2F6 (the OS functions, or another segment of the
 // program), and an interrupt through the vectors at $0300.
 //
-// Fulu keeps the OS's own state in TypeScript. What programs see is the same
-// as on the device: the same registers, stack and memory after each call.
+// Fulu keeps the OS's state where the OS does, in its variables in RAM, so
+// that what programs see is the same as on the device: the same registers,
+// stack and memory after each call (docs/fulu-notes.md has the map).
 
 import { C, N, V, Z } from "../bbk/cpu";
 import { REGION_SIZE } from "../bbk/firmware";
@@ -26,10 +27,18 @@ import { HELPERS } from "./runtime";
  */
 export type Handler = (os: Fulu) => void | "wait" | "jump";
 
+/** An OS function: where the OS has it in its segment, and what it does. */
+export interface OsFunction {
+  at: number;
+  run: Handler;
+}
+
 /** Banks D-F: where the OS keeps its resident code. */
 const OS_PAGES = [0xe88, 0xe89, 0xe8a];
-/** The OS's segments start here (segment n at page OS_BASE + 4n). */
+/** The OS's base page (its segment n is at page base + 4n), kept at $03E4/$03E5. */
 const OS_BASE = 0xe80;
+/** The running program's base page (its segment n is at $E0 + n). */
+const PROGRAM_BASE = 0x2029;
 export const FAR_CALL = 0xd2f6;
 /** Where a far call's target returns to (the OS's own return address). */
 const FAR_RETURN = 0xd313;
@@ -64,11 +73,6 @@ export class Fulu {
   readonly machine: Machine;
   /** Why the program stopped, once it has (it ended, or met an OS function Fulu lacks). */
   stopped: string | null = null;
-  /** The flash page of the program's segment 0. */
-  base = 0;
-  /** Keys pressed and not yet read, and timer ticks counted. */
-  readonly keys: number[] = [];
-  ticks = 0;
 
   /** Fulu with its own machine, or (for checking it) answering for the OS of another. */
   constructor(machine?: Machine) {
@@ -89,17 +93,20 @@ export class Fulu {
     const m = this.machine, ram = m.ram, flash = m.flash.data, h = file.offset;
     m.reset();
     this.stopped = null;
-    this.keys.length = 0;
-    this.base = 0x200 + (h >> 12);
-    const data = this.base + ((flash[h + 0x42] | (flash[h + 0x43] << 8) | (flash[h + 0x44] << 16)) >> 12);
+    const base = 0x200 + (h >> 12);
+    const data = base + ((flash[h + 0x42] | (flash[h + 0x43] << 8) | (flash[h + 0x44] << 16)) >> 12);
     const entry = flash[h + 0x40] | (flash[h + 0x41] << 8);
-    const pages = [1, 2, 3, 4, this.base, this.base + 1, this.base + 2, this.base + 3, data, data + 1, data + 2, data + 3, ...OS_PAGES];
+    ram[0x3e4] = OS_BASE >> 8;
+    ram[0x3e5] = OS_BASE & 0xff;
+    ram[PROGRAM_BASE] = base & 0xff;
+    ram[PROGRAM_BASE + 1] = base >> 8;
+    const pages = [1, 2, 3, 4, base, base + 1, base + 2, base + 3, data, data + 1, data + 2, data + 3, ...OS_PAGES];
     pages.forEach((page, i) => this.map(i + 1, page));
     for (const [a, v] of [...IO, ...ZERO_PAGE]) ram[a] = v;
     ram[0x26] = (entry - 1) & 0xff;
     ram[0x27] = (entry - 1) >> 8;
     ram.set(STACK, 0x101 + STACK_TOP);
-    ram.set(frame(data, this.base), SOFT_STACK);
+    ram.set(frame(data, base), SOFT_STACK);
     Object.assign(m.cpu, { pc: entry, s: STACK_TOP, a: 0x17, x: 0x17, y: 0x17, p: 0x21 });
   }
 
@@ -113,29 +120,40 @@ export class Fulu {
    * true; in the program's own memory it is a NOP, as on the chip.
    */
   enter(pc: number): boolean {
-    if (pc >= 0x300 && pc < 0x350) return this.run(INTERRUPTS[(pc - 0x300) >> 2], `interrupt ${(pc - 0x300) >> 2}`, pc, true);
+    if (pc >= 0x300 && pc < 0x350) return this.interrupt((pc - 0x300) >> 2);
     if (this.machine.page(pc >>> 12) < 0xe00) return false;
     if (pc === FAR_CALL) return this.farCall(pc);
     if (pc === FAR_RETURN) return this.farReturn();
-    return this.run(HELPERS[pc], `the OS routine at $${hex(pc)}`, pc, false);
+    const h = HELPERS[pc];
+    if (!h) return this.missing(`the OS routine at $${hex(pc)}`);
+    if (h(this) !== "jump") this.rts();
+    return true;
   }
 
-  private run(h: Handler | undefined, name: string, pc: number, rti: boolean): boolean {
-    if (!h) {
-      this.stop(`Fulu has no ${name} yet`);
-      return true;
-    }
-    const r = h(this);
-    if (r === "jump") return true;
-    if (r === "wait") {
-      this.machine.cpu.pc = pc;
-      this.machine.ram[0x200] |= 0x08; // halt until the next interrupt, as the OS does when it waits
-      return true;
-    }
+  /**
+   * An interrupt: on the device its vector far-calls the OS's handler, which
+   * saves A, X, Y and $26/$27; the call's return maps the interrupted
+   * segment back.
+   */
+  interrupt(vector: number): boolean {
+    if (!this.service(vector)) return this.missing(`interrupt ${vector}`);
     const cpu = this.machine.cpu;
-    if (rti) cpu.p = (this.pull() | 0x20) & ~0x10;
-    const lo = this.pull();
-    cpu.pc = ((lo | (this.pull() << 8)) + (rti ? 0 : 1)) & 0xffff;
+    cpu.p = (this.pull() | 0x20) & ~0x10;
+    cpu.pc = this.pull() | (this.pull() << 8);
+    return true;
+  }
+
+  /** What an interrupt does but return: false if Fulu has no handler for it. */
+  service(vector: number): boolean {
+    const h = INTERRUPTS[vector];
+    if (!h) return false;
+    h(this);
+    this.mapSegment(this.segment());
+    return true;
+  }
+
+  private missing(name: string): boolean {
+    this.stop(`Fulu has no ${name} yet`);
     return true;
   }
 
@@ -148,38 +166,61 @@ export class Fulu {
     const m = this.machine, ram = m.ram, cpu = m.cpu;
     const ptr = ram[0x26] | (ram[0x27] << 8);
     const seg = m.read((ptr + 2) & 0xffff);
-    if (seg < 0xe0) {
-      const name = NAMES[ptr] ? `${NAMES[ptr]} ($${hex(ptr)})` : `OS function $${hex(ptr)}`;
-      return this.run(FUNCTIONS[ptr], name, pc, false);
+    if (seg >= 0xe0) {
+      const target = m.read(ptr) | (m.read((ptr + 1) & 0xffff) << 8);
+      this.push(this.segment());
+      this.mapSegment(seg);
+      this.push((FAR_RETURN - 1) >> 8);
+      this.push((FAR_RETURN - 1) & 0xff);
+      this.arrive(target);
+      cpu.pc = target;
+      return true;
     }
-    const target = m.read(ptr) | (m.read((ptr + 1) & 0xffff) << 8), a = cpu.a;
-    this.push(this.segment());
-    this.mapSegment(seg);
-    this.push((FAR_RETURN - 1) >> 8);
-    this.push((FAR_RETURN - 1) & 0xff);
-    // as the OS's trampoline leaves it: $26/$27 = target - 1, X = Y = A, flags of the subtraction
-    const t = target - 1;
+    const f = FUNCTIONS[ptr];
+    if (!f) return this.missing(NAMES[ptr] ? `${NAMES[ptr]} ($${hex(ptr)})` : `OS function $${hex(ptr)}`);
+    const { a, x, y, p } = cpu;
+    this.arrive(f.at);
+    if (f.run(this) === "wait") {
+      // as before the call, to make it again after the next interrupt
+      Object.assign(cpu, { a, x, y, p, pc });
+      ram[0x26] = ptr & 0xff;
+      ram[0x27] = ptr >> 8;
+      ram[0x200] |= 0x08; // halt, as the OS does when it waits
+      return true;
+    }
+    this.mapSegment(this.segment());
+    this.leave();
+    this.rts();
+    return true;
+  }
+
+  /** At a far call's target, as the OS's trampoline leaves it: $26/$27 = target - 1, X = Y = A, flags of that subtraction. */
+  private arrive(target: number): void {
+    const ram = this.machine.ram, cpu = this.machine.cpu, a = cpu.a, t = target - 1;
     ram[0x26] = t & 0xff;
     ram[0x27] = (t >> 8) & 0xff;
     const hi = target >> 8, borrow = (target & 0xff) === 0 ? 1 : 0, r = hi - borrow;
     cpu.p = (cpu.p & ~(N | Z | C | V)) | (r >= 0 ? C : 0) | (hi & ~r & 0x80 ? V : 0) | (a & N) | (a ? 0 : Z);
     cpu.x = cpu.y = a;
-    cpu.pc = target;
-    return true;
+  }
+
+  /** Back from a far call's target: X = A, N/Z from A. */
+  private leave(): void {
+    const cpu = this.machine.cpu;
+    cpu.x = cpu.a;
+    cpu.p = (cpu.p & ~(N | Z)) | (cpu.a & N) | (cpu.a ? 0 : Z);
   }
 
   /** $D313: a far call's target has returned; map the caller's segment back. A main that returns ends the program. */
   private farReturn(): boolean {
-    const cpu = this.machine.cpu, seg = this.pull();
+    const seg = this.pull();
     if (seg < 0xe0) {
       this.stop("The program ended");
       return true;
     }
     this.mapSegment(seg);
-    cpu.x = cpu.a;
-    cpu.p = (cpu.p & ~(N | Z)) | (cpu.a & N) | (cpu.a ? 0 : Z);
-    const lo = this.pull();
-    cpu.pc = ((lo | (this.pull() << 8)) + 1) & 0xffff;
+    this.leave();
+    this.rts();
     return true;
   }
 
@@ -192,15 +233,30 @@ export class Fulu {
     m.write(0x0e, page >> 8);
   }
 
-  /** The segment in $5000-$8FFF, as the OS numbers it: the program's from $E0, the OS's below. */
-  private segment(): number {
-    const page = this.machine.page(5);
-    return page >= OS_BASE ? (page - OS_BASE) >> 2 : 0xe0 + ((page - this.base) >> 2);
+  private base(seg: number): number {
+    const ram = this.machine.ram;
+    return seg >= 0xe0 ? ram[PROGRAM_BASE] | (ram[PROGRAM_BASE + 1] << 8) : ram[0x3e5] | (ram[0x3e4] << 8);
   }
 
+  /** The segment in $5000-$8FFF, as the OS numbers it: the program's from $E0, the OS's below. */
+  private segment(): number {
+    const page = this.machine.page(5), os = page >> 8 >= this.machine.ram[0x3e4];
+    const n = ((page - this.base(os ? 0 : 0xe0)) & 0xffff) >> 2;
+    return (os ? n : 0xe0 + n) & 0xff;
+  }
+
+  /** Map a segment into banks 5-8, leaving bank select and the OS's scratch at $2000-$2002 as the OS does. */
   private mapSegment(seg: number): void {
-    const first = seg >= 0xe0 ? this.base + (seg - 0xe0) * 4 : OS_BASE + seg * 4;
+    const ram = this.machine.ram, base = this.base(seg), first = base + ((seg >= 0xe0 ? seg - 0xe0 : seg) << 2);
     for (let i = 0; i < 4; i++) this.map(5 + i, first + i);
+    ram[0x2000] = this.machine.page(8) >> 8;
+    ram[0x2001] = base & 0xff;
+    ram[0x2002] = base >> 8;
+  }
+
+  private rts(): void {
+    const lo = this.pull();
+    this.machine.cpu.pc = ((lo | (this.pull() << 8)) + 1) & 0xffff;
   }
 
   private push(v: number): void {

@@ -12,45 +12,11 @@
 // including the incidental ones (X, Y, the flags of its last operation),
 // since a program could depend on any of them.
 
-import { B, C, N, U, V, Z } from "../bbk/cpu";
-import type { Machine } from "../bbk/machine";
+import { B, Z } from "../bbk/cpu";
+import { adc, asl, carry, clc, cmp, cpu, long, lsr, m, nz, plp, ram, rd, rol, ror, sbc, sec, store, use, word, wr } from "./alu";
 import type { Fulu, Handler } from "./fulu";
 
-let m: Machine;
-let ram: Uint8Array;
-let cpu: Machine["cpu"];
-
-// ---- the ALU, with the 65C02's flags ----
-
-const setP = (mask: number, bits: number) => void (cpu.p = (cpu.p & ~mask) | bits);
-const nz = (v: number) => (setP(N | Z, (v & N) | (v ? 0 : Z)), v);
-const clc = () => setP(C, 0);
-const sec = () => setP(C, C);
-const carry = () => cpu.p & C;
-function adc(a: number, b: number): number {
-  const r = a + b + carry();
-  setP(C | V, (r >> 8) | (~(a ^ b) & (a ^ r) & 0x80 ? V : 0));
-  return nz(r & 0xff);
-}
-const sbc = (a: number, b: number) => adc(a, b ^ 0xff);
-const cmp = (a: number, b: number) => (setP(C, a >= b ? C : 0), nz((a - b) & 0xff));
-const rol = (v: number, c = carry()) => (setP(C, v >> 7), nz(((v << 1) | c) & 0xff));
-const asl = (v: number) => rol(v, 0);
-const ror = (v: number, c = carry()) => (setP(C, v & 1), nz((v >> 1) | (c << 7)));
-const lsr = (v: number) => ror(v, 0);
-/** PLP of a value pushed by PHP. */
-const plp = (p: number) => void (cpu.p = (p | U) & ~B);
-
-// ---- memory ----
-
-const rd = (a: number) => m.read(a & 0xffff);
-const wr = (a: number, v: number) => m.write(a & 0xffff, v);
-const word = (zp: number) => ram[zp] | (ram[zp + 1] << 8);
-const long = (a: number) => (rd(a) | (rd(a + 1) << 8) | (rd(a + 2) << 16) | (rd(a + 3) << 24)) >>> 0;
 const scratch = () => word(0x2a);
-function store(a: number, v: number): void {
-  for (let i = 0; i < 4; i++) wr(a + i, (v >>> (8 * i)) & 0xff);
-}
 
 /** $D586/$D596/$D5A6: point $20 or $23 at scratch + off; A is kept. */
 function point(zp: number, off: number): void {
@@ -77,7 +43,7 @@ function op32(f: (a: number, b: number) => number): void {
 }
 
 /** Compare n bytes: the flags of the subtraction, Z only if all bytes are equal; A = the flags, X = bytes that differ. */
-function compare(a: number, b: number, n: number): void {
+export function compare(a: number, b: number, n: number): void {
   let differ = 0;
   sec();
   for (let i = 0; i < n; i++) if (sbc(rd(a + i), rd(b + i))) differ++;
@@ -553,9 +519,7 @@ export const HELPERS: Record<number, Handler> = Object.fromEntries(
   Object.entries(table).map(([a, f]) => [
     a,
     (os: Fulu) => {
-      m = os.machine;
-      ram = m.ram;
-      cpu = m.cpu;
+      use(os);
       return f() === "jump" ? "jump" : undefined;
     },
   ]),

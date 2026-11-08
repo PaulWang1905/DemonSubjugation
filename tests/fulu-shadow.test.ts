@@ -3,8 +3,8 @@
 //
 // Each check puts the machine in a state, lets the firmware answer an entry
 // into the OS, then puts it back in that state and lets Fulu answer; the two
-// must leave the same registers, banks and memory (all but the dead part of
-// the 6502 stack, below S).
+// must leave the same registers, banks and memory (all but the dead stacks
+// and what time changes; docs/fulu-notes.md has the rules).
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -64,32 +64,42 @@ function differences(ref: Snapshot, got: Snapshot): string {
   return out.join(", ");
 }
 
-/** The OS's own variables, which programs never read: Fulu keeps that state in TypeScript. */
-const OS_VARIABLES = [0x2000, 0x2100];
 /** The real-time clock's counters, and registers in which hardware sets bits (interrupt flags, the key code). */
 const RTC = [0x234, 0x239];
 const RAISED = [0x04, 0x05, 0x24e];
+/** How far below the software stack pointer the OS's dead locals can be. */
+const DEAD_SOFT_STACK = 0x300;
 
 interface Row {
   calls: number;
-  /** Calls not compared because an interrupt came in the middle of the firmware's answer. */
+  /** Calls the firmware answered with interrupts in the middle, replayed to Fulu. */
   interrupted: number;
   mismatches: number;
   first?: string;
-  /** Fulu has no answer for this entry yet. */
+  /** Fulu has no answer for this entry yet (or for an interrupt in it). */
   missing?: boolean;
+}
+
+/** An interrupt the firmware took inside an entry, with what the hardware showed it. */
+interface Nested {
+  vector: number;
+  isr: number;
+  tisr: number;
+  key: number;
 }
 
 /**
  * Play a game on the firmware with a fixed script of keys, and check Fulu's
  * answer to every entry into the OS from the program's first instruction on.
+ * Interrupts that came while the firmware answered are given to Fulu too:
+ * while it waits (the CPU halted until the next interrupt), and the rest
+ * after its answer.
  */
 function shadow(fw: Firmware, gam: Uint8Array, seconds: number): Map<string, Row> {
   const d = new Device(fw), file = d.install(gam);
   if (!file) throw new Error("the game does not fit in the flash");
   const m = d.machine, cpu = m.cpu, entry = gam[0x40] | (gam[0x41] << 8), first = 0x200 + (file.offset >> 12);
   const fulu = new Fulu(m);
-  fulu.base = first;
   const rows = new Map<string, Row>();
   const vector = (pc: number) => pc >= 0x300 && pc < 0x350;
   const inOs = (pc: number) => vector(pc) || m.page(pc >>> 12) >= 0xe00;
@@ -102,7 +112,30 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): Map<string, Row
     return seg >= 0xe0 ? ["far call", true] : [`OS function $${hex(ptr, 4)}`, !!FUNCTIONS[ptr]];
   }
 
-  let started = false, at = -1, interrupted = false, before: Snapshot | null = null;
+  function replay(n: Nested): void {
+    m.ram[0x04] = n.isr;
+    m.ram[0x05] = n.tisr;
+    m.ram[0x24e] = n.key;
+    m.ram[0x200] &= ~0x08; // the interrupt wakes the CPU
+    fulu.service(n.vector);
+  }
+
+  /** Fulu's answer, or why there is none to compare. */
+  function answer(): string {
+    const queue = [...nested];
+    fulu.enter(at);
+    while (at === FAR_CALL && cpu.pc === FAR_CALL && !cpu.stopped) {
+      const n = queue.shift();
+      if (!n) return "Fulu still waits";
+      replay(n);
+      fulu.enter(at);
+    }
+    queue.forEach(replay);
+    return "";
+  }
+
+  let started = false, at = -1, before: Snapshot | null = null;
+  const nested: Nested[] = [];
   function finish(): void {
     const ref = snapshot(m);
     restore(m, before!);
@@ -110,20 +143,21 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): Map<string, Row
     const row = rows.get(name) ?? { calls: 0, interrupted: 0, mismatches: 0 };
     rows.set(name, row);
     row.calls++;
-    if (!answered) row.missing = true;
-    else if (interrupted) row.interrupted++;
+    if (nested.length) row.interrupted++;
+    if (!answered || nested.some((n) => !INTERRUPTS[n.vector])) row.missing = true;
     else {
-      fulu.enter(at);
-      // the dead stack and the OS's variables: as the firmware left them
+      let diff = answer();
+      // the dead stacks, the 6502's below S and the software stack below ($28): as the firmware left them
       m.ram.set(ref.ram.subarray(0x100, 0x101 + ref.cpu.s), 0x100);
-      m.ram.set(ref.ram.subarray(OS_VARIABLES[0], OS_VARIABLES[1]), OS_VARIABLES[0]);
+      const sp = ref.ram[0x28] | (ref.ram[0x29] << 8), low = Math.max(0x1000, sp - DEAD_SOFT_STACK);
+      if (sp > low && sp <= 0x8000) m.ram.set(ref.ram.subarray(low, sp), low);
       // what time did meanwhile: the clock, and interrupt flags and a key the hardware raised
       m.ram.set(ref.ram.subarray(RTC[0], RTC[1]), RTC[0]);
       for (const a of RAISED) {
         const raised = ref.ram[a] & ~before!.ram[a];
         if (!((m.ram[a] ^ ref.ram[a]) & ~raised)) m.ram[a] = ref.ram[a];
       }
-      const diff = differences(ref, snapshot(m));
+      diff ||= differences(ref, snapshot(m));
       if (diff) {
         row.mismatches++;
         row.first ??= diff;
@@ -144,12 +178,12 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): Map<string, Row
       if (back >= 0 ? pc === back && cpu.s === backS : !inOs(pc)) {
         finish();
         at = -1;
-      } else if (vector(pc)) interrupted = true;
+      } else if (vector(pc)) nested.push({ vector: (pc - 0x300) >> 2, isr: m.ram[0x04], tisr: m.ram[0x05], key: m.ram[0x24e] });
     }
     if (at < 0 && inOs(pc)) {
       at = pc;
       before = snapshot(m);
-      interrupted = false;
+      nested.length = 0;
       const st = (i: number) => m.ram[0x100 | ((cpu.s + i) & 0xff)];
       back = vector(pc) ? st(2) | (st(3) << 8) : -1;
       backS = (cpu.s + 3) & 0xff;
