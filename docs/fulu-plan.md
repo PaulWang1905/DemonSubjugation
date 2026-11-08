@@ -116,14 +116,16 @@ the `fulu` branch.
 
 ```
 src/fulu/
-  fulu.ts        install, start, exit; the Device-like interface
-  dispatch.ts    the address lookup, far call, interrupts, "not yet" retries
-  runtime.ts     the C compiler's helpers
-  os/*.ts        the OS functions, one file per area (screen, text, keys,
-                 timers, memory, files, strings, dialogs)
+  fulu.ts        install, start, exit; the address lookup, far call,
+                 interrupts, "not yet" retries
+  runtime.ts     the C compiler's helpers (and the OS's memmove and bank
+                 helpers at $E900)
+  os.ts          the OS functions and interrupt handlers (split by area,
+                 screen, text, keys, ..., as F2 adds them)
   glyphs.ts      the glyph source
-tests/fulu.test.ts          without firmware: helpers, dispatch, a hand-made .gam
-tests/fulu-shadow.test.ts   the shadow run (with BBK_FIRMWARE and BBK_GAMES)
+tests/fulu.test.ts          without firmware: a hand-made .gam
+tests/fulu-shadow.test.ts   the helpers on random arguments, and the shadow
+                            run (with BBK_FIRMWARE, and BBK_GAMES)
 ```
 
 Estimated size: ~400 lines of core, ~1,500 for the 107 functions, ~200 for the
@@ -143,3 +145,24 @@ shadow run. `src/bbk` gains one hook for the address lookup.
   each session. If the firmware's download site is unreachable in a session,
   I will ask you to upload the firmware zip I sent earlier.
 - Decisions: the name Fulu, and starting F1.
+
+## 10. Status
+
+**F1 is done.** `src/fulu` has the start-up state, the address lookup, the
+far call and its return, the interrupts, and the C runtime's 50 helpers.
+Fulu matches the firmware exactly (registers, flags, banks, memory) on 400
+random calls per helper, and in the shadow run of the seven games (60 s of
+play each): about 910,000 entries into the OS checked, 0 mismatches.
+
+**F2's list**, from the shadow run (games that need each):
+
+- 7 games: GuiGetMsg, GuiTranslateMsg, SysTimer1Open, SysPicture, SysGetKey,
+  SysLcdPartClear, SysLcdReverse, SysRect, strlen, SysMemAllocate, SysMemFree,
+  FileNum, SysSetKeySound, and $E700, $E932, $E938, $E93B, $E944, $E95C,
+  $E965, $E7C7, $E7D9, $E8EC, $E9C2
+- 6: SysTimer1Close, SysPictureDummy, SysPrintString, SysAscii, SysLine,
+  GuiMsgBox, $E71B
+- 5: SysSaveScreen
+- 1 (三国霸业): SysRand, GuiSetKbdState, $E7B8, $E709, $E712, $E718, $E7FA,
+  $E8BF, and the floating-point helpers ($D506, $D81D, $DD19, $E517, $E520,
+  $E52C)

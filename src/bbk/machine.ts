@@ -127,6 +127,11 @@ export class Machine implements Bus {
     return Array.from(this.bank);
   }
 
+  /** The physical page CPU bank b maps. */
+  page(b: number): number {
+    return this.bank[b];
+  }
+
   /** Queue a key press (device key code, see keys.ts). */
   press(code: number): void {
     this.keys.push(code & 0x3f);
