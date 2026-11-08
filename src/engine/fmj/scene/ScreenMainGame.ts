@@ -303,13 +303,17 @@ export class ScreenMainGame extends BaseScreen {
     }
   }
 
-  /** Load map (type, index) with the screen's top-left at (x, y). */
+  /**
+   * Load map (type, index) with the screen's top-left at (x, y). The hero
+   * keeps its place on the screen, as in the original, whose actors are placed
+   * in screen tiles: also when it was created before any map was loaded (as
+   * 伏魔圆梦 EP6 does), which fmj.kt left at its old map position.
+   */
   loadMap(type: number, index: number, x: number, y: number): void {
-    let tmpP: Point | null = null;
-    if (this.player && this.currentMap) tmpP = this.player.getPosOnScreen(this.mMapScreenPos);
+    const onScreen = this.player?.getPosOnScreen(this.mMapScreenPos);
     this.currentMap = DatLib.getRes(ResType.MAP, type, index) as ResMap;
     this.mMapScreenPos.set(x, y);
-    if (tmpP) this.player!.setPosOnScreen(tmpP.x, tmpP.y, this.mMapScreenPos);
+    if (onScreen) this.player!.setPosOnScreen(onScreen.x, onScreen.y, this.mMapScreenPos);
     SaveLoadGame.MapType = type;
     SaveLoadGame.MapIndex = index;
     SaveLoadGame.MapScreenX = x;
@@ -357,11 +361,18 @@ export class ScreenMainGame extends BaseScreen {
     return this.mNPCObj[id];
   }
 
+  /** SETCONTROLID: this party member leads, and is the one shown and walking on the map. */
   setControlPlayer(id: number): void {
     const i = this.playerList.findIndex((p) => p.index === id);
-    if (i >= 0) {
-      const [p] = this.playerList.splice(i, 1);
-      this.playerList.unshift(p);
+    if (i < 0) return;
+    const [p] = this.playerList.splice(i, 1);
+    const old = this.player;
+    this.playerList.unshift(p);
+    this.player = p;
+    if (old && old !== p) {
+      // the new leader takes the old one's place and direction
+      p.setPosInMap(old.posInMap.x, old.posInMap.y);
+      p.direction = old.direction;
     }
   }
 

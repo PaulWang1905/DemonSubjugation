@@ -331,6 +331,9 @@ Deliberate changes:
 - `CALLCHAPTER` runs the chapter before the caller goes on, and `RETURN` ends
   the running script, handing back to the caller, as in the original. In
   fmj.kt the caller ran on at once and `RETURN` let the script continue past it.
+- The hero keeps its place on the screen when a map loads, also when it was
+  created before the first map (伏魔圆梦 EP6 does this; fmj.kt left it off
+  screen), and `SETCONTROLID` makes the chosen member the one shown on the map.
 - Script jumps go on in the same tick, as on the device. fmj.kt waited a tick
   (40 ms) after each jump, so loops in scripts took seconds: 伏魔圆梦 counts
   your money out and back in a loop on map changes, which paused the game for

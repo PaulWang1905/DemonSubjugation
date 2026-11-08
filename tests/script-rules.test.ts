@@ -5,6 +5,7 @@ import { createEngine, Keys, type Engine } from "../src/engine";
 import { assemble } from "../src/editor/format/gut";
 import { putEntry, writeLib } from "../src/editor/format/lib";
 import { lanternPath } from "../src/editor/template/demo";
+import { silentBell } from "../src/editor/template/silentBell";
 import { EngineSettings } from "../src/engine/fmj/config/EngineSettings";
 import { Player } from "../src/engine/fmj/characters/Player";
 import { ScriptResources } from "../src/engine/fmj/script/ScriptResources";
@@ -28,6 +29,30 @@ function run(body: string, original = true): Engine {
   EngineSettings.originalDamageFormula = true;
   return e;
 }
+
+describe("the party on the map", () => {
+  /** Run `body` as Silent Bell's opening script (it has two party members). */
+  const start = (body: string) => {
+    const lib = silentBell();
+    putEntry(lib, { resType: 1, type: 1, index: 1, data: assemble(`.gut 1 1\n.events 40\n@start:\n${body}\n  callback\n`) });
+    const e = createEngine({ resources: { datLib: writeLib(lib), ...blankFonts }, saves: memorySaves() });
+    tick(e, 120);
+    press(e, Keys.ENTER, 60); // New game
+    return e.game.mainScene as unknown as { player: { index: number; posInMap: { x: number; y: number } }; mMapScreenPos: { x: number; y: number } };
+  };
+
+  it("keeps the hero on screen when the first map loads after it was created (伏魔圆梦 EP6)", () => {
+    const scene = start("  createactor 1, 4, 3\n  loadmap 1, 1, 2, 1");
+    const { player: p, mMapScreenPos: s } = scene;
+    expect([p.posInMap.x - s.x, p.posInMap.y - s.y]).toEqual([4, 3]);
+  });
+
+  it("SETCONTROLID makes that member the one shown, in the leader's place", () => {
+    const scene = start("  loadmap 1, 1, 2, 1\n  createactor 1, 4, 3\n  createactor 2, 4, 3\n  setcontrolid 2");
+    expect(scene.player.index).toBe(2);
+    expect([scene.player.posInMap.x - scene.mMapScreenPos.x, scene.player.posInMap.y - scene.mMapScreenPos.y]).toEqual([4, 3]);
+  });
+});
 
 describe("jumps", () => {
   // A one-instruction script that jumps back to itself `limit` times.
