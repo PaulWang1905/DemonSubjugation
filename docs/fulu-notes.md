@@ -261,3 +261,22 @@ Being compiled C checking 32-bit bounds with the runtime, both leave the
 heap's end in the scratch area (+8) and the last address checked (+$10),
 and pointers to them in $20/$23; src/fulu/heap.ts models that. Checked on
 1,500 random calls.
+
+## FileNum ($E9E9), as far as read
+
+`FileNum(type in A, &count)`, D:$74C5: $2100 = type; then
+
+- D:$604D: a nesting count $216A; on the first entry the pages of banks 9,
+  10, 11, 12 and 4 are saved to $215C-$2167 (D:$64B2 maps them back on the
+  last exit, and is called at the end);
+- D:$60B0: on the first entry, maps the flash: banks 9-12 to pages
+  $0202-$0205 and bank 4 to $0200 (through D:$610A, which maps X
+  consecutive banks from A starting at the page in $2177/$2178);
+- D:$721E: $2117/$2118 = $FFFF; for a type below $20 (D:$723A) counts the
+  directory's entries of that type into $2119/$211A: directory sectors
+  from $2182 (7 at a time, $2183 of them, from D:$6C1C), each mapped at
+  $A000 by D:$6151, 16-byte entries with the type at +15 (src/bbk/flashfs.ts
+  has the layout); types from $20 go to D:$718D.
+
+It then writes the count through its pointer and returns 1. Still to read:
+D:$6C1C, D:$54CB, D:$718D, and which of $2100-$2184 are only temporaries.
