@@ -185,8 +185,11 @@ All done but 三国霸业's ($E7B8 too, which GuiMsgBox uses).
 **Not done, found later:** the shadow runs reach only the first minute of
 each game. A search of the games' code (scripts/bbk/os-calls.mjs) shows the
 six also call SysRand (now done), the file functions used for saving, the
-melodies, GuiSetKbdState and $E709, $E70F, $E712, $E718, $E950; the list is
-in docs/fulu-notes.md ("Still to do"). Until those are written, a game on
+melodies, GuiSetKbdState and $E709, $E70F, $E712, $E718, $E950, five runtime
+helpers, and keys a keyboard can send (power, Home, letters, digits, Shift,
+Delete) stop in GuiGetMsg / GuiTranslateMsg; the audit (traced from each
+game's code by scripts/bbk/gam-calls.mjs) is in docs/fulu-notes.md ("Still
+to do"). Until those are written, a game on
 Fulu stops with the function's name when it reaches one. Also not written:
 $E92F (GuiMsgBox's message $0A 3), the input mode changes in $E93B, the
 character keys in GuiTranslateMsg, GuiGetMsg's system keys and other events.

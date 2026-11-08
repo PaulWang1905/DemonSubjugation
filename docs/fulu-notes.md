@@ -320,22 +320,51 @@ from them when asked again.
 
 ## Still to do
 
-A shadow run only checks what its key script reaches: 60 s of play reaches
-the title, the first dialogue and the menus, not saving, battles or
-everything else. `scripts/bbk/os-calls.mjs` lists what a game's code can
-call, by searching it for the far-call pattern. For the 伏魔记 series and
-英雄坛说 that adds, besides what is done:
+A shadow run only checks what its key script reaches (60 s: the title, the
+first dialogue, the menus). What a game can call is found instead by
+`scripts/bbk/gam-calls.mjs`, which traces its code from the entry: branches,
+JSR/JMP, far calls into its own segments and C switch tables ($DB5C) are
+followed. For each of the six games it reaches every far-call site into the
+OS that a byte search finds (and ~136,000 instructions), so the lists below
+are complete for direct calls. (`scripts/bbk/os-calls.mjs` is the cruder byte
+search.) As of this audit, Fulu lacks, in the 伏魔记 series and 英雄坛说:
 
-- SysRand $E959 (done since: the games use it for battles and the like)
-- the file functions, for saving and loading: FileOpen $E9CE, FileSearch
-  $E9EC, FileDel $E9DD, and $E9C8, $E9D1, $E9D4, $E9D7, $E9EF
-- melodies: SysPlayMelody $E8A1, SysStopMelody $E8A4
-- GuiSetKbdState $E968, and $E709, $E70F, $E712, $E718; $E950 (伏魔记 1.0)
+| Entry | What | Size | Calls |
+|---|---|---|---|
+| $E9CE | FileOpen | 424 | 11 |
+| $E9D1 | close a handle (clears its record at $2122 + 12h) | 12 | 8-12 |
+| $E9D4 | read from a file (by its record) | 960 | 5 |
+| $E9C8 | write to a file (programs the flash) | 2845 | 3 |
+| $E9D7 | seek in a file (by its record) | 244 | 8 |
+| $E9EF | a file's record: position / length | 112 | 6 |
+| $E9EC | FileSearch | 372 | 4 |
+| $E9DD | FileDel | 1380 | 5 |
+| $E8A1 | SysPlayMelody | 47 | 2 |
+| $E8A4 | SysStopMelody | 10 | 4 |
+| $E968 | GuiSetKbdState (far-calls the three icons) | 98 | 1 |
+| $E709 | number formatting (sprintf-like: '0'-'9') | 734 | 4-6 |
+| $E70F | as $E709, longer (伏魔记 1.0, 1.2 only) | 1004 | 2 |
+| $E712 | strcat | 157 | 4-6 |
+| $E718 | strcmp | 129 | 2 |
+| $E950 | a Yes/No dialog (伏魔记 1.0 only) | 1623 | 1 |
+| $E904 | resident bank helper (beside memmove $E901; not in 1.0) | | 1 |
+| $D7B4, $DD32, $DD52, $E520, $E52C | C runtime helpers (32-bit / floating point), one function each in segments 3 and 8 | | 1 each |
 
-and 三国霸业 needs also $E7FA, $E8BF and the C runtime's floating-point
-helpers ($D506, $D81D, $DD19, $E517, $E520, $E52C and more). Its resident
-JSR targets are candidates only (data can look like a JSR); none of the
-six games' was reached in the shadow runs.
+The file functions are what saving and loading use: until they are done a
+save stops the game on Fulu.
+
+**Keys.** Inside functions Fulu has, some paths still stop ("not yet"), and
+a player can reach them from a keyboard (checked on Fulu alone, 伏魔记 1.3):
+power (F12), Home (目录), 双解, 现代 stop in GuiGetMsg (its system keys
+0-3); letters, digits, space, Shift (中英) and Backspace/Delete stop in
+GuiTranslateMsg (characters and edit keys). The on-screen keypad sends none
+of them. Also not written: $E92F (GuiMsgBox's message $0A 3), input mode
+changes in $E93B, GuiGetMsg's other events. 15 minutes idle on Fulu: fine
+(no other interrupt came).
+
+**三国霸业** needs, besides: $E7FA, $E8BF, $E9E3, and more runtime helpers
+($D506, $D572, $D81D, $D825, $D8AE, $DD19, $DD6F, $E517), with many more calls
+to $E709, $E70F, $E712.
 
 To do one: disassemble it (scripts/bbk/os-function.mjs, then
 scripts/bbk/fold-c.mjs for compiled C), write it, check it on random

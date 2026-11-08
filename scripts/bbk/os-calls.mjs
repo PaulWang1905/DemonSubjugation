@@ -1,3 +1,4 @@
+// (A crude byte search; scripts/bbk/gam-calls.mjs traces the code instead.)
 // Which OS functions each .gam calls, by searching its code for the far-call
 // pattern (LDX #lo STX $26 LDX #hi STX $27 JSR $D2F6), and which resident
 // addresses it JSRs into ($D000-$E6FF, seen 3+ times; data can look like a
