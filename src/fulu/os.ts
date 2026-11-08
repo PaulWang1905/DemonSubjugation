@@ -6,6 +6,7 @@
 import { adc, clc, cmp, cpu, fn, get16, nz, put16, ram, rd, set16, use, word, wr } from "./alu";
 import { SCREEN } from "./screen";
 import { TEXT } from "./text";
+import { GUI } from "./gui";
 import { compare } from "./runtime";
 import type { Handler, OsFunction } from "./fulu";
 
@@ -18,7 +19,7 @@ const TIMER_COUNT = 0x2018, TIMER_PERIOD = 0x2019, TIMER_OPEN = 0x201a;
 const SOUND = 0x201b;
 /** Bit 0: timer 1 fired. */
 const EVENTS = 0x201e;
-/** Bit 0: a key arrived. */
+/** The top byte of the 32-bit events at $201E: its bit 0 (event bit 24) is set when a key arrives. */
 const KEY_EVENTS = 0x2021;
 /** The status icons' blinking: on, and the phase. */
 const BLINK = 0x20cd, BLINK_PHASE = 0x20ce;
@@ -29,6 +30,7 @@ const handler = (run: () => void): Handler => (os) => (use(os), run());
 export const FUNCTIONS: Record<number, OsFunction> = {
   ...SCREEN,
   ...TEXT,
+  ...GUI,
   // memset(p, c, n), as compiled C: it counts p up and n down in its arguments
   0xe700: fn(0x5000, () => {
     const args = word(0x28), c = rd(args + 4);

@@ -85,6 +85,10 @@ export class Fulu {
   readonly machine: Machine;
   /** Why the program stopped, once it has (it ended, or met an OS function Fulu lacks). */
   stopped: string | null = null;
+  /** Whether the OS function being answered is asked again after waiting (its loop on the device went round). */
+  retrying = false;
+  /** Whether the last OS function answered is waiting to be asked again. */
+  waiting = false;
 
   /** Fulu with its own machine, or (for checking it) answering for the OS of another. */
   constructor(machine?: Machine) {
@@ -191,7 +195,9 @@ export class Fulu {
     if (!f) return this.missing(NAMES[ptr] ? `${NAMES[ptr]} ($${hex(ptr)})` : `OS function $${hex(ptr)}`);
     const { a, x, y, p } = cpu;
     this.arrive(f.at);
-    if (f.run(this) === "wait") {
+    this.retrying = this.waiting;
+    this.waiting = f.run(this) === "wait";
+    if (this.waiting) {
       // as before the call, to make it again after the next interrupt
       Object.assign(cpu, { a, x, y, p, pc });
       ram[0x26] = ptr & 0xff;
@@ -203,6 +209,19 @@ export class Fulu {
     this.leave();
     this.rts();
     return true;
+  }
+
+  /**
+   * A far call from the OS's own code to another OS function (one that does
+   * not wait): registers on entry and return as the trampoline leaves them;
+   * the banks are the caller's again afterwards, as on the device.
+   */
+  call(entry: number): void {
+    const f = FUNCTIONS[entry];
+    if (!f) throw new Error(`Fulu has no OS function $${hex(entry)} (called by the OS)`);
+    this.arrive(f.at);
+    f.run(this);
+    this.leave();
   }
 
   /** At a far call's target, as the OS's trampoline leaves it: $26/$27 = target - 1, X = Y = A, flags of that subtraction. */

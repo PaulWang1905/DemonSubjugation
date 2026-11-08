@@ -97,8 +97,7 @@ nothing extra.
 | $2019 | timer 1: period, in ST1 ticks |
 | $201A | timer 1: 1 = open |
 | $201B | flags: bit 2 = key sound on |
-| $201E | flags: bit 0 = timer 1 fired |
-| $2021 | flags: bit 0 = a key arrived |
+| $201E-$2021 | the OS's 32-bit event flags: bit 0 timer 1 fired (ST1 interrupt), bit 24 ($2021 bit 0) a key arrived (keyboard interrupt), bit 25 a type-7 message (GuiGetMsg polls instead of sleeping while it is set); others below |
 | $2027, $2028 | (copied $2027 → $2028 by the keyboard interrupt) |
 | $2029, $202A | the running program's base page |
 | $20CD, $20CE | cursor: on, blink phase (the CT interrupt) |
@@ -191,7 +190,7 @@ its size in instructions (with the resident code it uses), what it does.
 | $E8BF | | 5:$8603 | 474 | |
 | $E8EC | | 6:$624D | 333 | |
 | $E932 | (GUI start-up) | 8:$5000 | 164 | clears $2B09-$2B0B, memset($2B0F, 0, $18), $2B27 = 2, $2B28 = $0F; far-calls $E9A1($FFFF), $E91C, $E848(0), $E8D7(0), $E845(0); returns 1 |
-| $E935 | GuiGetMsg | 8:$5093 | 2075 | (msg): the message pump (in progress, below) |
+| $E935 | GuiGetMsg | 8:$5093 | 2075 | (msg): the message pump (below) |
 | $E93B | | 8:$5FF3 | 118 | |
 | $E93E | GuiTranslateMsg | 8:$6111 | 1269 | |
 | $E944 | | 8:$7D92 | 508 | |
@@ -210,24 +209,41 @@ buffer unless full, setting $2021 bit 0. ST1 — acknowledge (TISR bit 0),
 count $2018 up to the period $2019, then set $201E bit 0 and count from 0.
 CT — acknowledge (ISR bit 1) and blink the cursor if it is on.
 
-## GuiGetMsg ($E935), as far as read
+## GuiGetMsg ($E935)
 
-`GuiGetMsg(msg)` loops until it has a message; `msg` gets a type byte and a
-16-bit parameter, and it returns 1 (or 0 for some events it handles itself).
-It tests the OS's 32-bit event flags at $201E in this order, each with a mask
-(constants in segment 8 at $8AC2-$8B32), clearing the bit it takes:
+`GuiGetMsg(msg)` loops until it has a message: `msg` gets a type byte and a
+16-bit parameter, and it returns 1. In order it takes:
 
-1. $02000000 → type 7, parameter 0.
-2. $00000001 (timer 1, set by the ST1 interrupt) → type 6, parameter 0.
-3. $00000002 → the next record of a queue of 8 three-byte records at
-   $2B0F ($2B09 read index, $2B0B count; mod 8) → type and parameter.
-4. Otherwise a key from SysGetKey ($E7C1); if there is one: type 1,
-   parameter the key, and a translation step at 8:$5B02.
-5. No key: $00040000 → far-calls $ECC5, returns 0; $00000004 → $EBC5,
-   returns 0; $00000080 → $E97A; then $00000040, $00000010, $00010000 and
-   $02000000 again (not read yet).
+1. event $02000000 → type 7, parameter 0;
+2. event $00000001 (timer 1) → type 6, parameter 0;
+3. a posted message: the queue of 8 three-byte records (type, parameter) at
+   $2B0F, read index $2B09, count $2B0B (both mod 8);
+4. a key from SysGetKey → type 1, parameter the key code. It then looks the
+   key up (8:$5B02): the system keys 0-3 (开关, 目录, 双解, 现代) go to their
+   own handlers; any other key only leaves $20/$21 and $26/$27 pointing at
+   its entry in a table of key classes (8:$8C36 + 2 × (code & $3F)), $23/$24
+   = code & $3F.
+5. With no key, the events $00000002, $00000004, $00000080, $00000040,
+   $00000010 / $00010000 go to other code (8:$ECC5, $EBC5, $E97A, 8:$7A9D,
+   8:$57D1; not written yet), then $02000000 again as in 1.
+6. Nothing: it far-calls $E7A0 (7:$7304), which halts the CPU until an
+   interrupt unless event bit 25 is set, and loops. Fulu answers "wait"; asked
+   again, it leaves $26/$27 as that far call does ($7303).
 
-Its locals are 3 bytes on the software stack. Still to read: the rest of the
-event list, the wait (presumably halting until an interrupt, which Fulu
-answers with "wait"), and the callees $E7A0, $E7A3, $E86E, $E8CB, $E8CE,
-$E8E9, $E8F5, $E96E, $E97A, $EBC5, $ECC5, $EDF7, $EE06, $EE09.
+Each test leaves (scratch + 8) = events & flag; taking an event clears its
+bit through the same scratch. The event masks are constants in segment 8 at
+$8AC2-$8B32 (AND mask, value to compare, clearing mask).
+
+## The heap (SysMemAllocate $E947, SysMemFree $E94A), as far as read
+
+Bounds: the heap's start (32-bit) at $2BAB and its size (32-bit) at $2BAF;
+$2BB3 is set to 1 when a block is found broken. Blocks have a 4-byte header
+before their data: a marker byte ($62 'b' free, $75 'u' used, $6E 'n',
+$65 'e' the end), then the data size (16-bit, at +2). The next block is at
+p + 4 + size, and must lie within the bounds (8:$80BF, checked by 8:$7FAC).
+
+SysMemAllocate(n): n rounded up to a multiple of 4; first fit from the
+first block (the word at $2BAB): a free block of size ≥ n is split
+(8:$8234) and marked used, and the data address (header + 4) returned in
+$20/$21; 0 when nothing fits. Still to read: the split, and SysMemFree
+(which presumably joins free neighbours).

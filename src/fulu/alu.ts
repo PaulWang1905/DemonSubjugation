@@ -9,10 +9,13 @@ import type { Fulu, OsFunction } from "./fulu";
 export let m: Machine;
 export let ram: Uint8Array;
 export let cpu: Machine["cpu"];
+/** The Fulu that is answering. */
+export let os: Fulu;
 
-/** Bind to the machine of the Fulu that is answering. */
-export function use(os: Fulu): void {
-  m = os.machine;
+/** Bind to the Fulu that is answering and its machine. */
+export function use(fulu: Fulu): void {
+  os = fulu;
+  m = fulu.machine;
   ram = m.ram;
   cpu = m.cpu;
 }

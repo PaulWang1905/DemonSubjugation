@@ -13,6 +13,7 @@ import { addFirmwareFile, type Firmware } from "../src/bbk/firmware";
 import { Key } from "../src/bbk/keys";
 import { Machine } from "../src/bbk/machine";
 import { FAR_CALL, Fulu } from "../src/fulu/fulu";
+import { KEY_CLASSES } from "../src/fulu/gui";
 import { FUNCTIONS, INTERRUPTS } from "../src/fulu/os";
 import { HELPERS } from "../src/fulu/runtime";
 
@@ -89,6 +90,8 @@ interface Nested {
   isr: number;
   tisr: number;
   key: number;
+  /** Taken before the firmware reached the OS function's own code (in the far call's trampoline). */
+  early: boolean;
 }
 
 /**
@@ -110,6 +113,8 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<str
   /** What the entry at pc is (in the state on entry), and whether Fulu answers it. */
   function entryOf(pc: number): [string, boolean, [number, number][]?] {
     if (vector(pc)) return [`interrupt ${(pc - 0x300) >> 2}`, !!INTERRUPTS[(pc - 0x300) >> 2]];
+    // a far call's return into the OS: a callback from an OS function Fulu does not have
+    if (pc === 0xd313 && m.ram[0x100 | ((cpu.s + 1) & 0xff)] < 0xe0) return ["far return into the OS", false];
     if (pc !== FAR_CALL) return [`$${hex(pc, 4)}`, pc === 0xd313 || !!HELPERS[pc]];
     const ptr = m.ram[0x26] | (m.ram[0x27] << 8), seg = m.read((ptr + 2) & 0xffff), f = FUNCTIONS[ptr];
     return seg >= 0xe0 ? ["far call", true] : [`OS function $${hex(ptr, 4)}`, !!f, f?.temporaries];
@@ -123,21 +128,36 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<str
     fulu.service(n.vector);
   }
 
+  /**
+   * How Fulu is given the interrupts the firmware took in an entry: "one",
+   * those taken before the firmware reached the function first, then one each
+   * time Fulu waits, the rest after its answer; "first", all before; "together",
+   * the early ones first and all the rest at once the first time it waits.
+   */
+  type Order = "one" | "first" | "together";
+  const ORDERS: Order[] = ["one", "first", "together"];
+
   /** Fulu's answer, or why there is none to compare. */
-  function answer(): string {
-    const queue = [...nested];
+  function answer(order: Order): string {
+    const queue = order === "first" ? [] : nested.filter((n) => !n.early);
+    (order === "first" ? nested : nested.filter((n) => n.early)).forEach(replay);
     fulu.enter(at);
     while (at === FAR_CALL && cpu.pc === FAR_CALL && !cpu.stopped) {
-      const n = queue.shift();
-      if (!n) return "Fulu still waits";
-      replay(n);
+      if (!queue.length) return "Fulu still waits";
+      queue.splice(0, order === "together" ? queue.length : 1).forEach(replay);
       fulu.enter(at);
+    }
+    if (fulu.stopped) {
+      const why = fulu.stopped;
+      fulu.stopped = null;
+      return why;
     }
     queue.forEach(replay);
     return "";
   }
 
-  let started = false, at = -1, before: Snapshot | null = null;
+  let started = false, at = -1, before: Snapshot | null = null, reached = true;
+  let function_: (typeof FUNCTIONS)[number] | undefined;
   const misuse = new Set<string>();
   const nested: Nested[] = [];
   function finish(): void {
@@ -151,20 +171,15 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<str
     if (nested.length) row.interrupted++;
     if (!answered || nested.some((n) => !INTERRUPTS[n.vector])) row.missing = true;
     else {
-      let diff = answer();
-      // the dead stacks, the 6502's below S and the software stack below ($28): as the firmware left them
-      m.ram.set(ref.ram.subarray(0x100, 0x101 + ref.cpu.s), 0x100);
-      const sp = ref.ram[0x28] | (ref.ram[0x29] << 8), low = Math.max(0x1000, sp - DEAD_SOFT_STACK);
-      if (sp > low && sp <= 0x8000) m.ram.set(ref.ram.subarray(low, sp), low);
-      // the function's temporaries
-      for (const [a, b] of temporaries ?? []) m.ram.set(ref.ram.subarray(a, b), a);
-      // what time did meanwhile: the clock, and interrupt flags and a key the hardware raised
-      m.ram.set(ref.ram.subarray(RTC[0], RTC[1]), RTC[0]);
-      for (const a of RAISED) {
-        const raised = ref.ram[a] & ~before!.ram[a];
-        if (!((m.ram[a] ^ ref.ram[a]) & ~raised)) m.ram[a] = ref.ram[a];
+      // An interrupt can come at any point of a function on the device, and
+      // several while it sleeps; Fulu answers at once. So any of these orders
+      // of the interrupts is the device's.
+      let diff = judge(ref, temporaries, "one");
+      for (const order of ORDERS.slice(1)) {
+        if (!diff || !nested.length) break;
+        restore(m, before!);
+        if (!judge(ref, temporaries, order)) diff = "";
       }
-      diff ||= differences(ref, snapshot(m));
       if (diff) {
         row.mismatches++;
         row.first ??= diff;
@@ -173,6 +188,25 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<str
     restore(m, ref);
     cpu.stopped = false;
     judging = false;
+  }
+
+  /** Fulu's answer compared with the firmware's (ref): what differs. */
+  function judge(ref: Snapshot, temporaries: [number, number][] | undefined, order: Order): string {
+    fulu.waiting = false;
+    const why = answer(order);
+    // the dead stacks, the 6502's below S and the software stack below ($28): as the firmware left them
+    m.ram.set(ref.ram.subarray(0x100, 0x101 + ref.cpu.s), 0x100);
+    const sp = ref.ram[0x28] | (ref.ram[0x29] << 8), low = Math.max(0x1000, sp - DEAD_SOFT_STACK);
+    if (sp > low && sp <= 0x8000) m.ram.set(ref.ram.subarray(low, sp), low);
+    // the function's temporaries
+    for (const [a, b] of temporaries ?? []) m.ram.set(ref.ram.subarray(a, b), a);
+    // what time did meanwhile: the clock, and interrupt flags and a key the hardware raised
+    m.ram.set(ref.ram.subarray(RTC[0], RTC[1]), RTC[0]);
+    for (const a of RAISED) {
+      const raised = ref.ram[a] & ~before!.ram[a];
+      if (!((m.ram[a] ^ ref.ram[a]) & ~raised)) m.ram[a] = ref.ram[a];
+    }
+    return why || differences(ref, snapshot(m));
   }
 
   // An entry ends back in the program; an interrupt's at its RTI, wherever it returns to.
@@ -201,13 +235,16 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<str
       if (back >= 0 ? pc === back && cpu.s === backS : !inOs(pc)) {
         finish();
         at = -1;
-      } else if (vector(pc)) nested.push({ vector: (pc - 0x300) >> 2, isr: m.ram[0x04], tisr: m.ram[0x05], key: m.ram[0x24e] });
+      } else if (vector(pc)) nested.push({ vector: (pc - 0x300) >> 2, isr: m.ram[0x04], tisr: m.ram[0x05], key: m.ram[0x24e], early: !reached });
+      else if (!reached && function_ && pc === function_.at && m.page(5) >= 0xe00) reached = true;
     }
     if (at < 0 && inOs(pc)) {
       entries++;
       at = pc;
       before = snapshot(m);
       nested.length = 0;
+      function_ = pc === FAR_CALL ? FUNCTIONS[m.ram[0x26] | (m.ram[0x27] << 8)] : undefined;
+      reached = !function_;
       const st = (i: number) => m.ram[0x100 | ((cpu.s + i) & 0xff)];
       back = vector(pc) ? st(2) | (st(3) << 8) : -1;
       backS = (cpu.s + 3) & 0xff;
@@ -232,6 +269,12 @@ function runFirmware(m: Machine, limit = 2_000_000): void {
 }
 
 describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
+  it("the keyboard's classes are the OS's", () => {
+    const os = loadFirmware().regions.os!, at = (a: number) => (0x80 + 4 * 8) * 0x1000 + a - 0x5000; // segment 8
+    const table = KEY_CLASSES.flatMap((half) => half.flat());
+    expect(table).toEqual([...os.subarray(at(0x8c36), at(0x8c36) + 0x100)]);
+  });
+
   it("the screen functions, on random arguments", { timeout: 300_000 }, () => {
     const m = new Machine(loadFirmware()), fulu = new Fulu(m);
     [1, 2, 3, 4].forEach((b) => (m.write(0x0c, b), m.write(0x0d, b), m.write(0x0e, 0)));

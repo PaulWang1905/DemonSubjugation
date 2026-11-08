@@ -39,6 +39,9 @@ const LETTER_CODES = [
 
 export const keyCode = (ch: string): number => LETTER_CODES[LETTERS.indexOf(ch.toUpperCase())];
 
+/** The letter or digit key with this code (upper case), if it is one. */
+export const keyChar = (code: number): string | undefined => LETTERS[LETTER_CODES.indexOf(code)];
+
 /** KeyboardEvent.code → device key. */
 export const KEYBOARD: Record<string, number> = {
   ...Object.fromEntries([...LETTERS].map((c, i) => [/\d/.test(c) ? `Digit${c}` : `Key${c}`, LETTER_CODES[i]])),
