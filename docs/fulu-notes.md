@@ -194,9 +194,9 @@ its size in instructions (with the resident code it uses), what it does.
 | $E8EC | | 6:$624D | 333 | |
 | $E932 | (GUI start-up) | 8:$5000 | 164 | clears $2B09-$2B0B, memset($2B0F, 0, $18), $2B27 = 2, $2B28 = $0F; far-calls $E9A1($FFFF), $E91C, $E848(0), $E8D7(0), $E845(0); returns 1 |
 | $E935 | GuiGetMsg | 8:$5093 | 2075 | (msg): the message pump (below) |
-| $E93B | | 8:$5FF3 | 118 | |
+| $E93B | (input mode) | 8:$5FF3 | 118 | (mode): switch the keyboard state's low 4 bits (modes 2, 4, 8, 1) with a routine per change; Fulu has only no change |
 | $E93E | GuiTranslateMsg | 8:$6111 | 1269 | (msg): a key message becomes (class, code) by the key-class table 8:$8C36 (in src/fulu/gui.ts); $2B27 is the keyboard state (bits 2, 3 input methods, 4 caps, 5 a shift latch) |
-| $E944 | | 8:$7D92 | 508 | |
+| $E944 | (heap set-up) | 8:$7D92 | 508 | (start, size, x): the heap (below); its memset is a JSR $5000 in segment 8, which is the GUI start-up $E932, run instead |
 | $E947 | SysMemAllocate | 8:$8515 | 1120 | (n): first fit (below) |
 | $E94A | SysMemFree | 8:$88DD | 1013 | (p): free and join (below) |
 | $E953 | GuiMsgBox | 9:$8A7C | 1324 | |

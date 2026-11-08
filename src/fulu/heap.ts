@@ -8,8 +8,9 @@
 // scratch area (+8) and the last address it checked there (+$10); Fulu does
 // the same.
 
-import { cpu, fn, get16, long, nz, put16, ram, rd, set16, store, word, wr } from "./alu";
+import { adc, clc, cpu, fn, get16, long, nz, os, put16, ram, rd, set16, softPop, softPush, store, word, wr } from "./alu";
 import type { OsFunction } from "./fulu";
+import { GUI } from "./gui";
 
 /** The heap's start and size (32-bit), and a flag set when a block is found broken. */
 const START = 0x2bab, SIZE = 0x2baf, BROKEN = 0x2bb3;
@@ -90,6 +91,45 @@ function join(): void {
 }
 
 export const HEAP: Record<number, OsFunction> = {
+  /**
+   * $E944(start, size, x): make the heap: start aligned up to 4 (the size made
+   * smaller by what that skips), the size down to a multiple of 4, one free
+   * block. Its call meant to clear the heap (memset, at 4:$5000) is a JSR
+   * to $5000 in its own segment, which is the GUI's start-up ($E932): that
+   * runs instead, as on the device.
+   */
+  0xe944: fn(0x7d92, () => {
+    const sp = word(0x28);
+    let start = get16(sp), size = get16(sp + 2);
+    const x = get16(sp + 4);
+    softPush([0, 0, 0, 0, 0, 0]); // its locals
+    softPush([size & 0xff, size >> 8, x & 0xff, x >> 8, 0, 0]);
+    GUI[0xe932].run(os);
+    softPop(12);
+    const skip = start & 3;
+    if (skip) {
+      start = (start + 4) & 0xfffc;
+      size = (size - skip) & 0xffff;
+    }
+    size &= 0xfffc;
+    put16(sp, start);
+    put16(sp + 2, size);
+    store(word(0x2a) + 0x10, size); // widened in the scratch area to be copied
+    set16(0x20, word(0x2a) + 0x10);
+    store(START, start);
+    store(SIZE, size);
+    wr(start, FREE);
+    wr(start + 1, LAST);
+    clc();
+    const at = adc(start & 0xff, 2) | (adc(start >> 8, 0) << 8);
+    set16(0x23, at);
+    set16(0x20, (size - 4) & 0xffff);
+    put16(at, (size - 4) & 0xffff);
+    ram[BROKEN] = 0;
+    cpu.y = 1;
+    nz(0);
+    cpu.a = ram[0x29];
+  }, [[0x38, 0x3a], [0x2080, 0x208a]]),
   // $E947 SysMemAllocate(n): n bytes (rounded up to a multiple of 4, in its argument) from the first free block with room; 0 if none
   0xe947: fn(0x8515, () => {
     const arg = word(0x28);
