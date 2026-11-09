@@ -396,7 +396,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     expect(failures).toEqual([]);
   });
 
-  it("the string functions, SysRand and the melodies, on random arguments", { timeout: 300_000 }, () => {
+  it("the string functions, SysRand, the melodies and GuiSetKbdState, on random arguments", { timeout: 300_000 }, () => {
     const [m, fulu] = bareMachine();
     let seed = 9;
     const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
@@ -414,7 +414,8 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
         [0xe718, [...w(p), ...w(q)]],
         [0xe8a1, []], // SysPlayMelody(A), A mostly 1-12
         [0xe8a4, []],
-      ][rand(8)] as [number, number[]];
+        [0xe968, w(rand(0x10000))], // GuiSetKbdState(w)
+      ][rand(9)] as [number, number[]];
       if (entry === 0xe959 && rand(2)) m.ram.set([rand(200), 0], p + 4);
       if (entry === 0xe718 && rand(2)) {
         // the same string at q, now and then with a byte changed

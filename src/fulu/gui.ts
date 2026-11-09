@@ -5,6 +5,7 @@
 import { Key, keyChar } from "../bbk/keys";
 import { adc, carry, clc, cmp, cpu, farCalled, fn, get16, long, nz, os, put16, ram, rd, sbc, sec, set16, softPop, softPush, store, word, wr } from "./alu";
 import type { OsFunction } from "./fulu";
+import { HELPERS } from "./runtime";
 
 /** The OS's 32-bit event flags (bit 0 set by timer 1's interrupt). */
 const EVENTS = 0x201e;
@@ -250,6 +251,43 @@ export const GUI: Record<number, OsFunction> = {
   }, ICON_TEMPORARIES),
 
   // $E965: the keyboard's state ($2B27) and $2B28 as a word in $20/$21 ($2B28 the high byte; made by shifting it 8 left)
+  /**
+   * $E968 GuiSetKbdState(w): the keyboard state $2B27 = w's low byte, $2B28
+   * = its high byte (through the runtime's shift right, 8 places); the three
+   * keyboard icons off, then caps (bit 4), the latch (bit 5) and mode 1's
+   * (bit 0) on as the state has them.
+   */
+  0xe968: fn(
+    0x6b12,
+    () => {
+      const w = get16(word(0x28));
+      // $20/$21 = w, & $00FF, into $2B27
+      cpu.y = 1;
+      ram[0x20] = cpu.a = nz(w & 0xff);
+      ram[0x21] = cpu.a = nz(0);
+      ram[KEYBOARD] = cpu.a = nz(ram[0x20]);
+      set16(0x23, 8);
+      set16(0x20, w);
+      cpu.y = 1;
+      cpu.a = nz(w >> 8);
+      HELPERS[0xdbf2](os);
+      ram[0x20] = cpu.a = nz(ram[0x20] & 0xff);
+      ram[0x21] = cpu.a = nz(0);
+      ram[KEYBOARD + 1] = cpu.a = nz(ram[0x20]);
+      const icon = (entry: number, on: number) => ((cpu.a = on), os.call(entry));
+      icon(0xe8d7, 0);
+      icon(0xe845, 0);
+      icon(0xe848, 0);
+      const state = ram[KEYBOARD];
+      cpu.a = nz(state & 0x10);
+      if (state & 0x10) icon(0xe848, 1);
+      cpu.a = nz(state & 0x20);
+      if (state & 0x20) icon(0xe845, 1);
+      cpu.a = nz(state & 0x01);
+      if (state & 0x01) icon(0xe8d7, 1);
+    },
+    ICON_TEMPORARIES,
+  ),
   0xe965: fn(0x6a79, () => {
     const hi = ram[KEYBOARD + 1];
     set16(0x23, hi << 8);
