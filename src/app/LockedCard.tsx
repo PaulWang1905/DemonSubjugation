@@ -2,8 +2,11 @@ import { useState } from "react";
 import { decryptGame, WrongPassword, type LockedGame } from "./lockedGame";
 import { GAMES_TEXT } from "./gamesText";
 import { useSiteLang } from "./siteLang";
+import { Tile } from "./Tile";
 
 interface Props {
+  /** Its number in the library. */
+  no: number;
   game: LockedGame;
   /** An older version is already in the library. */
   update?: boolean;
@@ -12,7 +15,7 @@ interface Props {
 }
 
 /** A game the site serves encrypted: type the password to add it. */
-export function LockedCard({ game, update, busy, onImport }: Props) {
+export function LockedCard({ no, game, update, busy, onImport }: Props) {
   const [password, setPassword] = useState("");
   const [state, setState] = useState<"idle" | "working">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -37,25 +40,18 @@ export function LockedCard({ game, update, busy, onImport }: Props) {
   };
 
   return (
-    <li className="card locked">
-      <div className="card-art" aria-hidden="true">
-        <span>{game.name.toUpperCase()}</span>
-      </div>
-      <div className="card-body">
-        <strong>{game.name}</strong>
-        <span className="muted small">{update ? t.locked.update : t.locked.status}</span>
-        <span className="card-desc">{lang === "zh" && game.descZh ? game.descZh : game.desc}</span>
-        {game.source && (
-          <span className="card-source small">
-            {t.originalFrom}
-            <a href={game.source.url} target="_blank" rel="noreferrer">
-              {game.source.label}
-            </a>
-          </span>
-        )}
-      </div>
+    <Tile no={no} art={game.name.toUpperCase()} meta={update ? t.locked.update : t.locked.status} title={game.name} className="g-locked">
+      <p className="g-desc">{lang === "zh" && game.descZh ? game.descZh : game.desc}</p>
+      {game.source && (
+        <p className="g-source">
+          {t.originalFrom}
+          <a href={game.source.url} target="_blank" rel="noreferrer">
+            {game.source.label}
+          </a>
+        </p>
+      )}
       <form
-        className="card-actions lock-form"
+        className="g-lock"
         onSubmit={(e) => {
           e.preventDefault();
           void unlock();
@@ -69,15 +65,15 @@ export function LockedCard({ game, update, busy, onImport }: Props) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <button type="submit" disabled={busy || state === "working" || !password}>
+        <button className="h-btn h-btn-dark" type="submit" disabled={busy || state === "working" || !password}>
           {state === "working" ? t.locked.unlocking : t.locked.unlock}
         </button>
-        {error && (
-          <p className="lock-error small" role="alert">
-            {error}
-          </p>
-        )}
       </form>
-    </li>
+      {error && (
+        <p className="g-error" role="alert">
+          {error}
+        </p>
+      )}
+    </Tile>
   );
 }

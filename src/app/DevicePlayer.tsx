@@ -30,6 +30,8 @@ import { HD_CHINESE, readTextChoice, type TextChoice } from "./textChoice";
 interface Props {
   /** The program to play; null turns on the device itself. */
   game: StoredGame | null;
+  /** The OS it runs on: BBK's firmware (its files must have been added), or Fulu. The device itself is always the original. */
+  os: "original" | "fulu";
   onExit: () => void;
 }
 
@@ -56,12 +58,14 @@ const SAVE_EVERY_MS = 30_000;
 
 type Status = { kind: "loading" | "starting" | "running" } | { kind: "error"; message: string };
 
-export function DevicePlayer({ game, onExit }: Props) {
+export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const lang = useSiteLang();
   const pt = PLAYER_TEXT[lang];
   const dt = pt.device;
   const nm = (o: { label: string; zh: string }) => (lang === "zh" ? o.zh : o.label);
-  const id = game ? `gam:${game.id}` : "4988";
+  // Each OS keeps its own device (one saved on the firmware does not resume on Fulu)
+  const onFuluOs = !!game && wanted === "fulu";
+  const id = game ? `gam:${game.id}${onFuluOs ? ":fulu" : ""}` : "4988";
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const deviceRef = useRef<{ device: Device | FuluDevice; os: string } | null>(null);
@@ -104,8 +108,8 @@ export function DevicePlayer({ game, onExit }: Props) {
   textRef.current = dt;
 
   // Turn the device on: resume it as it was left, or install the program and
-  // open it. With the firmware's files it runs the original OS; without, a
-  // program runs on Fulu, the site's stand-in for it.
+  // open it, on the OS asked for: the original (its files are needed) or
+  // Fulu, the site's stand-in for it.
   useEffect(() => {
     let alive = true;
     const fresh = generation > 0;
@@ -113,14 +117,15 @@ export function DevicePlayer({ game, onExit }: Props) {
     (async () => {
       const text = textRef.current;
       const fw = { regions: await getFirmware() };
-      const original = !missingRegions(fw).length;
-      if (!original && !game) return setStatus({ kind: "error", message: text.needFirmware });
+      const original = !onFuluOs;
+      if (original && missingRegions(fw).length) return setStatus({ kind: "error", message: text.needFirmware });
       const fonts = original ? null : await loadFontSet("unifont");
       const make = () => (fonts ? new FuluDevice(fonts) : new Device(fw));
       let device = make();
       const os = original ? await osDigest(fw.regions.os!) : FULU_OS;
       if (fresh) await forgetDevice(id);
-      let restored = !fresh && (await restoreDevice(id, os, device));
+      // (a device Fulu saved before each OS had its own was kept under the program's own key)
+      let restored = !fresh && ((await restoreDevice(id, os, device)) || (onFuluOs && (await restoreDevice(`gam:${game!.id}`, os, device))));
       // a program that had stopped on Fulu starts again
       if (restored && device instanceof FuluDevice && device.machine.cpu.stopped) {
         device = make();

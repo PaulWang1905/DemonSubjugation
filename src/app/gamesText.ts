@@ -6,7 +6,8 @@ import { currentSiteLang, type SiteLang } from "./siteLang";
 const en = {
   eyebrow: "Games",
   title: "Your games",
-  lead: ["The built-in demos and the games you have added. Everything stays in this browser; drop ", ".lib or .gam", " files anywhere on this page to add more."],
+  lead: "The demos, and the games you add. Each plays on the engine you choose for it, and everything stays in this browser.",
+  dropHint: "or drop .lib and .gam files anywhere",
   reading: "Reading files…",
   library: "Library",
   count: (n: number) => `${n} game${n === 1 ? "" : "s"}`,
@@ -19,10 +20,8 @@ const en = {
   removeConfirm: (name: string) => `Remove “${name}” and its save slots from this browser?`,
   originalFrom: "Original from ",
   addGame: "Add a game",
-  addGameHint: ["*.lib", " or ", "*.gam"],
-  fontsLabel: "Original bitmap fonts (optional):",
-  fontsHave: "Games use the original fonts.",
-  fontsMissing: "Without them, games use the pixel fonts that come with the player. Drop the files here to add them.",
+  addGameHint: ".lib or .gam",
+  kind: { lib: "Game · .lib", gam: "4988 program · .gam" },
   noStorage: "Browser storage is unavailable, so imported files last for this tab only.",
   dropHere: "Drop to add games or fonts",
 
@@ -31,14 +30,38 @@ const en = {
     meta: "The dictionary itself · its own firmware",
     desc: "Turn on the emulated device: its dictionaries, tools and built-in games.",
     turnOn: "Turn on",
-    programMeta: "Runs on the 4988's own firmware",
-    programMetaFulu: "Runs on Fulu, the site's stand-in for the 4988's OS",
-    remastered: "Remastered",
-    remasteredTitle: "Play it in this site's engine instead: HD text, wider maps, English menus",
-    firmwareLabel: "4988 firmware:",
-    firmwareReady: (n: number) => `Device programs (.gam) run on it. ${n} of 13 files added.`,
-    firmwareMissing:
-      "Without it, device programs (.gam) run on Fulu, this site's stand-in OS, still being written: the 伏魔记 series and 英雄坛说 play and save. To run them on the original, drop its files here (0E00.DAT and 4988.font at least).",
+  },
+
+  engines: {
+    label: "Engine",
+    title: "Three engines",
+    sub: "A game made for BBK's RPG kit can play on any of them; choose one on its tile.",
+    builtIn: "Built in",
+    react: {
+      name: "FMJ React",
+      what: "This site's own engine, a port of 伏魔记's: .lib games, and the game inside a .gam, remastered with HD text, wider maps, more text per page and the debug menu.",
+      short: "This site's engine: remastered",
+    },
+    fulu: {
+      name: "Fulu",
+      what: "Our stand-in for the 4988's operating system: .gam programs run as written, without BBK's firmware. The 伏魔记 series and 英雄坛说 play and save.",
+      short: "The 4988, on our stand-in OS",
+      state: "Built in · 6 games tested",
+    },
+    original: {
+      name: "Original OS",
+      what: "BBK's own firmware, emulated: the 4988 exactly as it was. It is not ours to share: add its files (0E00.DAT and 4988.font at least) by dropping them on this page.",
+      short: "The 4988, on BBK's firmware",
+      ready: (n: number) => `Ready · ${n} of 13 files`,
+      missing: "Needs its files",
+      needs: "Add the 4988's firmware files first (below)",
+    },
+    fonts: {
+      name: "Original fonts",
+      what: "Optional: the handheld's own bitmap fonts (HZK16, ASC16) for pixel text in FMJ React. Without them it uses fonts that come with the site.",
+      have: "HZK16 and ASC16 added",
+      missing: (have: string[]) => (have.length ? `${have.join(", ")} added` : "Optional"),
+    },
   },
 
   locked: {
@@ -96,7 +119,8 @@ export type GamesText = typeof en;
 const zh: GamesText = {
   eyebrow: "游戏",
   title: "你的游戏",
-  lead: ["内置的演示和你添加的游戏。所有内容都保存在这个浏览器里；把 ", ".lib 或 .gam", " 文件拖到这个页面的任何地方就能添加。"],
+  lead: "内置的演示，和你添加的游戏。每款游戏都可以选用自己的引擎来玩，所有内容都只保存在这个浏览器里。",
+  dropHint: "也可以把 .lib 和 .gam 文件拖到页面任意位置",
   reading: "正在读取文件…",
   library: "游戏库",
   count: (n: number) => `${n} 款游戏`,
@@ -109,10 +133,8 @@ const zh: GamesText = {
   removeConfirm: (name: string) => `要从这个浏览器中移除「${name}」和它的存档吗？`,
   originalFrom: "原版来自 ",
   addGame: "添加游戏",
-  addGameHint: ["*.lib", " 或 ", "*.gam"],
-  fontsLabel: "原版点阵字库（可选）：",
-  fontsHave: "游戏会使用原版字体。",
-  fontsMissing: "没有字库时，游戏使用播放器自带的像素字体。把字库文件拖到这里即可添加。",
+  addGameHint: ".lib 或 .gam",
+  kind: { lib: "游戏 · .lib", gam: "4988 程序 · .gam" },
   noStorage: "浏览器存储不可用，导入的文件只在这个标签页里有效。",
   dropHere: "松开即可添加游戏或字库",
 
@@ -121,13 +143,38 @@ const zh: GamesText = {
     meta: "电子词典本身 · 原机固件",
     desc: "打开模拟的电子词典：里面的词典、工具和自带游戏都能用。",
     turnOn: "开机",
-    programMeta: "在 4988 原机固件上运行",
-    programMetaFulu: "在符箓（本站代替原机系统的程序）上运行",
-    remastered: "重制版",
-    remasteredTitle: "改用本站的引擎来玩：高清文字、更宽的地图、英文菜单",
-    firmwareLabel: "4988 固件：",
-    firmwareReady: (n: number) => `可以运行词典程序（.gam）。已添加 ${n}/13 个文件。`,
-    firmwareMissing: "没有固件时，词典程序（.gam）在符箓（本站代替原机系统的程序，仍在编写中）上运行：伏魔记系列和英雄坛说可以玩，也可以存档。要在原机系统上运行，把固件文件拖到这里（至少要 0E00.DAT 和 4988.font）。",
+  },
+
+  engines: {
+    label: "引擎",
+    title: "三种引擎",
+    sub: "用步步高 RPG 开发包做的游戏，三种引擎都能玩；在游戏卡片上选择。",
+    builtIn: "内置",
+    react: {
+      name: "FMJ React",
+      what: "本站自己的引擎，移植自伏魔记的引擎：可以玩 .lib 游戏，以及 .gam 里自带的游戏，并加入高清文字、更宽的地图、每页更多文字和调试菜单。",
+      short: "本站引擎：重制版",
+    },
+    fulu: {
+      name: "符箓",
+      what: "本站代替 4988 操作系统的程序：.gam 程序按原样运行，不需要步步高的固件。伏魔记系列和英雄坛说可以玩，也可以存档。",
+      short: "4988，运行在本站的代替系统上",
+      state: "内置 · 已测试 6 款游戏",
+    },
+    original: {
+      name: "原机系统",
+      what: "步步高自己的固件，模拟运行：和当年的 4988 一模一样。固件不能由本站提供：请把它的文件（至少 0E00.DAT 和 4988.font）拖到这个页面来添加。",
+      short: "4988，运行在步步高的固件上",
+      ready: (n: number) => `可用 · 已添加 ${n}/13 个文件`,
+      missing: "需要固件文件",
+      needs: "请先添加 4988 的固件文件（见下方）",
+    },
+    fonts: {
+      name: "原版字库",
+      what: "可选：掌机自己的点阵字库（HZK16、ASC16），FMJ React 的像素文字会用它们。没有的话就用本站自带的字体。",
+      have: "已添加 HZK16 和 ASC16",
+      missing: (have: string[]) => (have.length ? `已添加 ${have.join("、")}` : "可选"),
+    },
   },
 
   locked: {

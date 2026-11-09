@@ -4186,3 +4186,438 @@ pre.debug-hex {
   white-space: pre;
   overflow-x: auto;
 }
+
+/* ======================================================================
+   Games page (2026): the home page's language on the light paper. An
+   editorial head; the library as tiles divided by hairlines, each with the
+   LCD cover, its engine switch and one dark Play; the engines as numbered
+   rows; adding from a link under a section rule. Square edges throughout.
+   ====================================================================== */
+.g-page {
+  padding-bottom: clamp(48px, 7vw, 96px);
+}
+
+/* -- head -- */
+.g-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 28px 48px;
+  align-items: end;
+  padding: clamp(28px, 6vw, 88px) 0 28px;
+  border-bottom: 1px solid var(--ink);
+}
+.g-head .h-kicker {
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+.g-head h1 {
+  margin: 0;
+  font-size: clamp(52px, 8.4vw, 128px);
+  font-weight: 640;
+  line-height: 0.88;
+  letter-spacing: -0.06em;
+}
+html:lang(zh-CN) .g-head h1 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.g-lead {
+  margin: 24px 0 0;
+  max-width: 34em;
+  color: color-mix(in srgb, var(--ink) 74%, transparent);
+  font-size: 17px;
+  line-height: 1.5;
+}
+.g-head-add {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+.g-head-add .h-btn {
+  min-width: 260px;
+}
+.g-head-add .h-meta {
+  color: var(--muted);
+  text-align: right;
+}
+
+/* -- what adding files did: one strip, an LCD dot -- */
+.g-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--ink);
+  background: color-mix(in srgb, var(--h-lcd) 24%, var(--bg));
+  font: 500 13px/1.55 var(--h-mono);
+}
+.g-status p {
+  margin: 0;
+}
+.g-dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 6px;
+  background: var(--h-lcd);
+  outline: 1px solid var(--ink);
+}
+.g-close {
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+}
+
+/* -- the library -- */
+.g-shelf {
+  padding-top: clamp(40px, 5vw, 72px);
+}
+.g-shelf-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--ink);
+}
+.library .g-shelf-head h2 {
+  font-size: 12px;
+}
+.g-shelf-head .h-meta {
+  color: var(--muted);
+}
+.g-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: 1px solid var(--line);
+}
+.g-tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transition: background 0.2s ease;
+}
+.g-tile:hover {
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+}
+.g-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  margin: 16px 16px 0;
+  color: #1e2c20;
+  background-color: var(--h-lcd-deep);
+  /* LCD cells, and a dithered shade at the bottom (as the home page's demos) */
+  background-image:
+    linear-gradient(to right, rgb(30 44 32 / 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(30 44 32 / 0.08) 1px, transparent 1px),
+    radial-gradient(rgb(30 44 32 / 0.35) 1px, transparent 1.2px);
+  background-size: 8px 8px, 8px 8px, 6px 6px;
+  background-position: 0 0, 0 0, 0 100%;
+  overflow: hidden;
+}
+.g-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(30 44 32 / 0.25), transparent 45%);
+  pointer-events: none;
+}
+.g-art .h-game-no {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+}
+.g-logo {
+  max-width: 86%;
+  padding: 0.45em 0.7em;
+  border: 3px double currentColor;
+  font: 400 clamp(15px, 1.5vw, 21px) / 1.15 var(--h-pixel);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: transform 0.25s ease;
+}
+.g-tile:hover .g-logo {
+  transform: scale(1.04);
+}
+.g-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 16px;
+}
+.g-body .h-meta {
+  color: var(--muted);
+}
+.g-body h3 {
+  margin: 0;
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 620;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.g-desc {
+  margin: 0;
+  color: color-mix(in srgb, var(--ink) 74%, transparent);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.g-source {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.g-source a {
+  color: inherit;
+}
+.g-play {
+  width: 100%;
+  min-height: 48px;
+  margin-top: auto;
+}
+.g-remove {
+  align-self: flex-start;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+  font: 500 11.5px/1 var(--h-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.g-remove:hover {
+  color: var(--danger);
+}
+
+/* the engine switch: square segments, the chosen one inked */
+.g-engine {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  border: 1px solid var(--ink);
+}
+.g-engine button {
+  justify-content: center;
+  min-width: 0;
+  padding: 9px 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 500 11.5px/1.1 var(--h-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.g-engine button + button {
+  border-left: 1px solid var(--ink);
+}
+.g-engine button[aria-checked="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+.g-engine button:not(:disabled):not([aria-checked="true"]):hover {
+  background: var(--h-lcd);
+  color: var(--h-ink);
+}
+.g-engine button:disabled {
+  opacity: 1;
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
+  background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--line) 80%, transparent) 6px 7px);
+}
+.g-engine-one {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+/* the locked game: its password beside Unlock */
+.g-lock {
+  display: flex;
+  margin-top: auto;
+}
+.g-lock input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--ink);
+  border-right: 0;
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+}
+.g-lock .h-btn {
+  min-height: 48px;
+  gap: 12px;
+}
+.g-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+/* adding a game: a dashed tile that lights up */
+.g-add button {
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  min-height: 300px;
+  margin: 16px;
+  border: 1px dashed var(--muted);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+}
+.g-add button:not(:disabled):hover {
+  border-color: var(--h-ink);
+  background: var(--h-lcd);
+  color: var(--h-ink);
+}
+.g-add strong {
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+.g-add .h-meta {
+  color: inherit;
+  opacity: 0.7;
+}
+.g-plus {
+  font: 400 48px/1 var(--h-pixel);
+}
+
+/* -- the engines: numbered rows, as the home page's -- */
+.g-rows {
+  display: flex;
+  flex-direction: column;
+}
+.g-row {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 0.8fr) minmax(0, 1.4fr) minmax(0, 0.55fr);
+  gap: 12px 32px;
+  align-items: baseline;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--line);
+}
+.g-row .h-row-no {
+  color: var(--muted);
+}
+.g-row-title {
+  font-size: clamp(28px, 3.2vw, 46px);
+  font-weight: 620;
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+.g-row-text {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.g-state {
+  justify-self: end;
+  color: var(--muted);
+  font: 500 12px/1.4 var(--h-mono);
+  letter-spacing: 0.08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+.g-state::before {
+  content: "○ ";
+}
+.g-state.ok {
+  color: var(--ink);
+}
+.g-state.ok::before {
+  content: "● ";
+  color: var(--accent);
+}
+
+/* -- adding from a link: the form under a section rule -- */
+.g-link-sec .remote {
+  margin: 0;
+  padding: 22px 0 0;
+  border: 0;
+  border-top: 1px solid var(--ink);
+  border-radius: 0;
+  background: none;
+}
+.g-link-sec .remote-form label {
+  font: 500 12px/1 var(--h-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.g-link-sec .remote-form .row {
+  gap: 0;
+  margin-top: 14px;
+}
+.g-link-sec .remote-form input {
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid var(--ink);
+  border-right: 0;
+  border-radius: 0;
+  background: var(--panel);
+}
+.g-link-sec .remote-form button[type="submit"] {
+  min-width: 140px;
+  justify-content: center;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--ink);
+  color: var(--bg);
+  font: 600 15px/1 var(--h-sans);
+}
+.g-link-sec .remote-form p {
+  margin-top: 12px;
+}
+
+@media (max-width: 760px) {
+  .g-head,
+  .g-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .g-head-add {
+    align-items: stretch;
+  }
+  .g-head-add .h-btn {
+    min-width: 0;
+  }
+  .g-head-add .h-meta,
+  .g-state {
+    justify-self: start;
+    text-align: left;
+  }
+  .g-art {
+    margin: 12px 12px 0;
+  }
+  .g-body {
+    padding: 16px 12px;
+  }
+  .g-add button {
+    min-height: 180px;
+    margin: 12px;
+  }
+  .g-link-sec .remote-form button[type="submit"] {
+    min-width: 96px;
+  }
+}

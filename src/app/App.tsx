@@ -7,6 +7,7 @@ import { forgetDevice } from "./deviceStore";
 import { deleteSavesFor } from "../storage/saves";
 import { archiveId, importFiles } from "./importFiles";
 import { Library } from "./Library";
+import { engineFor, type EngineId } from "./engines";
 import { Player } from "./Player";
 import { Editor } from "../editor/ui/Editor";
 import { bellGame, demoGame } from "./demoGame";
@@ -46,7 +47,10 @@ export function App() {
   const [playing, setPlaying] = useState<StoredGame | null>(null);
   // a program on the emulated 4988 (null: the device itself; undefined: none)
   const [device, setDevice] = useState<StoredGame | null | undefined>(undefined);
+  /** The OS the device program runs on. */
+  const [deviceOs, setDeviceOs] = useState<"original" | "fulu">("original");
   const [firmware, setFirmware] = useState<RegionId[]>([]);
+  const firmwareReady = REQUIRED_REGIONS.every((r) => firmware.includes(r));
   const page = usePage();
   const lang = useSiteLang();
   const t = SITE_TEXT[lang];
@@ -119,7 +123,10 @@ export function App() {
       await deleteGame(g.id);
       deleteSavesFor(g.id);
       deleteSavesFor(`${g.id}-lib`);
-      if (g.format === "gam") await forgetDevice(`gam:${g.id}`);
+      if (g.format === "gam") {
+        await forgetDevice(`gam:${g.id}`);
+        await forgetDevice(`gam:${g.id}:fulu`);
+      }
       await refresh();
     },
     [refresh],
@@ -130,12 +137,22 @@ export function App() {
     setDevice(undefined);
     setPlaytestFrom(false);
   }, []);
-  /** A device program runs on the emulated 4988; an archive in this site's engine. */
-  const play = useCallback((g: StoredGame) => (g.format === "gam" ? setDevice(g) : setPlaying(g)), []);
-  /** A device program built on the fmj engine, in this site's engine instead (its own saves). */
-  const playRemastered = useCallback((g: StoredGame) => {
-    setPlaying({ ...g, id: `${g.id}-lib`, format: undefined, data: g.data.slice(g.libOffset) });
-  }, []);
+  /**
+   * Play a game on an engine (by default the one chosen for it, or its
+   * default): an archive, or a device program's library, in this site's
+   * engine (the library with its own saves); a device program on the
+   * emulated 4988, on its firmware or on Fulu.
+   */
+  const play = useCallback(
+    (g: StoredGame, engine: EngineId = engineFor(g, firmwareReady)) => {
+      if (engine === "react") setPlaying(g.format === "gam" ? { ...g, id: `${g.id}-lib`, format: undefined, data: g.data.slice(g.libOffset) } : g);
+      else {
+        setDeviceOs(engine);
+        setDevice(g);
+      }
+    },
+    [firmwareReady],
+  );
 
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
@@ -214,7 +231,7 @@ export function App() {
         <Editor onPlaytest={onPlaytest} />
       </div>
       {device !== undefined ? (
-        <DevicePlayer key={device?.id ?? "4988"} game={device} onExit={onExit} />
+        <DevicePlayer key={`${device?.id ?? "4988"}:${deviceOs}`} game={device} os={device ? deviceOs : "original"} onExit={onExit} />
       ) : playing ? (
         <Player key={playing.id + (playtestFrom ? playing.addedAt : "")} game={playing} fonts={fontPair} onExit={onExit} />
       ) : (
@@ -239,9 +256,8 @@ export function App() {
               busy={busy}
               messages={messages}
               onImport={onImport}
-              firmware={{ files: firmware.length, ready: REQUIRED_REGIONS.every((r) => firmware.includes(r)) }}
+              firmware={{ files: firmware.length, ready: firmwareReady }}
               onPlay={play}
-              onPlayRemastered={playRemastered}
               onTurnOn={() => setDevice(null)}
               onPlayDemo={playDemo}
               onDelete={onDelete}
