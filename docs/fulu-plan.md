@@ -108,9 +108,7 @@ the `fulu` branch.
   game in the shadow run. Nothing is written for no user.
 - **Melodies** (their tunes are firmware data): Fulu stays silent, as the
   emulator is now.
-- **Link play** (炸弹超人): no serial port in either mode.
-- **HD text for `.gam` games**: possible later, since text goes through Fulu,
-  but not part of this plan.
+- **HD text for `.gam` games**: not part of F1-F3; planned as F4 (section 11).
 
 ## 7. Code
 
@@ -195,3 +193,68 @@ more OS functions and eight runtime routines. The
 list is in docs/fulu-notes.md ("Still to do"). Also not written: input
 methods, $E92F (GuiMsgBox's message $0A 3), the input mode changes in $E93B,
 GuiGetMsg's other events.
+
+## 11. F4: HD text for `.gam` games (plan)
+
+**Goal.** With Sharp text on (the player's text options: Kai, Hei, Song,
+sans, serif), a `.gam` game on Fulu shows its text in full-resolution fonts,
+as 伏魔记 React does: dialogues, menus, item names, numbers. The pictures stay
+pixels. Pixel text stays the default, and the firmware mode is not changed.
+
+**Why it is small.** Two things are already there:
+
+1. *Fulu draws all the text.* Programs never read the font ROM; every
+   character reaches the screen through SysPrintString ($E79A) or SysAscii
+   ($E7BB), in 8 × 16 (ASCII) or 16 × 16 (GBK) cells (src/fulu/text.ts).
+   Measured on 伏魔记 1.3: 510 strings and 15 characters in two minutes of
+   play, the intro's scrolling text included (it prints again at each step).
+2. *The site's HD renderer takes a list of characters.* `HiresText.draw`
+   (src/app/hiresText.ts) is given the frame and a `TextMark` list (cell,
+   text, colours, the part drawn over since). It clears the glyph's pixels,
+   scales the picture with the chosen effect (LCD, smooth) and paints the
+   characters on top. DevicePlayer already calls it, with an empty list.
+
+So F4 is: Fulu keeps a list of the characters it drew, and each frame tells
+the player which of them are still on screen.
+
+**How.**
+
+1. *Record* (src/fulu/textMarks.ts). Each glyph SysPrintString or SysAscii
+   draws is recorded: x, y, width (8 or 16), the character (GBK to Unicode
+   with TextDecoder("gbk"); the $FD-$FF symbols and anything without a
+   Unicode character stay pixels), and its 16 rows of bits. A new glyph
+   removes the records whose cells it overlaps.
+2. *Check against the screen, each frame.* A record counts only while the
+   LCD RAM still shows its bits: row by row, in its cell (x need not be a
+   multiple of 8). Rows that no longer match become its `hidden` part (a
+   picture drawn over half of it, the intro's header); a record with no
+   matching row is dropped. Rows that match inverted mean the program
+   highlighted it (SysLcdReverse, the menus' selection): fg and bg swap. Being
+   checked against the pixels, a stale record can never show: whatever the
+   program does to the screen (clearing, pictures, its own writes), only text
+   still visible is redrawn. This costs at most ~60 cells × 16 rows a frame.
+3. *Hand to the player.* `FuluDevice.textMarks()` returns the `TextMark`
+   list; DevicePlayer passes it to `HiresText.draw` when Sharp text is on.
+   The text options are shown for `.gam` games on Fulu (not the firmware).
+4. *Saves.* The records go into the saved device with the machine state, so
+   text is sharp again at once after resuming (otherwise it would be pixels
+   until the game draws it again).
+
+**Checks.**
+
+- Unit tests (tests/fulu.test.ts): a hand-made program prints, draws over
+  part of the text, reverses a line, clears the screen: the marks follow.
+- The six games: sheets of screenshots, pixel and sharp side by side, of the
+  intro, the dialogues, the menus (selection highlight), the equipment,
+  shop, battle and save screens; nothing sharp where the pixel screen shows
+  no text, and no pixel text left where a whole character shows.
+- The shadow run is not touched (recording only reads what Fulu draws).
+
+**Limits.** Text a game draws as a picture (the 伏魔记 title, the big 穿 / 戴
+labels) stays pixels, as do characters cut by the screen's edge or drawn
+over entirely. Firmware mode keeps pixel text (its text is drawn by the
+real OS, which Fulu does not see).
+
+**Size.** About one session: ~150 lines in src/fulu (records, check), ~30 in
+the player, tests and the screenshot check.
+

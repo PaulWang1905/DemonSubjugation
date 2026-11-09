@@ -449,3 +449,14 @@ least every 250 ms; scenes, notices (真气不足!, 340 ms) and loading take
 longer. Waiting in GuiGetMsg is asking, so the key that ends a wait, however
 long, is kept; a held key's next repeat comes within 90 ms. Only on Fulu's own
 machine (not in the shadow run); the firmware keeps the device's behaviour.
+
+## Not Fulu: 伏魔记 1.3's RunErr:12
+
+In 伏魔记 1.3, 系统 → 结束游戏 and then 新的征程 shows "RunErr:12" in the
+opening scene, and the program ends at the next key. The firmware does the
+same (checked with the same keys). Error 12 is the engine's NPC_RECBEUSE (an
+NPC created in a slot in use): the engine clears its NPC slots ($19D3) only
+when the program starts (the C reconstruction's _00200247), not when a game
+is ended from the menu, so the new game's opening scene finds them taken. A
+bug of the game, kept as it is.
+
