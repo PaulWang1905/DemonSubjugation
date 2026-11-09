@@ -183,12 +183,12 @@ lacks stops with its name and a note to add the firmware.
 All done but 三国霸业's ($E7B8 too, which GuiMsgBox uses).
 
 **Not done, found later:** the shadow runs reach only the first minute of
-each game. Tracing each game's code (scripts/bbk/gam-calls.mjs) shows the
-six also call the file functions used for saving, the melodies,
-GuiSetKbdState, $E709, $E70F, $E712, $E718, $E950 and five runtime helpers;
-the list is in docs/fulu-notes.md ("Still to do"). Until those are written a
-game on Fulu stops with the function's name when it reaches one. Done since:
-SysRand, and the keys a keyboard can send (characters, shift, delete in
-GuiTranslateMsg; the system keys end the program, and the player ignores
-them on Fulu). Also not written: input methods, $E92F (GuiMsgBox's message
-$0A 3), the input mode changes in $E93B, GuiGetMsg's other events.
+each game. Tracing each game's code (scripts/bbk/gam-calls.mjs) showed more
+that the six call. Done since, each checked against the firmware: SysRand,
+the keys a keyboard can send, strcat, strcmp, itoa, ltoa, the melodies,
+GuiSetKbdState, memcmp and the runtime's float and 32-bit helpers. **Still
+to do for the six: the file functions (saving and loading) and 伏魔记 1.0's
+save dialog $E950**; until then a save or load stops the game on Fulu. The
+list is in docs/fulu-notes.md ("Still to do"). Also not written: input
+methods, $E92F (GuiMsgBox's message $0A 3), the input mode changes in $E93B,
+GuiGetMsg's other events.

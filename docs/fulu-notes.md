@@ -327,7 +327,7 @@ JSR/JMP, far calls into its own segments and C switch tables ($DB5C) are
 followed. For each of the six games it reaches every far-call site into the
 OS that a byte search finds (and ~136,000 instructions), so the lists below
 are complete for direct calls. (`scripts/bbk/os-calls.mjs` is the cruder byte
-search.) As of this audit, Fulu lacks, in the 伏魔记 series and 英雄坛说:
+search.) What Fulu still lacks, in the 伏魔记 series and 英雄坛说:
 
 | Entry | What | Size | Calls |
 |---|---|---|---|
@@ -339,19 +339,24 @@ search.) As of this audit, Fulu lacks, in the 伏魔记 series and 英雄坛说:
 | $E9EF | a file's record: position / length | 112 | 6 |
 | $E9EC | FileSearch | 372 | 4 |
 | $E9DD | FileDel | 1380 | 5 |
-| $E8A1 | SysPlayMelody | 47 | 2 |
-| $E8A4 | SysStopMelody | 10 | 4 |
-| $E968 | GuiSetKbdState (far-calls the three icons) | 98 | 1 |
-| $E709 | number formatting (sprintf-like: '0'-'9') | 734 | 4-6 |
-| $E70F | as $E709, longer (伏魔记 1.0, 1.2 only) | 1004 | 2 |
-| $E712 | strcat | 157 | 4-6 |
-| $E718 | strcmp | 129 | 2 |
-| $E950 | a Yes/No dialog (伏魔记 1.0 only) | 1623 | 1 |
-| $E904 | resident bank helper (beside memmove $E901; not in 1.0) | | 1 |
-| $D7B4, $DD32, $DD52, $E520, $E52C | C runtime helpers (32-bit / floating point), one function each in segments 3 and 8 | | 1 each |
+| $E950 | a dialog in the save code (伏魔记 1.0 only; tests 'Y', 'N', 'y', 'n'; draws a 24 x 24 icon copied from the OS's ROM at 9:$8ADA, which Fulu will need its own of) | 1623 | 1 |
 
-The file functions are what saving and loading use: until they are done a
-save stops the game on Fulu.
+These are what saving and loading use: until they are done a save or a load
+stops the game on Fulu.
+
+Done since the first audit, each checked against the firmware on random
+arguments: SysRand; strcat $E712, strcmp $E718; itoa $E709 and ltoa $E70F
+(their constants read where the OS has them); SysPlayMelody $E8A1 and
+SysStopMelody $E8A4 (Fulu plays no sound: what the melody takes from the
+OS's tune data, the notes' pointers and Y, is declared `fromRom`, and the
+comparison leaves it out; the emulated machine never raises the sound timer
+MT's interrupt, on the firmware either); GuiSetKbdState $E968; memcmp $E904;
+and the runtime's float routines (divide $E520, multiply $E52C, int and
+byte to float $DD32 / $DD52 through long to float $E31D), negate long
+$D7B4, negate int $D7A6, shift int right $D90B and shift long right $D93F
+(logical for counts under 32 on the OS: its BMI to the sign-filling loop
+follows an LDY that clears N). The OS's float division hangs when its
+rounding overflows; Fulu stops there instead.
 
 **Keys.** On the device the system keys (power, 目录, 双解, 现代) leave the
 program, for the power-off, the OS's menu or a dictionary; on Fulu,
