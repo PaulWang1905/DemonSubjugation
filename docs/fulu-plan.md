@@ -395,3 +395,66 @@ at 16 px. Only games made with the RPG kit. Firmware mode is not changed.
 **Size.** Two to three sessions: finding and checking the commands, the
 three commands in TypeScript with the shadow comparison, the compact layout
 and the fonts, the option.
+
+## 14. F7: the debug menu for `.gam` games (plan)
+
+**Goal.** The JS engine's hidden debug menu (src/app/DebugMenu.tsx: hold
+the game screen to open it, the game paused while it is open; tabs Party,
+Items, Story, Tricks) for `.gam` games too, plus a Device tab that works for
+any program.
+
+**Design: the same menu, a second `Cheats`.** DebugMenu.tsx talks to the
+game only through the `Cheats` interface (src/engine/cheats.ts: party and
+stats, heal, learn all magic, money, inventory and the item catalogue, story
+flags, location, win the battle, three switches). The six games are made with
+BBK's RPG kit, whose engine keeps all of that at fixed places in RAM (gitee
+fmj-engine, engine_internal.h), and their names are in the fmj library the
+`.gam` carries (`findLib`, read by the site's resource code). So F7 writes
+`kitCheats(machine, lib): Cheats` (src/bbk/kitCheats.ts) and the device player
+opens the same menu with it. One menu, two games' worlds behind it.
+
+**Where things are** (engine_internal.h, to be confirmed per game, below):
+
+| | |
+|---|---|
+| money | $1A8F, 32 bits |
+| inventory | the array at the pointer in $192F, $1A95 kinds |
+| party | $1926 members; actors at $1988 (3 × $19), with their stats (`ActorStats`) |
+| story flags | the 302 bytes at the pointer in $1AA9 (2,416 flags) |
+| location | map type and index $1979 / $197A, name $1942, view $197C / $197D |
+| random battles | $1A96 (0 off, 1 on) |
+| battle | enemies at $1826 (3), round $191E |
+
+**The tabs.**
+
+- *Party, Items, Story*: read and written in RAM as above, names from the
+  library; the catalogue is the library's items, as in the JS engine.
+- *Tricks*: always full HP / MP (written back each frame, as the JS engine
+  does each tick); win the battle (the enemies' HP set to 0, the engine ends
+  the battle at its next check); no random battles and walk through walls
+  by answering the engine's own encounter and passability tests
+  (`_0021554E`), trapped at their addresses the way F6 traps its text
+  commands (the same search and byte-for-byte check).
+- *Device* (any program, Fulu or firmware, 三国霸业 too): four save-state
+  slots (the machine, its flash and Fulu's state), a memory view with
+  editing, a value search to find a game's numbers (equal to, changed,
+  unchanged, up, down: narrowed step by step), on Fulu the last OS calls
+  with their names and arguments, and step one frame.
+
+**Not trusting addresses blindly.** Before the kit tabs show, the menu checks
+that the game is the kit's engine as described: its code at the trapped
+routines byte for byte, and its RAM plausible (party of 1-3, stats within
+their limits, the map's name in RAM the library's name for $1979 / $197A).
+If not, only the Device tab shows.
+
+**Checks.** Per game, against the game's own screen, read through F4's text
+marks: open the game's menu and its 金钱 line must say the money `kitCheats`
+reads; set money and an item count, reopen the menu, and the screen shows
+the new values; the status page shows the stats `party()` reads; turning a
+flag on replays or skips a known scene; walk-through-walls crosses a wall on
+the first map; win the battle ends one. Save-state slots: a run after
+restoring a slot repeats exactly.
+
+**Order and size.** The Device tab first (generic, one session), then the
+kit tabs (one to two sessions; the routine search is shared with F6, so
+whichever comes first builds it).
