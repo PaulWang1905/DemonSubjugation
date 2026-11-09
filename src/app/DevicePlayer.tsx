@@ -205,8 +205,12 @@ export function DevicePlayer({ game, onExit }: Props) {
     // have), so a stray press is ignored.
     if (deviceRef.current?.device instanceof FuluDevice && SYSTEM_KEYS.has(k)) return;
     deviceRef.current?.device.press(k);
+    // A held key repeats only once the program has read the last one, so
+    // that repeats do not pile up while it is busy (a walk would go on after
+    // the key is let go).
     const repeat = () => {
-      deviceRef.current?.device.press(k);
+      const d = deviceRef.current?.device;
+      if (d && !d.machine.keysWaiting()) d.press(k);
       held.current.set(k, window.setTimeout(repeat, REPEAT_RATE));
     };
     held.current.set(k, REPEATS.has(k) ? window.setTimeout(repeat, REPEAT_DELAY) : 0);

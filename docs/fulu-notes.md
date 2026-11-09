@@ -405,3 +405,25 @@ To do one: disassemble it (scripts/bbk/os-function.mjs, then
 scripts/bbk/fold-c.mjs for compiled C), write it, check it on random
 arguments against the firmware (tests/fulu-shadow.test.ts), and give the
 shadow run a key script that reaches it in a game (a save, a battle).
+
+## Pace
+
+Fulu answers the OS at once, but on the device the OS's code takes time
+(a full-screen SysPicture some 250,000 cycles), and these games pace
+themselves partly by their work: with no time charged they ran 10-50% fast.
+So on its own machine Fulu charges each entry the cycles the firmware spends
+on it (src/fulu/timing.ts: helpers, interrupts and the far call's trampoline
+as constants; drawing, clearing, copying and strlen by size, fitted to some
+370,000 firmware entries in 伏魔记 1.0, 1.3 and 英雄坛说, the models within 3%
+of the firmware's total; GuiGetMsg each time it wakes, as the OS goes round
+its loop again), through Machine.stall. Machine.run keeps to an absolute
+clock, so a stall longer than a frame is paid back by the next frames rather
+than added to the time. Measured over the same script: the number of
+pictures drawn within 1% of the firmware's (2145 / 2165, 883 / 875, 1745 /
+1767). Not when Fulu answers for the firmware's OS (the shadow run).
+
+The device player also repeats a held key only once the program has read the
+last one (Machine.keysWaiting: none queued, and the OS's key buffer at
+$2003 / $2004 empty); repeats every 90 ms piled up in the 15-key buffer while
+a walk step took longer, and the walk went on for seconds after the key was
+let go.

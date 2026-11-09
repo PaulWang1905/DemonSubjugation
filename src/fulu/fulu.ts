@@ -18,6 +18,7 @@ import { gamInfo } from "../bbk/gam";
 import { Machine } from "../bbk/machine";
 import { FUNCTIONS, INTERRUPTS, NAMES } from "./os";
 import { HELPERS } from "./runtime";
+import { cycles, FAR_CALL_CYCLES, FAR_RETURN_CYCLES, interruptCycles } from "./timing";
 
 /**
  * What answers an entry into the OS. It returns as RTS does (RTI for an
@@ -115,7 +116,27 @@ export class Fulu {
     else {
       this.machine = new Machine({ regions: { os: new Uint8Array(REGION_SIZE).fill(0x02), font } });
       this.machine.cpu.trap = (pc) => this.enter(pc);
+      this.timed = true;
     }
+  }
+
+  /**
+   * Whether Fulu charges the machine the time the OS's code takes on the
+   * device (src/fulu/timing.ts), so that programs keep the device's pace:
+   * on its own machine; not when it answers for another's OS (to check it).
+   */
+  timed = false;
+
+  /** Charge the cycles the firmware takes for an OS function (table entry) or helper (address), entered with the CPU as it is now. */
+  private charge(entry: number, isFunction: boolean): void {
+    if (!this.timed) return;
+    const m = this.machine, sp = m.ram[0x28] | (m.ram[0x29] << 8), a = m.cpu.a;
+    const length = (p: number) => {
+      let n = 0;
+      while (n < 0x400 && m.read((p + n) & 0xffff)) n++;
+      return n;
+    };
+    m.stall(cycles(entry, a, (i) => m.read((sp + i) & 0xffff), length, isFunction));
   }
 
   /** Put a .gam into the flash. */
@@ -161,6 +182,7 @@ export class Fulu {
     if (pc === FAR_RETURN) return this.farReturn();
     const h = HELPERS[pc];
     if (!h) return this.missing(`the OS routine at $${hex(pc)}`);
+    this.charge(pc, false);
     if (h(this) !== "jump") this.rts();
     return true;
   }
@@ -172,6 +194,7 @@ export class Fulu {
    */
   interrupt(vector: number): boolean {
     if (!this.service(vector)) return this.missing(`interrupt ${vector}`);
+    if (this.timed) this.machine.stall(interruptCycles(vector));
     const cpu = this.machine.cpu;
     cpu.p = (this.pull() | 0x20) & ~0x10;
     cpu.pc = this.pull() | (this.pull() << 8);
@@ -209,11 +232,15 @@ export class Fulu {
       this.push((FAR_RETURN - 1) & 0xff);
       this.arrive(target);
       cpu.pc = target;
+      if (this.timed) m.stall(FAR_CALL_CYCLES);
       return true;
     }
     const f = FUNCTIONS[ptr];
     if (!f) return this.missing(NAMES[ptr] ? `${NAMES[ptr]} ($${hex(ptr)})` : `OS function $${hex(ptr)}`);
     const { a, x, y, p } = cpu;
+    // charged as it is entered, from its arguments; a call made again after waiting, once, but
+    // GuiGetMsg each time (on the device every wake goes round its loop again)
+    if (!this.waiting || ptr === 0xe935) this.charge(ptr, true);
     this.arrive(f.at);
     this.retrying = this.waiting;
     this.waiting = f.run(this) === "wait";
@@ -242,6 +269,7 @@ export class Fulu {
     const f = FUNCTIONS[entry];
     if (!f) throw new Error(`Fulu has no OS function $${hex(entry)} (called by the OS)`);
     if (!resumed) this.onCall?.(entry);
+    if (!resumed) this.charge(entry, true);
     this.arrive(f.at);
     if (f.run(this) === "wait") return "wait";
     this.leave();
@@ -274,6 +302,7 @@ export class Fulu {
     this.mapSegment(seg);
     this.leave();
     this.rts();
+    if (this.timed) this.machine.stall(FAR_RETURN_CYCLES);
     return true;
   }
 

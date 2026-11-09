@@ -79,6 +79,7 @@ export class Machine implements Bus {
   /** Power on: registers to their reset values, then run from the boot code. */
   reset(): void {
     const ram = this.ram;
+    this.due = this.clock;
     ram.fill(0);
     ram.set(this.roms.os!.subarray(0x1fff00), 0x300); // the boot page, copied by the MCU
     for (const [a, v] of RESET_REGISTERS) ram[a] = v;
@@ -111,7 +112,7 @@ export class Machine implements Bus {
     this.bankSel = st.bankSel;
     this.timer.set(st.timer);
     ({ next: this.nextTick, rtc: this.rtcTicks } = st.ticks);
-    this.clock = st.clock;
+    this.clock = this.due = st.clock;
     this.flash.loadState(st.flash);
     this.keys.length = 0;
     this.mapAll();
@@ -132,14 +133,40 @@ export class Machine implements Bus {
     return this.bank[b];
   }
 
+  /**
+   * Whether keys are still waiting to be read: pressed and not yet delivered,
+   * or in the OS's key buffer (its write and read indexes at $2003 / $2004).
+   */
+  keysWaiting(): boolean {
+    return this.keys.length > 0 || this.ram[0x2003] !== this.ram[0x2004];
+  }
+
   /** Queue a key press (device key code, see keys.ts). */
   press(code: number): void {
     this.keys.push(code & 0x3f);
   }
 
+  /**
+   * Cycles to add after the current instruction: time something answering
+   * for the OS's code took on the device (Fulu), which the CPU did not run.
+   */
+  stall(cycles: number): void {
+    this.stalled += cycles;
+  }
+  private stalled = 0;
+
+  /**
+   * The clock run() runs to: what each call adds to it. An instruction, or a
+   * stall, that takes the clock past it is paid back by the next call, so
+   * the clock keeps to the time asked for (a stall of many frames' time does
+   * not add to it).
+   */
+  private due = 0;
+
   /** Run for `cycles` CPU cycles. */
   run(cycles: number): void {
-    const end = this.clock + cycles, cpu = this.cpu, ram = this.ram;
+    this.due += cycles;
+    const end = this.due, cpu = this.cpu, ram = this.ram;
     while (this.clock < end) {
       if (ram[SYSCON] & 0x08 || cpu.stopped) {
         this.clock = Math.min(end, this.nextTick); // halted until the next event
@@ -151,6 +178,10 @@ export class Machine implements Bus {
         }
       } else {
         this.clock += cpu.step();
+        if (this.stalled) {
+          this.clock += this.stalled;
+          this.stalled = 0;
+        }
       }
       while (this.clock >= this.nextTick) {
         this.nextTick += TICK;
