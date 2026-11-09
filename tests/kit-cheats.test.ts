@@ -74,9 +74,27 @@ describe.each([
     expect(g.shownMoney()).toBe(4321);
     g.press(Key.exit);
 
-    // the party
+    // the party: its stats as the game's status page shows them, and changed there
     const [first] = kit.party();
-    if (hero) expect(first.name).toBe(hero);
+    if (hero) {
+      expect(first.name).toBe(hero);
+      const statusPage = () => {
+        g.press(Key.exit); // the menu
+        g.press(Key.enter); // 属性
+        g.press(Key.enter); // 状态
+        g.press(Key.pageDown); // its second page: 经验值 身法 灵力 幸运 免疫
+        // (怀旧终曲 calls them 吉运 and 抗性)
+        const shown = /身法灵力..(?:免疫|抗性)\/?(\d+)/.exec(g.screen())?.[1];
+        g.press(Key.exit); // the menu
+        g.press(Key.exit); // the map
+        return shown;
+      };
+      expect(statusPage()).toBe(`${first.speed}${first.lingli}${first.luck}`);
+      kit.setStat(0, "speed", 77);
+      kit.setStat(0, "lingli", 66);
+      kit.setStat(0, "luck", 55);
+      expect(statusPage()).toBe("776655");
+    }
     expect(first.level).toBeGreaterThanOrEqual(1);
     expect(first.hp).toBeLessThanOrEqual(first.maxHP);
     kit.setStat(0, "hp", 1);

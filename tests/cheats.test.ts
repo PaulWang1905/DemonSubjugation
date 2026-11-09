@@ -43,6 +43,13 @@ describe("debug menu cheats", () => {
     e.game.playerList[0].hp = 1;
     c.heal();
     expect(c.party()[0].hp).toBe(50);
+    // speed, spirit and luck: to the player, at most 99
+    c.setStat(0, "speed", 77);
+    c.setStat(0, "lingli", 66);
+    c.setStat(0, "luck", 500);
+    const q = c.party()[0], pl = e.game.playerList[0];
+    expect([q.speed, q.lingli, q.luck]).toEqual([77, 66, 99]);
+    expect([pl.speed, pl.lingli, pl.luck]).toEqual([77, 66, 99]);
   });
 
   it("learns every spell in the member's list", () => {

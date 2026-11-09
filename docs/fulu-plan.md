@@ -473,7 +473,10 @@ have those from $197B on 1 byte earlier (they lack the reconstruction's
 from the two inventory pointers ($4A10) and confirmed by the current map's
 name before anything is used. tests/kit-cheats.test.ts plays all six to
 their first map and checks against each game's own menu (the 金钱 line read
-through F4's text marks): money read and written, the party, HP kept full,
+through F4's text marks): money read and written, the party (speed, spirit
+and luck set and seen on the game's status page: an actor's stats block is
+its library record from +$20, at the JS engine's offsets less $20, not the
+reconstruction's ActorStats, whose +$01-$04 are 0 in every record), HP kept full,
 items in and out, story flags, random battles kept off and restored.
 
 Limits:

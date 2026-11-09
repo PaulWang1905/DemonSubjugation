@@ -40,19 +40,25 @@ const HERO_X = 4, HERO_Y = 3;
 /** In an enemy: level, HP limit, HP. */
 const ENEMY_LEVEL = 0x12, ENEMY_MAX_HP = 0x18, ENEMY_HP = 0x1a;
 
-/** Where each stat is in a stats block, and its size in bytes. */
+/**
+ * Where each stat is in a stats block, and its size in bytes. The block is a
+ * copy of the character's record in the library from +$20, so these are the
+ * JS engine's offsets (Player.setData) less $20; the game's own status page
+ * shows the same (身法, 灵力, 幸运 at +$16-$18). (The reconstruction's
+ * ActorStats names these bytes otherwise: +$01-$04 are 0 in every record.)
+ */
 const STAT_AT: Record<StatKey, [number, 1 | 2]> = {
   level: [0x00, 1],
-  speed: [0x01, 1],
-  lingli: [0x02, 1],
-  luck: [0x04, 1],
   maxHP: [0x06, 2],
   hp: [0x08, 2],
   maxMP: [0x0a, 2],
   mp: [0x0c, 2],
   attack: [0x0e, 2],
   defend: [0x10, 2],
-  currentExp: [0x14, 2],
+  currentExp: [0x12, 2],
+  speed: [0x16, 1],
+  lingli: [0x17, 1],
+  luck: [0x18, 1],
 };
 
 const gbk = new TextDecoder("gbk");
