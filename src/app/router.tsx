@@ -1,17 +1,18 @@
 // A small client-side router: each page of the site has its own address
-// (/, /games, /guide, /about, /editor), links change it without reloading,
+// (/, /games, /guide, /fulu, /about, /editor), links change it without reloading,
 // and the browser's back and forward buttons work. Vercel serves index.html
 // at each page's address (vercel.json), so a page can be opened or reloaded
 // directly; any other address gets 404.html (the same app, with a 404
 // status), which shows the "page not found" page.
 import { useSyncExternalStore, type MouseEvent, type ReactNode } from "react";
 
-export type Page = "home" | "games" | "guide" | "about" | "editor" | "notfound";
+export type Page = "home" | "games" | "guide" | "fulu" | "about" | "editor" | "notfound";
 
 export const PAGES: { page: Page; path: string; label: string; title: string }[] = [
   { page: "home", path: "/", label: "Home", title: "FMJ React: play and make pocket RPGs in your browser" },
   { page: "games", path: "/games", label: "Games", title: "Games · FMJ React" },
   { page: "guide", path: "/guide", label: "Guide", title: "Guide · FMJ React" },
+  { page: "fulu", path: "/fulu", label: "Fulu", title: "Fulu · FMJ React" },
   { page: "about", path: "/about", label: "About", title: "About · FMJ React" },
   { page: "editor", path: "/editor", label: "Editor", title: "Editor · FMJ React" },
 ];

@@ -4,10 +4,10 @@
 import type { SiteLang } from "./siteLang";
 
 /** The site's pages (as in router.tsx). */
-type Page = "home" | "games" | "guide" | "about" | "editor" | "notfound";
+type Page = "home" | "games" | "guide" | "fulu" | "about" | "editor" | "notfound";
 
 const en = {
-  nav: { home: "Home", games: "Games", guide: "Guide", about: "About", editor: "Editor", notfound: "" } as Record<Page, string>,
+  nav: { home: "Home", games: "Games", guide: "Guide", fulu: "Fulu", about: "About", editor: "Editor", notfound: "" } as Record<Page, string>,
   navPlay: "▶ Play",
   menu: "Menu",
   switchTo: "中文",
@@ -16,6 +16,7 @@ const en = {
     home: "FMJ React: play and make pocket RPGs in your browser",
     games: "Games · FMJ React",
     guide: "Guide · FMJ React",
+    fulu: "Fulu: the 4988's OS, rewritten · FMJ React",
     about: "About · FMJ React",
     editor: "Editor · FMJ React",
     notfound: "Page not found · FMJ React",
@@ -131,7 +132,7 @@ const en = {
 export type SiteText = typeof en;
 
 const zh: SiteText = {
-  nav: { home: "首页", games: "游戏", guide: "指南", about: "关于", editor: "编辑器", notfound: "" },
+  nav: { home: "首页", games: "游戏", guide: "指南", fulu: "符箓", about: "关于", editor: "编辑器", notfound: "" },
   navPlay: "▶ 开始玩",
   menu: "菜单",
   switchTo: "EN",
@@ -140,6 +141,7 @@ const zh: SiteText = {
     home: "FMJ React：在浏览器里畅玩和制作掌上 RPG",
     games: "游戏 · FMJ React",
     guide: "指南 · FMJ React",
+    fulu: "符箓：重写的 4988 系统 · FMJ React",
     about: "关于 · FMJ React",
     editor: "编辑器 · FMJ React",
     notfound: "找不到页面 · FMJ React",

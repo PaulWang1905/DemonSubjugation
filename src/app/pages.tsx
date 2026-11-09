@@ -550,7 +550,7 @@ export function SiteFooter({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
         <button className="link" onClick={() => onPlayDemo("bell")}>
           {t.footerPlay}
         </button>
-        {(["games", "guide", "about", "editor"] as const).map((p) => (
+        {(["games", "guide", "fulu", "about", "editor"] as const).map((p) => (
           <Link key={p} to={p} className="link">
             {t.nav[p]}
           </Link>

@@ -4621,3 +4621,266 @@ html:lang(zh-CN) .g-head h1 {
     min-width: 96px;
   }
 }
+
+/* ======================================================================
+   Fulu page: a short public report in the home page's language, with
+   diagrams drawn in SVG from the same ink, paper and LCD lime.
+   ====================================================================== */
+.f-page {
+  padding-bottom: 0;
+}
+.f-head {
+  padding: clamp(28px, 6vw, 88px) 0 32px;
+  border-bottom: 1px solid var(--ink);
+}
+.f-head .h-kicker {
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+.f-head h1 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25em;
+  margin: 0;
+  font-size: clamp(64px, 12vw, 180px);
+  font-weight: 640;
+  line-height: 0.85;
+  letter-spacing: -0.06em;
+}
+.f-glyph {
+  font-size: 0.32em;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+.f-lead {
+  max-width: 30em;
+  margin: 28px 0 0;
+  font-size: clamp(18px, 1.8vw, 24px);
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+.f-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+.f-cta .h-btn {
+  min-width: 240px;
+}
+.f-btn-line {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.f-btn-line:hover {
+  background: var(--h-lcd);
+  border-color: var(--h-lcd);
+  color: var(--h-ink);
+}
+
+/* the numbers */
+.f-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+}
+.f-stats div {
+  padding: 28px 16px 28px 0;
+}
+.f-stats div + div {
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+.f-stats dt {
+  font-size: clamp(40px, 5vw, 72px);
+  font-weight: 640;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+.f-stats dd {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font: 500 12px/1.4 var(--h-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* text beside a diagram */
+.f-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 32px clamp(32px, 5vw, 80px);
+  align-items: start;
+  padding-top: 32px;
+}
+.f-prose p,
+p.f-prose {
+  margin: 0 0 16px;
+  max-width: 34em;
+  color: color-mix(in srgb, var(--ink) 80%, transparent);
+  font-size: 16.5px;
+  line-height: 1.6;
+}
+.f-h2 {
+  margin: 0 0 16px;
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 620;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.library .f-h2 {
+  font-size: clamp(28px, 3vw, 42px);
+}
+
+/* the diagrams */
+.f-fig {
+  margin: 0;
+}
+.f-fig.wide {
+  max-width: 860px;
+  margin: 0 auto;
+  padding-top: 40px;
+}
+.f-fig figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+}
+.f-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.f-box {
+  fill: var(--bg);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+.f-box.lit {
+  fill: var(--h-lcd);
+  stroke: var(--h-ink);
+}
+.f-box.ink {
+  fill: var(--ink);
+}
+.f-box.dashed {
+  fill: none;
+  stroke: var(--muted);
+  stroke-dasharray: 5 5;
+}
+.f-line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+.f-t {
+  fill: var(--ink);
+  font: 620 22px var(--h-sans);
+  letter-spacing: -0.02em;
+}
+.f-t.big {
+  font-size: 30px;
+}
+.f-s {
+  fill: var(--muted);
+  font: 500 13px var(--h-mono);
+}
+.f-s.strong {
+  fill: var(--ink);
+  font-weight: 600;
+}
+.f-box.lit + .f-t,
+.f-box.lit + .f-s,
+.f-box.lit + .f-t + .f-s {
+  fill: var(--h-ink);
+}
+.f-t.inv,
+.f-s.inv {
+  fill: var(--bg);
+}
+
+/* how it works: numbered rows */
+.f-row {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 0.9fr) minmax(0, 1.4fr);
+  gap: 12px 32px;
+  align-items: baseline;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--line);
+}
+.f-row .h-row-no {
+  color: var(--muted);
+}
+.f-row-title {
+  font-size: clamp(24px, 2.6vw, 36px);
+  font-weight: 620;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.f-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.f-list li {
+  display: grid;
+  gap: 4px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.f-list strong {
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+.f-list span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* open: a dark band, as the home page's */
+.f-open {
+  margin-top: clamp(56px, 8vw, 120px);
+  padding: clamp(40px, 6vw, 88px) clamp(20px, 4vw, 56px);
+  background: var(--h-ink);
+  color: var(--h-paper);
+}
+.library .f-open h2 {
+  margin: 0;
+  font-size: clamp(36px, 5vw, 72px);
+  font-weight: 640;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+.f-open p {
+  max-width: 36em;
+  margin: 20px 0 0;
+  color: var(--h-dim);
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+@media (max-width: 760px) {
+  .f-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .f-stats div:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .f-stats div:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+  .f-two,
+  .f-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .f-cta .h-btn {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}

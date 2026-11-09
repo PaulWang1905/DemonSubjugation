@@ -6,6 +6,7 @@ import { DevicePlayer } from "./DevicePlayer";
 import { forgetDevice } from "./deviceStore";
 import { deleteSavesFor } from "../storage/saves";
 import { archiveId, importFiles } from "./importFiles";
+import { FuluPage } from "./FuluPage";
 import { Library } from "./Library";
 import { engineFor, type EngineId } from "./engines";
 import { Player } from "./Player";
@@ -264,6 +265,7 @@ export function App() {
             />
           )}
           {page === "guide" && <GuidePage />}
+          {page === "fulu" && <FuluPage />}
           {page === "about" && <AboutPage />}
           {page === "notfound" && <NotFoundPage onPlayDemo={playDemo} />}
           {page !== "editor" && <SiteFooter onPlayDemo={playDemo} />}

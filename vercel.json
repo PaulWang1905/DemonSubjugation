@@ -6,7 +6,7 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/:page(games|guide|about|editor)",
+      "source": "/:page(games|guide|fulu|about|editor)",
       "destination": "/index.html"
     }
   ],
