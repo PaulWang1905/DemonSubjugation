@@ -18,6 +18,7 @@ import { gamInfo } from "../bbk/gam";
 import { CPU_HZ, Machine } from "../bbk/machine";
 import { FUNCTIONS, INTERRUPTS, NAMES } from "./os";
 import { HELPERS } from "./runtime";
+import { TextMarks } from "./textMarks";
 import { cycles, FAR_CALL_CYCLES, FAR_RETURN_CYCLES, interruptCycles } from "./timing";
 
 /**
@@ -108,6 +109,8 @@ const KEY_WRITE = 0x2003, KEY_READ = 0x2004;
 
 export class Fulu {
   readonly machine: Machine;
+  /** The characters drawn, for HD text. */
+  readonly textMarks = new TextMarks();
   /** Why the program stopped, once it has (it ended, or met an OS function Fulu lacks). */
   stopped: string | null = null;
   /** Whether the OS function being answered is asked again after waiting (its loop on the device went round). */
@@ -187,6 +190,7 @@ export class Fulu {
     const m = this.machine, ram = m.ram, flash = m.flash.data, h = file.offset;
     m.reset();
     this.stopped = null;
+    this.textMarks.clear();
     const base = 0x200 + (h >> 12);
     const data = base + ((flash[h + 0x42] | (flash[h + 0x43] << 8) | (flash[h + 0x44] << 16)) >> 12);
     const entry = flash[h + 0x40] | (flash[h + 0x41] << 8);

@@ -4,7 +4,7 @@
 // OS reads them. Fulu's own machine has a font ROM made from the site's
 // fonts; checked against the firmware, it reads the real one.
 
-import { adc, clc, cmp, cpu, farCalled, fn, ram, rd, set16, word, wr } from "./alu";
+import { adc, clc, cmp, cpu, farCalled, fn, os, ram, rd, set16, word, wr } from "./alu";
 import type { OsFunction } from "./fulu";
 import { lcd } from "./screen";
 
@@ -24,6 +24,19 @@ function readGlyph(at: number, n: number): void {
   wr(ADDR4 + 2, p >> 16);
   for (let i = 0; i < n; i++) wr(GLYPH + i, rd(DATA4));
   farCalled(COPY);
+}
+
+const gbk = new TextDecoder("gbk");
+
+/**
+ * Record the glyph just drawn from GLYPH at (x, y) for HD text: 16 wide, or 8
+ * wide with its rows `step` bytes apart.
+ */
+function mark(x: number, y: number, w: 8 | 16, step: number, text: string): void {
+  const rows: number[] = [];
+  for (let k = 0; k < 16; k++) rows.push(w === 16 ? (ram[GLYPH + 2 * k] << 8) | ram[GLYPH + 2 * k + 1] : ram[GLYPH + step * k]);
+  // (a code the font has no glyph for is drawn blank: nothing to redraw)
+  os.textMarks.drawn(x, y, w, rows, rows.some((r) => r) && !text.includes("�") ? text : "");
 }
 
 /** As the OS's row step after a glyph's last row (y + 15) leaves A: the high byte of its pointer to the next row's byte 0. */
@@ -118,6 +131,7 @@ function ascii(x: number, y: number, c: number): void {
   readGlyph(ASCII + c * 16, 16);
   set16(0x2f, GLYPH);
   narrow(x, y, 1);
+  mark(x, y, 8, 1, c > 0x20 && c < 0x7f ? String.fromCharCode(c) : "");
 }
 
 export const TEXT: Record<number, OsFunction> = {
@@ -164,6 +178,8 @@ export const TEXT: Record<number, OsFunction> = {
             readGlyph(width === 16 ? wideGlyph(c, second) : table(c - 0xf8, 0x5e, second - 0xa1, 0x0425c0), 32);
             if (width === 16) wide(x, y);
             else narrow(x, y, 2);
+            // (the device's own symbols, 8 wide, have no character to redraw)
+            mark(x, y, width, 2, width === 16 ? gbk.decode(new Uint8Array([c, second])) : "");
           }
         }
         set16(0x2f, at);

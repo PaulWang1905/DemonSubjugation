@@ -14,12 +14,13 @@ import { getFirmware, type StoredGame } from "../storage/db";
 import { FULU_OS, FuluDevice } from "../fulu/device";
 import { forgetDevice, osDigest, restoreDevice, saveDevice } from "./deviceStore";
 import { loadFontSet } from "./fonts";
-import { HiresText, outputScale, type ScreenEffect } from "./hiresText";
+import { HiresText, outputScale, type ScreenEffect, type TextStyle } from "./hiresText";
 import { Keypad } from "./Keypad";
 import { applyPalette, PALETTES } from "./palettes";
 import { PLAYER_TEXT } from "./playerText";
 import { effectOf, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
 import { useSiteLang } from "./siteLang";
+import { HD_CHINESE, readTextChoice, type TextChoice } from "./textChoice";
 
 interface Props {
   /** The program to play; null turns on the device itself. */
@@ -66,6 +67,14 @@ export function DevicePlayer({ game, onExit }: Props) {
   const [speed, setSpeed] = useState(() => Number(pref("speed", "1")) || 1);
   const [paletteId, setPaletteId] = useState<string>(() => pref<string>("palette", "lcd"));
   const [effect, setEffect] = useState<ScreenEffect>(() => effectOf(pref<string>("effect", "none")));
+  // Text on Fulu: the device's pixels, or HD (redrawn in a font at the
+  // screen's resolution). The same setting as the JS engine's player.
+  const [text, setText] = useState<TextChoice>(() => readTextChoice((k) => pref(k, "") || null, false));
+  const changeText = (look: TextChoice["look"], hdChinese = text.hdChinese) => {
+    setText({ ...text, look, hdChinese });
+    setPref("textLook", look);
+    setPref("hdChinese", hdChinese);
+  };
   const [zoom, changeZoom] = useZoom();
   const [showPad, setShowPad] = useState(() => pref("keypad", matchMedia("(pointer: coarse)").matches ? "on" : "off") === "on");
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -75,8 +84,10 @@ export function DevicePlayer({ game, onExit }: Props) {
   const fullscreen = useFullscreen();
   const { scale, zoomInfo } = useScreenFit(stageRef, canvasRef, { touch, sideways, showPad, fullscreen, zoom, frameW: LCD_WIDTH, frameH: LCD_HEIGHT });
   // the loop reads these without restarting
-  const live = useRef({ speed, paletteId, effect, scale, paused: optionsOpen });
-  live.current = { speed, paletteId, effect, scale, paused: optionsOpen };
+  /** The HD text style, when text is drawn in HD (only on Fulu, which knows where the text is). */
+  const hd: TextStyle | null = onFulu && text.look === "hd" ? text.hdChinese : null;
+  const live = useRef({ speed, paletteId, effect, scale, paused: optionsOpen, hd, letters: text.hdEnglish });
+  live.current = { speed, paletteId, effect, scale, paused: optionsOpen, hd, letters: text.hdEnglish };
   const textRef = useRef(dt);
   textRef.current = dt;
 
@@ -155,7 +166,7 @@ export function DevicePlayer({ game, onExit }: Props) {
     const pixels = new Uint8Array(LCD_STRIDE * LCD_HEIGHT);
     const rgba = new Uint8ClampedArray(LCD_WIDTH * LCD_HEIGHT * 4);
     const image = new ImageData(LCD_WIDTH, LCD_HEIGHT);
-    const hires = new HiresText(null);
+    const hires = new Map<TextStyle | "pixel", HiresText>();
     let raf = 0, last = performance.now(), acc = 0;
     const loop = (now: number) => {
       const d = deviceRef.current?.device;
@@ -179,7 +190,7 @@ export function DevicePlayer({ game, onExit }: Props) {
           }
         }
         const pal = PALETTES.find((p) => p.id === o.paletteId) ?? PALETTES[0];
-        if (o.effect === "none") {
+        if (o.effect === "none" && !o.hd) {
           if (cv.width !== LCD_WIDTH || cv.height !== LCD_HEIGHT) {
             cv.width = LCD_WIDTH;
             cv.height = LCD_HEIGHT;
@@ -187,7 +198,12 @@ export function DevicePlayer({ game, onExit }: Props) {
           applyPalette(rgba, image.data, pal);
           ctx.putImageData(image, 0, 0);
         } else {
-          hires.draw(cv, rgba, [], pal, outputScale(o.scale, LCD_WIDTH), LCD_WIDTH, LCD_HEIGHT, o.effect);
+          const key = o.hd ?? "pixel";
+          let h = hires.get(key);
+          if (!h) hires.set(key, (h = new HiresText(o.hd)));
+          h.setLetters(o.letters);
+          const marks = o.hd && d instanceof FuluDevice ? d.fulu.textMarks.marks(pixels) : [];
+          h.draw(cv, rgba, marks, pal, outputScale(o.scale, LCD_WIDTH), LCD_WIDTH, LCD_HEIGHT, o.effect);
         }
       }
       raf = requestAnimationFrame(loop);
@@ -263,15 +279,33 @@ export function DevicePlayer({ game, onExit }: Props) {
     setGeneration((g) => g + 1);
   };
   const screen = (
-    <ScreenOptions
-      pt={pt}
-      name={nm}
-      paletteId={paletteId}
-      onPalette={setPaletteId}
-      effect={effect}
-      onEffect={setEffect}
-      zoom={touch ? undefined : { info: zoomInfo, change: changeZoom }}
-    />
+    <>
+      <ScreenOptions
+        pt={pt}
+        name={nm}
+        paletteId={paletteId}
+        onPalette={setPaletteId}
+        effect={effect}
+        onEffect={setEffect}
+        zoom={touch ? undefined : { info: zoomInfo, change: changeZoom }}
+      />
+      {onFulu && (
+        <label className="field" title={pt.textTitle}>
+          <span className="lbl">{pt.text}</span>
+          <select
+            value={text.look === "hd" ? text.hdChinese : "pixel"}
+            onChange={(e) => (e.target.value === "pixel" ? changeText("pixel") : changeText("hd", e.target.value as TextStyle))}
+          >
+            <option value="pixel">{pt.looks.pixel}</option>
+            {HD_CHINESE.map((f) => (
+              <option key={f.id} value={f.id}>
+                {pt.looks.hd} · {nm(f)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+    </>
   );
   const speedField = <SpeedField pt={pt} speed={speed} onSpeed={setSpeed} />;
   const optionsPanel = (
@@ -354,7 +388,7 @@ export function DevicePlayer({ game, onExit }: Props) {
           <div className="bezel">
             <canvas
               ref={canvasRef}
-              className={effect !== "none" ? "fx" : undefined}
+              className={effect !== "none" || hd ? "fx" : undefined}
               style={{ width: LCD_WIDTH * scale, height: LCD_HEIGHT * scale }}
               aria-label={pt.gameScreen}
             />

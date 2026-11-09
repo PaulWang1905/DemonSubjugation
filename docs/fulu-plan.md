@@ -225,20 +225,18 @@ the player which of them are still on screen.
    Unicode character stay pixels), and its 16 rows of bits. A new glyph
    removes the records whose cells it overlaps.
 2. *Check against the screen, each frame.* A record counts only while the
-   LCD RAM still shows its bits: row by row, in its cell (x need not be a
-   multiple of 8). Rows that no longer match become its `hidden` part (a
-   picture drawn over half of it, the intro's header); a record with no
-   matching row is dropped. Rows that match inverted mean the program
-   highlighted it (SysLcdReverse, the menus' selection): fg and bg swap. Being
-   checked against the pixels, a stale record can never show: whatever the
-   program does to the screen (clearing, pictures, its own writes), only text
-   still visible is redrawn. This costs at most ~60 cells × 16 rows a frame.
-3. *Hand to the player.* `FuluDevice.textMarks()` returns the `TextMark`
-   list; DevicePlayer passes it to `HiresText.draw` when Sharp text is on.
-   The text options are shown for `.gam` games on Fulu (not the firmware).
-4. *Saves.* The records go into the saved device with the machine state, so
-   text is sharp again at once after resuming (otherwise it would be pixels
-   until the game draws it again).
+   screen shows its whole cell as drawn, or whole inverted (the menus'
+   selection: fg and bg swap); x need not be a multiple of 8. A character
+   drawn over even in part, or cleared, keeps its pixels. Being checked
+   against the pixels, a stale record never shows, whatever the program does
+   to the screen. A new glyph drops the records whose cells it overlaps, so
+   the list stays small.
+3. *Hand to the player.* `fulu.textMarks.marks(screen)` gives the `TextMark`
+   list; DevicePlayer passes it to `HiresText.draw`. Its Text option (Pixel,
+   or HD in one of the site's fonts, the same setting as the JS engine's
+   player) shows on Fulu only.
+4. *Saves* keep no records: after resuming, text is sharp again when the
+   game next draws it.
 
 **Checks.**
 
@@ -257,6 +255,13 @@ real OS, which Fulu does not see).
 
 **Size.** About one session: ~150 lines in src/fulu (records, check), ~30 in
 the player, tests and the screenshot check.
+
+**Status: done.** src/fulu/textMarks.ts (records and the check), the glyph
+calls in src/fulu/text.ts, the Text option in DevicePlayer;
+tests/text-marks.test.ts. Checked on 伏魔记 1.3 and 英雄坛说 by tinting the
+cells reported on screenshots of the intro, dialogues, menus (selections
+inverted), magic, status and notices: every whole character, nothing else;
+and in the browser, the dialogue in Kai and Hei.
 
 
 ## 12. F5: the wider map view for `.gam` games (plan)
