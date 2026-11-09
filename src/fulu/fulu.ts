@@ -104,6 +104,8 @@ const frame = (d: number, b: number) => [
  * notice's (340 ms to seconds).
  */
 const FORGET_AFTER = 0.3 * CPU_HZ;
+/** How many of the program's latest OS calls are kept. */
+const RECENT_CALLS = 40;
 /** The OS's key buffer: its write and read indexes. */
 const KEY_WRITE = 0x2003, KEY_READ = 0x2004;
 
@@ -111,6 +113,8 @@ export class Fulu {
   readonly machine: Machine;
   /** The characters drawn, for HD text. */
   readonly textMarks = new TextMarks();
+  /** The OS functions the program called last (table entries), the latest last: for the debug menu. */
+  readonly recentCalls: number[] = [];
   /** Why the program stopped, once it has (it ended, or met an OS function Fulu lacks). */
   stopped: string | null = null;
   /** Whether the OS function being answered is asked again after waiting (its loop on the device went round). */
@@ -280,6 +284,7 @@ export class Fulu {
     const f = FUNCTIONS[ptr];
     if (!f) return this.missing(NAMES[ptr] ? `${NAMES[ptr]} ($${hex(ptr)})` : `OS function $${hex(ptr)}`);
     const { a, x, y, p } = cpu;
+    if (!this.waiting && this.recentCalls.push(ptr) > RECENT_CALLS) this.recentCalls.shift();
     // charged as it is entered, from its arguments; a call made again after waiting, once, but
     // GuiGetMsg each time (on the device every wake goes round its loop again)
     if (!this.waiting || ptr === 0xe935) this.charge(ptr, true);

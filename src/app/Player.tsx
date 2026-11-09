@@ -681,7 +681,7 @@ export function Player({ game, fonts, onExit }: Props) {
 
       {notice && <div className="notice">{notice}</div>}
 
-      {debugOpen && engineRef.current && <DebugMenu engine={engineRef.current} onClose={() => setDebugOpen(false)} />}
+      {debugOpen && engineRef.current && <DebugMenu cheats={engineRef.current.cheats} onChange={() => engineRef.current?.redraw()} onClose={() => setDebugOpen(false)} />}
 
       {touch ? (
         optionsOpen && (

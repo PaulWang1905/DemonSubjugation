@@ -11,13 +11,15 @@ export type { UiLanguage };
 import { glyphChar, glyphVisibility, TextRender } from "./fmj/graphics/TextRender";
 import { Util } from "./fmj/graphics/Util";
 import { Bitmap, Canvas } from "./graphics";
-import { DatLib } from "./fmj/lib/DatLib";
+import { DatLib, ResType } from "./fmj/lib/DatLib";
+import { ResBase } from "./fmj/lib/ResBase";
+import type { ResMap } from "./fmj/lib/ResMap";
 import { registerResources } from "./fmj/registry";
 import { SaveLoadGame } from "./fmj/scene/SaveLoadGame";
 import { ScriptResources } from "./fmj/script/ScriptResources";
 import { ScriptVM } from "./fmj/script/ScriptVM";
 import { getPlatform, setPlatform, type FontFallback, type SaveStorage } from "./java";
-import { createCheats, type Cheats } from "./cheats";
+import { createCheats, type Cheats, type ItemInfo } from "./cheats";
 
 export { STAT_KEYS, STAT_MAX, type Cheats, type CheatSwitches, type ItemInfo, type PartyMember, type StatKey } from "./cheats";
 
@@ -366,6 +368,49 @@ export function inspectDatLib(data: Uint8Array): { resources: number; scripts: n
     maps: all.filter((r) => r.resType === 2).length,
     // A new game always starts with story script 1-1.
     playable: all.some((r) => r.resType === 1 && r.type === 1 && r.index === 1),
+  };
+}
+
+/** What tools outside the engine need of a game archive (the debug menu of .gam games): names and maps. */
+export interface Library {
+  /** Every item in the archive (count 0). */
+  items(): ItemInfo[];
+  itemName(type: number, index: number): string;
+  map(type: number, index: number): { name: string; canWalk(x: number, y: number): boolean } | null;
+  /** A magic chain's spells, in the order they are learnt, as [type, index]. */
+  magicChain(id: number): [number, number][];
+}
+
+export function readLibrary(data: Uint8Array): Library {
+  registerResources();
+  const lib = new DatLib(asInt8(data));
+  // (an item's name is at +6; its other fields are not needed, nor its picture)
+  const itemName = (type: number, index: number) => {
+    const b = lib.bytes(ResType.GRS, type, index);
+    return b ? ResBase.getString(b, 6) : "";
+  };
+  const maps = new Map<number, ReturnType<Library["map"]>>();
+  return {
+    items: () =>
+      lib
+        .listResources()
+        .filter((r) => r.resType === ResType.GRS)
+        .map((r) => ({ type: r.type, index: r.index, name: itemName(r.type, r.index), count: 0 })),
+    itemName: (type, index) => itemName(type, index) || `${type}-${index}`,
+    map(type, index) {
+      const key = (type << 8) | index;
+      if (!maps.has(key)) {
+        const m = lib.getRes(ResType.MAP, type, index, true) as ResMap | null;
+        maps.set(key, m && { name: m.mapName ?? "", canWalk: (x: number, y: number) => m.canWalk(x, y) });
+      }
+      return maps.get(key)!;
+    },
+    magicChain(id) {
+      // (type, index, count, then a type and an index a spell)
+      const b = lib.bytes(ResType.MLR, 1, id);
+      if (!b) return [];
+      return Array.from({ length: b[2] & 0xff }, (_, i) => [b[3 + 2 * i] & 0xff, b[4 + 2 * i] & 0xff]);
+    },
   };
 }
 

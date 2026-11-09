@@ -4173,3 +4173,16 @@ html:lang(zh-CN) .h-band h2 {
     width: 100%;
   }
 }
+
+/* the debug menu's Device tab: addresses and bytes */
+.debug-hex {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+pre.debug-hex {
+  margin: 0;
+  white-space: pre;
+  overflow-x: auto;
+}

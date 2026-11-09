@@ -64,6 +64,10 @@ export interface Cheats {
   winCombat(): void;
   switches(): CheatSwitches;
   setSwitch(name: keyof CheatSwitches, on: boolean): void;
+  /** Whether there is a game to show (when absent, always). */
+  ready?(): boolean;
+  /** Why a switch, or the story flags, are not offered for this game, or null (all are, when this is absent). */
+  cannot?(name: keyof CheatSwitches | "flags"): string | null;
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.trunc(Number.isFinite(v) ? v : 0)));

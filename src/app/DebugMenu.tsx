@@ -1,5 +1,11 @@
-import { useMemo, useState } from "react";
-import { STAT_KEYS, STAT_MAX, type CheatSwitches, type Engine, type StatKey } from "../engine";
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  STAT_KEYS,
+  STAT_MAX,
+  type Cheats,
+  type CheatSwitches,
+  type StatKey,
+} from "../engine";
 
 const STAT_LABELS: Record<StatKey, string> = {
   level: "Level",
@@ -17,26 +23,50 @@ const STAT_LABELS: Record<StatKey, string> = {
 
 const SWITCHES: [keyof CheatSwitches, string, string][] = [
   ["noRandomBattles", "No random battles", "Walk anywhere without encounters."],
-  ["walkThroughWalls", "Walk through walls", "Blocked tiles stop nobody; characters still do."],
-  ["alwaysFull", "Always full HP / MP", "The party is refilled every tick, in and out of battle."],
+  [
+    "walkThroughWalls",
+    "Walk through walls",
+    "Blocked tiles stop nobody; characters still do.",
+  ],
+  [
+    "alwaysFull",
+    "Always full HP / MP",
+    "The party is refilled every tick, in and out of battle.",
+  ],
 ];
 
-type Tab = "party" | "items" | "story" | "tricks";
+type Tab = "party" | "items" | "story" | "tricks" | "device";
 
 interface Props {
-  engine: Engine;
+  /** The game's party, items, story and switches (null: the game has none to offer). */
+  cheats: Cheats | null;
+  /** After a change: the game redraws what it shows. */
+  onChange: () => void;
+  /** A Device tab (the emulator's own tools), when there is one. */
+  device?: ReactNode;
   onClose: () => void;
 }
 
+const CHEAT_TABS: [Tab, string][] = [
+  ["party", "Party"],
+  ["items", "Items"],
+  ["story", "Story"],
+  ["tricks", "Tricks"],
+];
+
 /** The hidden test menu. The game is paused while it is open. */
-export function DebugMenu({ engine, onClose }: Props) {
-  const [tab, setTab] = useState<Tab>("party");
+export function DebugMenu({ cheats, onChange, device, onClose }: Props) {
+  const [tab, setTab] = useState<Tab>(cheats ? "party" : "device");
   const [, setVersion] = useState(0);
-  const c = engine.cheats;
   const changed = () => {
-    engine.redraw();
+    onChange();
     setVersion((v) => v + 1);
   };
+  const tabs: [Tab, string][] = [
+    ...(cheats ? CHEAT_TABS : []),
+    ...(device ? ([["device", "Device"]] as [Tab, string][]) : []),
+  ];
+  const c = cheats && (cheats.ready?.() ?? true) ? cheats : null;
 
   return (
     <aside className="debug" role="dialog" aria-label="Debug menu">
@@ -44,34 +74,42 @@ export function DebugMenu({ engine, onClose }: Props) {
         <strong>Debug menu</strong>
         <span className="muted small">game paused</span>
         <div className="spacer" />
-        <button className="ghost" onClick={onClose} aria-label="Close debug menu">
+        <button
+          className="ghost"
+          onClick={onClose}
+          aria-label="Close debug menu"
+        >
           ✕
         </button>
       </header>
       <nav className="seg">
-        {(
-          [
-            ["party", "Party"],
-            ["items", "Items"],
-            ["story", "Story"],
-            ["tricks", "Tricks"],
-          ] as [Tab, string][]
-        ).map(([t, l]) => (
-          <button key={t} className={tab === t ? "" : "ghost"} onClick={() => setTab(t)}>
+        {tabs.map(([t, l]) => (
+          <button
+            key={t}
+            className={tab === t ? "" : "ghost"}
+            onClick={() => setTab(t)}
+          >
             {l}
           </button>
         ))}
       </nav>
       <div className="debug-body">
-        {tab === "party" && <PartyTab engine={engine} changed={changed} />}
-        {tab === "items" && <ItemsTab engine={engine} changed={changed} />}
-        {tab === "story" && <StoryTab engine={engine} changed={changed} />}
-        {tab === "tricks" && (
+        {tab === "device" && device}
+        {tab !== "device" && !c && (
+          <p className="muted">
+            Nothing to show yet: start or load a game first.
+          </p>
+        )}
+        {tab === "party" && c && <PartyTab c={c} changed={changed} />}
+        {tab === "items" && c && <ItemsTab c={c} changed={changed} />}
+        {tab === "story" && c && <StoryTab c={c} changed={changed} />}
+        {tab === "tricks" && c && (
           <div className="debug-list">
             {SWITCHES.map(([k, label, help]) => (
               <label key={k} className="check debug-switch">
                 <input
                   type="checkbox"
+                  disabled={!!c.cannot?.(k)}
                   checked={c.switches()[k]}
                   onChange={(e) => {
                     c.setSwitch(k, e.target.checked);
@@ -80,7 +118,7 @@ export function DebugMenu({ engine, onClose }: Props) {
                 />
                 <span>
                   {label}
-                  <span className="muted small">{help}</span>
+                  <span className="muted small">{c.cannot?.(k) ?? help}</span>
                 </span>
               </label>
             ))}
@@ -104,16 +142,32 @@ export function DebugMenu({ engine, onClose }: Props) {
                 Win this battle
               </button>
             </div>
-            <p className="muted small">Switches last until you leave this game.</p>
+            <p className="muted small">
+              Switches last until you leave this game.
+            </p>
           </div>
         )}
       </div>
-      <footer className="muted small">Close with ✕ or Esc. Changes are saved when the game saves.</footer>
+      <footer className="muted small">
+        Close with ✕ or Esc. Changes are saved when the game saves.
+      </footer>
     </aside>
   );
 }
 
-function Num({ value, max, min = 0, onSet, label }: { value: number; max: number; min?: number; onSet: (v: number) => void; label: string }) {
+function Num({
+  value,
+  max,
+  min = 0,
+  onSet,
+  label,
+}: {
+  value: number;
+  max: number;
+  min?: number;
+  onSet: (v: number) => void;
+  label: string;
+}) {
   return (
     <input
       type="number"
@@ -128,10 +182,10 @@ function Num({ value, max, min = 0, onSet, label }: { value: number; max: number
   );
 }
 
-function PartyTab({ engine, changed }: { engine: Engine; changed: () => void }) {
-  const c = engine.cheats;
+function PartyTab({ c, changed }: { c: Cheats; changed: () => void }) {
   const party = c.party();
-  if (party.length === 0) return <p className="muted">No party yet. Start or load a game first.</p>;
+  if (party.length === 0)
+    return <p className="muted">No party yet. Start or load a game first.</p>;
   return (
     <div className="debug-list">
       {party.map((p) => (
@@ -142,8 +196,18 @@ function PartyTab({ engine, changed }: { engine: Engine; changed: () => void }) 
             <button
               className="ghost"
               onClick={() => {
-                for (const k of ["maxHP", "maxMP"] as const) c.setStat(p.slot, k, STAT_MAX[k]);
-                for (const k of ["hp", "mp", "attack", "defend", "speed", "lingli", "luck"] as const) c.setStat(p.slot, k, STAT_MAX[k]);
+                for (const k of ["maxHP", "maxMP"] as const)
+                  c.setStat(p.slot, k, STAT_MAX[k]);
+                for (const k of [
+                  "hp",
+                  "mp",
+                  "attack",
+                  "defend",
+                  "speed",
+                  "lingli",
+                  "luck",
+                ] as const)
+                  c.setStat(p.slot, k, STAT_MAX[k]);
                 changed();
               }}
             >
@@ -158,7 +222,9 @@ function PartyTab({ engine, changed }: { engine: Engine; changed: () => void }) 
                   label={`${p.name} ${STAT_LABELS[k]}`}
                   value={p[k]}
                   min={k === "level" ? 1 : 0}
-                  max={k === "hp" ? p.maxHP : k === "mp" ? p.maxMP : STAT_MAX[k]}
+                  max={
+                    k === "hp" ? p.maxHP : k === "mp" ? p.maxMP : STAT_MAX[k]
+                  }
                   onSet={(v) => {
                     c.setStat(p.slot, k, v);
                     changed();
@@ -188,14 +254,16 @@ function PartyTab({ engine, changed }: { engine: Engine; changed: () => void }) 
   );
 }
 
-function ItemsTab({ engine, changed }: { engine: Engine; changed: () => void }) {
-  const c = engine.cheats;
+function ItemsTab({ c, changed }: { c: Cheats; changed: () => void }) {
   const catalogue = useMemo(() => c.catalogue(), [c]);
   const [pick, setPick] = useState("");
   const [count, setCount] = useState(1);
   const [filter, setFilter] = useState("");
   const inv = c.inventory();
-  const shown = catalogue.filter((i) => !filter || i.name.includes(filter) || `${i.type}-${i.index}` === filter);
+  const shown = catalogue.filter(
+    (i) =>
+      !filter || i.name.includes(filter) || `${i.type}-${i.index}` === filter,
+  );
   return (
     <div className="debug-list">
       <label className="field">
@@ -217,7 +285,10 @@ function ItemsTab({ engine, changed }: { engine: Engine; changed: () => void }) 
           {inv.map((i) => (
             <li key={`${i.type}-${i.index}`}>
               <span>
-                {i.name} <span className="muted small">{i.type}-{i.index}</span>
+                {i.name}{" "}
+                <span className="muted small">
+                  {i.type}-{i.index}
+                </span>
               </span>
               <Num
                 label={`${i.name} count`}
@@ -234,22 +305,48 @@ function ItemsTab({ engine, changed }: { engine: Engine; changed: () => void }) 
       </section>
       <section className="debug-card">
         <strong>Add an item</strong>
-        <input className="debug-filter" placeholder="Filter by name…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <input
+          className="debug-filter"
+          placeholder="Filter by name…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
         <div className="row">
-          <select value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Item">
+          <select
+            value={pick}
+            onChange={(e) => setPick(e.target.value)}
+            aria-label="Item"
+          >
             <option value="">Choose ({shown.length})…</option>
             {shown.map((i) => (
-              <option key={`${i.type}-${i.index}`} value={`${i.type}-${i.index}`}>
+              <option
+                key={`${i.type}-${i.index}`}
+                value={`${i.type}-${i.index}`}
+              >
                 {i.name} ({i.type}-{i.index})
               </option>
             ))}
           </select>
-          <Num label="How many" value={count} min={1} max={99} onSet={(v) => setCount(Math.max(1, Math.min(99, v)))} />
+          <Num
+            label="How many"
+            value={count}
+            min={1}
+            max={99}
+            onSet={(v) => setCount(Math.max(1, Math.min(99, v)))}
+          />
           <button
             disabled={!pick}
             onClick={() => {
               const [t, n] = pick.split("-").map(Number);
-              c.setItemCount(t, n, Math.min(99, c.inventory().find((i) => i.type === t && i.index === n)?.count ?? 0) + count);
+              c.setItemCount(
+                t,
+                n,
+                Math.min(
+                  99,
+                  c.inventory().find((i) => i.type === t && i.index === n)
+                    ?.count ?? 0,
+                ) + count,
+              );
               changed();
             }}
           >
@@ -261,8 +358,7 @@ function ItemsTab({ engine, changed }: { engine: Engine; changed: () => void }) 
   );
 }
 
-function StoryTab({ engine, changed }: { engine: Engine; changed: () => void }) {
-  const c = engine.cheats;
+function StoryTab({ c, changed }: { c: Cheats; changed: () => void }) {
   const [n, setN] = useState(1);
   const flags = c.flags();
   const loc = c.location();
@@ -273,7 +369,8 @@ function StoryTab({ engine, changed }: { engine: Engine; changed: () => void }) 
         <p className="small">
           {loc ? (
             <>
-              Map {loc.type}-{loc.index} <em>{loc.map}</em>, tile {loc.x}, {loc.y}
+              Map {loc.type}-{loc.index} <em>{loc.map}</em>, tile {loc.x},{" "}
+              {loc.y}
             </>
           ) : (
             "Not on a map."
@@ -282,34 +379,49 @@ function StoryTab({ engine, changed }: { engine: Engine; changed: () => void }) 
       </section>
       <section className="debug-card">
         <strong>Story flags</strong>
-        <p className="muted small">Scripts use flags (1-2400) to remember what has happened. Turning one on or off can skip or replay a scene.</p>
-        <div className="row">
-          <Num label="Flag number" value={n} min={1} max={2400} onSet={(v) => setN(Math.max(1, Math.min(2400, v)))} />
-          <button
-            onClick={() => {
-              c.setFlag(n, !flags.includes(n));
-              changed();
-            }}
-          >
-            {flags.includes(n) ? `Turn ${n} off` : `Turn ${n} on`}
-          </button>
-        </div>
-        <div className="debug-flags">
-          {flags.length === 0 && <span className="muted small">No flags set.</span>}
-          {flags.map((f) => (
-            <button
-              key={f}
-              className="ghost chipbtn"
-              title={`Turn flag ${f} off`}
-              onClick={() => {
-                c.setFlag(f, false);
-                changed();
-              }}
-            >
-              {f} ✕
-            </button>
-          ))}
-        </div>
+        <p className="muted small">
+          {c.cannot?.("flags") ??
+            "Scripts use flags (1-2400) to remember what has happened. Turning one on or off can skip or replay a scene."}
+        </p>
+        {!c.cannot?.("flags") && (
+          <>
+            <div className="row">
+              <Num
+                label="Flag number"
+                value={n}
+                min={1}
+                max={2400}
+                onSet={(v) => setN(Math.max(1, Math.min(2400, v)))}
+              />
+              <button
+                onClick={() => {
+                  c.setFlag(n, !flags.includes(n));
+                  changed();
+                }}
+              >
+                {flags.includes(n) ? `Turn ${n} off` : `Turn ${n} on`}
+              </button>
+            </div>
+            <div className="debug-flags">
+              {flags.length === 0 && (
+                <span className="muted small">No flags set.</span>
+              )}
+              {flags.map((f) => (
+                <button
+                  key={f}
+                  className="ghost chipbtn"
+                  title={`Turn flag ${f} off`}
+                  onClick={() => {
+                    c.setFlag(f, false);
+                    changed();
+                  }}
+                >
+                  {f} ✕
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </section>
     </div>
   );

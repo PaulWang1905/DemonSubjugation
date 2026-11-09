@@ -458,3 +458,32 @@ restoring a slot repeats exactly.
 **Order and size.** The Device tab first (generic, one session), then the
 kit tabs (one to two sessions; the routine search is shared with F6, so
 whichever comes first builds it).
+
+**F7 status: done, with three limits.** src/bbk/kitCheats.ts (`KitCheats`,
+the RPG kit's `Cheats`), src/app/DeviceTools.tsx (the Device tab),
+src/bbk/memorySearch.ts, `readLibrary` (src/engine/index.ts: names, maps and
+magic chains from a library without the engine's global one), DebugMenu.tsx
+taking any `Cheats` and an optional Device tab, `Fulu.recentCalls`. Hold the
+screen in the device player to open it, as in the JS engine's player.
+
+What the games taught: the reconstruction's addresses hold for 英雄坛说,
+完美版 and 怀旧终曲; 伏魔记 1.3 has every variable 2 bytes later; 1.0 and 1.2
+have those from $197B on 1 byte earlier (they lack the reconstruction's
+"show the hero's position" byte there). So the layout is two shifts, found
+from the two inventory pointers ($4A10) and confirmed by the current map's
+name before anything is used. tests/kit-cheats.test.ts plays all six to
+their first map and checks against each game's own menu (the 金钱 line read
+through F4's text marks): money read and written, the party, HP kept full,
+items in and out, story flags, random battles kept off and restored.
+
+Limits:
+- *Walking through walls* is not offered for `.gam` games: these builds read
+  the tiles around the hero from the map's data again as they handle each
+  step, after anything written into their view of it (traced in 伏魔记 1.3
+  and 英雄坛说), so it needs the engine's own test answered (F6's routine
+  trapping).
+- *Story flags* in 伏魔记 1.0 are not where the other builds keep them (one
+  more variable differs there): the Story tab says so instead.
+- *Win this battle* is not yet checked in a battle (the first maps have none);
+  it only acts on enemy slots that look like enemies (a level, HP within its
+  limit), so a wrong address shows no battle rather than being written to.

@@ -5,17 +5,22 @@
 // between visits.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Device, FPS } from "../bbk/device";
+import { findLib } from "../bbk/gam";
+import { KitCheats } from "../bbk/kitCheats";
 import { missingRegions } from "../bbk/firmware";
 import { Key, KEYBOARD } from "../bbk/keys";
 import { decodeLcd, LCD_HEIGHT, LCD_STRIDE, LCD_WIDTH } from "../bbk/lcd";
 import { CPU_HZ } from "../bbk/machine";
-import { Keys, type EngineKey } from "../engine";
+import { Keys, readLibrary, type EngineKey } from "../engine";
 import { getFirmware, type StoredGame } from "../storage/db";
 import { FULU_OS, FuluDevice } from "../fulu/device";
 import { forgetDevice, osDigest, restoreDevice, saveDevice } from "./deviceStore";
 import { loadFontSet } from "./fonts";
+import { DebugMenu } from "./DebugMenu";
+import { DeviceTools, type Snapshot } from "./DeviceTools";
 import { HiresText, outputScale, type ScreenEffect, type TextStyle } from "./hiresText";
 import { Keypad } from "./Keypad";
+import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { PLAYER_TEXT } from "./playerText";
 import { effectOf, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
@@ -60,6 +65,13 @@ export function DevicePlayer({ game, onExit }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const deviceRef = useRef<{ device: Device | FuluDevice; os: string } | null>(null);
+  // The hidden debug menu (hold the screen, as in the JS engine's player):
+  // the game's party, items and story for games made with BBK's RPG kit,
+  // and the device's own tools for any program. The game is paused while it
+  // is open; its switches are kept after every frame.
+  const [debugOpen, setDebugOpen] = useState(false);
+  const kitRef = useRef<KitCheats | null>(null);
+  const slots = useRef<(Snapshot | null)[]>([null, null, null, null]);
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [onFulu, setOnFulu] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -86,8 +98,8 @@ export function DevicePlayer({ game, onExit }: Props) {
   // the loop reads these without restarting
   /** The HD text style, when text is drawn in HD (only on Fulu, which knows where the text is). */
   const hd: TextStyle | null = onFulu && text.look === "hd" ? text.hdChinese : null;
-  const live = useRef({ speed, paletteId, effect, scale, paused: optionsOpen, hd, letters: text.hdEnglish });
-  live.current = { speed, paletteId, effect, scale, paused: optionsOpen, hd, letters: text.hdEnglish };
+  const live = useRef({ speed, paletteId, effect, scale, paused: optionsOpen || debugOpen, hd, letters: text.hdEnglish });
+  live.current = { speed, paletteId, effect, scale, paused: optionsOpen || debugOpen, hd, letters: text.hdEnglish };
   const textRef = useRef(dt);
   textRef.current = dt;
 
@@ -129,6 +141,9 @@ export function DevicePlayer({ game, onExit }: Props) {
       }
       if (!alive) return;
       deviceRef.current = { device, os };
+      const lib = game ? findLib(new Uint8Array(game.data)) : -1;
+      kitRef.current = game && lib >= 0 ? new KitCheats(device.machine, readLibrary(new Uint8Array(game.data).subarray(lib))) : null;
+      slots.current = [null, null, null, null];
       setOnFulu(!original);
       setStatus({ kind: "running" });
     })().catch((e) => alive && setStatus({ kind: "error", message: String((e as Error).message ?? e) }));
@@ -174,7 +189,10 @@ export function DevicePlayer({ game, onExit }: Props) {
       acc = o.paused ? 0 : acc + Math.min(now - last, 250) * o.speed;
       last = now;
       if (d) {
-        for (let steps = 0; acc >= FRAME_MS && steps < 16; steps++, acc -= FRAME_MS) d.machine.run(CPU_HZ / FPS);
+        for (let steps = 0; acc >= FRAME_MS && steps < 16; steps++, acc -= FRAME_MS) {
+          d.machine.run(CPU_HZ / FPS);
+          kitRef.current?.tick();
+        }
         // on Fulu, a program stops when it ends or needs what Fulu does not have yet
         if (d instanceof FuluDevice && d.stopped) {
           const why = d.stopped, text = textRef.current;
@@ -242,10 +260,25 @@ export function DevicePlayer({ game, onExit }: Props) {
     // a held key's repeats not read yet are taken back, so the walk stops when the key is let go (a tap's one press stays)
     if (repeated.current.delete(k)) deviceRef.current?.device.machine.dropKey(k);
   }, []);
+  const releaseKeys = useCallback(() => {
+    for (const k of [...held.current.keys()]) keyUp(k);
+  }, [keyUp]);
+  const hold = useLongPress(
+    useCallback(() => {
+      releaseKeys();
+      setDebugOpen(true);
+    }, [releaseKeys]),
+  );
+  const debugRef = useRef(debugOpen);
+  debugRef.current = debugOpen;
   useEffect(() => {
     const keys = held.current;
     const down = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest?.("input, select, textarea")) return;
+      if (debugRef.current) {
+        if (e.code === "Escape") setDebugOpen(false);
+        return;
+      }
       const k = KEYBOARD[e.code];
       if (k === undefined || e.ctrlKey || e.metaKey || e.altKey) return;
       e.preventDefault();
@@ -391,7 +424,9 @@ export function DevicePlayer({ game, onExit }: Props) {
               className={effect !== "none" || hd ? "fx" : undefined}
               style={{ width: LCD_WIDTH * scale, height: LCD_HEIGHT * scale }}
               aria-label={pt.gameScreen}
+              {...hold.bind}
             />
+            {hold.ring}
             {status.kind !== "running" && (
               <div className={status.kind === "error" ? "crash" : "screen-note"} role={status.kind === "error" ? "alert" : "status"}>
                 {status.kind === "error" ? (
@@ -417,6 +452,15 @@ export function DevicePlayer({ game, onExit }: Props) {
         <div className="notice" onClick={() => setNotice(null)}>
           {notice}
         </div>
+      )}
+
+      {debugOpen && deviceRef.current && (
+        <DebugMenu
+          cheats={kitRef.current}
+          onChange={() => {}}
+          device={<DeviceTools device={deviceRef.current.device} slots={slots.current} step={() => deviceRef.current?.device.machine.run(CPU_HZ / FPS)} />}
+          onClose={() => setDebugOpen(false)}
+        />
       )}
 
       {touch ? (

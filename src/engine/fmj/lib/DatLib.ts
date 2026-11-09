@@ -129,6 +129,12 @@ export class DatLib {
     return res;
   }
 
+  /** A resource's bytes as stored, or null. */
+  bytes(resType: ResType, type: number, index: number): Int8Array | null {
+    const offset = this.mDataOffset.get(DatLib.getKey(resType, type, index));
+    return offset === undefined ? null : this.mBuffer.subarray(offset, this.mDataEnd.get(offset) ?? this.mBuffer.length);
+  }
+
   private static getKey(resType: number, type: number, index: number): number {
     return (resType << 16) | (type << 8) | index;
   }
