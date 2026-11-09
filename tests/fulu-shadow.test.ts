@@ -396,7 +396,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     expect(failures).toEqual([]);
   });
 
-  it("the string functions, itoa, SysRand, the melodies and GuiSetKbdState, on random arguments", { timeout: 300_000 }, () => {
+  it("the string functions, itoa, ltoa, SysRand, the melodies and GuiSetKbdState, on random arguments", { timeout: 300_000 }, () => {
     const [m, fulu] = bareMachine();
     let seed = 9;
     const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
@@ -417,7 +417,9 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
         [0xe968, w(rand(0x10000))], // GuiSetKbdState(w)
         // itoa(value, buffer, radix): values small, signed extremes or any; radix 10, 16, 2, 8 or any
         [0xe709, [...w([0, 1, 9, 10, 0x7fff, 0x8000, 0xffff, rand(100), rand(0x10000)][rand(9)]), ...w(0x1800 + rand(0x400)), ...w([10, 16, 2, 8, rand(0x10000)][rand(5)])]],
-      ][rand(10)] as [number, number[]];
+        // ltoa(value, buffer, radix), value a long
+        [0xe70f, [...((v: number) => [v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, v >>> 24])([0, 1, 9, 10, 0x7fffffff, 0x80000000, 0xffffffff, rand(1000), rand(0x10000) * 0x10000 + rand(0x10000)][rand(9)]), ...w(0x1800 + rand(0x400)), ...w([10, 16, 2, 8, rand(0x10000)][rand(5)])]],
+      ][rand(11)] as [number, number[]];
       if (entry === 0xe959 && rand(2)) m.ram.set([rand(200), 0], p + 4);
       if (entry === 0xe718 && rand(2)) {
         // the same string at q, now and then with a byte changed
@@ -489,6 +491,12 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
           fill(c, 4, () => 0);
           m.write(c, rand(40));
           if (rand(8) === 0) m.write(c + 1 + rand(3), 1);
+        } else if (addr === 0xd93f) {
+          // a long at ($20) shifted by the long at ($23): counts mostly under 40
+          set16(0x20, ptr());
+          set16(0x23, ptr());
+          const c = m.ram[0x23] | (m.ram[0x24] << 8);
+          [rand(40), rand(8) ? 0 : rand(256), rand(8) ? 0 : rand(256), 0].forEach((v, i) => m.write(c + i, v));
         } else if (addr === 0xe520 || addr === 0xe52c) {
           // float ÷ and ×: floats at ($20) and ($23), now and then 0, ±0, an extreme exponent, or the same number
           const float = (at: number) => {

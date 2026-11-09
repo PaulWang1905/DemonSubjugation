@@ -18,12 +18,12 @@ const LOCALS = 9;
 // its locals and arguments, from the software stack pointer
 const DIVISOR = 0, P = 2, LEADING = 4, DIGIT = 5, SHIFT = 6, AT = 7, VALUE = 9, BUFFER = 11, RADIX = 13;
 
-const sp = () => word(0x28);
-const L = (n: number) => rd(sp() + n);
-const helper = (at: number) => void HELPERS[at](os);
+export const sp = () => word(0x28);
+export const L = (n: number) => rd(sp() + n);
+export const helper = (at: number) => void HELPERS[at](os);
 
 /** $zp = L16[n] (LDY #n / LDA / STA / INY / LDA / STA). */
-function load(zp: number, n: number): void {
+export function load(zp: number, n: number): void {
   cpu.y = n;
   ram[zp] = rd(sp() + n);
   cpu.y = n + 1;
@@ -31,7 +31,7 @@ function load(zp: number, n: number): void {
 }
 
 /** L16[n] = $20. */
-function store(n: number): void {
+export function store(n: number): void {
   cpu.y = n;
   wr(sp() + n, ram[0x20]);
   cpu.y = n + 1;
@@ -39,25 +39,25 @@ function store(n: number): void {
 }
 
 /** $23 = a constant. */
-function constant(v: number): void {
+export function constant(v: number): void {
   ram[0x23] = v & 0xff;
   ram[0x24] = cpu.a = nz(v >> 8);
 }
 
 /** $23 = $20. */
-function move(): void {
+export function move(): void {
   ram[0x23] = ram[0x20];
   ram[0x24] = cpu.a = nz(ram[0x21]);
 }
 
 /** A = L[n]. */
-function get(n: number): number {
+export function get(n: number): number {
   cpu.y = n;
   return (cpu.a = nz(L(n)));
 }
 
 /** L[n] = A. */
-function set(n: number, v: number): void {
+export function set(n: number, v: number): void {
   cpu.y = n;
   wr(sp() + n, (cpu.a = v));
 }

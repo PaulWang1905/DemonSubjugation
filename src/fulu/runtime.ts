@@ -648,6 +648,41 @@ function shiftRight16(): void {
   ram[0x20] = ram[0x21] = cpu.a = nz(cpu.a & 0x80 ? 0xff : 0);
 }
 
+/**
+ * $D93F: the long at ($20) shifted right (arithmetically) by the long at
+ * ($23), into scratch + 8, $20 pointing at it; a count of 32 or more leaves
+ * the sign. (By 0 it copies the value there but leaves $20 as it was.)
+ */
+function shiftRight32(): void {
+  const v = word(0x20), c = word(0x23), s = scratch() + 8;
+  cpu.y = 3;
+  const fill = rd(v + 3) & 0x80 ? 0xff : 0;
+  cpu.a = fill;
+  for (let i = 0; i < 4; i++) wr(s + i, fill);
+  cpu.y = 0x0c;
+  cpu.x = nz(0);
+  cpu.y = 1;
+  if (nz((cpu.a = rd(c + 3) | rd(c + 2) | rd(c + 1)))) return point(0x20, 8);
+  cpu.y = 0;
+  cmp((cpu.a = rd(c)), 0x20);
+  if (carry()) return point(0x20, 8);
+  let x = (cpu.x = cpu.a);
+  for (let i = 0; i < 4; i++) wr(s + i, (cpu.a = rd(v + i)));
+  // (its BMI to the sign-filling loop follows LDY #$0B, which clears N: the shift is always logical)
+  cpu.y = 0x0b;
+  nz(cpu.y);
+  cmp(x, 0);
+  if (!x) return;
+  for (; x; ) {
+    for (let i = 3; i >= 0; i--) {
+      cpu.y = 8 + i;
+      wr(s + i, (cpu.a = i === 3 ? lsr(rd(s + i)) : ror(rd(s + i))));
+    }
+    cpu.x = x = nz(x - 1);
+  }
+  point(0x20, 8);
+}
+
 /** $D7B4: the long at ($20) negated, into scratch + 8, $20 pointing at it; A its high byte, Y = $0B. */
 function negate32(): void {
   const p = word(0x20), s = scratch() + 8;
@@ -801,6 +836,7 @@ const table: Record<number, () => unknown> = {
   0xd7b4: negate32,
   0xd7a6: negate16,
   0xd90b: shiftRight16,
+  0xd93f: shiftRight32,
   0xdd32: uintToFloat,
   0xdd52: ubyteToFloat,
   0xe520: floatDivide,
