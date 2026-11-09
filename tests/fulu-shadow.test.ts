@@ -12,7 +12,7 @@ import { Device } from "../src/bbk/device";
 import { addFirmwareFile, type Firmware } from "../src/bbk/firmware";
 import { Key, keyCode } from "../src/bbk/keys";
 import { Machine } from "../src/bbk/machine";
-import { FAR_CALL, Fulu } from "../src/fulu/fulu";
+import { FAR_CALL, Fulu, type OsFunction } from "../src/fulu/fulu";
 import { KEY_CLASSES } from "../src/fulu/gui";
 import { FUNCTIONS, INTERRUPTS } from "../src/fulu/os";
 import { HELPERS } from "../src/fulu/runtime";
@@ -117,13 +117,13 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS
   const inOs = (pc: number) => vector(pc) || m.page(pc >>> 12) >= 0xe00;
 
   /** What the entry at pc is (in the state on entry), and whether Fulu answers it. */
-  function entryOf(pc: number): [string, boolean, [number, number][]?] {
+  function entryOf(pc: number): [string, boolean, OsFunction?] {
     if (vector(pc)) return [`interrupt ${(pc - 0x300) >> 2}`, !!INTERRUPTS[(pc - 0x300) >> 2]];
     // a far call's return into the OS: a callback from an OS function Fulu does not have
     if (pc === 0xd313 && m.ram[0x100 | ((cpu.s + 1) & 0xff)] < 0xe0) return ["far return into the OS", false];
     if (pc !== FAR_CALL) return [`$${hex(pc, 4)}`, pc === 0xd313 || !!HELPERS[pc]];
     const ptr = m.ram[0x26] | (m.ram[0x27] << 8), seg = m.read((ptr + 2) & 0xffff), f = FUNCTIONS[ptr];
-    return seg >= 0xe0 ? ["far call", true] : [`OS function $${hex(ptr, 4)}`, !!f, f?.temporaries];
+    return seg >= 0xe0 ? ["far call", true] : [`OS function $${hex(ptr, 4)}`, !!f, f];
   }
 
   function replay(n: Nested): void {
@@ -188,7 +188,7 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS
     judging = true;
     const ref = snapshot(m);
     restore(m, before!);
-    const [name, answered, temporaries] = entryOf(at);
+    const [name, answered, function_] = entryOf(at);
     const row = rows.get(name) ?? { calls: 0, interrupted: 0, mismatches: 0 };
     rows.set(name, row);
     row.calls++;
@@ -198,11 +198,11 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS
       // An interrupt can come at any point of a function on the device, and
       // several while it sleeps; Fulu answers at once. So any of these orders
       // of the interrupts is the device's.
-      let diff = judge(ref, temporaries, "one");
+      let diff = judge(ref, function_, "one");
       for (const order of ORDERS.slice(1)) {
         if (!diff || !nested.length) break;
         restore(m, before!);
-        if (!judge(ref, temporaries, order)) diff = "";
+        if (!judge(ref, function_, order)) diff = "";
       }
       if (diff) {
         row.mismatches++;
@@ -215,15 +215,15 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS
   }
 
   /** Fulu's answer compared with the firmware's (ref): what differs. */
-  function judge(ref: Snapshot, temporaries: [number, number][] | undefined, order: Order): string {
+  function judge(ref: Snapshot, f: OsFunction | undefined, order: Order): string {
     fulu.waiting = false;
     const why = answer(order);
     // the dead stacks, the 6502's below S and the software stack below ($28): as the firmware left them
     m.ram.set(ref.ram.subarray(0x100, 0x101 + ref.cpu.s), 0x100);
     const sp = ref.ram[0x28] | (ref.ram[0x29] << 8), low = Math.max(0x1000, sp - DEAD_SOFT_STACK);
     if (sp > low && sp <= 0x8000) m.ram.set(ref.ram.subarray(low, sp), low);
-    // the function's temporaries
-    for (const [a, b] of temporaries ?? []) m.ram.set(ref.ram.subarray(a, b), a);
+    // the function's temporaries, and what it would take from the OS's ROM
+    fromOs(m, ref, f);
     // what time did meanwhile: the clock, and interrupt flags and a key the hardware raised
     m.ram.set(ref.ram.subarray(RTC[0], RTC[1]), RTC[0]);
     for (const a of RAISED) {
@@ -303,6 +303,12 @@ function bareMachine(): [Machine, Fulu] {
 
 const RETURN = 0x0ff0, ARGS = 0x4400;
 
+/** Leave out of a comparison what a function declares it need not leave as the OS does: its temporaries, and what it would take from the OS's ROM. */
+function fromOs(m: Machine, ref: Snapshot, f: OsFunction | undefined): void {
+  for (const [a, b] of [...(f?.temporaries ?? []), ...(f?.fromRom?.ram ?? [])]) m.ram.set(ref.ram.subarray(a, b), a);
+  for (const r of f?.fromRom?.registers ?? []) m.cpu[r] = ref.cpu[r];
+}
+
 /**
  * Far-call an OS function with A and the arguments at ARGS on the firmware,
  * then from the same state on Fulu: what differs ("" if nothing). The
@@ -325,7 +331,7 @@ function farCallBoth(m: Machine, fulu: Fulu, entry: number, a: number, args: num
   fulu.enter(FAR_CALL);
   m.ram.set(ref.ram.subarray(0x100, 0x101 + ref.cpu.s), 0x100);
   m.ram.set(ref.ram.subarray(ARGS - DEAD_SOFT_STACK, ARGS), ARGS - DEAD_SOFT_STACK);
-  for (const [lo, hi] of FUNCTIONS[entry].temporaries ?? []) m.ram.set(ref.ram.subarray(lo, hi), lo);
+  fromOs(m, ref, FUNCTIONS[entry]);
   const diff = differences(ref, snapshot(m));
   restore(m, ref);
   return diff;
@@ -390,7 +396,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     expect(failures).toEqual([]);
   });
 
-  it("the string functions and SysRand, on random arguments", { timeout: 300_000 }, () => {
+  it("the string functions, SysRand and the melodies, on random arguments", { timeout: 300_000 }, () => {
     const [m, fulu] = bareMachine();
     let seed = 9;
     const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
@@ -404,9 +410,20 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
         [0xe71e, w(p)],
         [0xe700, [...w(p), ...w(n), rand(256)]],
         [0xe959, w(p)], // SysRand(p): a seed and a range at p (small half the time)
-      ][rand(4)] as [number, number[]];
+        [0xe712, [...w(p), ...w(0x1800 + rand(0x400))]], // (apart: overlapping, it would copy forever)
+        [0xe718, [...w(p), ...w(q)]],
+        [0xe8a1, []], // SysPlayMelody(A), A mostly 1-12
+        [0xe8a4, []],
+      ][rand(8)] as [number, number[]];
       if (entry === 0xe959 && rand(2)) m.ram.set([rand(200), 0], p + 4);
-      const diff = farCallBoth(m, fulu, entry, rand(256), args);
+      if (entry === 0xe718 && rand(2)) {
+        // the same string at q, now and then with a byte changed
+        let k = 0;
+        while (m.ram[p + k]) k++;
+        m.ram.copyWithin(q, p, p + k + 1);
+        if (rand(2)) m.ram[q + rand(k + 1)] = rand(256);
+      }
+      const diff = farCallBoth(m, fulu, entry, entry === 0xe8a1 ? rand(16) : rand(256), args);
       if (diff) failures.push(`$${hex(entry, 4)} (${args.map((v) => hex(v)).join(" ")}): ${diff}`);
     }
     expect(failures).toEqual([]);

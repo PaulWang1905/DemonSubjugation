@@ -37,6 +37,12 @@ export interface OsFunction {
   at: number;
   run: Handler;
   temporaries?: [number, number][];
+  /**
+   * What it would take from the OS's own ROM data, which Fulu does not have
+   * (a melody's notes): registers and RAM it cannot leave as the OS does.
+   * Nothing but the OS reads them; checking Fulu leaves them out.
+   */
+  fromRom?: { registers?: ("a" | "x" | "y")[]; ram?: [number, number][] };
 }
 
 /** Banks D-F: where the OS keeps its resident code. */

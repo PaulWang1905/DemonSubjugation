@@ -3,7 +3,7 @@
 // own variables (docs/fulu-notes.md) and leaves registers and flags as the
 // OS does.
 
-import { adc, clc, cmp, cpu, fn, get16, nz, put16, ram, rd, sbc, sec, set16, store, use, word, wr } from "./alu";
+import { adc, carry, clc, cmp, cpu, fn, get16, nz, put16, ram, rd, sbc, sec, set16, store, use, word, wr } from "./alu";
 import { SCREEN } from "./screen";
 import { TEXT } from "./text";
 import { GUI } from "./gui";
@@ -130,6 +130,94 @@ export const FUNCTIONS: Record<number, OsFunction> = {
     cmp(0, 0);
     cpu.p &= ~0x40;
     cpu.a = cpu.y = nz(dst >> 8);
+  }),
+  /**
+   * strcat(dst, src): copies src after dst's string; returns dst. It leaves
+   * src at its NUL in its argument, $23 at the NUL it writes, $26 at src's.
+   */
+  0xe712: fn(0x5ea4, () => {
+    const args = word(0x28), dst = get16(args);
+    const step = (v: number) => (clc(), adc(v & 0xff, 1) | (adc(v >> 8, 0) << 8));
+    let p = dst;
+    for (;;) {
+      set16(0x26, p);
+      if (!rd(p)) break;
+      p = step(p);
+    }
+    let src = get16(args + 2);
+    for (;;) {
+      set16(0x26, src);
+      const c = rd(src);
+      if (!c) break;
+      src = step(src);
+      put16(args + 2, src);
+      const to = p;
+      p = step(p);
+      wr(to, c);
+    }
+    set16(0x23, p);
+    wr(p, 0);
+    set16(0x20, dst);
+    cpu.a = cpu.y = nz(dst >> 8);
+  }),
+  /**
+   * strcmp(a, b): the difference of the first bytes that differ (or of the
+   * NULs), sign-extended, in $20/$21, A its high byte. It counts a and b
+   * along in its arguments while they match; $23 = b's byte, $26 = b.
+   */
+  0xe718: fn(0x604f, () => {
+    const args = word(0x28);
+    const step = (v: number) => (clc(), adc(v & 0xff, 1) | (adc(v >> 8, 0) << 8));
+    let a = get16(args), b = get16(args + 2);
+    for (;;) {
+      set16(0x26, b);
+      const x = rd(a), y = rd(b);
+      ram[0x23] = y;
+      sec();
+      sbc(x, y);
+      if (x !== y || !x) break;
+      put16(args, (a = step(a)));
+      put16(args + 2, (b = step(b)));
+    }
+    sec();
+    const d = sbc(rd(a), rd(b));
+    ram[0x23] = rd(b);
+    set16(0x26, b);
+    ram[0x20] = d;
+    ram[0x21] = d & 0x80 ? 0xff : 0;
+    cpu.a = cpu.y = nz(ram[0x21]);
+  }),
+  /**
+   * SysPlayMelody: A = a tune, 1-12 (else nothing). It points the melody
+   * player at the tune's notes in the OS's ROM ($33-$36, and the data port's
+   * address $020E-$0210), marks a melody playing ($201B bit 1) and starts the
+   * sound timer MT ($023F bits 6-7, its interrupt $023B bit 5, $022B = $FE);
+   * the MT interrupt then plays the notes. Fulu has no tunes and plays no
+   * sound: the notes' pointers, and Y (twice the first note's pitch), are the
+   * ROM's (fromRom). Returns A = $FE, with C and V clear (whatever the tune).
+   */
+  0xe8a1: {
+    ...fn(0x7a08, () => {
+      const tune = cpu.a;
+      cmp(tune, 0x0d);
+      if (carry()) return;
+      cmp(tune, 0x01);
+      if (!carry()) return;
+      ram[SOUND] |= 0x02;
+      wr(0x23f, rd(0x23f) | 0xc0);
+      wr(0x23b, rd(0x23b) | 0x20);
+      wr(0x22b, 0xfe);
+      clc();
+      cpu.p &= ~0x40;
+      cpu.a = nz(0xfe);
+    }),
+    fromRom: { registers: ["y"], ram: [[0x33, 0x37], [0x20e, 0x211]] },
+  },
+  // SysStopMelody: stops the sound timer MT and the melody
+  0xe8a4: fn(0x79ef, () => {
+    wr(0x23b, rd(0x23b) & 0xdf);
+    wr(0x23f, rd(0x23f) & 0x3f);
+    ram[SOUND] = cpu.a = nz(ram[SOUND] & 0xfd);
   }),
   // strlen(s) in $20/$21; it leaves s + length + 1 in its argument
   0xe71e: fn(0x63dd, () => {
