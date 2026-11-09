@@ -401,6 +401,49 @@ function memmove(): void {
   cmp(0, 0);
 }
 
+/**
+ * $E904: compare n bytes at a ($2F) and b ($31), arguments (a, b, n) on the
+ * software stack: whole pages (n's high byte) first, then the rest. A = 0
+ * if they match, else 1 if b's byte is the greater, $FF if a's; X and Y as
+ * its counts leave them.
+ */
+function memcmp(): void {
+  const sp = word(0x28);
+  for (let i = 0; i < 4; i++) ram[0x2f + i] = rd(sp + i);
+  // which bytes differ, if any: (CMP leaves C and Z)
+  const differ = (y: number) => cmp(rd(word(0x31) + y), rd(word(0x2f) + y)) !== 0;
+  let x = rd(sp + 5), y = 0, found = false;
+  for (;;) {
+    cmp(x, 0);
+    if (!x) break;
+    x--;
+    for (y = 0; ; y++) {
+      if (differ(y)) {
+        found = true;
+        break;
+      }
+      cmp(y, 0xff);
+      if (y === 0xff) break;
+    }
+    if (found) break;
+    for (const zp of [0x32, 0x30]) {
+      clc();
+      ram[zp] = adc(ram[zp], 1);
+    }
+  }
+  if (!found) {
+    x = rd(sp + 4);
+    for (y = 0; ; y++, x--) {
+      cmp(x, 0);
+      if (!x) break;
+      if (differ(y)) break;
+    }
+  }
+  cpu.x = x;
+  cpu.y = y;
+  cpu.a = nz(cpu.p & Z ? 0 : carry() ? 1 : 0xff);
+}
+
 /** $E907: map ($28)[0] consecutive banks from bank A, the first to page ($28)[1..2]. */
 function mapBanks(): void {
   const sp = word(0x28), p = cpu.p;
@@ -502,6 +545,7 @@ const table: Record<number, () => unknown> = {
   },
   0xdb5c: switchCase,
   0xe901: memmove,
+  0xe904: memcmp,
   0xe907: mapBanks,
   0xe90a: savePage,
 };

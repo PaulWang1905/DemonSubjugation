@@ -505,6 +505,16 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
           const n = rand(4) ? rand(0x300) : rand(0x800), args = 0x4400 + rand(0x400);
           set16(0x28, args);
           [0x1000 + rand(0x2800), 0x1000 + rand(0x2800), n].forEach((v, i) => (m.write(args + 2 * i, v & 0xff), m.write(args + 2 * i + 1, v >> 8)));
+        } else if (addr === 0xe904) {
+          // memcmp(a, b, n): b half the time a copy of a, now and then with a byte changed
+          const n = rand(4) ? rand(0x300) : rand(0x800), args = 0x4400 + rand(0x400);
+          const a = 0x1000 + rand(0x2800), b = 0x1000 + rand(0x2800);
+          if (rand(2)) {
+            for (let i = 0; i < n; i++) m.write(b + i, m.read(a + i));
+            if (n && rand(2)) m.write(b + rand(n), rand(256));
+          }
+          set16(0x28, args);
+          [a, b, n].forEach((v, i) => (m.write(args + 2 * i, v & 0xff), m.write(args + 2 * i + 1, v >> 8)));
         } else if (addr === 0xe907) {
           cpu.a = 5 + rand(5);
           m.write(sp, 1 + rand(13 - cpu.a));
