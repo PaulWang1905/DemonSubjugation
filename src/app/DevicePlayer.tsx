@@ -32,6 +32,8 @@ const FRAME_MS = 1000 / FPS;
 const REPEAT_DELAY = 300;
 const REPEAT_RATE = 90;
 const REPEATS = new Set<number>([Key.up, Key.down, Key.left, Key.right, Key.pageUp, Key.pageDown, Key.del]);
+/** Power, the menu and the two dictionaries: they leave the program. */
+const SYSTEM_KEYS = new Set<number>([Key.power, Key.home, Key.dualDict, Key.modern]);
 /** The on-screen keypad's keys on the device. */
 const PAD_KEYS = new Map<EngineKey, number>([
   [Keys.UP, Key.up],
@@ -198,6 +200,10 @@ export function DevicePlayer({ game, onExit }: Props) {
   const held = useRef(new Map<number, number>());
   const keyDown = useCallback((k: number) => {
     if (held.current.has(k) || live.current.paused) return;
+    // On Fulu the system keys would only end the program (they lead to the
+    // power-off, the OS's menu and the dictionaries, which Fulu does not
+    // have), so a stray press is ignored.
+    if (deviceRef.current?.device instanceof FuluDevice && SYSTEM_KEYS.has(k)) return;
     deviceRef.current?.device.press(k);
     const repeat = () => {
       deviceRef.current?.device.press(k);

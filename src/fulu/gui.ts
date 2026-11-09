@@ -3,7 +3,7 @@
 // parameter.
 
 import { Key, keyChar } from "../bbk/keys";
-import { adc, clc, cmp, cpu, farCalled, fn, get16, long, nz, os, put16, ram, rd, sbc, sec, set16, softPop, softPush, store, word, wr } from "./alu";
+import { adc, carry, clc, cmp, cpu, farCalled, fn, get16, long, nz, os, put16, ram, rd, sbc, sec, set16, softPop, softPush, store, word, wr } from "./alu";
 import type { OsFunction } from "./fulu";
 
 /** The OS's 32-bit event flags (bit 0 set by timer 1's interrupt). */
@@ -112,6 +112,52 @@ const MODE_TABLE = 0x8b9c, MODE_ORDER = [2, 4, 8, 1], MODE_CODE = [0x6028, 0x605
 /** The LCD rows of the status icons $E8EC leaves alone (those of icons 20-22, the GUI's three, and four more). */
 const ICONS_KEPT = [6, 7, 8, 13, 20, 31, 41, 68, 78, 89, 90, 91];
 
+const isLower = (c: number) => c >= 0x61 && c <= 0x7a;
+
+/** 8:$695A: toggle the shift latch (the keyboard state's bit 5) and its icon. */
+function toggleLatch(): void {
+  ram[KEYBOARD] ^= 0x20;
+  cpu.a = ram[KEYBOARD] & 0x20;
+  os.call(0xe845);
+}
+
+/**
+ * 8:$6973: whether $2B28 accepts a character: letters by bit 1, digits by
+ * bit 0, space and '.' by either; 0 for anything else. (C and V are left by
+ * its last comparison, done as the OS does them.)
+ */
+function classify(c: number): number {
+  const allows = (bit: number) => (ram[KEYBOARD + 1] & bit ? 1 : 0);
+  /** SEC / SBC #v: whether c ≥ v. */
+  const atLeast = (v: number) => (sec(), sbc(c, v), carry() !== 0);
+  /** c in [lo, hi], tested as the OS does: c ≥ lo, then c ≥ hi only if c = hi. */
+  const within = (lo: number, hi: number) => atLeast(lo) && (!atLeast(hi) || c === hi);
+  if (within(0x61, 0x7a) || within(0x41, 0x5a)) return allows(2);
+  if (within(0x30, 0x39)) return allows(1);
+  atLeast(0x20);
+  if (c === 0x20 || (atLeast(0x2e), c === 0x2e)) return ram[KEYBOARD + 1] & 2 ? 1 : allows(1);
+  return 0;
+}
+
+/**
+ * 8:$67CC, the shift key: a switch on the input mode (the state's low 4
+ * bits). In modes 1 and 2 with no input method allowed ($2B28 bits 2, 3) the
+ * message becomes the command $29 and it returns 1.
+ */
+function shiftKey(msg: number): void {
+  const mode = ram[KEYBOARD] & 0x0f;
+  if ((mode !== 1 && mode !== 2) || ram[KEYBOARD + 1] & 0x0c)
+    return void os.stop(`Fulu has no input methods yet (the shift key in mode ${mode}, $2B28 = $${ram[KEYBOARD + 1].toString(16)})`);
+  set16(0x26, 0x6811); // the switch's jump to its case
+  wr(msg, 5);
+  clc();
+  set16(0x20, adc(msg & 0xff, 1) | (adc(msg >> 8, 0) << 8));
+  set16(0x23, word(0x20));
+  set16(0x20, 0x29);
+  put16(word(0x23), 0x29);
+  cpu.a = cpu.y = nz(1);
+}
+
 export const GUI: Record<number, OsFunction> = {
   /**
    * $E8EC: turn the status icons off: every icon row's bit but those of
@@ -215,9 +261,18 @@ export const GUI: Record<number, OsFunction> = {
 
   /**
    * $E93E GuiTranslateMsg(msg): a key message (type 1) becomes what the key
-   * means (KEY_CLASSES): type its class, parameter its code (a-z upper case
-   * with caps on). Returns 1. (Characters, the shift and delete keys and the
-   * input methods take paths Fulu does not have yet.)
+   * means (KEY_CLASSES, the second table while the shift latch is set): type
+   * its class, parameter its code. Then, by the keyboard state ($2B27):
+   *
+   * - a character (class 2): a-z upper case with caps on (bit 4) or the
+   *   latch (bit 5), which it releases; the parameter's high byte = whether
+   *   the latch was set; returns whether $2B28 accepts it (classify);
+   * - delete ($34): toggles the latch; returns 1;
+   * - shift ($29): by the input mode (the state's low 4 bits) and $2B28
+   *   (shiftKey); with the latch, $36: caps toggled; returns 0;
+   * - other commands release the latch; return 1.
+   *
+   * Fulu has no input methods (state bits 2 and 3, $2B28 bits 2 and 3).
    */
   0xe93e: fn(0x6111, () => {
     const msg = get16(word(0x28));
@@ -225,18 +280,61 @@ export const GUI: Record<number, OsFunction> = {
     sec();
     sbc(rd(msg), 1);
     if (rd(msg) !== 1) return void (cpu.a = cpu.y = nz(1));
-    const state = ram[KEYBOARD], [type, code] = KEY_CLASSES[state & 0x20 ? 1 : 0][rd(msg + 1) & 0x3f];
-    if (type === 2 || (type === 5 && [0x34, 0x36, 0x29].includes(code)) || state & 0x2c)
-      return void os.stop(`Fulu has no GuiTranslateMsg for class ${type} code $${code.toString(16)} (keyboard state $${state.toString(16)}) yet`);
+    const state = ram[KEYBOARD], latch = state & 0x20;
+    const [type, translated] = KEY_CLASSES[latch ? 1 : 0][rd(msg + 1) & 0x3f];
+    if (state & 0x0c) return void os.stop(`Fulu has no input methods yet (GuiTranslateMsg, keyboard state $${state.toString(16)})`);
+    let code = translated;
     wr(msg, type);
     clc();
     set16(0x23, adc(msg & 0xff, 1) | (adc(msg >> 8, 0) << 8));
     set16(0x20, code);
     put16(word(0x23), code);
+    if (type === 2 && isLower(code) && state & 0x10) {
+      // caps: upper case (through the parameter, as the OS does)
+      code -= 0x20;
+      set16(0x23, (msg + 1) & 0xffff);
+      set16(0x20, code);
+      put16(msg + 1, code);
+    }
+    if (type === 5) {
+      if (code === 0x34) {
+        toggleLatch();
+        return void (cpu.a = cpu.y = nz(1));
+      }
+      if (code === 0x36) {
+        if (latch) toggleLatch();
+        if (ram[KEYBOARD] & 0x02) {
+          ram[KEYBOARD] ^= 0x10;
+          cpu.a = ram[KEYBOARD] & 0x10;
+          os.call(0xe848); // the caps icon
+        }
+        return void (cpu.a = cpu.y = nz(0));
+      }
+      if (code === 0x29) {
+        if (latch) toggleLatch();
+        return shiftKey(msg);
+      }
+      if (latch) toggleLatch();
+    }
+    set16(0x26, msg);
     sec();
-    sbc(type, 2); // its last test: whether it is a character
-    cpu.a = cpu.y = nz(1);
-  }),
+    sbc(type, 2);
+    if (type !== 2) return void (cpu.a = cpu.y = nz(1));
+    // a character: the latch into the parameter's high byte; with it, upper case and released
+    clc();
+    set16(0x23, adc(msg & 0xff, 2) | (adc(msg >> 8, 0) << 8));
+    wr(msg + 2, latch ? 1 : 0);
+    if (latch) {
+      if (isLower(code)) {
+        set16(0x23, (msg + 1) & 0xffff);
+        wr(msg + 1, code - 0x20);
+      }
+      toggleLatch();
+    }
+    set16(0x26, msg);
+    set16(0x20, get16(msg + 1));
+    cpu.a = cpu.y = nz(classify(rd(msg + 1)));
+  }, ICON_TEMPORARIES), // (the latch and caps icons')
 
   /**
    * $E935 GuiGetMsg(msg): wait for a message. In order: the flag events
@@ -263,8 +361,11 @@ export const GUI: Record<number, OsFunction> = {
     const key = cpu.a;
     if (key !== 0xff) {
       message(1, key);
-      // the key's class, looked up for the system keys (0-3: power, menu, the dictionaries)
-      if (key <= 3) return void os.stop(`Fulu has no GuiGetMsg system key ${key} yet`);
+      // The system keys (0-3: power, the menu, the two dictionaries) leave the
+      // program on the device, for the power-off, the OS's menu or a
+      // dictionary. Fulu has none of those: the program ends.
+      if (key <= 3) return void os.stop("The program ended");
+      // the key's class, looked up
       const entry = 0x8c36 + 2 * (key & 0x3f);
       set16(0x20, entry);
       set16(0x26, entry);

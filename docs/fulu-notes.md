@@ -206,7 +206,7 @@ its size in instructions (with the resident code it uses), what it does.
 | $E932 | (GUI start-up) | 8:$5000 | 164 | clears $2B09-$2B0B, memset($2B0F, 0, $18), $2B27 = 2, $2B28 = $0F; far-calls $E9A1($FFFF), $E91C, $E848(0), $E8D7(0), $E845(0); returns 1 |
 | $E935 | GuiGetMsg | 8:$5093 | 2075 | (msg): the message pump (below) |
 | $E93B | (input mode) | 8:$5FF3 | 118 | (mode): switch the keyboard state's low 4 bits (modes 2, 4, 8, 1) with a routine per change; Fulu has only no change |
-| $E93E | GuiTranslateMsg | 8:$6111 | 1269 | (msg): a key message becomes (class, code) by the key-class table 8:$8C36 (in src/fulu/gui.ts); $2B27 is the keyboard state (bits 2, 3 input methods, 4 caps, 5 a shift latch) |
+| $E93E | GuiTranslateMsg | 8:$6111 | 1269 | (msg): a key message becomes (class, code) by the key-class table 8:$8C36 (the second half while the shift latch is set; in src/fulu/gui.ts). $2B27 is the keyboard state: low 4 bits the input mode (1, 2, 4, 8), bits 2, 3 input methods, 4 caps, 5 the shift latch; $2B28 what characters are accepted (bit 0 digits, 1 letters, 2, 3 input methods). Characters: a-z upper case with caps or the latch (which they release), the parameter's high byte = the latch, returns $6973's verdict (letters by $2B28 bit 1, digits bit 0, space and '.' either). Delete ($34) toggles the latch ($695A, and its icon $E845); shift ($29) is a switch on the mode ($67CC, table 8:$8BAC): modes 1, 2 with $2B28 bits 2, 3 clear make it the command $29, else an input method is switched; the latched input key ($36) toggles caps (icon $E848) in mode 2; other commands release the latch. Input methods ($E919, $E925, ...) are not in Fulu |
 | $E944 | (heap set-up) | 8:$7D92 | 508 | (start, size, x): the heap (below); its memset is a JSR $5000 in segment 8, which is the GUI start-up $E932, run instead |
 | $E947 | SysMemAllocate | 8:$8515 | 1120 | (n): first fit (below) |
 | $E94A | SysMemFree | 8:$88DD | 1013 | (p): free and join (below) |
@@ -353,14 +353,16 @@ search.) As of this audit, Fulu lacks, in the 伏魔记 series and 英雄坛说:
 The file functions are what saving and loading use: until they are done a
 save stops the game on Fulu.
 
-**Keys.** Inside functions Fulu has, some paths still stop ("not yet"), and
-a player can reach them from a keyboard (checked on Fulu alone, 伏魔记 1.3):
-power (F12), Home (目录), 双解, 现代 stop in GuiGetMsg (its system keys
-0-3); letters, digits, space, Shift (中英) and Backspace/Delete stop in
-GuiTranslateMsg (characters and edit keys). The on-screen keypad sends none
-of them. Also not written: $E92F (GuiMsgBox's message $0A 3), input mode
-changes in $E93B, GuiGetMsg's other events. 15 minutes idle on Fulu: fine
-(no other interrupt came).
+**Keys.** On the device the system keys (power, 目录, 双解, 现代) leave the
+program, for the power-off, the OS's menu or a dictionary; on Fulu,
+GuiGetMsg ends the program instead, and the player ignores those keys (a
+stray press should not end a game). Character, shift and delete keys go
+through GuiTranslateMsg as above, checked by a second shadow run that types
+(letters, digits, space, shift, delete, the input key). Still not written:
+input methods (the six games keep the mode 2 and $2B28 = 3, so none is
+switched on), $E92F (GuiMsgBox's message $0A 3), input mode changes in
+$E93B, GuiGetMsg's other events. 15 minutes idle on Fulu: fine (no other
+interrupt came).
 
 **三国霸业** needs, besides: $E7FA, $E8BF, $E9E3, and more runtime helpers
 ($D506, $D572, $D81D, $D825, $D8AE, $DD19, $DD6F, $E517), with many more calls

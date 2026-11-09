@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { Device } from "../src/bbk/device";
 import { addFirmwareFile, type Firmware } from "../src/bbk/firmware";
-import { Key } from "../src/bbk/keys";
+import { Key, keyCode } from "../src/bbk/keys";
 import { Machine } from "../src/bbk/machine";
 import { FAR_CALL, Fulu } from "../src/fulu/fulu";
 import { KEY_CLASSES } from "../src/fulu/gui";
@@ -103,7 +103,11 @@ interface Nested {
  * while it waits (the CPU halted until the next interrupt), and the rest
  * after its answer.
  */
-function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<string, Row>; misuse: Set<string> } {
+/** The keys the scripts press: the play keys, and with them the keys a keyboard has (characters, shift, delete, the input key). */
+const PLAY_KEYS: number[] = [Key.enter, Key.enter, Key.enter, Key.up, Key.down, Key.left, Key.right, Key.enter, Key.down, Key.right, Key.exit];
+const TYPING_KEYS = [...PLAY_KEYS, ...[..."az09m"].map(keyCode), Key.space, Key.shift, Key.del, Key.del, Key.input];
+
+function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS): { rows: Map<string, Row>; misuse: Set<string> } {
   const d = new Device(fw), file = d.install(gam);
   if (!file) throw new Error("the game does not fit in the flash");
   const m = d.machine, cpu = m.cpu, entry = gam[0x40] | (gam[0x41] << 8), first = 0x200 + (file.offset >> 12);
@@ -277,7 +281,6 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number): { rows: Map<str
 
   let seed = 7;
   const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
-  const keys = [Key.enter, Key.enter, Key.enter, Key.up, Key.down, Key.left, Key.right, Key.enter, Key.down, Key.right, Key.exit];
   for (let t = 0; t < seconds; t += 0.4) {
     d.run(0.4);
     d.press(keys[rand(keys.length)]);
@@ -519,11 +522,11 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
   });
 
   const games = GAMES && existsSync(GAMES) ? readdirSync(GAMES).filter((f) => /\.gam$/i.test(f)).sort() : [];
-  it.skipIf(!games.length)("every entry into the OS while games play", { timeout: 3_600_000 }, () => {
+  const playAll = (keys: number[]) => {
     const fw = loadFirmware(), mismatches: string[] = [];
     const missing = new Map<string, Set<string>>();
     for (const g of games) {
-      const { rows, misuse } = shadow(fw, new Uint8Array(readFileSync(join(GAMES, g))), SECONDS);
+      const { rows, misuse } = shadow(fw, new Uint8Array(readFileSync(join(GAMES, g))), SECONDS, keys);
       for (const x of misuse) mismatches.push(`${g}: a temporary ${x}`);
       const lines = [...rows].sort((a, b) => b[1].calls - a[1].calls).map(([name, r]) => {
         if (r.missing) missing.set(name, (missing.get(name) ?? new Set()).add(g));
@@ -536,5 +539,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     const byGames = [...missing].sort((a, b) => b[1].size - a[1].size);
     console.log("missing, with the number of games that need it:\n" + byGames.map(([n, s]) => `  ${n} ${s.size}`).join("\n"));
     expect(mismatches).toEqual([]);
-  });
+  };
+  it.skipIf(!games.length)("every entry into the OS while games play", { timeout: 3_600_000 }, () => playAll(PLAY_KEYS));
+  it.skipIf(!games.length)("every entry into the OS while games play, typing too", { timeout: 3_600_000 }, () => playAll(TYPING_KEYS));
 });
