@@ -12,7 +12,7 @@
 //   E00000-FFFFFF  operating system ROM
 //
 // Interrupts go to $0300 + 4 × source (the OS's vector table); BRK uses vector 1.
-// Timers count once every 400 CPU cycles. The firmware's own interrupt handlers
+// Timers count at TIMER_HZ, once every CPU_HZ / TIMER_HZ cycles. The firmware's own interrupt handlers
 // do the rest (keyboard, clock, sound), so nothing of the OS is imitated here.
 
 import { Cpu, I, type Bus } from "./cpu";
