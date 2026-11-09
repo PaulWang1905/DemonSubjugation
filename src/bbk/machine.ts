@@ -166,6 +166,12 @@ export class Machine implements Bus {
     if (only) ram[0x2004] = ram[0x2003];
   }
 
+  /** Take back every press not delivered yet: queued here, or waiting for the firmware to take it. */
+  dropKeys(): void {
+    this.keys.length = 0;
+    if (this.ram[KEYCODE] & 0x80) this.ram[KEYCODE] = 0;
+  }
+
   /** Queue a key press (device key code, see keys.ts). */
   press(code: number): void {
     this.keys.push(code & 0x3f);

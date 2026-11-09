@@ -380,6 +380,7 @@ export const GUI: Record<number, OsFunction> = {
    * code). Returns 1.
    */
   0xe935: fn(0x5093, () => {
+    os.listen();
     if (os.retrying) farCalled(WAIT); // the trace of the OS's last time round its loop
     for (const [flag, type] of FLAG_MESSAGES) {
       if (!test(flag)) continue;

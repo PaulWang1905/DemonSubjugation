@@ -1,6 +1,8 @@
 // Fulu without firmware: a small hand-made program that uses the C runtime,
 // a far call into its own second segment, and ends by returning from main.
 import { describe, expect, it } from "vitest";
+import { Key } from "../src/bbk/keys";
+import { CPU_HZ } from "../src/bbk/machine";
 import { Fulu } from "../src/fulu/fulu";
 
 /** A .gam: segment 0 (code at $5050), segment 1, and data at file offset $8000. */
@@ -52,5 +54,33 @@ describe("Fulu", () => {
       run(program([0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2, 0x60], [], [])).stopped;
     expect(call(0xe8bf)).toBe("Fulu has no OS function $E8BF yet");
     expect(call(0xe7fa)).toBe("Fulu has no OS function $E7FA yet");
+  });
+
+  it("forgets keys pressed while the program has not asked for one for a while", () => {
+    // SysGetKey into [$3000], a busy loop of `loops` x 256 x 256 x 5 cycles, SysGetKey into [$3001]
+    const getKey = [0xa2, 0xc1, 0x86, 0x26, 0xa2, 0xe7, 0x86, 0x27, 0x20, 0xf6, 0xd2];
+    const after = (loops: number) => {
+      const fulu = new Fulu(), file = fulu.install(
+        program(
+          [
+            ...getKey, 0x8d, 0x00, 0x30,
+            0xa9, loops, 0x85, 0x10, // $10 = loops
+            0xa0, 0x00, 0xa2, 0x00, 0xca, 0xd0, 0xfd, 0x88, 0xd0, 0xf8, 0xc6, 0x10, 0xd0, 0xf2,
+            ...getKey, 0x8d, 0x01, 0x30,
+            0x60,
+          ],
+          [],
+          [],
+        ),
+      )!;
+      fulu.start(file);
+      fulu.machine.run(0.02 * CPU_HZ);
+      fulu.machine.press(Key.enter);
+      fulu.machine.run(1.5 * CPU_HZ);
+      expect(fulu.stopped).toBe("The program ended");
+      return [fulu.machine.ram[0x3000], fulu.machine.ram[0x3001]];
+    };
+    expect(after(1)).toEqual([0xff, Key.enter]); // asked again after 40 ms: kept
+    expect(after(14)).toEqual([0xff, 0xff]); // after 580 ms: forgotten
   });
 });

@@ -3,7 +3,7 @@
 // own variables (docs/fulu-notes.md) and leaves registers and flags as the
 // OS does.
 
-import { adc, carry, clc, cmp, cpu, fn, get16, nz, put16, ram, rd, sbc, sec, set16, store, use, word, wr } from "./alu";
+import { adc, carry, clc, cmp, cpu, fn, get16, nz, os, put16, ram, rd, sbc, sec, set16, store, use, word, wr } from "./alu";
 import { SCREEN } from "./screen";
 import { TEXT } from "./text";
 import { GUI } from "./gui";
@@ -262,6 +262,7 @@ export const FUNCTIONS: Record<number, OsFunction> = {
   }),
   // SysGetKey: the next key, $FF if none
   0xe7c1: fn(0x76cc, () => {
+    os.listen();
     const i = ram[KEY_READ];
     if (!cmp(i, ram[KEY_WRITE])) return void (cpu.a = nz(0xff));
     ram[0x2f] = KEYS & 0xff;

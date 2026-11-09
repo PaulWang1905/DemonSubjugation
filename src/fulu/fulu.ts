@@ -15,7 +15,7 @@ import { C, N, V, Z } from "../bbk/cpu";
 import { REGION_SIZE } from "../bbk/firmware";
 import { FileType, installFile, type FlashFile } from "../bbk/flashfs";
 import { gamInfo } from "../bbk/gam";
-import { Machine } from "../bbk/machine";
+import { CPU_HZ, Machine } from "../bbk/machine";
 import { FUNCTIONS, INTERRUPTS, NAMES } from "./os";
 import { HELPERS } from "./runtime";
 import { cycles, FAR_CALL_CYCLES, FAR_RETURN_CYCLES, interruptCycles } from "./timing";
@@ -96,6 +96,16 @@ const frame = (d: number, b: number) => [
   0xc0, 0x17, (d >> 4) & 0xff, 0x00, 0x01, 0x09, 0xd4, 0x17, 0, 0, 0, 0, 0, 0, 0, 0, d & 0xff,
 ];
 
+/**
+ * How long a program may go without asking for a key before what is pressed
+ * meanwhile is forgotten: longer than any wait between asks while it walks or
+ * shows a menu (at most 250 ms in the six games), shorter than a scene's or a
+ * notice's (340 ms to seconds).
+ */
+const FORGET_AFTER = 0.3 * CPU_HZ;
+/** The OS's key buffer: its write and read indexes. */
+const KEY_WRITE = 0x2003, KEY_READ = 0x2004;
+
 export class Fulu {
   readonly machine: Machine;
   /** Why the program stopped, once it has (it ended, or met an OS function Fulu lacks). */
@@ -117,7 +127,35 @@ export class Fulu {
       this.machine = new Machine({ regions: { os: new Uint8Array(REGION_SIZE).fill(0x02), font } });
       this.machine.cpu.trap = (pc) => this.enter(pc);
       this.timed = true;
+      this.forgetsKeys = true;
     }
+  }
+
+  /**
+   * Whether keys pressed while the program is busy are forgotten (on its own
+   * machine; not when it answers for another's OS). While a scene plays or a
+   * notice shows, a program does not ask for keys, and on the device the OS
+   * keeps what is pressed meanwhile and hands it over afterwards: the presses
+   * then skip what comes next and walk on. So when the program asks for a key
+   * after not asking for longer than FORGET_AFTER, those keys are dropped.
+   * Waiting in GuiGetMsg is asking: a key that ends a wait, however long, is
+   * kept.
+   */
+  forgetsKeys = false;
+  /** The clock when the program last asked for a key, or null if it has not yet. */
+  private asked: number | null = null;
+
+  /**
+   * The program asks for a key (SysGetKey, GuiGetMsg; and each time GuiGetMsg
+   * is asked again after waiting).
+   */
+  listen(): void {
+    const m = this.machine, now = m.clock;
+    if (this.forgetsKeys && !this.retrying && this.asked !== null && now - this.asked > FORGET_AFTER) {
+      m.dropKeys();
+      m.ram[KEY_READ] = m.ram[KEY_WRITE];
+    }
+    this.asked = now;
   }
 
   /**

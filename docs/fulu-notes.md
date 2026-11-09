@@ -437,3 +437,15 @@ map's half-second tick). The reference emulators' 4 MHz with 400 cycles a
 count were never measured, and played at half the device's pace: walking and
 animation felt slow and sticky, and were right at 2x. Now 3 s holding a
 direction walks 23 steps (12 before), and none are left when it is let go.
+
+Keys pressed while the program is busy are forgotten (Fulu.listen). While a
+scene plays, a notice shows or a map loads, the games do not ask for keys
+(伏魔记 1.3's opening scene: 2 s without asking); the OS keeps what is
+pressed meanwhile and hands it over afterwards, and the presses then skip the
+dialogues that follow and walk the hero on. So when the program asks
+(SysGetKey, GuiGetMsg) after not asking for over 300 ms, the keys pressed
+meanwhile are dropped. Measured in the six games: walking and menus ask at
+least every 250 ms; scenes, notices (真气不足!, 340 ms) and loading take
+longer. Waiting in GuiGetMsg is asking, so the key that ends a wait, however
+long, is kept; a held key's next repeat comes within 90 ms. Only on Fulu's own
+machine (not in the shadow run); the firmware keeps the device's behaviour.
