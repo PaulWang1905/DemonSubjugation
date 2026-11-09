@@ -615,6 +615,39 @@ function floatMultiply(): void {
   unframe(x, 0x0e);
 }
 
+/** $D7A6: $20/$21 negated (A its high byte). */
+function negate16(): void {
+  sec();
+  ram[0x20] = sbc(0, ram[0x20]);
+  ram[0x21] = cpu.a = sbc(0, ram[0x21]);
+}
+
+/**
+ * $D90B: $20/$21 shifted right (arithmetically) by the count in $23/$24; 16
+ * or more leaves 0 or $FFFF by the sign. A = the high byte before, X = 0.
+ */
+function shiftRight16(): void {
+  cpu.x = ram[0x24];
+  if (!nz(cpu.x)) {
+    cpu.x = ram[0x23];
+    if (!nz(cpu.x)) return;
+    cmp(cpu.x, 0x10);
+    if (!carry()) {
+      cpu.a = nz(ram[0x21]);
+      const negative = ram[0x21] & 0x80;
+      for (; cpu.x; ) {
+        if (negative) sec();
+        ram[0x21] = negative ? ror(ram[0x21]) : lsr(ram[0x21]);
+        ram[0x20] = ror(ram[0x20]);
+        cpu.x = nz(cpu.x - 1);
+      }
+      return;
+    }
+  }
+  cpu.a = nz(ram[0x21]);
+  ram[0x20] = ram[0x21] = cpu.a = nz(cpu.a & 0x80 ? 0xff : 0);
+}
+
 /** $D7B4: the long at ($20) negated, into scratch + 8, $20 pointing at it; A its high byte, Y = $0B. */
 function negate32(): void {
   const p = word(0x20), s = scratch() + 8;
@@ -766,6 +799,8 @@ const table: Record<number, () => unknown> = {
   0xe901: memmove,
   0xe904: memcmp,
   0xd7b4: negate32,
+  0xd7a6: negate16,
+  0xd90b: shiftRight16,
   0xdd32: uintToFloat,
   0xdd52: ubyteToFloat,
   0xe520: floatDivide,

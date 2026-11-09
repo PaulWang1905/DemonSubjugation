@@ -396,12 +396,12 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     expect(failures).toEqual([]);
   });
 
-  it("the string functions, SysRand, the melodies and GuiSetKbdState, on random arguments", { timeout: 300_000 }, () => {
+  it("the string functions, itoa, SysRand, the melodies and GuiSetKbdState, on random arguments", { timeout: 300_000 }, () => {
     const [m, fulu] = bareMachine();
     let seed = 9;
     const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
     const failures: string[] = [];
-    for (let trial = 0; trial < 600 && !failures.length; trial++) {
+    for (let trial = 0; trial < 2000 && !failures.length; trial++) {
       for (let a = 0x1000; a < 0x2000; a++) m.ram[a] = rand(4) ? 1 + rand(255) : 0;
       const p = 0x1100 + rand(0x400), q = rand(3) ? p + rand(64) - 32 : 0x1800 + rand(0x400), n = rand(0x300);
       const w = (v: number) => [v & 0xff, v >> 8];
@@ -415,7 +415,9 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
         [0xe8a1, []], // SysPlayMelody(A), A mostly 1-12
         [0xe8a4, []],
         [0xe968, w(rand(0x10000))], // GuiSetKbdState(w)
-      ][rand(9)] as [number, number[]];
+        // itoa(value, buffer, radix): values small, signed extremes or any; radix 10, 16, 2, 8 or any
+        [0xe709, [...w([0, 1, 9, 10, 0x7fff, 0x8000, 0xffff, rand(100), rand(0x10000)][rand(9)]), ...w(0x1800 + rand(0x400)), ...w([10, 16, 2, 8, rand(0x10000)][rand(5)])]],
+      ][rand(10)] as [number, number[]];
       if (entry === 0xe959 && rand(2)) m.ram.set([rand(200), 0], p + 4);
       if (entry === 0xe718 && rand(2)) {
         // the same string at q, now and then with a byte changed
