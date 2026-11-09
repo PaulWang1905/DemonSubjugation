@@ -43,6 +43,14 @@ export interface OsFunction {
    * Nothing but the OS reads them; checking Fulu leaves them out.
    */
   fromRom?: { registers?: ("a" | "x" | "y")[]; ram?: [number, number][] };
+  /**
+   * What the OS keeps for itself while it works and Fulu keeps its own way
+   * (the file functions': their workspace, registers and flags but A):
+   * checking Fulu leaves it out.
+   */
+  ownState?: { registers?: ("a" | "x" | "y" | "p")[]; ram?: [number, number][] };
+  /** It changes the flash (checking Fulu keeps the firmware's flash apart from Fulu's). */
+  files?: boolean;
 }
 
 /** Banks D-F: where the OS keeps its resident code. */
@@ -126,6 +134,7 @@ export class Fulu {
     ram.set(BOOT_PAGE, 0x3e4);
     ram[PROGRAM_BASE] = base & 0xff;
     ram[PROGRAM_BASE + 1] = base >> 8;
+    ram[0x2186] = 2; // the file system's groups of 256 sectors (2 MB of flash), as the OS's start-up leaves it
     const pages = [1, 2, 3, 4, base, base + 1, base + 2, base + 3, data, data + 1, data + 2, data + 3, ...OS_PAGES];
     pages.forEach((page, i) => this.map(i + 1, page));
     for (const [a, v] of [...IO, ...ZERO_PAGE]) ram[a] = v;

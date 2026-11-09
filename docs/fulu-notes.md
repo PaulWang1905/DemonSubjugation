@@ -331,18 +331,39 @@ search.) What Fulu still lacks, in the 伏魔记 series and 英雄坛说:
 
 | Entry | What | Size | Calls |
 |---|---|---|---|
-| $E9CE | FileOpen | 424 | 11 |
-| $E9D1 | close a handle (clears its record at $2122 + 12h) | 12 | 8-12 |
-| $E9D4 | read from a file (by its record) | 960 | 5 |
-| $E9C8 | write to a file (programs the flash) | 2845 | 3 |
-| $E9D7 | seek in a file (by its record) | 244 | 8 |
-| $E9EF | a file's record: position / length | 112 | 6 |
-| $E9EC | FileSearch | 372 | 4 |
-| $E9DD | FileDel | 1380 | 5 |
-| $E950 | a dialog in the save code (伏魔记 1.0 only; tests 'Y', 'N', 'y', 'n'; draws a 24 x 24 icon copied from the OS's ROM at 9:$8ADA, which Fulu will need its own of) | 1623 | 1 |
+| $E950 | a Yes/No dialog (伏魔记 1.0 only: its "overwrite the save?"); tests 'Y', 'N', 'y', 'n'; draws a 24 x 24 icon (9:$8ADA) and its two buttons (from a table at 9:$8CB2, $78 bytes each) from the OS's ROM, which Fulu will draw its own way (the site's icon; 是 / 否 in the site's font) | 1623 | 1 |
 
-These are what saving and loading use: until they are done a save or a load
-stops the game on Fulu.
+## The file functions
+
+Saving and loading. Done from what the functions do (src/fulu/files.ts),
+not from the OS's code, which programs the flash cell by cell with its own
+wear-levelling; but on the OS's own format, so that the two see each other's
+files, and checked against the firmware:
+
+- calls: FileSearch(type in A, n, &id, &name); FileOpen(id, type, mode,
+  &handle, &size) (a user file by its id alone); create $E9C8(type in A, size
+  (3 bytes), name, &id, &handle) (opened to write); read $E9D7 and write $E9D4
+  (handle in A, n (a byte), buffer), at the position, unchecked against the
+  size; seek $E9EF(handle in A, offset (long), whence: 1 from the start, 2
+  from the position, 3 from the end with a negative offset: size + offset -
+  1); close $E9D1(handle in A); FileDel $E9DD(handle in A, open to write).
+  They return 1 or 0 in A.
+- the format: sector maps ($1000, $8000; a byte a sector: $03 a directory
+  sector of user files, $02 one of their data sectors, from the top of the
+  flash down without a gap, $FF free), page maps ($4000, $B000; a byte a
+  256-byte page: $02 used, $00 freed), directory entries {first page (2),
+  name (10), size (3), type} ($00 deleted, $FF free), and the open files' 4
+  records at $2122 of 12 bytes {mode, first page, position (3), size (3), the
+  entry's place (its index in its sector, the sector)}.
+- what Fulu does its own way: the OS's workspace while it works ($2100-$219F,
+  $80-$8F, $20-$27, X, Y, C, V: declared `ownState`, left out of the
+  comparison), and where deleted files' space goes (the OS collects it when it
+  needs room; Fulu reuses a data sector no live file uses, from the top, as
+  the OS was seen to). The comparison checks the files a program can see in
+  the flash (the live entries in order, and each file's contents) instead of
+  the raw bytes.
+- checked: a third shadow run saves to slot 1, saves over it (覆盖原进度？) and
+  loads, in the six games (the 伏魔记 versions reach saving).
 
 Done since the first audit, each checked against the firmware on random
 arguments: SysRand; strcat $E712, strcmp $E718; itoa $E709 and ltoa $E70F

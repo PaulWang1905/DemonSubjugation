@@ -50,7 +50,7 @@ describe("Fulu", () => {
   it("names an OS function it does not have", () => {
     const call = (entry: number) =>
       run(program([0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2, 0x60], [], [])).stopped;
-    expect(call(0xe9ce)).toBe("Fulu has no FileOpen ($E9CE) yet");
-    expect(call(0xe9c8)).toBe("Fulu has no OS function $E9C8 yet");
+    expect(call(0xe950)).toBe("Fulu has no OS function $E950 yet");
+    expect(call(0xe7fa)).toBe("Fulu has no OS function $E7FA yet");
   });
 });

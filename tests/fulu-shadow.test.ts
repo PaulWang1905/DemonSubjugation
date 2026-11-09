@@ -107,7 +107,16 @@ interface Nested {
 const PLAY_KEYS: number[] = [Key.enter, Key.enter, Key.enter, Key.up, Key.down, Key.left, Key.right, Key.enter, Key.down, Key.right, Key.exit];
 const TYPING_KEYS = [...PLAY_KEYS, ...[..."az09m"].map(keyCode), Key.space, Key.shift, Key.del, Key.del, Key.input];
 
-function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS): { rows: Map<string, Row>; misuse: Set<string> } {
+/**
+ * A key script: E Enter, X Exit, U D L R the arrows, each pressed with 0.6 s
+ * after it; w waits a second. SAVE_AND_LOAD (伏魔记 1.3, and as far as it goes
+ * in the others): a new game, the opening dialogue, then from the menu's 系统
+ * a save to slot 1, a second save over it (覆盖原进度？ 是) and a load.
+ */
+const SAVE_AND_LOAD = "EwwEEXwXwEEEEEEEEEEwwXwDDDEwDwEwEwXwDDDEwDwEwEwEwXwDDDEwEwEwEw";
+const SCRIPT_KEYS: Record<string, number> = { E: Key.enter, X: Key.exit, U: Key.up, D: Key.down, L: Key.left, R: Key.right };
+
+function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys: number[] | string = PLAY_KEYS): { rows: Map<string, Row>; misuse: Set<string> } {
   const d = new Device(fw), file = d.install(gam);
   if (!file) throw new Error("the game does not fit in the flash");
   const m = d.machine, cpu = m.cpu, entry = gam[0x40] | (gam[0x41] << 8), first = 0x200 + (file.offset >> 12);
@@ -180,6 +189,8 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS
   }
 
   let calls = 0;
+  /** The flash before an entry into a file function (its answers change it). */
+  let flashBefore: Uint8Array | null = null, firmwareFlash: Uint8Array | null = null;
   let started = false, at = -1, before: Snapshot | null = null, reached = true;
   let function_: (typeof FUNCTIONS)[number] | undefined;
   const misuse = new Set<string>();
@@ -187,7 +198,13 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS
   function finish(): void {
     judging = true;
     const ref = snapshot(m);
-    restore(m, before!);
+    const refFlash = flashBefore ? m.flash.data.slice() : null;
+    firmwareFlash = refFlash;
+    const back = () => {
+      restore(m, before!);
+      if (flashBefore) m.flash.data.set(flashBefore);
+    };
+    back();
     const [name, answered, function_] = entryOf(at);
     const row = rows.get(name) ?? { calls: 0, interrupted: 0, mismatches: 0 };
     rows.set(name, row);
@@ -201,7 +218,7 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS
       let diff = judge(ref, function_, "one");
       for (const order of ORDERS.slice(1)) {
         if (!diff || !nested.length) break;
-        restore(m, before!);
+        back();
         if (!judge(ref, function_, order)) diff = "";
       }
       if (diff) {
@@ -210,6 +227,7 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS
       }
     }
     restore(m, ref);
+    if (refFlash) m.flash.data.set(refFlash);
     cpu.stopped = false;
     judging = false;
   }
@@ -230,7 +248,12 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS
       const raised = ref.ram[a] & ~before!.ram[a];
       if (!((m.ram[a] ^ ref.ram[a]) & ~raised)) m.ram[a] = ref.ram[a];
     }
-    return why || differences(ref, snapshot(m));
+    return why || [differences(ref, snapshot(m)), refFlashOf(f)].filter(Boolean).join(", ");
+  }
+
+  /** For a file function: how Fulu's flash differs from the firmware's (taken when the firmware answered). */
+  function refFlashOf(f: OsFunction | undefined): string {
+    return f?.files && firmwareFlash ? flashDifferences(firmwareFlash, m.flash.data) : "";
   }
 
   // An entry ends back in the program; an interrupt's at its RTI, wherever it returns to.
@@ -270,6 +293,7 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS
       nested.length = 0;
       calls = 0;
       function_ = pc === FAR_CALL ? FUNCTIONS[m.ram[0x26] | (m.ram[0x27] << 8)] : undefined;
+      flashBefore = function_?.files ? m.flash.data.slice() : null;
       reached = !function_;
       const st = (i: number) => m.ram[0x100 | ((cpu.s + i) & 0xff)];
       back = vector(pc) ? st(2) | (st(3) << 8) : -1;
@@ -279,6 +303,17 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys = PLAY_KEYS
   };
   if (!d.launch(file)) throw new Error("the game does not start");
 
+  if (typeof keys === "string") {
+    d.run(3);
+    for (const c of keys) {
+      if (c === "w") d.run(1);
+      else {
+        d.press(SCRIPT_KEYS[c]);
+        d.run(0.6);
+      }
+    }
+    return { rows, misuse };
+  }
   let seed = 7;
   const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
   for (let t = 0; t < seconds; t += 0.4) {
@@ -305,8 +340,40 @@ const RETURN = 0x0ff0, ARGS = 0x4400;
 
 /** Leave out of a comparison what a function declares it need not leave as the OS does: its temporaries, and what it would take from the OS's ROM. */
 function fromOs(m: Machine, ref: Snapshot, f: OsFunction | undefined): void {
-  for (const [a, b] of [...(f?.temporaries ?? []), ...(f?.fromRom?.ram ?? [])]) m.ram.set(ref.ram.subarray(a, b), a);
-  for (const r of f?.fromRom?.registers ?? []) m.cpu[r] = ref.cpu[r];
+  for (const [a, b] of [...(f?.temporaries ?? []), ...(f?.fromRom?.ram ?? []), ...(f?.ownState?.ram ?? [])]) m.ram.set(ref.ram.subarray(a, b), a);
+  for (const r of [...(f?.fromRom?.registers ?? []), ...(f?.ownState?.registers ?? [])]) m.cpu[r] = ref.cpu[r];
+}
+
+/**
+ * The files a program can see in a flash image: the downloaded ones' and the
+ * user files' live directory entries in the OS's order, with each user file's
+ * contents. (Where the OS puts them, and what it does with deleted ones, is
+ * its own: it collects the space of deleted files its own way.)
+ */
+function visibleFiles(f: Uint8Array): string[] {
+  const out: string[] = [];
+  const map = (sector: number) => (sector < 0x100 ? 0x1000 : 0x8000) + (sector & 0xff);
+  for (let e = 0; e < 0x1000 && f[e + 15] !== 0xff; e += 16) if (f[e + 15]) out.push(`program ${[...f.subarray(e, e + 16)].join(",")}`);
+  for (let sector = 0x1ff; sector >= 0 && (f[map(sector)] === 2 || f[map(sector)] === 3); sector--) {
+    if (f[map(sector)] !== 3) continue;
+    for (let e = sector << 12; e < (sector + 1) << 12; e += 16) {
+      const type = f[e + 15];
+      if (type === 0 || type === 0xff) continue;
+      const page = f[e] | (f[e + 1] << 8), size = f[e + 12] | (f[e + 13] << 8) | (f[e + 14] << 16);
+      const data = f.subarray(page << 8, (page << 8) + size);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum = (Math.imul(sum, 31) + data[i]) >>> 0;
+      out.push(`file ${[...f.subarray(e, e + 16)].join(",")} data ${sum.toString(16)}`);
+    }
+  }
+  return out;
+}
+
+/** How the files a program can see differ between the firmware's flash and Fulu's. */
+function flashDifferences(ref: Uint8Array, got: Uint8Array): string {
+  const a = visibleFiles(ref), b = visibleFiles(got);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) if (a[i] !== b[i]) return `files: ${a[i] ?? "none"} / ${b[i] ?? "none"}`;
+  return "";
 }
 
 /**
@@ -574,7 +641,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
   });
 
   const games = GAMES && existsSync(GAMES) ? readdirSync(GAMES).filter((f) => /\.gam$/i.test(f)).sort() : [];
-  const playAll = (keys: number[]) => {
+  const playAll = (keys: number[] | string) => {
     const fw = loadFirmware(), mismatches: string[] = [];
     const missing = new Map<string, Set<string>>();
     for (const g of games) {
@@ -594,4 +661,5 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
   };
   it.skipIf(!games.length)("every entry into the OS while games play", { timeout: 3_600_000 }, () => playAll(PLAY_KEYS));
   it.skipIf(!games.length)("every entry into the OS while games play, typing too", { timeout: 3_600_000 }, () => playAll(TYPING_KEYS));
+  it.skipIf(!games.length)("every entry into the OS while saving and loading", { timeout: 3_600_000 }, () => playAll(SAVE_AND_LOAD));
 });
