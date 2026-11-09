@@ -337,3 +337,61 @@ firmware.
 reusing the engine's map and sprite code), the player (~50), tests and the
 screenshot checks. Independent of F4; doing F4 first makes the text work in
 the wider view from the start.
+
+## 13. F6: More text for `.gam` games (plan)
+
+**Goal.** The JS engine's More text option for `.gam` games on Fulu: Normal
+(16 px), 12 px or 10 px text in dialogues and message boxes, so a page holds
+more, with the same font menus (Chinese and English pixel fonts at 12 / 10
+px, the ones the JS engine bundles; or HD, F4, at that size).
+
+**Why it is not just smaller glyphs.** The game's engine (BBK's RPG kit,
+RpgA100.eng) lays its text out itself. SAY (gitee fmj-engine,
+engine_cmd_actor.c `_002085A3`) counts 15 half-width characters for a line
+(11 beside a portrait), prints two lines with SysPrintString at y = $3A and
+$4D in a box at ($09, $37)-($95, $5F), and waits for a key, page after
+page. Fulu sees only the strings of one page; drawing them smaller would
+leave the box half empty, and the page breaks stay the game's. So Fulu
+takes over the engine's text commands, as it took over the OS.
+
+**How.**
+
+1. *Find the commands.* SAY, MESSAGE (`_00203B8B`, a message box waiting for
+   a key) and TIMEMSG (`_00207590`, one shown for a time) are the kit's own
+   code, the same in every game made with it. Their addresses in each `.gam`
+   are found from the script interpreter's command table (the switch at
+   `_51D7`), and their code is checked byte for byte against the version
+   this was written for; a game whose code differs keeps its own.
+2. *Answer them in TypeScript* (src/fulu/gut.ts), as the OS functions are
+   answered: Fulu traps the routine's address and runs its version, which
+   reads the command's arguments from the script (advancing the script
+   pointer as the original does), draws the box, the portrait (the engine's
+   own sprite routine, called as a far call) and the text, waits for a key
+   through GuiGetMsg (resumable, as GuiMsgBox), and restores the screen.
+3. *First exactly as the game, then more.* At 16 px the TypeScript version
+   must do what the game's code does: the shadow run compares the two (the
+   game's routine against Fulu's, from the same state) over the six games'
+   scripts, 0 mismatches. Only then does the More text layout go in: at 12 px
+   a line of the box takes 11 Chinese characters (7 at 16 px) and the box
+   three lines (two); at 10 px, 14 and four. Page breaks are recomputed for
+   the new size, so a dialogue takes fewer pages.
+4. *Fonts.* The glyphs at 12 / 10 px come from the player (the JS engine's
+   bundled pixel fonts, by the Chinese and English font menus), handed to
+   Fulu as its 16 px font is; the characters go into the text marks (F4) with
+   their size, so HD text draws them too.
+5. *The option.* More text: Normal, 12, 10, in the device player on Fulu,
+   with the font menus when it is not Normal. Changing it applies from the
+   next page.
+
+**Checks.** The shadow comparison at 16 px (step 3); screenshot sheets of the
+six games' dialogues at 12 and 10 px, pixel and HD: text inside the box, no
+character cut or lost (the pages joined give the script's string back), the
+portrait and the screen after the dialogue as at 16 px.
+
+**Limits.** Dialogues and message boxes only: menus, item descriptions and
+the intro's scrolling text are laid out by the game's other code and stay
+at 16 px. Only games made with the RPG kit. Firmware mode is not changed.
+
+**Size.** Two to three sessions: finding and checking the commands, the
+three commands in TypeScript with the shadow comparison, the compact layout
+and the fonts, the option.
