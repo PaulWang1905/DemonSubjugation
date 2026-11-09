@@ -198,6 +198,8 @@ export function DevicePlayer({ game, onExit }: Props) {
 
   // Keys: a press goes to the device; held direction keys repeat.
   const held = useRef(new Map<number, number>());
+  /** Held keys that have repeated. */
+  const repeated = useRef(new Set<number>());
   const keyDown = useCallback((k: number) => {
     if (held.current.has(k) || live.current.paused) return;
     // On Fulu the system keys would only end the program (they lead to the
@@ -210,7 +212,10 @@ export function DevicePlayer({ game, onExit }: Props) {
     // the key is let go).
     const repeat = () => {
       const d = deviceRef.current?.device;
-      if (d && !d.machine.keysWaiting()) d.press(k);
+      if (d && !d.machine.keysWaiting()) {
+        d.press(k);
+        repeated.current.add(k);
+      }
       held.current.set(k, window.setTimeout(repeat, REPEAT_RATE));
     };
     held.current.set(k, REPEATS.has(k) ? window.setTimeout(repeat, REPEAT_DELAY) : 0);
@@ -218,6 +223,8 @@ export function DevicePlayer({ game, onExit }: Props) {
   const keyUp = useCallback((k: number) => {
     window.clearTimeout(held.current.get(k));
     held.current.delete(k);
+    // a held key's repeats not read yet are taken back, so the walk stops when the key is let go (a tap's one press stays)
+    if (repeated.current.delete(k)) deviceRef.current?.device.machine.dropKey(k);
   }, []);
   useEffect(() => {
     const keys = held.current;

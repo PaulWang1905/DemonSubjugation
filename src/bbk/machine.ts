@@ -27,9 +27,21 @@ const ALMMIN = 0x230, RTCSEC = 0x234, IER = 0x23a, TIER = 0x23b, KEYCODE = 0x24e
 /** The OS sets this to 0xFE when its start-up has finished. */
 export const MTCT = 0x22b;
 
-export const CPU_HZ = 4_000_000;
-const TICK = 400; // CPU cycles per timer count
-const TICKS_PER_SECOND = CPU_HZ / TICK;
+/**
+ * The CPU's clock. Not measured on a device: at 4 MHz (the figure other
+ * emulators use) games played at half the pace players remember; at 8 MHz
+ * they keep it.
+ */
+export const CPU_HZ = 8_000_000;
+/**
+ * The timers' count rate, separate from the CPU's: the OS reloads timer 1
+ * with $A6 (90 counts an overflow), and 伏魔记's timer events (SysTimer1Open(50),
+ * its map's 500 ms tick, as its Java port and the Baye port time them: 10 ms a
+ * unit) then come every 500 ms.
+ */
+export const TIMER_HZ = 9_000;
+const TICK = CPU_HZ / TIMER_HZ; // CPU cycles per timer count
+const TICKS_PER_SECOND = TIMER_HZ;
 const RESET_VECTOR = 0x350, BRK_VECTOR = 0x304;
 
 /** Everything but the flash contents, to suspend and resume the machine. */
@@ -139,6 +151,19 @@ export class Machine implements Bus {
    */
   keysWaiting(): boolean {
     return this.keys.length > 0 || this.ram[0x2003] !== this.ram[0x2004];
+  }
+
+  /**
+   * Take back the presses of a key not read yet: queued here, or in the OS's
+   * key buffer ($2008, 16 places; write and read indexes at $2003 / $2004)
+   * when nothing else is there. (A held key's repeats, when it is let go.)
+   */
+  dropKey(code: number): void {
+    const c = code & 0x3f, ram = this.ram;
+    for (let i = this.keys.length - 1; i >= 0; i--) if (this.keys[i] === c) this.keys.splice(i, 1);
+    let only = true;
+    for (let i = ram[0x2004]; i !== ram[0x2003]; i = (i + 1) & 0x0f) only &&= ram[0x2008 + i] === c;
+    if (only) ram[0x2004] = ram[0x2003];
   }
 
   /** Queue a key press (device key code, see keys.ts). */

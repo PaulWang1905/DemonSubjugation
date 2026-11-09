@@ -7,7 +7,7 @@ import { deleteFile, FileType, installFile, isFormatted, listFiles } from "../sr
 import { findLib, gamInfo, isGam } from "../src/bbk/gam";
 import { KEYBOARD, Key, keyCode } from "../src/bbk/keys";
 import { decodeLcd, iconOn, LCD_STRIDE } from "../src/bbk/lcd";
-import { Machine } from "../src/bbk/machine";
+import { CPU_HZ, Machine, TIMER_HZ } from "../src/bbk/machine";
 
 /** Firmware whose boot page (the OS ROM's last 256 bytes, run from $0300) holds `code` at $0350. */
 function firmware(code: number[], vectors: Record<number, number> = {}): Firmware {
@@ -66,7 +66,7 @@ describe("machine", () => {
     const fw = firmware(code, { 3: 0x0380 });
     fw.regions.os!.set(handler, REGION_SIZE - 0x100 + 0x80);
     const m = new Machine(fw);
-    m.run(400 * (0x100 + 0x10 * 9) + 2000); // from 0 to the first overflow, then nine reloads from 0xF0
+    m.run((CPU_HZ / TIMER_HZ) * (0x100 + 0x10 * 9) + 2000); // from 0 to the first overflow, then nine reloads from 0xF0
     expect(m.ram[0x10]).toBe(10);
   });
 

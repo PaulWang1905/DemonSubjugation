@@ -427,3 +427,13 @@ last one (Machine.keysWaiting: none queued, and the OS's key buffer at
 $2003 / $2004 empty); repeats every 90 ms piled up in the 15-key buffer while
 a walk step took longer, and the walk went on for seconds after the key was
 let go.
+When the key is let go, the repeats it queued are dropped (Machine.dropKey:
+from the machine's queue, and the OS's buffer when it holds only that key),
+so a step does not go on after the release.
+
+The clocks: the CPU runs at 8 MHz and the timer counts at 9 kHz (90 counts,
+the OS's reload of $A6, make the games' 10 ms unit: SysTimer1Open(50) is the
+map's half-second tick). The reference emulators' 4 MHz with 400 cycles a
+count were never measured, and played at half the device's pace: walking and
+animation felt slow and sticky, and were right at 2x. Now 3 s holding a
+direction walks 23 steps (12 before), and none are left when it is let go.
