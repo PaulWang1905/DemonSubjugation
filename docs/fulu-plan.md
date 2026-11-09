@@ -258,3 +258,77 @@ real OS, which Fulu does not see).
 **Size.** About one session: ~150 lines in src/fulu (records, check), ~30 in
 the player, tests and the screenshot check.
 
+
+## 12. F5: the wider map view for `.gam` games (plan)
+
+**Goal.** The player's map view option (Original 9 × 6, Wider 13 × 8, Widest
+17 × 10 tiles), which the JS engine has, for `.gam` games too: on a map, more
+of it is shown around what the game draws. Menus, battles and scenes stay
+the device's size, centred.
+
+**What can be used.**
+
+1. *The game's data, in a form the site reads.* All six games (the 伏魔记
+   series and 英雄坛说) are made with BBK's RPG kit (RpgA100.eng) and carry an
+   fmj resource library at $48000 (`findLib`); the site's JS engine already
+   plays that library. So the maps, their tiles and the characters' sprites
+   can be drawn by the site's own engine code. (三国霸业 has none: no wider
+   view.)
+2. *Where the game keeps its view, in RAM* (from the C reconstruction of the
+   kit's engine, gitee fmj-engine): the current map's chapter and section
+   ($1979, $197A), the screen's top-left tile on the map ($197C, $197D), the
+   map's size ($197E, $197F), the party ($1988, 3 records of $19 bytes) and
+   the NPCs ($19D3: 40 pointers to $20-byte records; +2 facing, +5 x, +6 y,
+   +$17 sprite). The game composes each frame in its own buffer (pointer at
+   $1936) and shows it with SysPicture.
+
+So the wider view needs no change to the game or to the OS: around the
+device's screen, the rest of the map is drawn from the library, at the
+position the game's RAM gives. It works the same with Fulu and with the
+firmware.
+
+**How.**
+
+1. *Draw the surroundings* (src/bbk/wideView.ts). From the library: the map
+   ($1979 / $197A) and its tiles, drawn for the wider window around the
+   game's view ($197C / $197D), blank past the map's edges; then the NPCs and
+   party members whose positions fall in the border, with their facing, from
+   the RAM records, using the JS engine's map and sprite drawing.
+2. *Check before showing* (the same rule as F4's text: never show what the
+   screen does not confirm). Each frame, the window the game shows is drawn
+   from the library too and compared with the LCD, tile by tile. The border
+   is shown only while the tiles the game's screen shows match the library's
+   (those under sprites or a dialogue box are not counted, but most must
+   match). Menus, battles, scene pictures and anything unexpected fail the
+   check: the border is then blank and only the device's screen shows, as in
+   the JS engine's battles. A wrong address or a game whose engine keeps its
+   view elsewhere fails it too, so a game is never shown a wrong map.
+3. *Compose.* A frame of 13 × 8 or 17 × 10 tiles: the border from step 1, the
+   device's own map area (its 9 × 6 tiles, exact pixels: the hero, effects,
+   dialogue boxes) in the middle, placed so the hero is at the centre. The
+   decorative strip at the right of the device's screen is left out on maps.
+   The player shows the wider frame (`HiresText.draw` already takes any frame
+   size), and F4's text marks move with the device's screen.
+
+**Checks.**
+
+- Unit test: for each game with the library, the first map's window drawn
+  from the library equals the LCD (sprites aside), which also proves the RAM
+  addresses for that game's engine.
+- Sheets of screenshots in the six games: walking across several maps and to
+  their edges, through doors, with NPCs moving, in dialogues, menus, battles
+  and scenes; the border never shows a wrong tile.
+
+**Limits.**
+
+- In the border, NPCs are drawn from their records, so an animation frame or
+  a scripted effect there can differ from what the game would draw; inside
+  the device's screen everything is the game's own.
+- A dialogue box stays where the game draws it, at the bottom of the device's
+  screen, not at the bottom of the wider view (as the JS engine places it).
+- Only games made with the RPG kit whose library is in the .gam.
+
+**Size.** Two to three sessions: the surroundings and the check (~250 lines,
+reusing the engine's map and sprite code), the player (~50), tests and the
+screenshot checks. Independent of F4; doing F4 first makes the text work in
+the wider view from the start.
