@@ -13,6 +13,7 @@ import { GuiMsgBox } from "./msgbox";
 import { SysRand } from "./rand";
 import { Itoa } from "./itoa";
 import { Ltoa } from "./ltoa";
+import { YesNo } from "./dialog";
 import { compare } from "./runtime";
 import type { Handler, OsFunction } from "./fulu";
 
@@ -43,6 +44,7 @@ export const FUNCTIONS: Record<number, OsFunction> = {
   0xe959: SysRand,
   0xe709: Itoa,
   0xe70f: Ltoa,
+  0xe950: YesNo,
   // memset(p, c, n), as compiled C: it counts p up and n down in its arguments
   0xe700: fn(0x5000, () => {
     const args = word(0x28), c = rd(args + 4);

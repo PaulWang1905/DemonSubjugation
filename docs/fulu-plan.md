@@ -188,9 +188,10 @@ that the six call. Done since, each checked against the firmware: SysRand,
 the keys a keyboard can send, strcat, strcmp, itoa, ltoa, the melodies,
 GuiSetKbdState, memcmp and the runtime's float and 32-bit helpers. Saving and
 loading (the file functions) are done since, checked against the firmware
-while saving, overwriting and loading. **Still to do for the six: 伏魔记 1.0's
-"overwrite the save?" dialog $E950**; until then overwriting a save stops 1.0
-on Fulu. The
+while saving, overwriting and loading. So is 伏魔记 1.0's "overwrite the
+save?" dialog $E950, with the site's icon. **For the six games nothing their
+code can reach is missing** (scripts/bbk/gam-calls.mjs); 三国霸业 needs two
+more OS functions and eight runtime routines. The
 list is in docs/fulu-notes.md ("Still to do"). Also not written: input
 methods, $E92F (GuiMsgBox's message $0A 3), the input mode changes in $E93B,
 GuiGetMsg's other events.

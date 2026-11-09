@@ -340,7 +340,8 @@ const RETURN = 0x0ff0, ARGS = 0x4400;
 
 /** Leave out of a comparison what a function declares it need not leave as the OS does: its temporaries, and what it would take from the OS's ROM. */
 function fromOs(m: Machine, ref: Snapshot, f: OsFunction | undefined): void {
-  for (const [a, b] of [...(f?.temporaries ?? []), ...(f?.fromRom?.ram ?? []), ...(f?.ownState?.ram ?? [])]) m.ram.set(ref.ram.subarray(a, b), a);
+  const rom = f?.fromRom?.ram, fromRom = typeof rom === "function" ? rom() : (rom ?? []);
+  for (const [a, b] of [...(f?.temporaries ?? []), ...fromRom, ...(f?.ownState?.ram ?? [])]) m.ram.set(ref.ram.subarray(a, b), a);
   for (const r of [...(f?.fromRom?.registers ?? []), ...(f?.ownState?.registers ?? [])]) m.cpu[r] = ref.cpu[r];
 }
 

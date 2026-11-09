@@ -42,7 +42,7 @@ export interface OsFunction {
    * (a melody's notes): registers and RAM it cannot leave as the OS does.
    * Nothing but the OS reads them; checking Fulu leaves them out.
    */
-  fromRom?: { registers?: ("a" | "x" | "y")[]; ram?: [number, number][] };
+  fromRom?: { registers?: ("a" | "x" | "y")[]; ram?: [number, number][] | (() => [number, number][]) };
   /**
    * What the OS keeps for itself while it works and Fulu keeps its own way
    * (the file functions': their workspace, registers and flags but A):

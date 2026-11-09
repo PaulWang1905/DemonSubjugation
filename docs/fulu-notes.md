@@ -327,11 +327,18 @@ JSR/JMP, far calls into its own segments and C switch tables ($DB5C) are
 followed. For each of the six games it reaches every far-call site into the
 OS that a byte search finds (and ~136,000 instructions), so the lists below
 are complete for direct calls. (`scripts/bbk/os-calls.mjs` is the cruder byte
-search.) What Fulu still lacks, in the 伏魔记 series and 英雄坛说:
+search.) **For the 伏魔记 series and 英雄坛说, nothing is missing**: every OS
+function and runtime routine their code can reach is in Fulu. The last was
+$E950, a Yes / No dialog (伏魔记 1.0's "overwrite the save?"): done through
+the same calls as the OS's (src/fulu/dialog.ts), drawing its own pictures
+where the OS draws ones from its ROM (9:$8ADA, a 24 x 24 icon, and the
+buttons at 9:$8CB2): the site's icon (public/favicon.svg at 1.5 x) and 是 /
+否 in the font ROM's glyphs. Where those pictures go is declared `fromRom`
+(computed per call: the screen under them and the heap blocks they pass
+through) and left out of the comparison; the rest matches the firmware.
 
-| Entry | What | Size | Calls |
-|---|---|---|---|
-| $E950 | a Yes/No dialog (伏魔记 1.0 only: its "overwrite the save?"); tests 'Y', 'N', 'y', 'n'; draws a 24 x 24 icon (9:$8ADA) and its two buttons (from a table at 9:$8CB2, $78 bytes each) from the OS's ROM, which Fulu will draw its own way (the site's icon; 是 / 否 in the site's font) | 1623 | 1 |
+三国霸业 still needs $E7FA, $E8BF and the runtime's $D506, $D572, $D81D,
+$D825, $D8AE, $DD19, $DD6F, $E517 (floating point).
 
 ## The file functions
 
