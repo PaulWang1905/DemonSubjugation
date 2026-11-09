@@ -12,8 +12,8 @@
 // including the incidental ones (X, Y, the flags of its last operation),
 // since a program could depend on any of them.
 
-import { B, Z } from "../bbk/cpu";
-import { adc, asl, carry, clc, cmp, cpu, long, lsr, m, nz, plp, ram, rd, rol, ror, sbc, sec, store, use, word, wr } from "./alu";
+import { B, C, Z } from "../bbk/cpu";
+import { adc, asl, carry, clc, cmp, cpu, long, lsr, m, nz, os, plp, ram, rd, rol, ror, sbc, sec, setP, store, use, word, wr } from "./alu";
 import type { Fulu, Handler } from "./fulu";
 
 const scratch = () => word(0x2a);
@@ -444,6 +444,225 @@ function memcmp(): void {
   cpu.a = nz(cpu.p & Z ? 0 : carry() ? 1 : 0xff);
 }
 
+// ---- single-precision floats (IEEE layout, the runtime's own arithmetic) ----
+//
+// The routines work in a frame on the 6502 stack (dead once they return);
+// here f[i] is the frame's byte at $0100 + i,x after their TSX: the first
+// operand ($20) at f[1..4], the second ($23) at f[5..8], working bytes from
+// f[9]. Only what they leave matters: the result, and A, X, Y and the flags.
+
+/** The frame after the routine's TSX: ($20) at f[1..4], ($23) at f[5..8]. */
+function frame(): Uint8Array {
+  const f = new Uint8Array(16), a = word(0x20), b = word(0x23);
+  for (let i = 0; i < 4; i++) (f[1 + i] = rd(a + i)), (f[5 + i] = rd(b + i));
+  return f;
+}
+
+/** Write a result to ($20) (scratch + 8): mantissa f[m..m+2], exponent e, sign s. */
+function storeFloat(f: Uint8Array, m: number, e: number, s: number): void {
+  const p = word(0x20);
+  wr(p + 2, (f[m + 2] & 0x7f) | (e & 1 ? 0x80 : 0));
+  wr(p + 3, ((e >> 1) & 0x7f) | s);
+  wr(p, f[m]);
+  wr(p + 1, f[m + 1]);
+}
+
+/** The routines' end: TXA / CLC / ADC #n / TAX / TXS, so A = X = S at their entry; Y = 1. */
+function unframe(x: number, n: number): void {
+  clc();
+  cpu.a = cpu.x = adc(x, n);
+  cpu.y = 1;
+}
+
+/**
+ * $E31D: the long at ($20) as a float at ($23) (it may be the same place):
+ * normalised by shifting left from exponent $9E. A is left the sign byte, C
+ * the exponent's low bit; X the frame's (depth: the helper's stack less 11).
+ */
+function longToFloat(x: number): void {
+  const a = word(0x20), b = word(0x23);
+  const v = [0, 1, 2, 3].map((i) => rd(a + i));
+  cpu.y = 3;
+  if (!(v[0] | v[1] | v[2] | v[3])) {
+    for (let y = 3; y >= 0; y--) wr(b + y, 0);
+    cpu.y = 0;
+    cpu.a = 0;
+    nz(0);
+    return;
+  }
+  let n = (v[0] | (v[1] << 8) | (v[2] << 16) | (v[3] << 24)) >>> 0;
+  const sign = v[3] & 0x80;
+  if (sign) {
+    // SEC / SBC from 0, byte by byte (V from the last)
+    sec();
+    for (let i = 0; i < 4; i++) v[i] = sbc(0, v[i]);
+    n = (v[0] | (v[1] << 8) | (v[2] << 16) | (v[3] << 24)) >>> 0;
+  }
+  let y = 0x9e;
+  while (!(n & 0x80000000)) {
+    n = (n << 1) >>> 0;
+    y--;
+  }
+  setP(C, y & 1);
+  // the top 3 bytes: the mantissa (its top bit, always 1, replaced by the exponent's low bit)
+  wr(b + 2, (n >>> 24) & (y & 1 ? 0xff : 0x7f));
+  wr(b + 3, (y >> 1) | sign);
+  wr(b + 1, (n >>> 16) & 0xff);
+  wr(b, (n >>> 8) & 0xff);
+  cpu.y = 0;
+  cpu.x = x;
+  cpu.a = nz(sign);
+}
+
+/** $E100 (by $E520): ($20) / ($23), into scratch + 8, $20 pointing at it. */
+function floatDivide(): void {
+  const s = cpu.s, f = frame(), x = (s - 2 - 13) & 0xff;
+  const zero = (i: number) => !((f[i + 3] & 0x7f) | f[i + 2] | f[i + 1] | f[i]);
+  if (zero(5)) f.fill(0xff, 9, 14); // by 0
+  else if (!zero(1)) {
+    const ea = ((f[8] << 1) | (f[7] >> 7)) & 0xff, eb = ((f[4] << 1) | (f[3] >> 7)) & 0xff;
+    f[12] = (eb - ea + 0x7f) & 0xff;
+    f[13] = (f[8] ^ f[4]) & 0x80;
+    f[7] |= 0x80;
+    f[3] |= 0x80;
+    f[8] = f[4] = 0;
+    let r = (f[1] | (f[2] << 8) | (f[3] << 16)) >>> 0, d = (f[5] | (f[6] << 8) | (f[7] << 16)) >>> 0, q = 0;
+    for (let y = 0x19; ; y--) {
+      const bit = r >= d ? 1 : 0;
+      if (bit) r -= d;
+      if (y === 1) {
+        if (bit) {
+          // round up, renormalising while that carries out
+          for (;;) {
+            q += 1;
+            if (q < 0x1000000) break;
+            q &= 0xffffff;
+            f[12] = (f[12] + 1) & 0xff;
+            const out = q & 1;
+            q >>>= 1;
+            if (!out) break;
+          }
+        }
+        break;
+      }
+      q = ((q << 1) | bit) & 0xffffff;
+      r = (r << 1) >>> 0;
+    }
+    // (a rounding that carries out of $FFFFFF leaves 0, and the OS then loops here for ever; Fulu stops)
+    if (!q) return void os.stop("The OS's float division hangs here (its rounding overflowed)");
+    while (!(q & 0x800000)) {
+      q = (q << 1) & 0xffffff;
+      f[12] = (f[12] - 1) & 0xff;
+    }
+    f[9] = q & 0xff;
+    f[10] = (q >> 8) & 0xff;
+    f[11] = q >> 16;
+  }
+  point(0x20, 8);
+  storeFloat(f, 9, f[12], f[13] & 0x80);
+  unframe(x, 0x0d);
+}
+
+/** $E3B7 (by $E52C): ($20) × ($23), into scratch + 8, $20 pointing at it. */
+function floatMultiply(): void {
+  const s = cpu.s, f = frame(), x = (s - 2 - 14) & 0xff;
+  const zero = (i: number) => !((f[i + 3] & 0x7f) | f[i + 2] | f[i + 1] | f[i]);
+  if (!zero(1) && !zero(5)) {
+    f[13] = (((f[4] << 1) | (f[3] >> 7)) - 0x7f) & 0xff;
+    f[3] |= 0x80;
+    const ea = ((f[8] << 1) | (f[7] >> 7)) & 0xff;
+    f[14] = f[8];
+    f[7] |= 0x80;
+    f[8] = 0;
+    f[13] = (f[13] + ea) & 0xff;
+    f[14] = (f[4] ^ f[14]) & 0x80;
+    f[4] = 0;
+    // shift-and-add, the product in f[9..12] above the multiplier in f[1..4]
+    let hi = 0, lo = (f[1] | (f[2] << 8) | (f[3] << 16)) >>> 0;
+    const a = (f[5] | (f[6] << 8) | (f[7] << 16)) >>> 0;
+    const shift = () => {
+      const out = lo & 1;
+      lo = ((lo >>> 1) | ((hi & 1) << 31)) >>> 0;
+      hi >>>= 1;
+      if (out) hi = (hi + a) >>> 0;
+    };
+    /** Bit 0 of the product's top byte (f[12]). */
+    const top = () => (hi >>> 24) & 1;
+    for (let y = 0x19; ; ) {
+      y--;
+      if (y) {
+        shift();
+        continue;
+      }
+      if (!top()) break;
+      f[13] = (f[13] + 1) & 0xff;
+      y = 1;
+      shift();
+    }
+    // round on the top bit of the bits shifted out (f[4]'s bit 7); a carry into bit 24 shifts the top five bytes right
+    for (;;) {
+      if (!(lo & 0x80000000)) break;
+      hi = (hi + 1) >>> 0;
+      if (!top()) break;
+      lo = ((lo & 0x00ffffff) | ((((lo >>> 24) >>> 1) | ((hi & 1) << 7)) << 24)) >>> 0;
+      hi >>>= 1;
+      f[13] = (f[13] + 1) & 0xff;
+    }
+    for (let i = 0; i < 4; i++) f[9 + i] = (hi >>> (8 * i)) & 0xff;
+  }
+  point(0x20, 8);
+  storeFloat(f, 9, f[13], f[14] & 0x80);
+  unframe(x, 0x0e);
+}
+
+/** $D7B4: the long at ($20) negated, into scratch + 8, $20 pointing at it; A its high byte, Y = $0B. */
+function negate32(): void {
+  const p = word(0x20), s = scratch() + 8;
+  sec();
+  for (let i = 0; i < 4; i++) wr(s + i, (cpu.a = sbc(0, rd(p + i))));
+  cpu.y = 0x0b;
+  point(0x20, 8);
+}
+
+/** $DD32: the unsigned int in $20/$21 as a float, at scratch + $10 ($20 pointing at it; $23/$24 kept, A its high byte). */
+function uintToFloat(): void {
+  const s = scratch();
+  wr(s + 0x10, ram[0x20]);
+  wr(s + 0x11, ram[0x21]);
+  cpu.a = 0;
+  wr(s + 0x12, 0);
+  wr(s + 0x13, 0);
+  cpu.y = 0x13;
+  point(0x20, 0x10);
+  const lo = ram[0x23], hi = ram[0x24];
+  clc();
+  ram[0x23] = adc(ram[0x2a], 0x10);
+  ram[0x24] = cpu.a = adc(ram[0x2b], 0);
+  longToFloat((cpu.s - 11) & 0xff);
+  ram[0x20] = ram[0x23];
+  ram[0x21] = ram[0x24];
+  ram[0x23] = lo;
+  ram[0x24] = cpu.a = nz(hi);
+}
+
+/** $DD52: the unsigned byte in $23 as a float, at scratch + $20 ($23 pointing at it; $20/$21 kept, A its high byte). */
+function ubyteToFloat(): void {
+  const s = scratch(), a = cpu.a;
+  wr(s + 0x20, ram[0x23]);
+  cpu.a = 0;
+  for (let i = 1; i < 4; i++) wr(s + 0x20 + i, 0);
+  cpu.y = 0x23;
+  point(0x23, 0x20);
+  nz((cpu.a = a));
+  const lo = ram[0x20], hi = ram[0x21];
+  ram[0x20] = ram[0x23];
+  ram[0x21] = cpu.a = ram[0x24];
+  point(0x23, 0x20);
+  longToFloat((cpu.s - 11) & 0xff);
+  ram[0x20] = lo;
+  ram[0x21] = cpu.a = nz(hi);
+}
+
 /** $E907: map ($28)[0] consecutive banks from bank A, the first to page ($28)[1..2]. */
 function mapBanks(): void {
   const sp = word(0x28), p = cpu.p;
@@ -546,6 +765,11 @@ const table: Record<number, () => unknown> = {
   0xdb5c: switchCase,
   0xe901: memmove,
   0xe904: memcmp,
+  0xd7b4: negate32,
+  0xdd32: uintToFloat,
+  0xdd52: ubyteToFloat,
+  0xe520: floatDivide,
+  0xe52c: floatMultiply,
   0xe907: mapBanks,
   0xe90a: savePage,
 };

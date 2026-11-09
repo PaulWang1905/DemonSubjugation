@@ -487,7 +487,21 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
           fill(c, 4, () => 0);
           m.write(c, rand(40));
           if (rand(8) === 0) m.write(c + 1 + rand(3), 1);
-        } else if ([0xd85a, 0xd85f, 0xdae6, 0xdb19, 0xdac1, 0xdac7, 0xdafc].includes(addr)) {
+        } else if (addr === 0xe520 || addr === 0xe52c) {
+          // float ÷ and ×: floats at ($20) and ($23), now and then 0, ±0, an extreme exponent, or the same number
+          const float = (at: number) => {
+            const e = [0x7f, 0x7f + rand(20), 0x7f - rand(20), rand(256), 0, 0xfe][rand(8) % 6], sign = rand(2) << 7;
+            const zero = rand(10) === 0;
+            const b = zero ? [0, 0, 0, sign] : [rand(256), rand(256), (rand(128) | ((e & 1) << 7)), (e >> 1) | sign];
+            b.forEach((v, i) => m.write(at + i, v));
+          };
+          set16(0x20, ptr());
+          set16(0x23, ptr());
+          const p = m.ram[0x20] | (m.ram[0x21] << 8), q = m.ram[0x23] | (m.ram[0x24] << 8);
+          float(p);
+          if (rand(6)) float(q);
+          else for (let i = 0; i < 4; i++) m.write(q + i, m.read(p + i));
+        } else if ([0xd85a, 0xd85f, 0xdae6, 0xdb19, 0xdac1, 0xdac7, 0xdafc, 0xd7b4].includes(addr)) {
           set16(0x20, ptr());
           set16(0x23, ptr());
         } else if (addr === 0xdb5c) {
