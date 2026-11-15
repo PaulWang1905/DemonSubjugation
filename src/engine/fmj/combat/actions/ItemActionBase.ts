@@ -12,6 +12,27 @@ export function fallbackAni(): ResSrs {
   return DatLib.getRes(ResType.SRS, 2, 1) as ResSrs;
 }
 
+/**
+ * The effect a thrown item plays (_00240841): only a thrown weapon (type 8)
+ * has one, the SRS its bytes 0x1a / 0x1b name, and only when that names one.
+ * A weapon (type 7) thrown plays none: the numbers follow the throw.
+ */
+export function throwAni(goods: { type: number; ani?: ResSrs | null }): ResSrs | null {
+  return goods.type === 8 ? (goods.ani ?? null) : null;
+}
+
+/** Where an effect plays on a fighter: the middle of its sprite, as spells do. */
+export function effectAt(fc: FightingCharacter): [number, number] {
+  return [fc.combatX, fc.combatY - Math.trunc((fc.fightingSprite?.height ?? 0) / 2)];
+}
+
+/** Where an effect on a whole side plays: the middle of its places (the original uses one fixed point there). */
+export function effectAtAll(side: FightingCharacter[]): [number, number] {
+  const at = side.map(effectAt);
+  const n = Math.max(1, at.length);
+  return [Math.round(at.reduce((s, p) => s + p[0], 0) / n), Math.round(at.reduce((s, p) => s + p[1], 0) / n)];
+}
+
 export function windUp(attacker: FightingCharacter, frame: number, ox: number, oy: number): void {
   if (attacker instanceof Player) attacker.fightingSprite!.currentFrame = Math.trunc((frame * 3) / 10) + 6;
   else attacker.setCombatPos(ox + 2, oy + 2);

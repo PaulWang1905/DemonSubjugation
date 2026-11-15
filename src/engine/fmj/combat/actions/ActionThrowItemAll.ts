@@ -1,4 +1,6 @@
-// Port of fmj/combat/actions/ActionThrowItemAll.kt (effect implemented; see ActionThrowItemOne).
+// Port of fmj/combat/actions/ActionThrowItemAll.kt (effect implemented; see
+// ActionThrowItemOne): the effect, when the item has one, plays once over the
+// enemies' side, then each enemy hit shows its number.
 import type { FightingCharacter } from "../../characters/FightingCharacter";
 import { Player } from "../../characters/Player";
 import type { GoodsHiddenWeapon } from "../../goods/GoodsHiddenWeapon";
@@ -8,11 +10,13 @@ import { RaiseAnimation } from "../anim/RaiseAnimation";
 import { EngineSettings } from "../../config/EngineSettings";
 import { throwItem } from "../OriginalRules";
 import { ActionMultiTarget } from "./ActionMultiTarget";
-import { STATE_AFT, STATE_ANI, STATE_PRE, applyHiddenWeapon, fallbackAni, windDown, windUp } from "./ItemActionBase";
+import { STATE_AFT, STATE_ANI, STATE_PRE, applyHiddenWeapon, effectAtAll, throwAni, windDown, windUp } from "./ItemActionBase";
 
 export class ActionThrowItemAll extends ActionMultiTarget {
   private mState = STATE_PRE;
   private mAni: ResSrs | null = null;
+  private mAniX = 0;
+  private mAniY = 0;
   private ox = 0;
   private oy = 0;
 
@@ -28,9 +32,10 @@ export class ActionThrowItemAll extends ActionMultiTarget {
     const a = this.mAttacker!;
     this.ox = a.combatX;
     this.oy = a.combatY;
-    this.mAni = (this.hiddenWeapon as { ani?: ResSrs | null }).ani ?? fallbackAni();
-    this.mAni.start();
-    this.mAni.setIteratorNum(2);
+    this.mAni = throwAni(this.hiddenWeapon);
+    this.mAni?.start();
+    this.mAni?.setIteratorNum(2);
+    [this.mAniX, this.mAniY] = effectAtAll(this.mTargets);
     if (EngineSettings.originalDamageFormula) {
       const lost = throwItem(a, this.hiddenWeapon, "all");
       for (const [t, n] of lost) this.mRaiseAnis.push(new RaiseAnimation(t.combatX, t.combatY, -n, 0));
@@ -44,27 +49,31 @@ export class ActionThrowItemAll extends ActionMultiTarget {
     }
   }
 
+  /** The thrower is done; the targets take the hit and the numbers show. */
+  private hit(): void {
+    this.mState = STATE_AFT;
+    windDown(this.mAttacker!);
+    const onMonsters = this.targetIsMonster();
+    for (const fc of this.mTargets) {
+      if (!onMonsters) fc.fightingSprite!.currentFrame = 10;
+      else fc.fightingSprite!.move(2, 2);
+    }
+  }
+
   update(delta: number): boolean {
     super.update(delta);
-    const a = this.mAttacker!;
-    const onMonsters = this.targetIsMonster();
     switch (this.mState) {
       case STATE_PRE:
-        if (this.mCurrentFrame < 10) windUp(a, this.mCurrentFrame, this.ox, this.oy);
-        else this.mState = STATE_ANI;
+        if (this.mCurrentFrame < 10) windUp(this.mAttacker!, this.mCurrentFrame, this.ox, this.oy);
+        else if (this.mAni) this.mState = STATE_ANI;
+        else this.hit();
         break;
       case STATE_ANI:
-        if (!this.mAni!.update(delta)) {
-          this.mState = STATE_AFT;
-          windDown(a);
-          for (const fc of this.mTargets) {
-            if (!onMonsters) fc.fightingSprite!.currentFrame = 10;
-            else fc.fightingSprite!.move(2, 2);
-          }
-        }
+        if (!this.mAni!.update(delta)) this.hit();
         break;
       case STATE_AFT:
         if (!this.updateRaiseAnimation(delta)) {
+          const onMonsters = this.targetIsMonster();
           for (const fc of this.mTargets) {
             if (onMonsters) fc.fightingSprite!.move(-2, -2);
             else (fc as Player).setFrameByState();
@@ -77,7 +86,7 @@ export class ActionThrowItemAll extends ActionMultiTarget {
   }
 
   draw(canvas: Canvas): void {
-    if (this.mState === STATE_ANI) this.mAni!.draw(canvas, 0, 0);
+    if (this.mState === STATE_ANI) this.mAni!.drawAbsolutely(canvas, this.mAniX, this.mAniY);
     else if (this.mState === STATE_AFT) this.drawRaiseAnimation(canvas);
   }
 }

@@ -1,7 +1,10 @@
 // Port of fmj/combat/actions/ActionThrowItemOne.kt
 //
 // fmj.kt left the effect as a TODO (it showed a fixed "10"); the thrown
-// weapon's HP/MP values are applied here and one item is used up.
+// item's values are applied here. As in the original (_00240841), only a
+// thrown weapon (type 8) with an effect of its own plays one, over the
+// target as a spell's does; a sword thrown, or a thrown weapon without one,
+// goes straight to the hit and its number.
 import type { FightingCharacter } from "../../characters/FightingCharacter";
 import { Player } from "../../characters/Player";
 import type { GoodsHiddenWeapon } from "../../goods/GoodsHiddenWeapon";
@@ -11,7 +14,7 @@ import { RaiseAnimation } from "../anim/RaiseAnimation";
 import { ActionSingleTarget } from "./ActionSingleTarget";
 import { EngineSettings } from "../../config/EngineSettings";
 import { throwItem } from "../OriginalRules";
-import { STATE_AFT, STATE_ANI, STATE_PRE, applyHiddenWeapon, fallbackAni, windDown, windUp } from "./ItemActionBase";
+import { STATE_AFT, STATE_ANI, STATE_PRE, applyHiddenWeapon, effectAt, throwAni, windDown, windUp } from "./ItemActionBase";
 
 export class ActionThrowItemOne extends ActionSingleTarget {
   private mState = STATE_PRE;
@@ -34,37 +37,39 @@ export class ActionThrowItemOne extends ActionSingleTarget {
     const t = this.mTarget;
     this.ox = a.combatX;
     this.oy = a.combatY;
-    this.mAni = (this.hiddenWeapon as { ani?: ResSrs | null }).ani ?? fallbackAni();
-    this.mAni.start();
-    this.mAni.setIteratorNum(2);
-    this.mAniX = t.combatX;
-    this.mAniY = t.combatY;
-    if (EngineSettings.originalDamageFormula) {
-      const lost = throwItem(a, this.hiddenWeapon, t);
-      this.mRaiseAni = new RaiseAnimation(this.mAniX, t.combatTop, -(lost.get(t) ?? 0), 0);
-      return;
+    this.mAni = throwAni(this.hiddenWeapon);
+    this.mAni?.start();
+    this.mAni?.setIteratorNum(2);
+    [this.mAniX, this.mAniY] = effectAt(t);
+    let lost: number;
+    if (EngineSettings.originalDamageFormula) lost = -(throwItem(a, this.hiddenWeapon, t).get(t) ?? 0);
+    else {
+      Player.sGoodsList.deleteGoods(this.hiddenWeapon.type, this.hiddenWeapon.index);
+      lost = applyHiddenWeapon(a, t, this.hiddenWeapon.affectHp, this.hiddenWeapon.affectMp);
     }
-    Player.sGoodsList.deleteGoods(this.hiddenWeapon.type, this.hiddenWeapon.index);
-    const diff = applyHiddenWeapon(a, t, this.hiddenWeapon.affectHp, this.hiddenWeapon.affectMp);
-    this.mRaiseAni = new RaiseAnimation(this.mAniX, t.combatTop, diff, 0);
+    this.mRaiseAni = new RaiseAnimation(t.combatX, t.combatY, lost, 0);
+  }
+
+  /** The thrower is done; the target takes the hit and the numbers show. */
+  private hit(): void {
+    const t = this.mTarget;
+    this.mState = STATE_AFT;
+    windDown(this.mAttacker!);
+    if (t instanceof Player) t.fightingSprite!.currentFrame = 10;
+    else t.fightingSprite!.move(2, 2);
   }
 
   update(delta: number): boolean {
     super.update(delta);
-    const a = this.mAttacker!;
     const t = this.mTarget;
     switch (this.mState) {
       case STATE_PRE:
-        if (this.mCurrentFrame < 10) windUp(a, this.mCurrentFrame, this.ox, this.oy);
-        else this.mState = STATE_ANI;
+        if (this.mCurrentFrame < 10) windUp(this.mAttacker!, this.mCurrentFrame, this.ox, this.oy);
+        else if (this.mAni) this.mState = STATE_ANI;
+        else this.hit();
         break;
       case STATE_ANI:
-        if (!this.mAni!.update(delta)) {
-          this.mState = STATE_AFT;
-          windDown(a);
-          if (t instanceof Player) t.fightingSprite!.currentFrame = 10;
-          else t.fightingSprite!.move(2, 2);
-        }
+        if (!this.mAni!.update(delta)) this.hit();
         break;
       case STATE_AFT:
         if (!this.mRaiseAni!.update(delta)) {
