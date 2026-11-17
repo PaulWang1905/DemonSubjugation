@@ -14,7 +14,7 @@ import { CPU_HZ } from "../bbk/machine";
 import { Keys, readLibrary, type EngineKey } from "../engine";
 import { getFirmware, type StoredGame } from "../storage/db";
 import { FULU_OS, FuluDevice } from "../fulu/device";
-import { forgetDevice, osDigest, restoreDevice, saveDevice } from "./deviceStore";
+import { exportDevice, importDevice, installedProgram, loadSlot, osDigest, restoreDevice, saveDevice, savedFlash, saveSlot, slotTimes, storeDevice } from "./deviceStore";
 import { loadFontSet } from "./fonts";
 import { DebugMenu } from "./DebugMenu";
 import { DeviceTools, type Snapshot } from "./DeviceTools";
@@ -80,6 +80,12 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const [onFulu, setOnFulu] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
+  // How the device starts next: resumed as kept, or the machine afresh on the
+  // flash it had (restarting keeps the program's saves), which `carry` holds.
+  const nextStart = useRef<"resume" | "restart">("resume");
+  const carry = useRef<Uint8Array | null>(null);
+  /** When each save-state slot was saved (null: empty). */
+  const [slotTimesNow, setSlotTimes] = useState<(number | null)[]>([]);
   const [speed, setSpeed] = useState(() => Number(pref("speed", "1")) || 1);
   const [paletteId, setPaletteId] = useState<string>(() => pref<string>("palette", "lcd"));
   const [effect, setEffect] = useState<ScreenEffect>(() => effectOf(pref<string>("effect", "none")));
@@ -112,7 +118,8 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   // Fulu, the site's stand-in for it.
   useEffect(() => {
     let alive = true;
-    const fresh = generation > 0;
+    const restartNow = nextStart.current === "restart";
+    nextStart.current = "resume";
     setStatus({ kind: "loading" });
     (async () => {
       const text = textRef.current;
@@ -123,27 +130,37 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
       const make = () => (fonts ? new FuluDevice(fonts) : new Device(fw));
       let device = make();
       const os = original ? await osDigest(fw.regions.os!) : FULU_OS;
-      if (fresh) await forgetDevice(id);
       // (a device Fulu saved before each OS had its own was kept under the program's own key)
-      let restored = !fresh && ((await restoreDevice(id, os, device)) || (onFuluOs && (await restoreDevice(`gam:${game!.id}`, os, device))));
-      // a program that had stopped on Fulu starts again
-      if (restored && device instanceof FuluDevice && device.machine.cpu.stopped) {
+      let restored = !restartNow && ((await restoreDevice(id, os, device)) || (onFuluOs && (await restoreDevice(`gam:${game!.id}`, os, device))));
+      // Starting afresh keeps the flash, and with it the program's saves: the
+      // flash in play when restarting, that of a program that had ended, or
+      // the one kept for this game (from another OS build, or a file).
+      let flash = restartNow ? carry.current : null;
+      carry.current = null;
+      if (restored && device.machine.cpu.stopped) {
+        flash = device.machine.flash.data.slice();
         device = make();
         restored = false;
       }
+      if (!restored && !flash) flash = await savedFlash(id);
       if (restored && device instanceof FuluDevice) device.resumed();
       if (!restored) {
         setStatus({ kind: "starting" });
         await new Promise((r) => setTimeout(r, 30)); // let "Turning on…" show
         if (!alive) return;
+        if (flash) device.machine.flash.data.set(flash);
         if (game) {
-          const file = device.install(new Uint8Array(game.data));
+          const gam = new Uint8Array(game.data);
+          let file = flash ? installedProgram(device.machine.flash.data, gam) : null;
+          if (file && device instanceof Device) device.boot();
+          file ??= device.install(gam);
           if (!file) return setStatus({ kind: "error", message: text.tooBig });
           if (!device.launch(file)) setNotice(text.notStarted);
         } else if (device instanceof Device) {
           device.boot();
         }
       }
+      void slotTimes(id).then((t) => alive && setSlotTimes(t));
       if (!alive) return;
       deviceRef.current = { device, os };
       const lib = game ? findLib(new Uint8Array(game.data)) : -1;
@@ -311,10 +328,64 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   }, [touch]);
 
   const title = game?.name ?? nm({ label: "Longman 4988", zh: "朗文 4988" });
+  /** Turn the device off and on again: the program starts afresh on the same flash, its saves kept. */
   const restart = () => {
     setOptionsOpen(false);
     setNotice(null);
+    carry.current = deviceRef.current?.device.machine.flash.data.slice() ?? null;
+    nextStart.current = "restart";
     setGeneration((g) => g + 1);
+  };
+
+  // Save states (the whole device, in numbered slots kept in this browser),
+  // and the device in a file: its saves and its state, to keep or move.
+  const saveState = async (n: number) => {
+    const d = deviceRef.current;
+    if (!d) return;
+    await saveSlot(id, n, d.os, d.device);
+    setSlotTimes(await slotTimes(id));
+    setNotice(dt.saves.saved(n));
+  };
+  const loadState = async (n: number) => {
+    const d = deviceRef.current;
+    if (!d) return;
+    if (!(await loadSlot(id, n, d.os, d.device))) return setNotice(dt.saves.otherOs);
+    if (d.device instanceof FuluDevice) {
+      d.device.fulu.stopped = null;
+      d.device.fulu.textMarks.clear();
+      d.device.resumed();
+    }
+    if (status.kind !== "running") setStatus({ kind: "running" });
+    setOptionsOpen(false);
+    setNotice(dt.saves.loaded(n));
+  };
+  const exportSaves = async () => {
+    const d = deviceRef.current;
+    if (!d) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(await exportDevice(title, d.os, d.device));
+    // (in ASCII: some browsers drop a name in Chinese and call the file "download")
+    const name = title.replace(/[^\x20-\x7e]/g, "").trim().replace(/\s+/g, "-") || "4988";
+    a.download = `${name}-saves-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+  };
+  const importSaves = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const { device } = await importDevice(id, file);
+      // the device in play is replaced, not saved over the file's
+      deviceRef.current = null;
+      await storeDevice(device);
+      nextStart.current = "resume";
+      setOptionsOpen(false);
+      setGeneration((g) => g + 1);
+      setNotice(dt.saves.imported);
+    } catch {
+      setNotice(dt.saves.notAFile);
+    }
   };
   const screen = (
     <>
@@ -371,6 +442,33 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
           />
           {pt.keypad}
         </label>
+        <section className="dev-saves">
+          <strong>{dt.saves.title}</strong>
+          <p className="muted small">{dt.saves.hint}</p>
+          {slotTimesNow.map((t, i) => (
+            <div key={i} className="row">
+              <span className="small">
+                {dt.saves.slot(i + 1)}: {t ? new Date(t).toLocaleString(lang === "zh" ? "zh-CN" : undefined) : <span className="muted">{dt.saves.empty}</span>}
+              </span>
+              <div className="spacer" />
+              <button className="ghost" onClick={() => void saveState(i + 1)} disabled={status.kind !== "running"}>
+                {dt.saves.save}
+              </button>
+              <button className="ghost" onClick={() => void loadState(i + 1)} disabled={!t}>
+                {dt.saves.load}
+              </button>
+            </div>
+          ))}
+          <div className="row">
+            <button className="ghost" onClick={() => void exportSaves()} title={dt.saves.exportTitle}>
+              {dt.saves.export}
+            </button>
+            <label className="button ghost" title={dt.saves.importTitle}>
+              {dt.saves.import}
+              <input type="file" accept=".json,application/json" hidden onChange={(e) => (void importSaves(e.target.files?.[0]), (e.target.value = ""))} />
+            </label>
+          </div>
+        </section>
         <div className="row">
           <button className="ghost" onClick={restart} title={dt.restartTitle}>
             {dt.restart}

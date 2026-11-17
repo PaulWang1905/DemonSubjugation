@@ -3,7 +3,7 @@ import { deleteGame, getFont, isPersistent, listFirmware, listGames, putFirmware
 import { REQUIRED_REGIONS, type RegionId } from "../bbk/firmware";
 import { findLib } from "../bbk/gam";
 import { DevicePlayer } from "./DevicePlayer";
-import { forgetDevice } from "./deviceStore";
+import { forgetDevice, forgetSlots } from "./deviceStore";
 import { deleteSavesFor } from "../storage/saves";
 import { archiveId, importFiles } from "./importFiles";
 import { FuluPage } from "./FuluPage";
@@ -125,8 +125,10 @@ export function App() {
       deleteSavesFor(g.id);
       deleteSavesFor(`${g.id}-lib`);
       if (g.format === "gam") {
-        await forgetDevice(`gam:${g.id}`);
-        await forgetDevice(`gam:${g.id}:fulu`);
+        for (const id of [`gam:${g.id}`, `gam:${g.id}:fulu`]) {
+          await forgetDevice(id);
+          await forgetSlots(id);
+        }
       }
       await refresh();
     },

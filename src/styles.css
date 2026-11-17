@@ -4884,3 +4884,25 @@ p.f-prose {
     min-width: 0;
   }
 }
+
+/* the device player's saves: slots, export and import */
+.dev-saves {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.dev-saves .row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.dev-saves .spacer {
+  flex: 1;
+}
+.dev-saves p {
+  margin: 0;
+}
