@@ -16,12 +16,13 @@ describe("game links", () => {
 
   it("downloads direct links to game files as they are", () => {
     expect(fileLink("https://example.com/games/fmj.lib")).toBe("https://example.com/games/fmj.lib");
+    expect(fileLink("https://example.com/games/fmj.gam")).toBe("https://example.com/games/fmj.gam");
     expect(fileLink("https://example.com/games/")).toBeNull();
     expect(fileLink("not a link")).toBeNull();
   });
 
   it("knows game files and fonts by name", () => {
-    expect(["a.lib", "B.LIB", "HZK16", "asc16.bin"].every(isGameFile)).toBe(true);
-    expect(["readme.md", "传奇", "x.gam"].some(isGameFile)).toBe(false);
+    expect(["a.lib", "B.LIB", "x.gam", "Y.GAM", "HZK16", "asc16.bin"].every(isGameFile)).toBe(true);
+    expect(["readme.md", "传奇", "x.gam.txt"].some(isGameFile)).toBe(false);
   });
 });

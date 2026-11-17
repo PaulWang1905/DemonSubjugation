@@ -2,8 +2,8 @@
 // - a GitHub folder (github.com/owner/repo/tree/branch/path, or the repo
 //   itself): listed with GitHub's contents API, which allows any website
 // - a GitHub file page (…/blob/…), fetched from raw.githubusercontent.com
-// - a direct link to a .lib (or font) file on a server that allows it
-// - a plain web folder listing (an HTML page linking to .lib files)
+// - a direct link to a .lib or .gam (or font) file on a server that allows it
+// - a plain web folder listing (an HTML page linking to .lib or .gam files)
 // Nothing is bundled: the files are downloaded into this browser only.
 
 import { gamesText } from "./gamesText";
@@ -25,9 +25,9 @@ export interface RemoteFolder {
   entries: RemoteEntry[];
 }
 
-/** Files the player can use: game archives and the two font files. */
+/** Files the player can use: game archives (.lib), 4988 programs (.gam) and the two font files. */
 export function isGameFile(name: string): boolean {
-  return /\.lib$/i.test(name) || /^(hzk16|asc16)(\.(bin|dat))?$/i.test(name);
+  return /\.(lib|gam)$/i.test(name) || /^(hzk16|asc16)(\.(bin|dat))?$/i.test(name);
 }
 
 interface GitHubPath {
