@@ -99,6 +99,15 @@ export function useZoom(): [number, (z: number) => void] {
  * room the controls leave: the full width when upright, the full height
  * between the controls when sideways.
  */
+/** The map view: the device's 9 × 6 tiles, or `mx` more tile columns on each side and `my` rows above and below. */
+export type MapView = "normal" | "wide" | "widest";
+export const MAP_VIEWS: Record<MapView, { mx: number; my: number }> = {
+  normal: { mx: 0, my: 0 },
+  wide: { mx: 2, my: 1 },
+  widest: { mx: 4, my: 2 },
+};
+export const mapViewOf = (v: string): MapView => (v === "wide" || v === "widest" ? v : "normal");
+
 export function useScreenFit(
   stageRef: RefObject<HTMLDivElement | null>,
   canvasRef: RefObject<HTMLCanvasElement | null>,

@@ -9,7 +9,7 @@ import { DebugMenu } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { HiresText, outputScale, type ScreenEffect, type TextStyle } from "./hiresText";
-import { effectOf, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
+import { effectOf, MAP_VIEWS, mapViewOf, type MapView, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
 import { boldSmallFonts, FONT_SETS, loadPixelFonts, loadSmallFonts, type FontSetId } from "./fonts";
 import { PLAYER_TEXT } from "./playerText";
 import { SITE_TEXT } from "./siteText";
@@ -24,13 +24,6 @@ interface Props {
 }
 
 /** Map view: how many extra tile columns (each side) and rows (above and below) to show. */
-type MapView = "normal" | "wide" | "widest";
-const MAP_VIEWS: Record<MapView, { mx: number; my: number }> = {
-  normal: { mx: 0, my: 0 },
-  wide: { mx: 2, my: 1 },
-  widest: { mx: 4, my: 2 },
-};
-const mapViewOf = (v: string): MapView => (v === "wide" || v === "widest" ? v : "normal");
 /** Key repeat: first repeat after this long, then one every REPEAT_RATE ms. */
 const REPEAT_DELAY = 250;
 const REPEAT_RATE = 100;

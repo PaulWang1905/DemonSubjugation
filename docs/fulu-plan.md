@@ -338,6 +338,27 @@ reusing the engine's map and sprite code), the player (~50), tests and the
 screenshot checks. Independent of F4; doing F4 first makes the text work in
 the wider view from the start.
 
+**F5 status: done.** src/bbk/wideView.ts (`WideView`), `KitCheats.mapView()`
+(the map, the view and the characters, with each build's layout), the Map
+option in the device player (the same setting as the JS engine's player).
+What the games taught:
+
+- The map area starts at x 8 in four of the games, at x 7 in 伏魔记 1.0 and
+  1.2; the view finds which from the first screen that shows the map.
+- The characters' records ($19D3) give the picture as ACP(type, +$01), not
+  +$16; its frame is (facing - 1) × 3 + step (step 3 as 1), and a picture's
+  bottom is the bottom of its tile, for NPCs and scene objects alike. Drawn
+  this way, every NPC matched the game's own pixels where nothing covered it.
+- A plain tile (one colour) matches a blank screen: 英雄坛说's towns are
+  mostly white. The check counts tiles with a pattern: of those in view, at
+  least half (and 3) must match, and 27 of the 54 tiles overall.
+
+The check refused the screens that are not the map while the game's memory
+still names one (a run error, a blank screen); a battle was not reached in
+the automated runs. Not tried with the firmware (the code reads the same RAM
+and screen). tests/wide-view-gam.test.ts checks the six games on their first
+map.
+
 ## 13. F6: More text for `.gam` games (plan)
 
 **Goal.** The JS engine's More text option for `.gam` games on Fulu: Normal

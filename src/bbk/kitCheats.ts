@@ -23,6 +23,8 @@ const ACTORS = 0x1988;
 const FLAGS_PTR = 0x1aa9, RAM = 0x2100, RAM_END = 0x8000;
 /** The current map, its name, and the view's top left on it (the hero stands at (4, 3) in the view). */
 const MAP_TYPE = 0x1979, MAP_INDEX = 0x197a, MAP_NAME = 0x1942, VIEW_X = 0x197c, VIEW_Y = 0x197d;
+/** 40 pointers to the characters on the map (NPCs, scene objects): $1A-byte records. */
+const NPCS = 0x19d3, NPC_SLOTS = 40;
 /** Random battles: 0 off, 1 on. */
 const ENCOUNTERS = 0x1a96;
 /** 3 enemy slots of $33 bytes; one is used while its resource id is not 0. */
@@ -64,6 +66,17 @@ const STAT_AT: Record<StatKey, [number, 1 | 2]> = {
 const gbk = new TextDecoder("gbk");
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.trunc(Number.isFinite(v) ? v : 0)));
 
+/** What the game's map view shows, for the wider view (src/bbk/wideView.ts). */
+export interface KitMapView {
+  mapType: number;
+  mapIndex: number;
+  /** The view's top left tile on the map. */
+  viewX: number;
+  viewY: number;
+  /** The characters on the map: type (2 an NPC, 4 a scene object), picture, facing (1-4), step (0-3), tile. */
+  actors: { type: number; res: number; facing: number; step: number; x: number; y: number }[];
+}
+
 export class KitCheats implements Cheats {
   private readonly on: CheatSwitches = { noRandomBattles: false, walkThroughWalls: false, alwaysFull: false };
   /** The game's own random-battle setting, while noRandomBattles keeps it off. */
@@ -100,6 +113,25 @@ export class KitCheats implements Cheats {
         return s !== 0 && level >= 1 && level <= STAT_MAX.level && this.word(s + STAT_AT.hp[0]) <= this.word(s + STAT_AT.maxHP[0]);
       })
     );
+  }
+
+  /** The map view as the game keeps it, or null when the game is not as described (see ready()). */
+  mapView(): KitMapView | null {
+    if (!this.ready()) return null;
+    const actors: KitMapView["actors"] = [];
+    for (let i = 0; i < NPC_SLOTS; i++) {
+      const p = this.word(this.at(NPCS) + 2 * i);
+      if (!p) continue;
+      // (type, picture, facing, step, action, x, y: the reconstruction's NpcActor)
+      actors.push({ type: this.byte(p), res: this.byte(p + 1), facing: this.byte(p + 2), step: this.byte(p + 3), x: this.byte(p + 5), y: this.byte(p + 6) });
+    }
+    return {
+      mapType: this.byte(this.at(MAP_TYPE)),
+      mapIndex: this.byte(this.at(MAP_INDEX)),
+      viewX: this.byte(this.at(VIEW_X)),
+      viewY: this.byte(this.at(VIEW_Y)),
+      actors,
+    };
   }
 
   /** Keep the switches on: called after each frame the game runs. */

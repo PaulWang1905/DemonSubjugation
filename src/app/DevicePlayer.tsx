@@ -10,6 +10,7 @@ import { KitCheats } from "../bbk/kitCheats";
 import { missingRegions } from "../bbk/firmware";
 import { Key, KEYBOARD } from "../bbk/keys";
 import { decodeLcd, LCD_HEIGHT, LCD_STRIDE, LCD_WIDTH } from "../bbk/lcd";
+import { WideView } from "../bbk/wideView";
 import { CPU_HZ } from "../bbk/machine";
 import { Keys, readLibrary, type EngineKey } from "../engine";
 import { getFirmware, type StoredGame } from "../storage/db";
@@ -23,7 +24,7 @@ import { Keypad } from "./Keypad";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { PLAYER_TEXT } from "./playerText";
-import { effectOf, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
+import { effectOf, MAP_VIEWS, mapViewOf, type MapView, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
 import { useSiteLang } from "./siteLang";
 import { HD_CHINESE, readTextChoice, type TextChoice } from "./textChoice";
 
@@ -75,6 +76,12 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   // is open; its switches are kept after every frame.
   const [debugOpen, setDebugOpen] = useState(false);
   const kitRef = useRef<KitCheats | null>(null);
+  /** The wider map view, for games made with the RPG kit (their library is in the .gam). */
+  const wideRef = useRef<WideView | null>(null);
+  const [hasMap, setHasMap] = useState(false);
+  const [mapView, setMapView] = useState<MapView>(() => mapViewOf(pref<string>("mapView", "normal")));
+  const view = hasMap ? MAP_VIEWS[mapView] : MAP_VIEWS.normal;
+  const [frameW, frameH] = view.mx || view.my ? WideView.size(view.mx, view.my) : [LCD_WIDTH, LCD_HEIGHT];
   const slots = useRef<(Snapshot | null)[]>([null, null, null, null]);
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [onFulu, setOnFulu] = useState(false);
@@ -104,12 +111,12 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const touch = showPad && touchDevice;
   const sideways = useMedia(SIDE_PAD_QUERY);
   const fullscreen = useFullscreen();
-  const { scale, zoomInfo } = useScreenFit(stageRef, canvasRef, { touch, sideways, showPad, fullscreen, zoom, frameW: LCD_WIDTH, frameH: LCD_HEIGHT });
+  const { scale, zoomInfo } = useScreenFit(stageRef, canvasRef, { touch, sideways, showPad, fullscreen, zoom, frameW, frameH });
   // the loop reads these without restarting
   /** The HD text style, when text is drawn in HD (only on Fulu, which knows where the text is). */
   const hd: TextStyle | null = onFulu && text.look === "hd" ? text.hdChinese : null;
-  const live = useRef({ speed, paletteId, effect, scale, paused: optionsOpen || debugOpen, hd, letters: text.hdEnglish });
-  live.current = { speed, paletteId, effect, scale, paused: optionsOpen || debugOpen, hd, letters: text.hdEnglish };
+  const live = useRef({ speed, paletteId, effect, scale, paused: optionsOpen || debugOpen, hd, letters: text.hdEnglish, view });
+  live.current = { speed, paletteId, effect, scale, paused: optionsOpen || debugOpen, hd, letters: text.hdEnglish, view };
   const textRef = useRef(dt);
   textRef.current = dt;
 
@@ -164,7 +171,10 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
       if (!alive) return;
       deviceRef.current = { device, os };
       const lib = game ? findLib(new Uint8Array(game.data)) : -1;
-      kitRef.current = game && lib >= 0 ? new KitCheats(device.machine, readLibrary(new Uint8Array(game.data).subarray(lib))) : null;
+      const library = game && lib >= 0 ? new Uint8Array(game.data).subarray(lib) : null;
+      kitRef.current = library ? new KitCheats(device.machine, readLibrary(library)) : null;
+      wideRef.current = library ? new WideView(library) : null;
+      setHasMap(!!library);
       slots.current = [null, null, null, null];
       setOnFulu(!original);
       setStatus({ kind: "running" });
@@ -201,8 +211,9 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
     const cv = canvasRef.current!;
     const ctx = cv.getContext("2d")!;
     const pixels = new Uint8Array(LCD_STRIDE * LCD_HEIGHT);
-    const rgba = new Uint8ClampedArray(LCD_WIDTH * LCD_HEIGHT * 4);
-    const image = new ImageData(LCD_WIDTH, LCD_HEIGHT);
+    // the picture shown: the device's screen, or the wider view around it
+    let fw = 0, fh = 0, frame = pixels, stride = LCD_STRIDE;
+    let rgba = new Uint8ClampedArray(0), image = new ImageData(1, 1), wide = new Uint8Array(0);
     const hires = new Map<TextStyle | "pixel", HiresText>();
     let raf = 0, last = performance.now(), acc = 0;
     const loop = (now: number) => {
@@ -225,18 +236,31 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
           setStatus({ kind: "error", message: why === "The program ended" ? text.ended : text.fuluCannot(why) });
         }
         decodeLcd(d.machine.ram, pixels);
-        for (let y = 0, i = 0; y < LCD_HEIGHT; y++) {
-          for (let x = 0; x < LCD_WIDTH; x++, i += 4) {
-            const v = pixels[y * LCD_STRIDE + x] ? 0 : 255;
+        const { mx, my } = o.view, w = wideRef.current;
+        const [ww, wh] = w && (mx || my) ? WideView.size(mx, my) : [LCD_WIDTH, LCD_HEIGHT];
+        if (ww !== fw || wh !== fh) {
+          [fw, fh] = [ww, wh];
+          rgba = new Uint8ClampedArray(fw * fh * 4);
+          image = new ImageData(fw, fh);
+          wide = new Uint8Array(fw * fh);
+        }
+        let at: [number, number] = [0, 0];
+        if (w && (mx || my)) {
+          at = w.compose(pixels, kitRef.current?.mapView() ?? null, mx, my, wide);
+          [frame, stride] = [wide, fw];
+        } else [frame, stride] = [pixels, LCD_STRIDE];
+        for (let y = 0, i = 0; y < fh; y++) {
+          for (let x = 0; x < fw; x++, i += 4) {
+            const v = frame[y * stride + x] ? 0 : 255;
             rgba[i] = rgba[i + 1] = rgba[i + 2] = v;
             rgba[i + 3] = 255;
           }
         }
         const pal = PALETTES.find((p) => p.id === o.paletteId) ?? PALETTES[0];
         if (o.effect === "none" && !o.hd) {
-          if (cv.width !== LCD_WIDTH || cv.height !== LCD_HEIGHT) {
-            cv.width = LCD_WIDTH;
-            cv.height = LCD_HEIGHT;
+          if (cv.width !== fw || cv.height !== fh) {
+            cv.width = fw;
+            cv.height = fh;
           }
           applyPalette(rgba, image.data, pal);
           ctx.putImageData(image, 0, 0);
@@ -245,8 +269,9 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
           let h = hires.get(key);
           if (!h) hires.set(key, (h = new HiresText(o.hd)));
           h.setLetters(o.letters);
-          const marks = o.hd && d instanceof FuluDevice ? d.fulu.textMarks.marks(pixels) : [];
-          h.draw(cv, rgba, marks, pal, outputScale(o.scale, LCD_WIDTH), LCD_WIDTH, LCD_HEIGHT, o.effect);
+          // (the text marks are on the device's screen, which the wider view moves)
+          const marks = o.hd && d instanceof FuluDevice ? d.fulu.textMarks.marks(pixels).map((m) => ({ ...m, x: m.x + at[0], y: m.y + at[1] })) : [];
+          h.draw(cv, rgba, marks, pal, outputScale(o.scale, fw), fw, fh, o.effect);
         }
       }
       raf = requestAnimationFrame(loop);
@@ -401,6 +426,24 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
         onEffect={setEffect}
         zoom={touch ? undefined : { info: zoomInfo, change: changeZoom }}
       />
+      {hasMap && (
+        <label className="field" title={pt.mapTitle}>
+          <span className="lbl">{pt.map}</span>
+          <select
+            value={mapView}
+            onChange={(e) => {
+              setMapView(mapViewOf(e.target.value));
+              setPref("mapView", e.target.value);
+            }}
+          >
+            {(Object.keys(MAP_VIEWS) as MapView[]).map((k) => (
+              <option key={k} value={k}>
+                {pt.mapViews[k]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {onFulu && (
         <label className="field" title={pt.textTitle}>
           <span className="lbl">{pt.text}</span>
@@ -528,7 +571,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
             <canvas
               ref={canvasRef}
               className={effect !== "none" || hd ? "fx" : undefined}
-              style={{ width: LCD_WIDTH * scale, height: LCD_HEIGHT * scale }}
+              style={{ width: frameW * scale, height: frameH * scale }}
               aria-label={pt.gameScreen}
               {...hold.bind}
             />
