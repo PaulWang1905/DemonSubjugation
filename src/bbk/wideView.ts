@@ -18,8 +18,10 @@ import { LCD_HEIGHT, LCD_STRIDE, LCD_WIDTH } from "./lcd";
 const TILE = 16, COLS = 9, ROWS = 6;
 /** Where builds start the map area on the screen. */
 const LEFTS = [8, 7];
-/** How many of the screen's 54 map tiles must be the library's (see confirms()). */
-const MIN_MATCH = 27;
+/** How many of the screen's map tiles must be the library's, at least (see confirms()). */
+const MIN_MATCH = 9;
+/** A dialogue box (SAY's, or More text's taller one): its frame's sides at x 9 and 149, its bottom at y 95. */
+const BOX_LEFT = 9, BOX_RIGHT = 149, BOX_BOTTOM = 95, BOX_MIN = 20;
 /** A failed check blanks the border only from the second frame in a row (a frame caught mid-draw is not a scene change). */
 const GRACE = 2;
 
@@ -31,15 +33,24 @@ export interface Pic {
   plain: boolean[];
 }
 
-/** Of the screen's map tiles: how many are the library's, how many of those have a pattern, how many have one. */
+/** Of the screen's map tiles not under a dialogue box: how many, how many are the library's, how many of those have a pattern, how many have one. */
 interface Count {
+  seen: number;
   same: number;
   patterned: number;
   patterns: number;
 }
 
-/** Whether a count confirms the view: most tiles, and of the patterned ones at least half (and 3). */
-const confirms = (c: Count) => c.same >= MIN_MATCH && c.patterned >= Math.max(3, c.patterns / 2);
+/** Whether a count confirms the view: half the tiles seen (and 9), and of the patterned ones at least half (and 3). */
+const confirms = (c: Count) => c.same >= Math.max(MIN_MATCH, c.seen / 2) && c.patterned >= Math.max(3, c.patterns / 2);
+
+/** The top of a dialogue box on the screen, or null: its frame's two sides run up from its bottom line. */
+function boxTop(lcd: Uint8Array): number | null {
+  for (let x = BOX_LEFT; x <= BOX_RIGHT; x++) if (!lcd[BOX_BOTTOM * LCD_STRIDE + x]) return null;
+  let top = BOX_BOTTOM;
+  while (top > 0 && lcd[(top - 1) * LCD_STRIDE + BOX_LEFT] && lcd[(top - 1) * LCD_STRIDE + BOX_RIGHT]) top--;
+  return BOX_BOTTOM - top >= BOX_MIN ? top : null;
+}
 
 export class WideView {
   private readonly lib: DatLib;
@@ -118,17 +129,20 @@ export class WideView {
 
   /** How many of the screen's map tiles are the library's: all, and those with a pattern (a plain tile proves little). */
   private count(lcd: Uint8Array, map: MapData, view: KitMapView, left: number): Count {
-    const c: Count = { same: 0, patterned: 0, patterns: 0 };
-    for (let ty = 0; ty < ROWS; ty++) {
+    const c: Count = { seen: 0, same: 0, patterned: 0, patterns: 0 };
+    // (the tiles a dialogue box covers say nothing)
+    const box = boxTop(lcd), rows = box === null ? ROWS : Math.min(ROWS, Math.floor(box / TILE));
+    for (let ty = 0; ty < rows; ty++) {
       for (let tx = 0; tx < COLS; tx++) {
         const t = map.tile(view.viewX + tx, view.viewY + ty);
-        if (t < 0) return { same: 0, patterned: 0, patterns: 0 }; // (the view is always on the map)
+        if (t < 0) return { seen: 0, same: 0, patterned: 0, patterns: 0 }; // (the view is always on the map)
         const px = map.tiles.frames[t], plain = map.tiles.plain[t];
         let same = true;
         for (let y = 0; y < TILE && same; y++) {
           const row = (ty * TILE + y) * LCD_STRIDE + left + tx * TILE;
           for (let x = 0; x < TILE; x++) if ((lcd[row + x] ? 1 : 0) !== px[y * TILE + x]) { same = false; break; }
         }
+        c.seen++;
         if (!plain) c.patterns++;
         if (same) (c.same++, plain || c.patterned++);
       }

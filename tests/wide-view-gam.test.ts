@@ -57,3 +57,47 @@ describe.each(["伏魔记-1.0.gam", "伏魔记-1.2.gam", "伏魔记-1.3.gam", "�
     expect(frame.every((v) => v === 0)).toBe(true);
   }, 120_000);
 });
+
+// In a dialogue the box covers the screen's lower rows: the border stays (the game's box and More text's taller one).
+describe.each([
+  ["伏魔记-1.0.gam", 16],
+  ["伏魔记-1.3.gam", 16],
+  ["伏魔记-1.3.gam", 12],
+  ["伏魔记完美版1.0.gam", 10],
+] as const)("%s, dialogue at %i px", (file, size) => {
+  it.skipIf(!have(file))("keeps the border while a dialogue shows", () => {
+    const d = new FuluDevice({ hzk16: new Uint8Array(readFileSync(join(FONTS, "HZK16"))), asc16: new Uint8Array(readFileSync(join(FONTS, "ASC16"))) });
+    const gam = new Uint8Array(readFileSync(join(GAMES, file)));
+    d.launch(d.install(gam)!);
+    const library = gam.subarray(findLib(gam));
+    const kit = new KitCheats(d.machine, readLibrary(library)), wide = new WideView(library);
+    if (size !== 16) {
+      d.fulu.moreText.library = library;
+      d.fulu.moreText.font = { size, hzk: new Uint8Array(readFileSync(`public/fonts/small/cjk${size}.bin`)), asc: new Uint8Array(readFileSync(`public/fonts/small/latin${size}.bin`)) };
+    }
+    const run = (s: number) => {
+      for (let n = Math.round(s * 60); n > 0; n--) d.machine.run(CPU_HZ / 60);
+    };
+    // a new game, through the scrolling opening, to its first dialogues
+    run(3);
+    for (let i = 0; i < 3; i++) (d.press(Key.enter), run(2));
+    run(90);
+    const lcd = new Uint8Array(LCD_STRIDE * LCD_HEIGHT), [w, h] = WideView.size(2, 1), frame = new Uint8Array(w * h);
+    let dialogues = 0;
+    for (let i = 0; i < 12; i++) {
+      decodeLcd(d.machine.ram, lcd);
+      const view = kit.mapView();
+      // a box: its bottom line across the screen
+      const box = [...Array(141).keys()].every((x) => lcd[95 * LCD_STRIDE + 9 + x]);
+      if (view && box) {
+        dialogues++;
+        wide.compose(lcd, view, 2, 1, frame);
+        wide.compose(lcd, view, 2, 1, frame);
+        expect(wide.showing).toBe(true);
+      }
+      d.press(Key.enter);
+      run(1.2);
+    }
+    expect(dialogues).toBeGreaterThan(0);
+  }, 300_000);
+});
