@@ -433,9 +433,17 @@ game's: 3 lines at 12 px, 4 at 10; at most 4 and 5) with the portrait (PIC
 reader has seen Fulu's pages, the game's remaining waits are answered with
 a key. The small glyphs go into the text marks, so HD text draws them.
 
-Not done: MESSAGE and TIMEMSG (message boxes), menus and descriptions keep
-the device's size; no shadow comparison was needed, since the game's own
-code still runs. tests/more-text-gam.test.ts plays the six games' openings:
+Message boxes (MESSAGE and TIMEMSG: the OS's GuiMsgBox, which on Fulu is
+Fulu's own code) take the small font too: the box as tall as its lines,
+centred as the OS centres it, the screen under it saved and restored as
+before; a text too long for the screen keeps the OS's lines. With More text
+off, GuiMsgBox is as checked against the firmware.
+
+Not done, on purpose: menus, lists and descriptions. The kit lays them out
+in its own code (_00210D5B and the others: rows of 16 px, the selection bar,
+scrolling, keys), so showing more of them would mean replacing the game's
+code, which is riskier than what Fulu does elsewhere. They keep the device's
+size. No shadow comparison was needed, since the game's own code still runs. tests/more-text-gam.test.ts plays the six games' openings:
 every dialogue taken, its pages showing its whole string in order, never
 more pages than the game's.
 

@@ -18,6 +18,8 @@ const DOUBLE = 14, COLUMN = 15, CURSOR = 16, LINES = 18, LAST = 32, BOTTOM = 33,
 const TEXT_ARG = 57, TIMEOUT = 59, RESTORE = 61;
 /** The box: from x = 11 to 148 (its shadow to 148), 16 rows a line, at most 5 lines of 16 bytes. */
 const LEFT = 0x0b, RIGHT = 0x92, SHADOW = 0x94, TEXT_X = 0x0f, COLUMNS = 16, MAX_LINES = 5;
+/** Where its 16 bytes a line end (for More text's lines). */
+const TEXT_RIGHT = TEXT_X + 8 * COLUMNS - 1;
 
 const CALLEES = [0xe874, 0xe877, 0xe85d, 0xe79a, 0xe797, 0xe87d, 0xe87a, 0xe947, 0xe94a];
 const FUNCS: Record<number, OsFunction> = { ...SCREEN, ...TEXT, ...HEAP };
@@ -75,12 +77,29 @@ function wrap(text: number): void {
   else setL(LAST, L(LAST) - 1);
 }
 
-/** The box drawn, with the screen under it saved first if asked: false if there was no memory to save it in. */
+/** The text's bytes, with their 0. */
+function bytesAt(at: number): Int8Array {
+  const out: number[] = [];
+  for (let i = 0; i < 0x400; i++) {
+    const b = rd(at + i);
+    out.push(b);
+    if (!b) break;
+  }
+  return Int8Array.from(out, (b) => (b << 24) >> 24);
+}
+
+/**
+ * The box drawn, with the screen under it saved first if asked: false if
+ * there was no memory to save it in. With More text (src/fulu/moreText.ts),
+ * its lines are the small font's, the box as tall as they need.
+ */
 function draw(): boolean {
-  const lines = L(LAST) + 1;
-  const top = (((0x5a - ((lines * 16) & 0xff)) & 0xff) >> 1) & 0xff;
+  const text = bytesAt(L16(TEXT_ARG)), size = os.moreText.font?.size ?? 16;
+  const compact = size === 16 ? null : os.moreText.messageLines(text, TEXT_X, TEXT_RIGHT, Math.floor((0x5a - 4) / size));
+  const lines = compact ?? L(LAST) + 1, cell = compact ? size : 16;
+  const top = (((0x5a - ((lines * cell) & 0xff)) & 0xff) >> 1) & 0xff;
   setL(TOP, top);
-  setL(BOTTOM, (lines * 16 + top + 4) & 0xff);
+  setL(BOTTOM, (lines * cell + top + 4) & 0xff);
   const bottom = L(BOTTOM);
   if (L(RESTORE) === 1) {
     call(0xe874, LEFT, [...area(), (frame + SIZE) & 0xff, (frame + SIZE) >> 8]);
@@ -96,7 +115,8 @@ function draw(): boolean {
     call(0xe877, LEFT, [...area(), p & 0xff, p >> 8]);
   }
   call(0xe85d, LEFT, area());
-  for (let i = 0; i <= L(LAST); i++) {
+  if (compact) os.moreText.drawMessage(text, TEXT_X, TEXT_RIGHT, top + 2, compact);
+  else for (let i = 0; i <= L(LAST); i++) {
     setL(INDEX, i);
     const from = L16(LINES + 2 * i), n = (L16(LINES + 2 * i + 2) - from) & 0xff;
     setL(LENGTH, n);

@@ -35,7 +35,22 @@ describe.each([
     // what each dialogue's pages show, by watching Fulu draw them
     type Say = { text: Int8Array; pages: number[]; gamePages: number; answered: number };
     const shown = new Map<Int8Array, { say: Say; chars: string[][] }>();
-    const internals = mt as unknown as { say: Say | null; draw(say: Say, n: number): void; glyph(f: 0 | 1, code: number, x: number, y: number): void };
+    const internals = mt as unknown as {
+      say: Say | null;
+      draw(say: Say, n: number): void;
+      glyph(f: 0 | 1, code: number, x: number, y: number): void;
+      drawMessage(text: Int8Array, left: number, right: number, top: number, lines: number): void;
+    };
+    // the message boxes (GuiMsgBox) drawn in the small font: their text, and what was drawn
+    const messages: [string, string][] = [];
+    const drawMessage = internals.drawMessage.bind(mt);
+    internals.drawMessage = (text, left, right, top, lines) => {
+      page = [];
+      drawMessage(text, left, right, top, lines);
+      const len = text.indexOf(0);
+      messages.push([gbk.decode(new Uint8Array(text.subarray(0, len < 0 ? text.length : len))).replace(/ /g, ""), page.join("").replace(/ /g, "")]);
+      page = null;
+    };
     const draw = internals.draw.bind(mt), glyph = internals.glyph.bind(mt);
     let page: string[] | null = null;
     internals.draw = (say, n) => {
@@ -61,6 +76,9 @@ describe.each([
     expect(d.fulu.stopped).toBeNull();
 
     expect(shown.size).toBeGreaterThan(0);
+    // a message box shows its whole text (the 伏魔记 games open with the map's name in one)
+    if (file.startsWith("伏魔记")) expect(messages.length).toBeGreaterThan(0);
+    for (const [text, drawn] of messages) expect(drawn).toBe(text);
     for (const { say, chars } of shown.values()) {
       const text = gbk.decode(new Uint8Array(say.text.subarray(0, -1))).replace(/ /g, "");
       expect(say.pages.length).toBeLessThanOrEqual(say.gamePages);

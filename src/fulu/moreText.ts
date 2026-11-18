@@ -244,6 +244,29 @@ export class MoreText {
     this.wrap(say.text, from, head, lines, (f, code, x, y) => this.glyph(f, code, x, y));
   }
 
+  /**
+   * For the OS's message box (GuiMsgBox, which MESSAGE and TIMEMSG show; on
+   * Fulu it is Fulu's own code, src/fulu/msgbox.ts): how many lines of the
+   * small font `text` takes from x `left` to `right`, at most `max` (null
+   * when More text is off, or the text does not fit).
+   */
+  messageLines(text: Int8Array, left: number, right: number, max: number): number | null {
+    if (!this.font) return null;
+    const len = text.indexOf(0) < 0 ? text.length : text.indexOf(0);
+    for (let n = 1; n <= max; n++) if (this.wrapMessage(text, left, right, 0, n) >= len) return n;
+    return null;
+  }
+
+  /** Draw the message's `lines` lines from (left, top). */
+  drawMessage(text: Int8Array, left: number, right: number, top: number, lines: number): void {
+    this.wrapMessage(text, left, right, top, lines, (f, code, x, y) => this.glyph(f, code, x, y));
+  }
+
+  private wrapMessage(text: Int8Array, left: number, right: number, top: number, lines: number, place?: (font: 0 | 1, code: number, x: number, y: number) => void): number {
+    const size = this.font!.size, rows = Array.from({ length: lines }, (_, i) => ({ x: left, y: top + i * size, right }));
+    return TextRender.withSize(size, () => TextRender.drawWrapped(null, text, 0, rows, undefined, place).next);
+  }
+
   /** A small glyph at (x, y), replacing its cell, recorded for HD text. */
   private glyph(f: 0 | 1, code: number, x: number, y: number): void {
     const { size, hzk, asc } = this.font!, w = f === 0 ? size : size >> 1, rows: number[] = [];
