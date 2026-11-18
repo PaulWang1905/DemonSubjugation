@@ -51,6 +51,19 @@ function message(type: number, parameter: number): void {
   cpu.a = cpu.y = nz(1);
 }
 
+/**
+ * Answer GuiGetMsg with `key`, as when it reads one (More text turns a
+ * dialogue's remaining pages itself: src/fulu/moreText.ts).
+ */
+export function answerKey(key: number): void {
+  message(1, key);
+  const entry = 0x8c36 + 2 * (key & 0x3f);
+  set16(0x20, entry);
+  set16(0x26, entry);
+  set16(0x23, key & 0x3f);
+  cpu.p &= ~0x41;
+}
+
 /** The keyboard's state, as the GUI keeps it: bits 2 and 3 input methods, 4 caps, 5 a shift latch. */
 const KEYBOARD = 0x2b27;
 

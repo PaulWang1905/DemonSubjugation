@@ -24,7 +24,7 @@ const MIN_MATCH = 27;
 const GRACE = 2;
 
 /** An image's frames as pixels: 0 white, 1 black, 2 transparent; and which frames are one colour. */
-interface Pic {
+export interface Pic {
   w: number;
   h: number;
   frames: Uint8Array[];
@@ -187,7 +187,8 @@ class MapData {
   }
 }
 
-function decodePic(b: Int8Array | null): Pic | null {
+/** An image resource's frames as pixels (type, index, width, height, frames, 1: opaque or 2: with transparency, then the frames). */
+export function decodePic(b: Int8Array | null): Pic | null {
   if (!b || b.length < 6) return null;
   const w = b[2] & 0xff, h = b[3] & 0xff, n = b[4] & 0xff, bpp = b[5];
   if (!w || !h || (bpp !== 1 && bpp !== 2)) return null;

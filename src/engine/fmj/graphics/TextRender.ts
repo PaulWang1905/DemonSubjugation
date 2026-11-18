@@ -249,8 +249,11 @@ function toBytes(text: string | Int8Array): Int8Array {
 }
 
 
-/** Compact-text line breaking and drawing for TextRender.drawWrapped. */
-function wrapBytes(canvas: Canvas | null, b: Int8Array, start: number, rows: { x: number; y: number; right: number }[]): { next: number; rows: number } {
+/** Where a character goes: font 0 a GB2312 glyph (its code), 1 an ASCII one, with its top left at (x, y). */
+export type GlyphPlacer = (font: 0 | 1, code: number, x: number, y: number) => void;
+
+/** Compact-text line breaking and drawing for TextRender.drawWrapped (or, with `place`, only placing). */
+function wrapBytes(canvas: Canvas | null, b: Int8Array, start: number, rows: { x: number; y: number; right: number }[], place?: GlyphPlacer): { next: number; rows: number } {
   let len = b.indexOf(0);
   if (len < 0) len = b.length;
   const half = cell >> 1;
@@ -302,20 +305,25 @@ function wrapBytes(canvas: Canvas | null, b: Int8Array, start: number, rows: { x
     // before it down too
     if (j < len && isWide(j) && CLOSING.has(((b[j] & 0xff) << 8) | (b[j + 1] & 0xff)) && wideCount > 1 && lastWide === j - 2) j = lastWide;
     // 2. draw it
-    if (canvas) {
+    if (canvas || place) {
       let dx = row.x;
       let k = i;
       while (k < j) {
         const t = b[k] & 0xff;
         if (isWide(k)) {
-          drawHzk(canvas, (94 * (t - 0xa1) + (b[k + 1] & 0xff) - 0xa1) * 32, dx, row.y);
+          const code = 94 * (t - 0xa1) + (b[k + 1] & 0xff) - 0xa1;
+          if (place) place(0, code, dx, row.y);
+          else drawHzk(canvas!, code * 32, dx, row.y);
           dx += cell;
           k += 2;
         } else if (t === 0x20) {
           while (k < j && b[k] === 0x20) k++;
           dx += half;
         } else {
-          if (t < 0x80) drawAsc(canvas, t, dx, row.y);
+          if (t < 0x80) {
+            if (place) place(1, t, dx, row.y);
+            else drawAsc(canvas!, t, dx, row.y);
+          }
           dx += half;
           k++;
         }
@@ -387,9 +395,10 @@ export const TextRender = {
     start: number,
     rows: { x: number; y: number; right: number }[],
     deviceRows?: { left: number; right: number }[],
+    place?: GlyphPlacer,
   ): { next: number; rows: number } {
     const src = toBytes(text);
-    if (!deviceRows) return wrapBytes(canvas, src, start, rows);
+    if (!deviceRows) return wrapBytes(canvas, src, start, rows, place);
     // Texts are wrapped for the device's 16-pixel lines. Where a line was
     // exactly full, the words either side of the break have no space between
     // them; put one back so they do not run together here.
@@ -408,7 +417,7 @@ export const TextRender = {
       out.push(src[k]);
     }
     const mod = Int8Array.from(out);
-    const r = wrapBytes(canvas, mod, toMod[start] ?? mod.length, rows);
+    const r = wrapBytes(canvas, mod, toMod[start] ?? mod.length, rows, place);
     return { next: r.next >= mod.length ? src.length : toOrig[r.next], rows: r.rows };
   },
 

@@ -18,10 +18,12 @@ const ICONS = 159;
 interface Glyph {
   x: number;
   y: number;
-  /** 8 or 16. */
+  /** 8 or 16 (5, 6, 10, 12 for More text). */
   w: number;
+  /** 16 (12 or 10 for More text). */
+  h: number;
   text: string;
-  /** 16 rows of `w` bits, the leftmost pixel in the highest bit. */
+  /** `h` rows of `w` bits, the leftmost pixel in the highest bit. */
   rows: number[];
 }
 
@@ -33,9 +35,9 @@ export class TextMarks {
    * `text` is its character, or "" when there is none to redraw (a space, a
    * symbol of the device's own).
    */
-  drawn(x: number, y: number, w: number, rows: number[], text: string): void {
-    this.glyphs = this.glyphs.filter((g) => g.x >= x + w || x >= g.x + g.w || g.y >= y + 16 || y >= g.y + 16);
-    if (text.trim()) this.glyphs.push({ x, y, w, text, rows });
+  drawn(x: number, y: number, w: number, rows: number[], text: string, h = 16): void {
+    this.glyphs = this.glyphs.filter((g) => g.x >= x + w || x >= g.x + g.w || g.y >= y + h || y >= g.y + g.h);
+    if (text.trim()) this.glyphs.push({ x, y, w, h, text, rows });
   }
 
   clear(): void {
@@ -53,11 +55,11 @@ export class TextMarks {
         x: g.x,
         y: g.y,
         w: g.w,
-        h: 16,
+        h: g.h,
         text: g.text,
         fg: shown === "inverted" ? LIGHT : DARK,
         bg: shown === "inverted" ? DARK : LIGHT,
-        hidden: cut ? [g.w - cut, 0, g.w, 16] : null,
+        hidden: cut ? [g.w - cut, 0, g.w, g.h] : null,
       });
     }
     return out;
@@ -68,7 +70,7 @@ export class TextMarks {
 function shows(screen: Uint8Array, g: Glyph): "drawn" | "inverted" | null {
   let drawn = true, inverted = true;
   const w = Math.min(g.w, ICONS - g.x);
-  for (let k = 0; k < 16 && (drawn || inverted); k++) {
+  for (let k = 0; k < g.h && (drawn || inverted); k++) {
     const row = g.rows[k], at = (g.y + k) * LCD_STRIDE + g.x;
     for (let c = 0; c < w; c++) {
       const same = screen[at + c] === ((row >> (g.w - 1 - c)) & 1);

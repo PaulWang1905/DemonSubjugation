@@ -417,6 +417,28 @@ at 16 px. Only games made with the RPG kit. Firmware mode is not changed.
 three commands in TypeScript with the shadow comparison, the compact layout
 and the fonts, the option.
 
+**F6 status: done, more simply than planned, for dialogues.** SAY uses only
+the OS (SysLcdPartClear, SysRect, SysLine, SysPrintString, GuiGetMsg) besides
+its portrait and the screen's restore, so Fulu follows it there instead of
+taking over the game's code (src/fulu/moreText.ts, hooked in Fulu's far
+call): the box cleared at SAY's place, then its first line, start a dialogue;
+the string is read from the script at the interpreter's base + PC ($1AA2 /
+$1AA0: 伏魔记 1.3 has them 2 bytes on, 1.0 8 bytes back), the game's own
+pages are worked out from it (SAY's loop) and its first line must be the one
+printed, or the dialogue is left alone. The game's lines are not printed; at
+each wait Fulu draws the JS engine's compact box (never shorter than the
+game's: 3 lines at 12 px, 4 at 10; at most 4 and 5) with the portrait (PIC
+1-pos from the library) and a page of text broken as the JS engine breaks it
+(TextRender.drawWrapped, which now also places glyphs for others). Once the
+reader has seen Fulu's pages, the game's remaining waits are answered with
+a key. The small glyphs go into the text marks, so HD text draws them.
+
+Not done: MESSAGE and TIMEMSG (message boxes), menus and descriptions keep
+the device's size; no shadow comparison was needed, since the game's own
+code still runs. tests/more-text-gam.test.ts plays the six games' openings:
+every dialogue taken, its pages showing its whole string in order, never
+more pages than the game's.
+
 ## 14. F7: the debug menu for `.gam` games (plan)
 
 **Goal.** The JS engine's hidden debug menu (src/app/DebugMenu.tsx: hold

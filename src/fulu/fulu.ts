@@ -11,6 +11,7 @@
 // that what programs see is the same as on the device: the same registers,
 // stack and memory after each call (docs/fulu-notes.md has the map).
 
+import { MoreText } from "./moreText";
 import { C, N, V, Z } from "../bbk/cpu";
 import { REGION_SIZE } from "../bbk/firmware";
 import { FileType, installFile, type FlashFile } from "../bbk/flashfs";
@@ -113,6 +114,8 @@ export class Fulu {
   readonly machine: Machine;
   /** The characters drawn, for HD text. */
   readonly textMarks = new TextMarks();
+  /** More text: dialogues in smaller text (src/fulu/moreText.ts). */
+  readonly moreText = new MoreText();
   /** The OS functions the program called last (table entries), the latest last: for the debug menu. */
   readonly recentCalls: number[] = [];
   /** Why the program stopped, once it has (it ended, or met an OS function Fulu lacks). */
@@ -285,12 +288,24 @@ export class Fulu {
     if (!f) return this.missing(NAMES[ptr] ? `${NAMES[ptr]} ($${hex(ptr)})` : `OS function $${hex(ptr)}`);
     const { a, x, y, p } = cpu;
     if (!this.waiting && this.recentCalls.push(ptr) > RECENT_CALLS) this.recentCalls.shift();
+    // More text follows the game's dialogue: its lines are left out, its last waits answered
+    const more = this.moreText.before(this, ptr);
+    if (more) {
+      this.arrive(f.at);
+      if (more === "key") this.moreText.answer(this);
+      this.waiting = false;
+      this.mapSegment(this.segment());
+      this.leave();
+      this.rts();
+      return true;
+    }
     // charged as it is entered, from its arguments; a call made again after waiting, once, but
     // GuiGetMsg each time (on the device every wake goes round its loop again)
     if (!this.waiting || ptr === 0xe935) this.charge(ptr, true);
     this.arrive(f.at);
     this.retrying = this.waiting;
     this.waiting = f.run(this) === "wait";
+    if (!this.waiting) this.moreText.after(this, ptr);
     if (this.waiting) {
       // as before the call, to make it again after the next interrupt
       Object.assign(cpu, { a, x, y, p, pc });

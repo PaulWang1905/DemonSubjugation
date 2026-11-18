@@ -16,7 +16,7 @@ import { Keys, readLibrary, type EngineKey } from "../engine";
 import { getFirmware, type StoredGame } from "../storage/db";
 import { FULU_OS, FuluDevice } from "../fulu/device";
 import { exportDevice, importDevice, installedProgram, loadSlot, osDigest, restoreDevice, saveDevice, savedFlash, saveSlot, slotTimes, storeDevice } from "./deviceStore";
-import { loadFontSet } from "./fonts";
+import { loadFontSet, loadSmallFonts } from "./fonts";
 import { DebugMenu } from "./DebugMenu";
 import { DeviceTools, type Snapshot } from "./DeviceTools";
 import { HiresText, outputScale, type ScreenEffect, type TextStyle } from "./hiresText";
@@ -79,6 +79,8 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   /** The wider map view, for games made with the RPG kit (their library is in the .gam). */
   const wideRef = useRef<WideView | null>(null);
   const [hasMap, setHasMap] = useState(false);
+  /** More text (F6, on Fulu): dialogues in 12 or 10 px text, the same setting as the JS engine's player. */
+  const [textSize, setTextSize] = useState(() => Number(pref("textSize", "16")) as 16 | 12 | 10);
   const [mapView, setMapView] = useState<MapView>(() => mapViewOf(pref<string>("mapView", "normal")));
   const view = hasMap ? MAP_VIEWS[mapView] : MAP_VIEWS.normal;
   const [frameW, frameH] = view.mx || view.my ? WideView.size(view.mx, view.my) : [LCD_WIDTH, LCD_HEIGHT];
@@ -174,6 +176,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
       const library = game && lib >= 0 ? new Uint8Array(game.data).subarray(lib) : null;
       kitRef.current = library ? new KitCheats(device.machine, readLibrary(library)) : null;
       wideRef.current = library ? new WideView(library) : null;
+      if (device instanceof FuluDevice) device.fulu.moreText.library = library;
       setHasMap(!!library);
       slots.current = [null, null, null, null];
       setOnFulu(!original);
@@ -204,6 +207,22 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
       window.removeEventListener("pagehide", save);
     };
   }, [id, status.kind]);
+
+  // More text: the small fonts, handed to Fulu (applies from the next dialogue)
+  useEffect(() => {
+    if (status.kind !== "running") return;
+    const d = deviceRef.current?.device;
+    if (!(d instanceof FuluDevice)) return;
+    if (textSize === 16) return void (d.fulu.moreText.font = null);
+    let alive = true;
+    loadSmallFonts().then(
+      (f) => {
+        if (alive && deviceRef.current?.device === d) d.fulu.moreText.font = textSize === 12 ? { size: 12, hzk: f.hzk12, asc: f.asc12 } : { size: 10, hzk: f.hzk10, asc: f.asc10 };
+      },
+      () => alive && setNotice(textRef.current.moreTextFailed),
+    );
+    return () => void (alive = false);
+  }, [textSize, status.kind]);
 
   // Run in real time (or faster) and draw each new picture.
   useEffect(() => {
@@ -439,6 +458,24 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
             {(Object.keys(MAP_VIEWS) as MapView[]).map((k) => (
               <option key={k} value={k}>
                 {pt.mapViews[k]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {onFulu && hasMap && (
+        <label className="field" title={dt.moreTextTitle}>
+          <span className="lbl">{pt.moreText}</span>
+          <select
+            value={textSize}
+            onChange={(e) => {
+              setTextSize(Number(e.target.value) as 16 | 12 | 10);
+              setPref("textSize", e.target.value);
+            }}
+          >
+            {([16, 12, 10] as const).map((v) => (
+              <option key={v} value={v}>
+                {pt.moreSizes[v]}
               </option>
             ))}
           </select>

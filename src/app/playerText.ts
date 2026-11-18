@@ -53,6 +53,8 @@ const en = {
   notSaves: "Not a save backup file",
   fontFailed: (status: number) => `Could not load the font (${status}).`,
   device: {
+    moreTextTitle: "Smaller text in dialogues, so a page holds more (menus and message boxes keep the device's size)",
+    moreTextFailed: "Could not load the small fonts: dialogues keep the device's size.",
     starting: "Turning the device on…",
     needFirmware: "This runs on the 4988's own firmware. Add its files on the Games page (0E00.DAT and 4988.font at least).",
     tooBig: "The program is larger than the device's flash.",
@@ -157,6 +159,8 @@ const zh: PlayerText = {
   notSaves: "这不是存档备份文件",
   fontFailed: (status: number) => `无法加载字体（${status}）。`,
   device: {
+    moreTextTitle: "对话使用更小的文字，一页能放下更多内容（菜单和消息框保持掌机原大小）",
+    moreTextFailed: "无法加载小字体：对话保持掌机原大小。",
     starting: "正在开机…",
     needFirmware: "这个程序在 4988 原机固件上运行。请先在游戏库页面添加固件文件（至少要 0E00.DAT 和 4988.font）。",
     tooBig: "程序比词典的闪存还大，放不下。",
