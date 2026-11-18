@@ -10,7 +10,7 @@ import { RaiseAnimation } from "../anim/RaiseAnimation";
 import { ActionSingleTarget } from "./ActionSingleTarget";
 import { EngineSettings } from "../../config/EngineSettings";
 import { raiseMask, useItemOnParty } from "../OriginalRules";
-import { STATE_AFT, STATE_ANI, STATE_PRE, fallbackAni, windDown, windUp } from "./ItemActionBase";
+import { STATE_AFT, STATE_ANI, STATE_PRE, useAni, windDown, windUp } from "./ItemActionBase";
 
 export class ActionUseItemOne extends ActionSingleTarget {
   private mState = STATE_PRE;
@@ -39,23 +39,22 @@ export class ActionUseItemOne extends ActionSingleTarget {
     let hp = 0;
     if (EngineSettings.originalDamageFormula) {
       // the item was taken from the bag when the turn came (Combat.decideTurn)
-      this.mAni = (this.goods instanceof GoodsMedicine ? this.goods.ani : null) ?? fallbackAni();
+      this.mAni = useAni(this.goods);
       const before = t.hp;
       const res = useItemOnParty(this.goods, t);
-      this.mAni.start();
-      this.mAni.setIteratorNum(2);
+      this.mAni?.start();
+      this.mAni?.setIteratorNum(2);
       this.mAnix = t.combatX;
       this.mAniy = t.combatY;
       this.mRaiseAni = new RaiseAnimation(t.combatX, t.combatTop, t.hp - before, raiseMask(res.get(t) ?? 0));
       return;
     }
+    this.mAni = useAni(this.goods);
     if (this.goods instanceof GoodsMedicine) {
-      this.mAni = this.goods.ani ?? fallbackAni();
       hp = t.hp;
       this.goods.eat(t as Player);
       hp = t.hp - hp;
     } else {
-      this.mAni = fallbackAni();
       // Revival medicine / elixirs (types 10, 11) were ignored in fmj.kt.
       if (isEatMedicine(this.goods) && t instanceof Player) {
         hp = t.hp;
@@ -63,8 +62,8 @@ export class ActionUseItemOne extends ActionSingleTarget {
         hp = t.hp - hp;
       }
     }
-    this.mAni.start();
-    this.mAni.setIteratorNum(2);
+    this.mAni?.start();
+    this.mAni?.setIteratorNum(2);
     this.mAnix = t.combatX;
     this.mAniy = t.combatY;
     this.mRaiseAni = new RaiseAnimation(t.combatX, t.combatTop, hp, 0);
@@ -76,7 +75,11 @@ export class ActionUseItemOne extends ActionSingleTarget {
     switch (this.mState) {
       case STATE_PRE:
         if (this.mCurrentFrame < 10) windUp(a, this.mCurrentFrame, this.ox, this.oy);
-        else this.mState = STATE_ANI;
+        else if (this.mAni) this.mState = STATE_ANI;
+        else {
+          this.mState = STATE_AFT;
+          windDown(a);
+        }
         break;
       case STATE_ANI:
         if (!this.mAni!.update(delta)) {

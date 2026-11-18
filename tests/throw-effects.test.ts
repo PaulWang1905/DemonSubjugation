@@ -3,7 +3,7 @@
 // weapon without one, plays none. Needs FMJ_DATA_DIR (the real archive).
 import { describe, expect, it } from "vitest";
 import { createEngine } from "../src/engine";
-import { throwAni } from "../src/engine/fmj/combat/actions/ItemActionBase";
+import { throwAni, useAni } from "../src/engine/fmj/combat/actions/ItemActionBase";
 import { DatLib, ResType } from "../src/engine/fmj/lib/DatLib";
 import { loadRealResources, memorySaves } from "./helpers";
 
@@ -17,5 +17,12 @@ describe.skipIf(!res)("throw effects (real archive)", () => {
     expect(throwAni(goods(8, 8) as never)).not.toBeNull(); // 唤风符: its own
     expect(throwAni(goods(8, 6) as never)).toBeNull(); // 穿心镖: none
     for (let i = 1; i <= 32; i++) expect(throwAni(goods(7, i) as never)).toBeNull(); // swords: none
+  });
+
+  it("only medicine plays an effect when used (_002401AE)", () => {
+    createEngine({ resources: res!, saves: memorySaves() });
+    const goods = (type: number, index: number) => DatLib.getRes(ResType.GRS, type, index) as never as { type: number; ani?: unknown };
+    for (let i = 1; i <= 27; i++) expect(useAni(goods(9, i) as never)).not.toBeNull(); // medicine: SRS 2-n
+    for (const [type, n] of [[10, 4], [11, 15], [12, 6]]) for (let i = 1; i <= n; i++) expect(useAni(goods(type, i) as never)).toBeNull();
   });
 });

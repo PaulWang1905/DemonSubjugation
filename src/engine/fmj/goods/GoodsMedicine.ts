@@ -15,8 +15,10 @@ export class GoodsMedicine extends BaseGoods implements IEatMedicine {
   protected setOtherData(buf: Int8Array, offset: number): void {
     this.mHp = ResBase.get2BytesInt(buf, offset + 0x16);
     this.mMp = ResBase.get2BytesInt(buf, offset + 0x18);
+    // its effect: the SRS bytes 0x1b (type) and 0x1a (index) name, as the original plays it
+    const type = buf[offset + 0x1b] & 0xff || 2;
     const index = buf[offset + 0x1a] & 0xff;
-    if (index > 0) this.ani = DatLib.getRes(ResType.SRS, 2, index) as ResSrs | null;
+    if (index > 0) this.ani = DatLib.getRes(ResType.SRS, type, index, true) as ResSrs | null;
     this.mBitMask = buf[offset + 0x1c] & 0xff;
   }
 

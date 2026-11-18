@@ -1,15 +1,19 @@
 // Shared state machine for the item actions (wind-up, animation, numbers).
 import { Player } from "../../characters/Player";
 import type { FightingCharacter } from "../../characters/FightingCharacter";
-import { DatLib, ResType } from "../../lib/DatLib";
 import type { ResSrs } from "../../lib/ResSrs";
 
 export const STATE_PRE = 1;
 export const STATE_ANI = 2;
 export const STATE_AFT = 3;
 
-export function fallbackAni(): ResSrs {
-  return DatLib.getRes(ResType.SRS, 2, 1) as ResSrs;
+/**
+ * The effect an item used plays (_002401AE): only medicine (type 9) has one,
+ * the SRS its bytes 0x1a / 0x1b name. Revival items, fruits and the like
+ * play none: their number shows straight after the wind-up.
+ */
+export function useAni(goods: { type: number; ani?: ResSrs | null }): ResSrs | null {
+  return goods.type === 9 ? (goods.ani ?? null) : null;
 }
 
 /**
@@ -24,6 +28,12 @@ export function throwAni(goods: { type: number; ani?: ResSrs | null }): ResSrs |
 /** Where an effect plays on a fighter: the middle of its sprite, as spells do. */
 export function effectAt(fc: FightingCharacter): [number, number] {
   return [fc.combatX, fc.combatY - Math.trunc((fc.fightingSprite?.height ?? 0) / 2)];
+}
+
+/** Where an effect on the party plays: the middle of their places (the original's fixed point there). */
+export function partyAt(side: FightingCharacter[]): [number, number] {
+  const n = Math.max(1, side.length);
+  return [Math.round(side.reduce((s, p) => s + p.combatX, 0) / n), Math.round(side.reduce((s, p) => s + p.combatY, 0) / n)];
 }
 
 /** Where an effect on a whole side plays: the middle of its places (the original uses one fixed point there). */

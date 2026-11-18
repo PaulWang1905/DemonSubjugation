@@ -219,6 +219,9 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
         if (d instanceof FuluDevice && d.stopped) {
           const why = d.stopped, text = textRef.current;
           d.fulu.stopped = null;
+          // keep the device as it ended (its flash holds the saves made just before)
+          const kept = deviceRef.current;
+          if (kept) void saveDevice(id, kept.os, kept.device);
           setStatus({ kind: "error", message: why === "The program ended" ? text.ended : text.fuluCannot(why) });
         }
         decodeLcd(d.machine.ram, pixels);

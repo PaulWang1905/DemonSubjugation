@@ -12,11 +12,13 @@ import { RaiseAnimation } from "../anim/RaiseAnimation";
 import { EngineSettings } from "../../config/EngineSettings";
 import { raiseMask, useItemOnParty } from "../OriginalRules";
 import { ActionMultiTarget } from "./ActionMultiTarget";
-import { STATE_AFT, STATE_ANI, STATE_PRE, fallbackAni, windDown, windUp } from "./ItemActionBase";
+import { STATE_AFT, STATE_ANI, STATE_PRE, partyAt, useAni, windDown, windUp } from "./ItemActionBase";
 
 export class ActionUseItemAll extends ActionMultiTarget {
   private mState = STATE_PRE;
   private mAni: ResSrs | null = null;
+  private mAniX = 0;
+  private mAniY = 0;
   private ox = 0;
   private oy = 0;
 
@@ -36,9 +38,10 @@ export class ActionUseItemAll extends ActionMultiTarget {
     const a = this.mAttacker!;
     this.ox = a.combatX;
     this.oy = a.combatY;
-    this.mAni = (this.goods instanceof GoodsMedicine ? this.goods.ani : null) ?? fallbackAni();
-    this.mAni.start();
-    this.mAni.setIteratorNum(2);
+    this.mAni = useAni(this.goods);
+    this.mAni?.start();
+    this.mAni?.setIteratorNum(2);
+    [this.mAniX, this.mAniY] = partyAt(this.mTargets);
     if (EngineSettings.originalDamageFormula) {
       const before = new Map(this.mTargets.map((t) => [t, t.hp]));
       const res = useItemOnParty(this.goods, "all");
@@ -67,7 +70,11 @@ export class ActionUseItemAll extends ActionMultiTarget {
     switch (this.mState) {
       case STATE_PRE:
         if (this.mCurrentFrame < 10) windUp(a, this.mCurrentFrame, this.ox, this.oy);
-        else this.mState = STATE_ANI;
+        else if (this.mAni) this.mState = STATE_ANI;
+        else {
+          this.mState = STATE_AFT;
+          windDown(a);
+        }
         break;
       case STATE_ANI:
         if (!this.mAni!.update(delta)) {
@@ -82,7 +89,7 @@ export class ActionUseItemAll extends ActionMultiTarget {
   }
 
   draw(canvas: Canvas): void {
-    if (this.mState === STATE_ANI) this.mAni!.draw(canvas, 0, 0);
+    if (this.mState === STATE_ANI) this.mAni!.drawAbsolutely(canvas, this.mAniX, this.mAniY);
     else if (this.mState === STATE_AFT) this.drawRaiseAnimation(canvas);
   }
 }
