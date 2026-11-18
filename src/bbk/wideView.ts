@@ -41,8 +41,14 @@ interface Count {
   patterns: number;
 }
 
-/** Whether a count confirms the view: half the tiles seen (and 9), and of the patterned ones at least half (and 3). */
-const confirms = (c: Count) => c.same >= Math.max(MIN_MATCH, c.seen / 2) && c.patterned >= Math.max(3, c.patterns / 2);
+/** Patterned tiles at their places that prove the map whatever covers the rest (a popup menu over half the screen). */
+const PROOF = 6;
+/**
+ * Whether a count confirms the view: PROOF patterned tiles where the map has
+ * them (no battle or picture shows that), or, on maps with few patterns, half
+ * the tiles seen (and 9) and of the patterned ones at least half (and 3).
+ */
+const confirms = (c: Count) => c.patterned >= PROOF || (c.same >= Math.max(MIN_MATCH, c.seen / 2) && c.patterned >= Math.max(3, c.patterns / 2));
 
 /** The top of a dialogue box on the screen, or null: its frame's two sides run up from its bottom line. */
 function boxTop(lcd: Uint8Array): number | null {

@@ -101,3 +101,36 @@ describe.each([
     expect(dialogues).toBeGreaterThan(0);
   }, 300_000);
 });
+
+// Popup menus over the map keep the border; a page over the whole screen does not (as in the JS engine).
+describe.each(["伏魔记-1.0.gam", "伏魔记-1.3.gam", "英雄坛说.gam"])("%s, menus", (file) => {
+  it.skipIf(!have(file))("keeps the border around popup menus", () => {
+    const d = new FuluDevice({ hzk16: new Uint8Array(readFileSync(join(FONTS, "HZK16"))), asc16: new Uint8Array(readFileSync(join(FONTS, "ASC16"))) });
+    const gam = new Uint8Array(readFileSync(join(GAMES, file)));
+    d.launch(d.install(gam)!);
+    const library = gam.subarray(findLib(gam));
+    const kit = new KitCheats(d.machine, readLibrary(library)), wide = new WideView(library);
+    const run = (s: number) => {
+      for (let n = Math.round(s * 60); n > 0; n--) d.machine.run(CPU_HZ / 60);
+    };
+    const press = (k: number, s = 1.2) => (d.press(k), run(s));
+    run(3);
+    for (let i = 0; i < 2; i++) press(Key.enter, 2);
+    for (let i = 0; i < 120 && !kit.ready(); i++) press(i % 2 ? Key.exit : Key.enter, 1.5);
+    for (let i = 0; i < 30; i++) press(Key.enter, 0.6);
+    for (let i = 0; i < 2; i++) press(Key.exit, 1);
+    const lcd = new Uint8Array(LCD_STRIDE * LCD_HEIGHT), [w, h] = WideView.size(2, 1), frame = new Uint8Array(w * h);
+    const showing = () => {
+      decodeLcd(d.machine.ram, lcd);
+      const v = kit.mapView();
+      wide.compose(lcd, v, 2, 1, frame);
+      wide.compose(lcd, v, 2, 1, frame);
+      return wide.showing;
+    };
+    expect(showing()).toBe(true);
+    press(Key.exit); // the game's menu
+    expect(showing()).toBe(true);
+    press(Key.enter); // its first entry's popup
+    expect(showing()).toBe(true);
+  }, 300_000);
+});
