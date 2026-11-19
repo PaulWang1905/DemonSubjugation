@@ -15,6 +15,12 @@ export interface StoredGame {
   format?: "gam";
   /** Where a program built on the fmj engine keeps its resource library, to play it remastered. */
   libOffset?: number;
+  /** For a .gam exported by the editor: the engine it asks to be opened with (src/bbk/gamBuild.ts). */
+  engine?: "react" | "fulu";
+  /** A .gam that is the site's own container: its program only returns, so it plays on FMJ React alone. */
+  reactOnly?: boolean;
+  /** When it was last played. */
+  playedAt?: number;
 }
 
 /** A device as it was left: its machine state and its flash (gzip-compressed). */

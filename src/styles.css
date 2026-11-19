@@ -4906,3 +4906,314 @@ p.f-prose {
 .dev-saves p {
   margin: 0;
 }
+
+/* -- the editor's export dialog -- */
+.export-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.25);
+}
+.export-dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+.export-dialog form {
+  display: grid;
+  gap: 16px;
+  padding: 20px 22px;
+}
+.export-dialog h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.export-dialog fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.export-dialog legend {
+  margin-bottom: 6px;
+  font: 600 12px/1 var(--h-mono, ui-monospace, monospace);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.export-dialog .choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 1.45;
+}
+.export-dialog .choice:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.export-dialog .choice.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.export-dialog .choice input {
+  margin-top: 3px;
+}
+.export-dialog .donor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-left: 4px;
+}
+.export-dialog .error {
+  margin: 0;
+  color: var(--danger);
+}
+.export-dialog .row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* -- Guide and About (src/app/InfoPages.tsx): the Fulu page's parts, and these -- */
+.f-head h1.i-title {
+  display: block;
+  max-width: 14em;
+  font-size: clamp(44px, 7vw, 104px);
+  line-height: 0.92;
+}
+.i-prose {
+  max-width: 44em;
+  padding-top: 28px;
+}
+.i-more {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+  color: var(--ink);
+}
+/* controls: keys as caps */
+.i-keys {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+}
+.i-keys th,
+.i-keys td {
+  padding: 16px 12px 16px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+.i-keys thead th {
+  color: var(--muted);
+  font: 500 12px/1 var(--h-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.i-keys tbody th {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.i-keys kbd {
+  display: inline-block;
+  margin: 2px 6px 2px 0;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--panel);
+  font: 500 13px/1.2 var(--h-mono);
+}
+/* the look options: a grid of cells with rules */
+.i-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.i-cards li {
+  padding: 26px 24px 30px 0;
+  border-bottom: 1px solid var(--line);
+}
+.i-cards li:not(:nth-child(3n + 1)) {
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+.i-cards h3 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 620;
+  letter-spacing: -0.03em;
+}
+.i-cards p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+@media (max-width: 860px) {
+  .i-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .i-cards li:not(:nth-child(3n + 1)) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .i-keys td:last-child,
+  .i-keys th:last-child {
+    display: none;
+  }
+}
+
+/* -- the editor's start page (src/editor/ui/Editor.tsx) -- */
+.e-home {
+  padding-bottom: clamp(40px, 6vw, 88px);
+}
+.e-starts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+}
+.e-start {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 10px;
+  min-height: 220px;
+  padding: 22px 22px 22px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.e-start + .e-start {
+  padding-left: 22px;
+  border-left: 1px solid var(--line);
+}
+.e-start:hover {
+  background: color-mix(in srgb, var(--h-lcd) 30%, transparent);
+}
+.e-start.bell {
+  background: var(--h-ink);
+  color: var(--h-paper);
+  padding-left: 22px;
+}
+.e-start.bell:hover {
+  background: #1b1d18;
+}
+.e-start .h-row-no {
+  color: var(--muted);
+}
+.e-start.bell .h-row-no,
+.e-start.bell .e-start-text {
+  color: var(--h-dim);
+}
+.e-start-title {
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 640;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+.e-start-text {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.e-start .h-arrow {
+  justify-self: start;
+  font-size: 20px;
+}
+.e-start:hover .h-arrow {
+  transform: translateX(4px);
+}
+.e-projects {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.e-projects li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.e-project-open {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.e-project-open strong {
+  font-size: 24px;
+  font-weight: 620;
+  letter-spacing: -0.03em;
+}
+.e-project-open .h-meta {
+  color: var(--muted);
+}
+.e-btn {
+  min-height: 42px;
+  gap: 18px;
+}
+.e-none {
+  margin: 20px 0 0;
+  color: var(--muted);
+}
+.e-help {
+  margin: 24px 0 0;
+}
+@media (max-width: 900px) {
+  .e-starts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .e-start:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .e-start.bell {
+    padding-left: 22px;
+  }
+}
+
+/* the Games page: your games' shelf when it is empty; one engine, as a label */
+.g-shelf + .g-shelf {
+  margin-top: clamp(32px, 4vw, 56px);
+}
+.g-empty {
+  margin: 16px 0;
+  color: var(--muted);
+}
+.g-empty a {
+  color: var(--ink);
+  font-weight: 600;
+}
+.g-engine-one {
+  padding: 0;
+  border: 0;
+  text-align: left;
+  color: var(--ink);
+}

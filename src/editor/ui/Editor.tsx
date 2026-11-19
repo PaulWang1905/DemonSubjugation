@@ -13,6 +13,59 @@ import { silentBell, silentBellSources } from "../template/silentBell";
 import { keyOf, ResourceList } from "./ResourceList";
 import { KIND_NAMES } from "../format/decode";
 import { ResourceView } from "./ResourceView";
+import { ExportDialog } from "./ExportDialog";
+import { findLib, isGam } from "../../bbk/gam";
+import { Link } from "../../app/router";
+import { useSiteLang } from "../../app/siteLang";
+import { Arrow } from "../../app/Tile";
+
+/** The editor's start page, in English and Chinese (the editor itself is in English). */
+const HOME = {
+  en: {
+    kicker: "Editor",
+    title: "Make your own game",
+    lead: "Paint maps, write the story, draw sprites and playtest in one click. Export it as a .gam or a .lib and play it here, or share it.",
+    startTitle: "Start a project",
+    startText: "New projects start from an original template (system graphics, tiles, sprites, sample monsters, items and spells), so you never need anyone else's game files.",
+    starts: {
+      bell: ["The Silent Bell", "The full demo: a town, a story and a bell to ring. Take it apart."],
+      lantern: ["Lantern Path", "A short demo: a glade, a lantern and a walk home."],
+      blank: ["Blank game", "Only the template: an empty map and a first script."],
+      open: ["Open a file", "A .lib, or a .gam made with the RPG kit. Only open games you may modify."],
+    },
+    projectsTitle: "Your projects",
+    projectsText: "Kept in this browser and saved as you work.",
+    none: "No projects yet. Start one above.",
+    open: "Open",
+    remove: "Delete",
+    edited: "Edited",
+    help: "How to play your game",
+    newName: "Name of the new game (letters, up to 9):",
+    confirmDelete: (n: string) => `Delete project “${n}”?`,
+  },
+  zh: {
+    kicker: "编辑器",
+    title: "做你自己的游戏",
+    lead: "画地图、写剧情、画角色，一键试玩。导出为 .gam 或 .lib，在这里玩或分享给别人。",
+    startTitle: "开始一个项目",
+    startText: "新项目从原创模板开始（系统图形、图块、角色、示例怪物、物品和法术），不需要任何别人的游戏文件。",
+    starts: {
+      bell: ["The Silent Bell", "完整的演示：一座小镇、一个故事和一口要敲响的钟。可以拆开来看。"],
+      lantern: ["Lantern Path", "简短的演示：一片林间空地、一盏灯笼和回家的路。"],
+      blank: ["空白游戏", "只有模板：一张空地图和第一个脚本。"],
+      open: ["打开文件", ".lib，或用 RPG 工具制作的 .gam。只打开你有权修改的游戏。"],
+    },
+    projectsTitle: "你的项目",
+    projectsText: "保存在这个浏览器里，边做边自动保存。",
+    none: "还没有项目。从上面开始一个吧。",
+    open: "打开",
+    remove: "删除",
+    edited: "修改于",
+    help: "怎么玩你的游戏",
+    newName: "新游戏的名字（字母，最多 9 个）：",
+    confirmDelete: (n: string) => `删除项目“${n}”？`,
+  },
+};
 
 interface Props {
   onPlaytest: (p: { id: string; name: string; data: ArrayBuffer }) => void;
@@ -28,14 +81,6 @@ interface Open {
 const ITEM_KINDS = ["Hat", "Clothes", "Shoes", "Armour", "Bracers", "Accessory", "Weapon", "Thrown weapon", "Medicine", "Revival", "Elixir", "Stimulant", "Escape item", "Story item"];
 
 const newId = () => `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-
-function download(bytes: Uint8Array, name: string): void {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/octet-stream" }));
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
 
 function nextIndex(a: LibArchive, resType: number, type: number): number {
   for (let i = 1; i < 256; i++) if (!findEntry(a, resType, type, i)) return i;
@@ -55,10 +100,13 @@ function withGutIndex(source: string, index: number): string {
 }
 
 export function Editor({ onPlaytest }: Props) {
+  const lang = useSiteLang();
+  const h = HOME[lang];
   const [projects, setProjects] = useState<StoredProject[]>([]);
   const [cur, setCur] = useState<Open | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("");
+  const [exporting, setExporting] = useState(false);
   const [, setVersion] = useState(0);
   const saveTimer = useRef<number | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -98,7 +146,7 @@ export function Editor({ onPlaytest }: Props) {
     if (kind === "demo") openArchive("Lantern Path", lanternPath(), lanternPathSources());
     else if (kind === "bell") openArchive("The Silent Bell", silentBell(), silentBellSources());
     else {
-      const name = prompt("Name of the new game (letters, up to 9):", "MY GAME")?.trim();
+      const name = prompt(h.newName, "MY GAME")?.trim();
       if (!name) return;
       openArchive(name, blankProject(name.toUpperCase().slice(0, 9)));
     }
@@ -107,9 +155,15 @@ export function Editor({ onPlaytest }: Props) {
   const openFile = async (f: File | undefined) => {
     if (!f) return;
     try {
-      const bytes = new Uint8Array(await f.arrayBuffer());
+      let bytes = new Uint8Array(await f.arrayBuffer());
+      // a .gam made with the RPG kit (or exported here): its game library
+      if (isGam(bytes)) {
+        const at = findLib(bytes);
+        if (at < 0) throw new Error("this .gam was not made with the RPG kit (it has no game library)");
+        bytes = bytes.slice(at);
+      }
       if (!inspectDatLib(bytes).playable) throw new Error("this archive has no starting script (GUT 1-1)");
-      openArchive(f.name.replace(/\.lib$/i, ""), readLib(bytes));
+      openArchive(f.name.replace(/\.(lib|gam)$/i, ""), readLib(bytes));
     } catch (e) {
       alert(`Could not open ${f.name}: ${(e as Error).message}`);
     }
@@ -309,56 +363,82 @@ export function Editor({ onPlaytest }: Props) {
   };
 
   if (!cur) {
+    const starts = [
+      ["bell", () => create("bell")],
+      ["lantern", () => create("demo")],
+      ["blank", () => create("blank")],
+      ["open", () => fileInput.current?.click()],
+    ] as const;
     return (
-      <div className="editor-home">
-        <section>
-          <h2>New project</h2>
-          <div className="row">
-            <button onClick={() => create("bell")}>The Silent Bell demo</button>
-            <button onClick={() => create("demo")}>Lantern Path demo</button>
-            <button className="ghost" onClick={() => create("blank")}>
-              Blank game
-            </button>
-            <button className="ghost" onClick={() => fileInput.current?.click()}>
-              Open a .lib file…
-            </button>
-            <input ref={fileInput} type="file" accept=".lib,.LIB" hidden onChange={(e) => void openFile(e.target.files?.[0])} />
+      <div className="f-page library page e-home">
+        <header className="f-head">
+          <p className="h-kicker">{h.kicker}</p>
+          <h1 className="i-title">{h.title}</h1>
+          <p className="f-lead">{h.lead}</p>
+        </header>
+
+        <section className="h-section">
+          <header className="h-sec-head">
+            <h2>{h.startTitle}</h2>
+            <p>{h.startText}</p>
+          </header>
+          <div className="e-starts">
+            {starts.map(([key, run], i) => (
+              <button key={key} className={`e-start ${key}`} onClick={run}>
+                <span className="h-row-no">{String(i + 1).padStart(2, "0")}</span>
+                <span className="e-start-title">{h.starts[key][0]}</span>
+                <span className="e-start-text">{h.starts[key][1]}</span>
+                <Arrow />
+              </button>
+            ))}
           </div>
-          <p className="muted">
-            New projects start from an original template (system graphics, tiles, sprites, sample monsters, items and spells),
-            so you never need anyone else's game files. Only open archives you have the right to modify.
-          </p>
+          <input ref={fileInput} type="file" accept=".lib,.LIB,.gam,.GAM" hidden onChange={(e) => (void openFile(e.target.files?.[0]), (e.target.value = ""))} />
         </section>
-        <section>
-          <h2>Your projects</h2>
+
+        <section className="h-section">
+          <header className="h-sec-head">
+            <h2>{h.projectsTitle}</h2>
+            <p>{h.projectsText}</p>
+          </header>
           {projects.length === 0 ? (
-            <p className="muted">No projects yet.</p>
+            <p className="e-none">{h.none}</p>
           ) : (
-            <ul className="projects">
+            <ul className="e-projects">
               {projects.map((p) => (
                 <li key={p.id}>
-                  <div className="meta">
+                  <button className="e-project-open" onClick={() => openStored(p)}>
                     <strong>{p.name}</strong>
-                    <span>{new Date(p.updatedAt).toLocaleString()}</span>
-                  </div>
+                    <span className="h-meta">
+                      {h.edited} {new Date(p.updatedAt).toLocaleString(lang === "zh" ? "zh-CN" : undefined)}
+                    </span>
+                  </button>
                   <div className="row">
-                    <button onClick={() => openStored(p)}>Open</button>
+                    <button className="h-btn h-btn-dark e-btn" onClick={() => openStored(p)}>
+                      {h.open}
+                      <Arrow />
+                    </button>
                     <button
                       className="ghost danger"
                       onClick={async () => {
-                        if (confirm(`Delete project “${p.name}”?`)) {
+                        if (confirm(h.confirmDelete(p.name))) {
                           await deleteProject(p.id);
                           void refresh();
                         }
                       }}
                     >
-                      Delete
+                      {h.remove}
                     </button>
                   </div>
                 </li>
               ))}
             </ul>
           )}
+          <p className="e-help">
+            <Link to="guide" className="i-more">
+              {h.help}
+              <Arrow />
+            </Link>
+          </p>
         </section>
       </div>
     );
@@ -462,18 +542,10 @@ export function Editor({ onPlaytest }: Props) {
             <option value="anim:2">Spell / item effect</option>
           </optgroup>
         </select>
-        <button
-          className="ghost"
-          onClick={() => {
-            try {
-              download(writeLib(cur.archive), `${cur.name.replace(/[^\w一-鿿-]+/g, "_") || "game"}.lib`);
-            } catch (e) {
-              alert((e as Error).message);
-            }
-          }}
-        >
-          Export .lib
+        <button className="ghost" onClick={() => setExporting(true)} title="Download the game as a .gam or a .lib">
+          Export…
         </button>
+        {exporting && <ExportDialog name={cur.name} lib={() => writeLib(cur.archive)} onClose={() => setExporting(false)} />}
         <button onClick={playtest} title="Run this project">
           ▶ Playtest
         </button>

@@ -6,6 +6,7 @@ import { gamesText } from "./gamesText";
 import { inspectDatLib } from "../engine";
 import { REGION_SIZE, regionOf, type RegionId } from "../bbk/firmware";
 import { gamInfo, isGam } from "../bbk/gam";
+import { gamTitle } from "../bbk/gamBuild";
 
 export interface ImportedArchive {
   kind: "game";
@@ -76,7 +77,7 @@ function hexToBytes(hex: string): Uint8Array {
 function classify(name: string, data: Uint8Array, errors: string[]): Imported | null {
   const region = regionOf(name);
   if (region && data.length === REGION_SIZE) return { kind: "firmware", region, fileName: name, data };
-  if (isGam(data)) return { kind: "program", name: gamInfo(data).name || name.replace(/\.gam$/i, ""), fileName: name, data };
+  if (isGam(data)) return { kind: "program", name: gamTitle(data) || gamInfo(data).name || name.replace(/\.gam$/i, ""), fileName: name, data };
   const upper = name.toUpperCase();
   const base = upper.replace(/\.(BIN|DAT)$/, "");
   if (base === "HZK16" || (data.length >= 200_000 && data.length <= 300_000 && !looksLikeLib(data))) {

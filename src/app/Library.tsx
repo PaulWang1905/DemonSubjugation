@@ -8,6 +8,7 @@ import { LOCKED_GAMES } from "./lockedGame";
 import { GAMES_TEXT, type GamesText } from "./gamesText";
 import { useSiteLang, type SiteLang } from "./siteLang";
 import { Arrow, Tile } from "./Tile";
+import { Link } from "./router";
 
 interface Props {
   games: StoredGame[];
@@ -52,6 +53,8 @@ export function Library({ games, fonts, persistent, busy, messages, firmware, on
   // a locked game is shown until this version of it has been unlocked and added
   const locked = LOCKED_GAMES.filter((l) => !games.some((g) => g.id === l.id));
   const news = messages.filter((m) => !seen.includes(m));
+  // your games: the last played (or added) first
+  const yours = [...games].sort((a, b) => (b.playedAt ?? b.addedAt) - (a.playedAt ?? a.addedAt));
   let no = 0;
 
   return (
@@ -111,8 +114,8 @@ export function Library({ games, fonts, persistent, busy, messages, firmware, on
 
       <section className="g-shelf" id="games">
         <div className="g-shelf-head">
-          <h2 className="h-kicker">{t.library}</h2>
-          <span className="h-meta">{t.count(games.length + 2 + locked.length + (firmware.ready ? 1 : 0))}</span>
+          <h2 className="h-kicker">{t.builtIn}</h2>
+          <span className="h-meta">{t.count(2 + locked.length + (firmware.ready ? 1 : 0))}</span>
         </div>
         <ul className="g-grid">
           <Tile no={++no} art="THE SILENT BELL" meta={t.bellMeta} title="The Silent Bell">
@@ -132,7 +135,23 @@ export function Library({ games, fonts, persistent, busy, messages, firmware, on
           {locked.map((l) => (
             <LockedCard key={l.url} no={++no} game={l} update={games.some((g) => g.name === l.name)} busy={busy} onImport={onImport} />
           ))}
-          {games.map((g) => {
+        </ul>
+      </section>
+
+      <section className="g-shelf">
+        <div className="g-shelf-head">
+          <h2 className="h-kicker">{t.yours}</h2>
+          <span className="h-meta">{t.count(games.length)}</span>
+        </div>
+        {games.length === 0 && (
+          <p className="g-empty">
+            {t.yoursEmpty[0]}
+            <Link to="editor">{t.yoursEmpty[1]}</Link>
+            {t.yoursEmpty[2]}
+          </p>
+        )}
+        <ul className="g-grid">
+          {(no = 0, yours).map((g) => {
             const options = enginesFor(g, firmware.ready), engine = engineFor(g, firmware.ready);
             const src = LOCKED_GAMES.find((l) => l.name === g.name)?.source;
             return (
@@ -141,7 +160,7 @@ export function Library({ games, fonts, persistent, busy, messages, firmware, on
                 no={++no}
                 art={g.name}
                 title={g.name}
-                meta={[g.format === "gam" ? t.kind.gam : t.kind.lib, size(g.size), g.addedAt ? added(g.addedAt, lang) : ""].filter(Boolean).join(" · ")}
+                meta={[g.format === "gam" ? t.kind.gam : t.kind.lib, size(g.size), g.playedAt ? t.played(added(g.playedAt, lang)) : g.addedAt ? added(g.addedAt, lang) : ""].filter(Boolean).join(" · ")}
               >
                 {options.length > 1 ? (
                   <div className="g-engine" role="radiogroup" aria-label={t.engines.label}>

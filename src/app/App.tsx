@@ -1,3 +1,4 @@
+import { isReactOnly, preferredEngine } from "../bbk/gamBuild";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { deleteGame, getFont, isPersistent, listFirmware, listGames, putFirmwareFile, putFont, putGame, type StoredGame } from "../storage/db";
 import { REQUIRED_REGIONS, type RegionId } from "../bbk/firmware";
@@ -13,7 +14,8 @@ import { Player } from "./Player";
 import { Editor } from "../editor/ui/Editor";
 import { bellGame, demoGame } from "./demoGame";
 import { GitHubMark, REPO_URL } from "./links";
-import { AboutPage, GuidePage, HomePage, NotFoundPage, SiteFooter } from "./pages";
+import { HomePage, NotFoundPage, SiteFooter } from "./pages";
+import { AboutPage, GuidePage } from "./InfoPages";
 import { Link, PAGES, navigate, usePage } from "./router";
 import { setSiteLang, useSiteLang } from "./siteLang";
 import { SITE_TEXT } from "./siteText";
@@ -101,7 +103,12 @@ export function App() {
               size: it.data.length,
               addedAt: Date.now(),
               data: copyBuffer(it.data),
-              ...(it.kind === "program" && { format: "gam" as const, libOffset: findLib(it.data) >= 0 ? findLib(it.data) : undefined }),
+              ...(it.kind === "program" && {
+                format: "gam" as const,
+                libOffset: findLib(it.data) >= 0 ? findLib(it.data) : undefined,
+                engine: preferredEngine(new Uint8Array(it.data)) ?? undefined,
+                reactOnly: isReactOnly(new Uint8Array(it.data)) || undefined,
+              }),
             };
             await putGame(g);
             added.push(g);
@@ -148,13 +155,15 @@ export function App() {
    */
   const play = useCallback(
     (g: StoredGame, engine: EngineId = engineFor(g, firmwareReady)) => {
+      // (remembered for the library's order; playtests and the demos are not stored)
+      if (games.some((s) => s.id === g.id)) void putGame({ ...g, playedAt: Date.now() }).then(refresh);
       if (engine === "react") setPlaying(g.format === "gam" ? { ...g, id: `${g.id}-lib`, format: undefined, data: g.data.slice(g.libOffset) } : g);
       else {
         setDeviceOs(engine);
         setDevice(g);
       }
     },
-    [firmwareReady],
+    [firmwareReady, games, refresh],
   );
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -266,7 +275,7 @@ export function App() {
               onDelete={onDelete}
             />
           )}
-          {page === "guide" && <GuidePage />}
+          {page === "guide" && <GuidePage onPlayDemo={() => playDemo("bell")} />}
           {page === "fulu" && <FuluPage />}
           {page === "about" && <AboutPage />}
           {page === "notfound" && <NotFoundPage onPlayDemo={playDemo} />}
