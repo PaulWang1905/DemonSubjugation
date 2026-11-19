@@ -43,6 +43,8 @@ const GUT_PC = 0x1aa0, GUT_BASE = 0x1aa2;
 const SHIFTS = [0, 2, -2, 1, -1, 3, -3, 4, -4, 5, -5, 6, -6, -7, -8, -9, -10];
 /** The JS engine's compact box: text from x 14 (44 beside the portrait) to 145, its last line ending at y 94. */
 const LEFT = 14, LEFT_BESIDE = 44, RIGHT = 145, BOTTOM = 94;
+/** The bytes of a screen row (20 of 8 pixels). */
+const LCD_BYTES = 20;
 
 export interface SmallFont {
   /** 12 or 10. */
@@ -65,6 +67,13 @@ interface Dialogue {
   answered: number;
   /** Fulu's page shown at the current wait, or -1. */
   shown: number;
+  /**
+   * The screen above the game's box that Fulu's pages cover (from the
+   * tallest page's top down to the game's box), as it was before the first
+   * page: put back before each page, so that a shorter page leaves nothing of
+   * a taller one (the game clears only its own box between pages).
+   */
+  under: { top: number; bottom: number; bytes: number[] } | null;
 }
 
 const gbk = new TextDecoder("gbk");
@@ -156,7 +165,7 @@ export class MoreText {
     if (portrait && !head) return null;
     const pages = this.layout(text, head).map((p) => p.from);
     if (!pages.length || pages.length > game.pages) return null;
-    return { text, portrait: head, pages, gamePages: game.pages, answered: 0, shown: -1 };
+    return { text, portrait: head, pages, gamePages: game.pages, answered: 0, shown: -1, under: null };
   }
 
   /**
@@ -225,9 +234,26 @@ export class MoreText {
   }
 
   /** Draw Fulu's page `n`: its box, the portrait, the text. */
+  /** The top of Fulu's box for a page of `lines` lines. */
+  private boxTop(lines: number, head: Pic | null): number {
+    const textTop = BOTTOM - lines * this.font!.size;
+    return head ? textTop - 8 : textTop - 3;
+  }
+
   private draw(say: Dialogue, n: number): void {
     const font = this.font!, from = say.pages[n], head = say.portrait, lines = this.linesFor(say.text, from, head);
-    const textTop = BOTTOM - lines * font.size, top = head ? textTop - 8 : textTop - 3;
+    const textTop = BOTTOM - lines * font.size, top = this.boxTop(lines, head);
+    // what the pages cover above the game's box: kept from before the first, put back before each
+    if (!say.under) {
+      const highest = Math.min(...say.pages.map((p) => this.boxTop(this.linesFor(say.text, p, head), head)));
+      const bottom = head ? TOP_PORTRAIT : TOP_PLAIN, bytes: number[] = [];
+      for (let y = highest; y < bottom; y++) for (let b = 0; b < LCD_BYTES; b++) bytes.push(rd(lcd(b, y)));
+      say.under = { top: highest, bottom, bytes };
+    } else {
+      const { top: from, bottom, bytes } = say.under;
+      let i = 0;
+      for (let y = from; y < bottom; y++) for (let b = 0; b < LCD_BYTES; b++) wr(lcd(b, y), bytes[i++]);
+    }
     for (let y = top; y <= BOX_BOTTOM; y++) for (let x = BOX_LEFT; x <= BOX_RIGHT; x++) pixel(x, y, false);
     for (let x = BOX_LEFT; x <= BOX_RIGHT; x++) (pixel(x, top, true), pixel(x, BOX_BOTTOM, true));
     for (let y = top; y <= BOX_BOTTOM; y++) (pixel(BOX_LEFT, y, true), pixel(BOX_RIGHT, y, true));
