@@ -7,8 +7,11 @@
 // 完美版 and 怀旧终曲 keep their variables at those addresses, 伏魔记 1.3 two
 // bytes further on, 1.0 and 1.2 those from $197B on one byte earlier (they
 // lack the reconstruction's "show the hero's position" there). So the layout,
-// a shift for the variables before $197B and one for those after, is found in the game (its inventory pointers) and confirmed against
-// its library (the current map's name) before anything is used.
+// a shift for the variables before $197B and one for those after, is found
+// in the game (its inventory pointers) and confirmed against its library
+// before anything is used: the current map is the library's, with the view on
+// it (and, in the original games, the scene's name the map's; a translation's
+// scripts may name the scene otherwise).
 
 import { STAT_MAX, type Cheats, type CheatSwitches, type ItemInfo, type Library, type PartyMember, type StatKey } from "../engine";
 import type { Machine } from "./machine";
@@ -103,8 +106,13 @@ export class KitCheats implements Cheats {
       this.shift = [early, late];
     }
     if (this.word(this.at(INVENTORY_PTR)) !== INVENTORY) return false;
+    // the current map is one of the library's, and the view (9 × 6 tiles) on it; its
+    // name, shown as the scene's, is the library's in the original games (a
+    // translation's scripts can name the scene otherwise, so a name is not required)
     const map = this.lib.map(this.byte(this.at(MAP_TYPE)), this.byte(this.at(MAP_INDEX)));
-    if (!map || map.name !== this.text(this.at(MAP_NAME), 11)) return false;
+    if (!map) return false;
+    const vx = this.byte(this.at(VIEW_X)), vy = this.byte(this.at(VIEW_Y));
+    if (map.name !== this.text(this.at(MAP_NAME), 11) && (vx + 9 > map.width || vy + 6 > map.height)) return false;
     const members = this.members();
     return (
       members.length > 0 &&

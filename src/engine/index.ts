@@ -376,7 +376,7 @@ export interface Library {
   /** Every item in the archive (count 0). */
   items(): ItemInfo[];
   itemName(type: number, index: number): string;
-  map(type: number, index: number): { name: string; canWalk(x: number, y: number): boolean } | null;
+  map(type: number, index: number): { name: string; width: number; height: number; canWalk(x: number, y: number): boolean } | null;
   /** A magic chain's spells, in the order they are learnt, as [type, index]. */
   magicChain(id: number): [number, number][];
 }
@@ -401,7 +401,7 @@ export function readLibrary(data: Uint8Array): Library {
       const key = (type << 8) | index;
       if (!maps.has(key)) {
         const m = lib.getRes(ResType.MAP, type, index, true) as ResMap | null;
-        maps.set(key, m && { name: m.mapName ?? "", canWalk: (x: number, y: number) => m.canWalk(x, y) });
+        maps.set(key, m && { name: m.mapName ?? "", width: m.mapWidth, height: m.mapHeight, canWalk: (x: number, y: number) => m.canWalk(x, y) });
       }
       return maps.get(key)!;
     },

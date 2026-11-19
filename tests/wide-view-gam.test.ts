@@ -134,3 +134,31 @@ describe.each(["伏魔记-1.0.gam", "伏魔记-1.3.gam", "英雄坛说.gam"])("%
     expect(showing()).toBe(true);
   }, 300_000);
 });
+
+// A translation's scripts can name the scene otherwise than the library's map
+// (the English 伏魔记 names 百草地 "Herb Garden"): the game is still recognised
+// by its map and view, so the wider view and the debug menu keep working; a
+// name that differs on a view off the map is not taken.
+describe.each(["伏魔记-1.3.gam"])("%s, a renamed scene", (file) => {
+  it.skipIf(!have(file))("is still recognised by its map and view", () => {
+    const d = new FuluDevice({ hzk16: new Uint8Array(readFileSync(join(FONTS, "HZK16"))), asc16: new Uint8Array(readFileSync(join(FONTS, "ASC16"))) });
+    const gam = new Uint8Array(readFileSync(join(GAMES, file)));
+    d.launch(d.install(gam)!);
+    const kit = new KitCheats(d.machine, readLibrary(gam.subarray(findLib(gam))));
+    const run = (s: number) => {
+      for (let n = Math.round(s * 60); n > 0; n--) d.machine.run(CPU_HZ / 60);
+    };
+    run(3);
+    for (let i = 0; i < 2; i++) (d.press(Key.enter), run(2));
+    for (let i = 0; i < 120 && !kit.ready(); i++) (d.press(i % 2 ? Key.exit : Key.enter), run(1.5));
+    expect(kit.ready()).toBe(true);
+    // the scene's name, as a translation's script sets it (1.3 keeps it 2 bytes after $1942)
+    const name = 0x1942 + 2, view = kit.mapView()!;
+    new TextEncoder().encode("Herb Garden\0").forEach((b, i) => d.machine.write(name + i, b));
+    expect(kit.ready()).toBe(true);
+    expect(kit.mapView()?.mapIndex).toBe(view.mapIndex);
+    // a view off the map, with the name not the map's: not this game's map
+    d.machine.write(0x197c + 2, 250);
+    expect(kit.ready()).toBe(false);
+  }, 300_000);
+});
