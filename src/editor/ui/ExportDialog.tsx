@@ -31,6 +31,7 @@ export function ExportDialog({ name, lib, onClose }: Props) {
   const [donor, setDonor] = useState<{ name: string; data: Uint8Array } | null>(null);
   const [donorError, setDonorError] = useState<string | null>(null);
   const [engine, setEngine] = useState<GamEngine>("react");
+  const [english, setEnglish] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const file = (name.replace(/[^\w一-鿿-]+/g, "_") || "game") + (format === "lib" ? ".lib" : ".gam");
 
@@ -54,7 +55,7 @@ export function ExportDialog({ name, lib, onClose }: Props) {
     try {
       const bytes = lib();
       if (format === "lib") download(bytes, file);
-      else download(buildGam(bytes, name, engine, kit ? donor?.data : undefined), file);
+      else download(buildGam(bytes, name, engine, kit ? donor?.data : undefined, kit && english), file);
       onClose();
     } catch (e) {
       setError((e as Error).message);
@@ -109,6 +110,15 @@ export function ExportDialog({ name, lib, onClose }: Props) {
                   <span className="small">{donor ? `Engine from ${donor.name}` : "None chosen"}</span>
                   {donorError && <p className="error small">{donorError}</p>}
                 </div>
+              )}
+              {kit && (
+                <label className="choice">
+                  <input type="checkbox" checked={english} onChange={(e) => setEnglish(e.target.checked)} />
+                  <span>
+                    <strong>English menus</strong> — the engine's own menus and messages (属性 魔法 物品 系统, battle commands, shops, saving) in
+                    English, for a game in English. Each is replaced by English of the same length, so nothing else in the engine changes.
+                  </span>
+                </label>
               )}
             </fieldset>
 

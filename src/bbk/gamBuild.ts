@@ -18,6 +18,7 @@
 
 import { gbkBytes } from "../engine/java";
 import { findLib, isGam } from "./gam";
+import { englishMenus as translate } from "./kitEnglish";
 
 export type GamEngine = "react" | "fulu";
 
@@ -38,12 +39,14 @@ export function donorProblem(donor: Uint8Array): string | null {
 }
 
 /** The .gam: `lib` named `name`, with the engine of `donor` (a kit .gam) or the site's own program; the site opens it with `prefer`. */
-export function buildGam(lib: Uint8Array, name: string, prefer: GamEngine, donor?: Uint8Array): Uint8Array {
+export function buildGam(lib: Uint8Array, name: string, prefer: GamEngine, donor?: Uint8Array, englishMenus = false): Uint8Array {
   if (donor) {
     const problem = donorProblem(donor);
     if (problem) throw new Error(`That .gam cannot lend its engine: ${problem}.`);
   } else if (prefer !== "react") throw new Error("Only a .gam with the RPG kit's engine runs on Fulu.");
-  const head = donor ? donor.subarray(0, findLib(donor)) : stubProgram();
+  // (the kit's engine with its menus and messages in English, if asked: src/bbk/kitEnglish.ts)
+  const program = donor && englishMenus ? translate(donor).gam : donor;
+  const head = program ? program.subarray(0, findLib(program)) : stubProgram();
   const out = new Uint8Array(head.length + lib.length + MARK_SIZE);
   out.set(head);
   out.set(lib, head.length);
