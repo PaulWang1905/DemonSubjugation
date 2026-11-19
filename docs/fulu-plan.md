@@ -355,9 +355,11 @@ What the games taught:
 
 The check refused the screens that are not the map while the game's memory
 still names one (a run error, a blank screen); a battle was not reached in
-the automated runs. Not tried with the firmware (the code reads the same RAM
-and screen). tests/wide-view-gam.test.ts checks the six games on their first
-map.
+the automated runs, but the owner played battles with it on the site and
+the border goes as it should (2026-11-19). Not tried with the firmware, and
+left so by the owner's choice (the code reads the same RAM and screen).
+tests/wide-view-gam.test.ts checks the six games on their first map, in
+dialogues and around popup menus.
 
 ## 13. F6: More text for `.gam` games (plan)
 
@@ -445,7 +447,8 @@ scrolling, keys), so showing more of them would mean replacing the game's
 code, which is riskier than what Fulu does elsewhere. They keep the device's
 size. No shadow comparison was needed, since the game's own code still runs. tests/more-text-gam.test.ts plays the six games' openings:
 every dialogue taken, its pages showing its whole string in order, never
-more pages than the game's.
+more pages than the game's. Past the openings, the owner played on with More
+text on the site: dialogues and message boxes work (2026-11-19).
 
 ## 14. F7: the debug menu for `.gam` games (plan)
 
