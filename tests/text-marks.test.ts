@@ -1,4 +1,5 @@
-// HD text on Fulu: a character is reported only while the screen shows its whole cell.
+// HD text on Fulu: a character is reported while the screen shows its cell, whole or
+// in part (the covered box hidden, so that only the rest is redrawn).
 import { describe, expect, it } from "vitest";
 import { LCD_HEIGHT, LCD_STRIDE } from "../src/bbk/lcd";
 import { TextMarks } from "../src/fulu/textMarks";
@@ -22,18 +23,24 @@ describe("text marks", () => {
     expect(t.marks(screen)).toEqual([{ x: 13, y: 20, w: 16, h: 16, text: "字", fg: 0xff000000, bg: 0xffffffff, hidden: null }]);
     paint(screen, 13, 20, 16, FRAME, true); // a menu's selection
     expect(t.marks(screen)).toMatchObject([{ fg: 0xffffffff, bg: 0xff000000 }]);
-    screen[25 * LCD_STRIDE + 20] ^= 1; // one pixel drawn over: the pixels stay
+    screen[25 * LCD_STRIDE + 20] ^= 1; // one pixel drawn over: that pixel stays the screen's
+    expect(t.marks(screen)).toMatchObject([{ hidden: [7, 5, 8, 6] }]);
+    for (let k = 0; k < 16; k++) for (let c = 0; c < 16; c++) screen[(20 + k) * LCD_STRIDE + 13 + c] = (k + c) & 1; // drawn over whole: gone
     expect(t.marks(screen)).toEqual([]);
   });
 
-  it("forgets what a new glyph draws over, and keeps nothing for a blank character", () => {
+  it("keeps what a new glyph draws over in part, and nothing for a blank character", () => {
     const t = new TextMarks(), screen = new Uint8Array(LCD_STRIDE * LCD_HEIGHT);
     t.drawn(0, 0, 16, FRAME, "甲");
     t.drawn(8, 4, 8, BAR, "1"); // over half of 甲
     t.drawn(32, 0, 8, BAR, " ");
     paint(screen, 0, 0, 16, FRAME);
     paint(screen, 8, 4, 8, BAR);
-    expect(t.marks(screen).map((m) => m.text)).toEqual(["1"]);
+    // 甲 with the half under "1" hidden (stretched to its edges), and "1"
+    expect(t.marks(screen).map((m) => [m.text, m.hidden])).toEqual([
+      ["甲", [8, 4, 16, 16]],
+      ["1", null],
+    ]);
     t.clear();
     expect(t.marks(screen)).toEqual([]);
   });
