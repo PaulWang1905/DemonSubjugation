@@ -162,3 +162,42 @@ describe.each(["伏魔记-1.3.gam"])("%s, a renamed scene", (file) => {
     expect(kit.ready()).toBe(false);
   }, 300_000);
 });
+
+// A popup can leave too little of the map in view to prove it (a few tiles,
+// mostly plain ground): the border stays while the view is the same and the
+// screen still shows one of the map's tiles in place; with none it goes.
+describe.each(["伏魔记-1.3.gam"])("%s, a popup over most of the map", (file) => {
+  it.skipIf(!have(file))("keeps the border while a little of the same view shows", () => {
+    const d = new FuluDevice({ hzk16: new Uint8Array(readFileSync(join(FONTS, "HZK16"))), asc16: new Uint8Array(readFileSync(join(FONTS, "ASC16"))) });
+    const gam = new Uint8Array(readFileSync(join(GAMES, file)));
+    d.launch(d.install(gam)!);
+    const library = gam.subarray(findLib(gam));
+    const kit = new KitCheats(d.machine, readLibrary(library)), wide = new WideView(library);
+    const run = (s: number) => {
+      for (let n = Math.round(s * 60); n > 0; n--) d.machine.run(CPU_HZ / 60);
+    };
+    run(3);
+    for (let i = 0; i < 2; i++) (d.press(Key.enter), run(2));
+    for (let i = 0; i < 120 && !kit.ready(); i++) (d.press(i % 2 ? Key.exit : Key.enter), run(1.5));
+    for (let i = 0; i < 30; i++) (d.press(Key.enter), run(0.6));
+    for (let i = 0; i < 2; i++) (d.press(Key.exit), run(1));
+    const lcd = new Uint8Array(LCD_STRIDE * LCD_HEIGHT), [w, h] = WideView.size(4, 2), frame = new Uint8Array(w * h);
+    decodeLcd(d.machine.ram, lcd);
+    const view = kit.mapView()!;
+    wide.compose(lcd, view, 4, 2, frame);
+    expect(wide.showing).toBe(true);
+    // a "popup" over all but three tiles (the right-hand column's top three: fewer than six patterned ones)
+    const popup = lcd.slice();
+    for (let y = 0; y < LCD_HEIGHT; y++) popup.fill(0, y * LCD_STRIDE, y * LCD_STRIDE + (y < 48 ? 136 : LCD_STRIDE));
+    for (let i = 0; i < 3; i++) wide.compose(popup, view, 4, 2, frame);
+    expect(wide.showing).toBe(true);
+    // the view moved meanwhile: not kept
+    for (let i = 0; i < 3; i++) wide.compose(popup, { ...view, viewX: view.viewX - 1 }, 4, 2, frame);
+    expect(wide.showing).toBe(false);
+    // and a screen with none of the map: not shown
+    wide.compose(lcd, view, 4, 2, frame);
+    expect(wide.showing).toBe(true);
+    for (let i = 0; i < 3; i++) wide.compose(new Uint8Array(lcd.length), view, 4, 2, frame);
+    expect(wide.showing).toBe(false);
+  }, 300_000);
+});

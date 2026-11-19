@@ -7,9 +7,11 @@
 // shows the map's other tiles and the characters on them. The border is
 // shown only while the game's screen confirms it: the tiles the game shows
 // must be the library's for that place (most of them; sprites and boxes
-// cover some). Battles, menus over the whole screen, scene pictures, or a
-// build whose memory is not as expected fail the check, and the frame then
-// shows the device's whole screen with a blank border.
+// cover some). Once shown, it stays while the view is the same and some of
+// the map still shows (a popup menu over most of it). Battles, menus over
+// the whole screen, scene pictures, or a build whose memory is not as
+// expected fail the check, and the frame then shows the device's whole
+// screen with a blank border.
 
 import { DatLib, ResType } from "../engine/fmj/lib/DatLib";
 import type { KitMapView } from "./kitCheats";
@@ -66,6 +68,8 @@ export class WideView {
   showing = false;
   /** Where this game's map area starts on the screen, once seen. */
   private left: number | null = null;
+  /** The map and view the border last showed. */
+  private shownView = "";
 
   /** `library`: the fmj library in the .gam (from findLib). */
   constructor(library: Uint8Array) {
@@ -85,7 +89,17 @@ export class WideView {
   compose(lcd: Uint8Array, view: KitMapView | null, mx: number, my: number, out: Uint8Array): [number, number] {
     const [w, h] = WideView.size(mx, my), ox = TILE * mx, oy = TILE * my;
     const map = view && this.map(view.mapType, view.mapIndex);
-    const shown = !!map && (this.left !== null ? this.matches(lcd, map, view!, this.left) : this.find(lcd, map, view!));
+    const at = view ? `${view.mapType}-${view.mapIndex}-${view.viewX}-${view.viewY}` : "";
+    let shown = !!map && (this.left !== null ? this.matches(lcd, map, view!, this.left) : this.find(lcd, map, view!));
+    // A popup menu can leave too little of the map in view to prove it. The
+    // border stays while the view is the one it showed and the screen still
+    // shows the map somewhere (one of its tiles in place); a battle, a page
+    // over the whole screen or a picture shows none.
+    if (!shown && this.showing && map && this.left !== null && at === this.shownView) {
+      const c = this.count(lcd, map, view!, this.left);
+      shown = c.patterned >= 1 || (c.patterns === 0 && c.same >= 1);
+    }
+    if (shown) this.shownView = at;
     const LEFT = this.left ?? LEFTS[0];
     this.fails = shown ? 0 : this.fails + 1;
     this.showing = this.showing ? this.fails < GRACE : shown;
