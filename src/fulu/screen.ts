@@ -205,7 +205,109 @@ const LINE: [number, number][] = [[0x38, 0x3c], [0x2080, 0x208a], [0x20b7, 0x20b
 /** The OS variables the rectangle functions use as temporaries. */
 const RECTANGLE: [number, number][] = [[0x38, 0x3c], [0x2081, 0x208a], [0x20b7, 0x20b8], [0x20cf, 0x20d1], [0x20d8, 0x20eb]];
 
+/** What the circle functions use: the plot's ($2080 the colour, $2081/$2082 the point, $EAE6's), their centre, radius, point and error term. */
+const CIRCLE: [number, number][] = [[0x38, 0x3c], [0x2080, 0x208a], [0x20b7, 0x20ba], [0x20cf, 0x20d8]];
+
+/**
+ * $E788 (x in A, y, r) and $E8BC: a circle, drawn ($E788) or cleared
+ * ($E8BC), by the midpoint method (5:$7C1C): nothing unless it fits on the
+ * screen (x + r and y + r without a carry and below 159 and 96, x - r and
+ * y - r without a borrow), A = 0; else its four extreme points, then eight
+ * points a step until x - cx passes y - cy, with the error term d = 1 - r
+ * going up by 2(x - cx) + 3 (4 when it turns non-negative: the OS adds the 3
+ * with the carry of the 16-bit sum before), or 2(x - cx) - 2(y - cy) + 5 as y
+ * steps in. A = 1.
+ */
+function circle(on: boolean): void {
+  const sp = word(0x28), cx = cpu.a, cy = rd(sp), r = rd(sp + 1);
+  cpu.y = 1;
+  const fail = () => void ((cpu.a = 0), nz(0));
+  clc();
+  let v = adc(cx, r);
+  if (carry() || (cmp(v, 0x9f), v >= 0x9f)) return fail();
+  sec();
+  sbc(cx, r);
+  if (!carry()) return fail();
+  clc();
+  v = adc(cy, r);
+  if (carry() || (cmp(v, 0x60), v >= 0x60)) return fail();
+  sec();
+  sbc(cy, r);
+  if (!carry()) return fail();
+  plot(cx, cy + r, on);
+  plot(cx, cy - r, on);
+  plot(cx + r, cy, on);
+  plot(cx - r, cy, on);
+  let d = 1 - r, x = cx, y = cy + r;
+  for (;;) {
+    const dx = x - cx, dy = y - cy;
+    if (dx >= dy) break;
+    if (d < 0) {
+      // (5:$7D12 adds the 3 without clearing C: the second +dx's carry out of the high byte, as d turns non-negative, adds 1)
+      const d1 = (d + dx) & 0xffff, carried = d1 + dx > 0xffff ? 1 : 0;
+      d = (((d1 + dx + 3 + carried) & 0xffff) << 16) >> 16;
+    } else {
+      d += 2 * dx + 5 - 2 * dy;
+      y--;
+    }
+    x++;
+    const a = x - cx, b = y - cy;
+    for (const [px, py] of [[cx + a, cy + b], [cx - a, cy + b], [cx + a, cy - b], [cx - a, cy - b], [cx + b, cy + a], [cx + b, cy - a], [cx - b, cy + a], [cx - b, cy - a]]) plot(px, py, on);
+  }
+  // the last comparison (C set), A = 1; the plot leaves X and Y 0
+  cpu.x = cpu.y = 0;
+  cmp(1, 0);
+  cpu.a = nz(1);
+  cpu.p &= ~0x40;
+}
+
+/** Where $E8C5 keeps its work: its arguments and counters, the row pointers, $EAE6's and $EAE9's. */
+const WINDOW_TEMPORARIES: [number, number][] = [[0x38, 0x3c], [0x2081, 0x208c], [0x20b7, 0x20b8], [0x20cf, 0x20ef]];
+
+/**
+ * $E8C5 (x in A, y, sx, sy, w, h, bitmap): the w × h window at (sx, sy) of a
+ * bitmap {width, height, then rows of ⌈width / 8⌉ bytes} onto the screen at
+ * (x, y), replacing what is there. Nothing if the window leaves the bitmap or
+ * the screen (checked in that order, each as the OS's 8-bit sum: A is the sum
+ * that failed). $2F/$30 is left at the bitmap's data row after the window.
+ * The OS draws a byte at a time, shifting by the two offsets' difference, row
+ * by row through $EAE6 (5:$8714, the first row's address) and $EAE9 (5:$65FB,
+ * the next row's); Y, C and V are left from those, which compiled C never
+ * reads after a call, so Fulu leaves them as they are (ownState).
+ */
+function bitmapWindow(): void {
+  const sp = word(0x28), x = cpu.a, y = rd(sp), sx = rd(sp + 1), sy = rd(sp + 2), w = rd(sp + 3), h = rd(sp + 4), bitmap = get16(sp + 5);
+  set16(0x2f, bitmap);
+  const width = rd(bitmap), height = rd(bitmap + 1);
+  const checks: [number, number][] = [
+    [(sx + w - 1) & 0xff, width],
+    [(sy + h - 1) & 0xff, height],
+    [(x + w - 1) & 0xff, WIDTH],
+    [(y + h - 1) & 0xff, HEIGHT],
+  ];
+  for (const [v, limit] of checks) {
+    if (cmp((cpu.a = v), limit), v >= limit) return;
+  }
+  // (a window 0 wide or high, or one whose sums wrapped past 255 and so passed: the OS then draws past the screen, into its own variables; not done)
+  if (!w || !h || sx + w > 0x100 || sy + h > 0x100 || x + w > 0x100 || y + h > 0x100) return;
+  const stride = ((width - 1) >> 3) + 1;
+  let row = (bitmap + 2 + stride * sy + (sx >> 3)) & 0xffff;
+  for (let r = 0; r < h; r++, row = (row + stride) & 0xffff) {
+    for (let c = 0; c < w; c++) {
+      const i = (sx & 7) + c;
+      plot(x + c, y + r, ((rd(row + (i >> 3)) << (i & 7)) & 0x80) !== 0);
+    }
+  }
+  set16(0x2f, row);
+  farCalled(0x65fb); // (the last far call: $EAE9, after the last row)
+  cpu.a = 0;
+  cmp(0, 0);
+}
+
 export const SCREEN: Record<number, OsFunction> = {
+  0xe8c5: { ...fn(0x5000, bitmapWindow, WINDOW_TEMPORARIES), ownState: { registers: ["y", "p"] } },
+  0xe788: fn(0x7c17, () => circle(true), CIRCLE),
+  0xe8bc: fn(0x7c0f, () => circle(false), CIRCLE),
   /**
    * $E7F7 (clear the whole screen buffer): $0400-$0FF3 to 0, counting $20E5/$20E6
    * down from $0BF4 with the pointer at $3A/$3B, then the byte the boot page
@@ -293,6 +395,11 @@ export const SCREEN: Record<number, OsFunction> = {
   0xe794: fn(0x8309, () => {
     const sp = word(0x28);
     line(cpu.a, rd(sp), rd(sp + 1), rd(sp + 2));
+  }, LINE),
+  // $E8B9 (x0 in A, y0, x1, y1): SysLine's line cleared (5:$8301: the same code with $2080 = 0)
+  0xe8b9: fn(0x8301, () => {
+    const sp = word(0x28);
+    line(cpu.a, rd(sp), rd(sp + 1), rd(sp + 2), false);
   }, LINE),
   // $E797 SysRect(x1 in A, y1, x2, y2): a rectangle's outline; nothing unless x1 ≤ x2 < 160 and y1 ≤ y2 < 96
   0xe797: fn(0x860b, () => {

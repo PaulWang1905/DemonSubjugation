@@ -174,8 +174,11 @@ export const GuiMsgBox: OsFunction = fn(
       const type = L(MSG);
       if (type === 1) break;
       if (type === 0x0a && L(MSG + 1) === 3) {
-        os.stop("Fulu has no $E92F (GuiMsgBox's message $0A 3) yet");
-        return;
+        // put back at the front of the queue, for the program's own loop, and close the box: $FD
+        set16(0x20, msg);
+        call(0xe92f, msg >> 8, [msg & 0xff, msg >> 8]);
+        setL(RESULT, 0xfd);
+        break;
       }
       if (type === 6 && L16(TIMEOUT)) {
         setL16(TICKS, (L16(TICKS) + 1) & 0xffff);

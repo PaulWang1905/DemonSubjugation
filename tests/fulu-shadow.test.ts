@@ -14,7 +14,7 @@ import { Key, keyCode } from "../src/bbk/keys";
 import { Machine } from "../src/bbk/machine";
 import { FAR_CALL, Fulu, type OsFunction } from "../src/fulu/fulu";
 import { KEY_CLASSES } from "../src/fulu/gui";
-import { FUNCTIONS, INTERRUPTS } from "../src/fulu/os";
+import { FUNCTIONS, INTERRUPT_TEMPORARIES, INTERRUPTS } from "../src/fulu/os";
 import { HELPERS } from "../src/fulu/runtime";
 
 const FW = process.env.BBK_FIRMWARE ?? "";
@@ -73,6 +73,7 @@ const DEAD_SOFT_STACK = 0x300;
 /** Every OS function's declared temporaries. */
 const TEMPORARY = new Uint8Array(0x8000);
 for (const f of Object.values(FUNCTIONS)) for (const [a, b] of f.temporaries ?? []) TEMPORARY.fill(1, a, b);
+for (const ranges of Object.values(INTERRUPT_TEMPORARIES)) for (const [a, b] of ranges) TEMPORARY.fill(1, a, b);
 
 interface Row {
   calls: number;
@@ -242,6 +243,9 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys: number[] |
     if (sp > low && sp <= 0x8000) m.ram.set(ref.ram.subarray(low, sp), low);
     // the function's temporaries, and what it would take from the OS's ROM
     fromOs(m, ref, f);
+    // the scratch of the interrupt handlers that ran (the entry's own, or those that came during it)
+    const vectors = [...(vector(at) ? [(at - 0x300) >> 2] : []), ...nested.map((n) => n.vector)];
+    for (const v of vectors) for (const [a, b] of INTERRUPT_TEMPORARIES[v] ?? []) m.ram.set(ref.ram.subarray(a, b), a);
     // what time did meanwhile: the clock, and interrupt flags and a key the hardware raised
     m.ram.set(ref.ram.subarray(RTC[0], RTC[1]), RTC[0]);
     for (const a of RAISED) {
@@ -424,6 +428,48 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     const cases: [number, () => number[], (() => number)?][] = [
       [0xe794, () => ((y0) => [y0, x(), near(y0)])(y())],
       [0xe7f7, () => []],
+      // the status icons' bits saved to and put back from p; $E863(A, b)
+      [0xe8ef, () => [rand(256), 0x30 + rand(8)]],
+      [0xe8f2, () => [rand(256), 0x30 + rand(8)]],
+      [0xe863, () => [rand(256)], () => rand(256)],
+      // the text cursor, from a state of it: on or off, shown or not, mostly on the screen
+      ...[0xe866, 0xe86b, 0xe86e, 0xe871].map((e): [number, () => number[], () => number] => [
+        e,
+        () => {
+          const w = 1 + rand(rand(4) ? 16 : 200), h = 1 + rand(rand(4) ? 16 : 120);
+          m.ram.set([w, h, rand(8) ? rand(160 - Math.min(w, 159)) : rand(256), rand(8) ? rand(96 - Math.min(h, 95)) : rand(256), rand(2), rand(2)], 0x20ba);
+          m.ram[0x20cd] = rand(2);
+          // ($E86B off the screen pulls A twice, and returns into whatever is there: a crash on the device)
+          return [e === 0xe86b || rand(8) ? rand(96) : rand(256)];
+        },
+        () => (e === 0xe86b || rand(8) ? rand(160) : rand(256)),
+      ]),
+      // physical memory through DATA4: the font ROM, the flash, the OS's ROM; and the clock's seconds
+      [0xe7d3, () => [rand(256), rand(256), [0x80, 0x88, 0x20 + rand(0x20), 0xe0 + rand(4)][rand(4)], 0, rand(256), 0x30 + rand(8), rand(4) ? rand(64) : rand(256)]],
+      [0xe7e5, () => [], () => rand(60)],
+      [0xe8d4, () => []],
+      [0xe8e3, () => [], () => (rand(4) ? rand(101) : rand(256))],
+      // a message posted to, or put back at the front of, GuiGetMsg's queue (indexes 0-7, 0-9 queued)
+      ...[0xe92c, 0xe92f].map((e): [number, () => number[]] => [e, () => (m.ram.set([rand(8), rand(8), rand(10)], 0x2b09), [rand(256), 0x30 + rand(8)])]),
+      // the bar graph's icons: a run, mostly valid
+      [0xe80f, () => [rand(4) ? rand(20) : rand(256), rand(2) ? 0 : rand(256)], () => (rand(4) ? rand(20) : rand(256))],
+      ...[0xe800, 0xe812, 0xe830, 0xe84e].map((e): [number, () => number[], () => number] => [e, () => [], () => (rand(2) ? 0 : rand(256))]),
+      // the sound's functions with the sound off (all Fulu does: it has no sound)
+      [0xea52, () => [], () => ((m.ram[0x2059] = 0), rand(256))],
+      [0xea64, () => [rand(256), rand(256)], () => ((m.ram[0x2021] &= ~0x04), rand(256))],
+      [0xe8b9, () => ((y0) => [y0, x(), near(y0)])(y())],
+      // circles: mostly on the screen, now and then not; the centre's x in A
+      ...[0xe788, 0xe8bc].map((e): [number, () => number[], () => number] => [e, () => [rand(8) ? rand(96) : rand(256), rand(4) ? rand(48) : rand(256)], () => rand(8) ? rand(160) : rand(256)]),
+      // a window of a bitmap at $3000 {width, height, rows}: mostly inside it and on the screen
+      [0xe8c5, () => {
+        const W = 1 + rand(rand(4) ? 64 : 255), H = 1 + rand(rand(4) ? 40 : 255), sx = rand(W), sy = rand(H);
+        m.ram[0x3000] = W;
+        m.ram[0x3001] = H;
+        const w = 1 + rand(rand(6) ? Math.min(W - sx, 48) : 255), h = 1 + rand(rand(6) ? Math.min(H - sy, 48) : 255);
+        // (sums that wrap past 255 pass the OS's checks, and it draws into its own variables: Fulu does not)
+        const y = rand(8) ? rand(96) : rand(256);
+        return [y, sx, sy, Math.min(w, 0x100 - sx), Math.min(h, 0x100 - sy, 0x100 - y), 0x00, 0x30];
+      }, () => rand(160)],
       ...[0xe818, 0xe81b, 0xe81e, 0xe821].map((e): [number, () => number[], () => number] => [e, () => [], () => (rand(4) ? rand(17) : rand(256))]),
       // the clock and the key buffer
       [0xe7dc, () => []],
@@ -464,6 +510,10 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     for (const [entry, args, aOf] of cases) {
       for (let trial = 0; trial < 300; trial++) {
         for (let a = 0x400; a < 0x4000; a++) m.ram[a] = rand(256);
+        // (CT, which the cursor functions start, stopped, and no interrupt pending: an interrupt is not the function's)
+        m.ram[0x22e] &= ~0x10;
+        m.write(0x04, 0);
+        m.write(0x05, 0);
         const a = aOf ? aOf() : x(), list = args();
         const diff = farCallBoth(m, fulu, entry, a, list, { x: rand(256), y: rand(256), p: (rand(256) | 0x24) & ~0x18 });
         if (diff) {
@@ -559,7 +609,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
         set16(0x28, 0x1100 + rand(0x3000));
         const cpu = m.cpu, sp = m.ram[0x28] | (m.ram[0x29] << 8);
         Object.assign(cpu, { a: rand(2) ? value() & 0xff : rand(256), x: rand(256), y: rand(256), p: (rand(256) | 0x24) & ~0x18, s: 0x40 + rand(0xb0) });
-        if (addr === 0xd362 || addr === 0xd29d || addr === 0xd2ca || addr === 0xdb2f || addr === 0xdc83 || addr === 0xdcc8 || addr === 0xdcf7 || addr === 0xd435) {
+        if (addr === 0xd362 || addr === 0xd29d || addr === 0xd2ca || addr === 0xdb2f || addr === 0xdc83 || addr === 0xdcc8 || addr === 0xdcf7 || addr === 0xd435 || addr === 0xd6f5 || addr === 0xd604) {
           set16(0x20, ptr());
           set16(0x23, ptr());
           if (rand(3) === 0) fill(m.ram[0x23] | (m.ram[0x24] << 8), 4, () => (rand(2) ? 0 : rand(256)));

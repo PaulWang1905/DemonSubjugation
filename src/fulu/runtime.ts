@@ -968,6 +968,71 @@ function sdiv32(): void {
   unwind(s, 0x0c);
 }
 
+/** $D604: the remainder of the signed long ($20) by ($23) ($D435's, at scratch + $18), copied to scratch + 8 ($20 pointing at it), negated if the dividend is negative. */
+function smod32(): void {
+  cpu.y = 3;
+  const negative = nz(rd(word(0x20) + 3)) & 0x80, s = cpu.s;
+  cpu.s = (s - 2) & 0xff; // (the JSR to $D435)
+  sdiv32();
+  cpu.s = s;
+  const sc = scratch();
+  for (let i = 0; i < 4; i++) wr(sc + 8 + i, (cpu.a = rd(sc + 0x18 + i)));
+  cpu.y = 0x0b;
+  point(0x20, 8);
+  if (negative) negate32();
+}
+
+/** $D65B: signed char A × $23 (low byte in A): $D184 (mul8) on the magnitudes, the product negated if the signs differ; $23 kept. */
+function smul8(): void {
+  const a = cpu.a, b = ram[0x23];
+  ram[0x20] = a;
+  if (!(nz(a & 0x80))) {
+    if (!(nz(b) & 0x80)) return mul8();
+    // b negative: on -b, then negated, $23 put back
+    sec();
+    ram[0x23] = sbc(0, b);
+    mul8();
+    const p = negate8(cpu.a);
+    cpu.x = p;
+    ram[0x23] = nz(b);
+    cpu.a = nz(p);
+    return;
+  }
+  nz(b);
+  sec();
+  ram[0x20] = sbc(0, a);
+  if (!(b & 0x80)) {
+    mul8();
+    cpu.a = negate8(cpu.a);
+    return;
+  }
+  sec();
+  ram[0x23] = sbc(0, b);
+  mul8();
+  cpu.x = cpu.a;
+  ram[0x23] = nz(b);
+  cpu.a = nz(cpu.x);
+}
+
+/** EOR #$FF, CLC, ADC #1. */
+function negate8(v: number): number {
+  nz(v ^ 0xff);
+  clc();
+  return adc(v ^ 0xff, 1);
+}
+
+/** $D6F5: signed long ($20) × ($23): $D201 on the magnitudes (the OS negates its copies on the 6502 stack), the product negated ($D7B4) if the signs differ. */
+function smul32(): void {
+  const s = cpu.s, a = long(word(0x20)), b = long(word(0x23));
+  const an = a >>> 31, bn = b >>> 31;
+  const product = Math.imul(an ? -a >>> 0 : a, bn ? -b >>> 0 : b) >>> 0;
+  point(0x20, 8);
+  store(word(0x20), product);
+  cpu.y = 3;
+  if (an !== bn) negate32();
+  unwind(s, 8);
+}
+
 // ---- the table ----
 
 /** Each returns "jump" if it has set the PC; anything else it returns is ignored. */
@@ -1036,6 +1101,13 @@ const table: Record<number, () => unknown> = {
   0xd6af: () => signed16(mul16),
   0xdc83: () => udiv32(cpu.s),
   0xd435: sdiv32,
+  0xd65b: smul8,
+  0xd604: smod32,
+  // signed int ($20/$21) to float, at scratch + $10 ($20 pointing at it)
+  0xd4c0: () => (table[0xd4c6](), floatAt10()),
+  // signed int ($23/$24) to float, at scratch + $20
+  0xd534: () => (table[0xd53a](), floatAt20()),
+  0xd6f5: smul32,
   0xd5dc: remainder16,
   0xd31a: floatCompareFlags,
   0xdcc8: () => {

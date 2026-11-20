@@ -6,7 +6,7 @@
 import { adc, carry, clc, cmp, cpu, fn, get16, nz, os, put16, ram, rd, sbc, sec, set16, store, use, word, wr } from "./alu";
 import { SCREEN } from "./screen";
 import { TEXT } from "./text";
-import { GUI } from "./gui";
+import { CURSOR_TEMPORARIES, GUI, invertCursor } from "./gui";
 import { FILES } from "./files";
 import { HEAP } from "./heap";
 import { GuiMsgBox } from "./msgbox";
@@ -298,6 +298,39 @@ export const FUNCTIONS: Record<number, OsFunction> = {
     wr(p + 1, (cpu.a = nz(rd(0x238) & 0x01)));
     cpu.y = 1;
   }),
+  // $EA52 and $EA64 drive the sound hardware, each only when it is on ($2059;
+  // $2021 bit 2). Fulu plays no sound: with it off they return at once, as on
+  // the device; with it on a program stops (not met yet)
+  0xea52: fn(0x7ce5, () => {
+    if (cmp((cpu.a = ram[0x2059]), 0)) return void os.stop("Fulu has no sound yet ($EA52, with the sound on)");
+  }),
+  0xea64: fn(0x88ab, () => {
+    cpu.a = nz(ram[KEY_EVENTS] & 0x04);
+    if (cmp(cpu.a, 0)) return void os.stop("Fulu has no sound yet ($EA64, with the sound on)");
+  }),
+  // $E8D4: $0244 = 0 and $2021 bit 1 cleared (flags kept: PHP ... PLP), A = 1
+  0xe8d4: fn(0x7b0d, () => {
+    const p = cpu.p;
+    wr(0x244, 0);
+    ram[KEY_EVENTS] = cpu.a = ram[KEY_EVENTS] & 0xfd;
+    cpu.p = p;
+    cpu.a = nz(1);
+  }),
+  // $E7E5: set the clock's seconds
+  0xe7e5: fn(0x75cc, () => void wr(0x234, cpu.a)),
+  // $E7D3(addr (3 bytes), _, p, n): n bytes of physical memory from addr to p, through
+  // the data port DATA4 ($03; its address ADDR4 $0211-$0213 steps on each read) and $2F/$30
+  0xe7d3: fn(0x7531, () => {
+    const sp = word(0x28);
+    for (let i = 0; i < 3; i++) wr(0x211 + i, rd(sp + i));
+    const p = get16(sp + 4), n = rd(sp + 6);
+    set16(0x2f, p);
+    cpu.a = n;
+    for (let i = 0; i < n; i++) wr(p + i, (cpu.a = rd(0x03)));
+    cpu.x = 0;
+    cpu.y = n;
+    cmp(0, 0);
+  }),
   // forget the keys in the OS's buffer (write index = read index)
   0xe7d0: fn(0x770f, () => void (ram[KEY_WRITE] = cpu.a = nz(ram[KEY_READ]))),
   // clear four records at $2122 (their first bytes) and $216A
@@ -356,6 +389,9 @@ export const NAMES: Record<number, string> = {
   0xe9ec: "FileSearch",
 };
 
+/** What interrupt handlers leave as scratch of their own (CT: the cursor routine's), by vector. */
+export const INTERRUPT_TEMPORARIES: Record<number, [number, number][]> = { 0x12: CURSOR_TEMPORARIES };
+
 /** Interrupt handlers. The far call that reaches them saves the registers, so only memory changes. */
 export const INTERRUPTS: Record<number, Handler> = {
   // keyboard: start the key sound if on, and buffer the key (the OS keeps at most 15)
@@ -385,12 +421,16 @@ export const INTERRUPTS: Record<number, Handler> = {
     ram[EVENTS] |= 0x01;
     ram[TIMER_COUNT] = 0;
   }),
-  // timer CT: blink the status icons
+  // timer CT: blink the status icons, and the text cursor (5:$52D7, its phase toggled)
   0x12: handler(() => {
     wr(ISR, 0xfd);
-    if (ram[BLINK] !== 1) return;
-    const on = ram[BLINK_PHASE] !== 1;
-    ram[BLINK_PHASE] = on ? 1 : 0;
-    for (const a of ICONS) wr(a, (rd(a) & 0xfe) | (on ? 0 : 1));
+    if (ram[BLINK] === 1) {
+      const on = ram[BLINK_PHASE] !== 1;
+      ram[BLINK_PHASE] = on ? 1 : 0;
+      for (const a of ICONS) wr(a, (rd(a) & 0xfe) | (on ? 0 : 1));
+    }
+    if (ram[0x20bf] !== 1) return;
+    invertCursor();
+    ram[0x20be] ^= 1;
   }),
 };
