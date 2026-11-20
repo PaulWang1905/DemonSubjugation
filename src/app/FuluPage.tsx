@@ -5,6 +5,10 @@ import { Link } from "./router";
 import { REPO_URL } from "./links";
 import { useSiteLang, type SiteLang } from "./siteLang";
 import { Arrow } from "./Tile";
+import { FULU_COUNTS, fuluSummary } from "./fuluGames";
+import { FuluProgress } from "./FuluProgress";
+
+const SUMMARY = fuluSummary();
 
 const TEXT = {
   en: {
@@ -14,9 +18,9 @@ const TEXT = {
     play: "Play a game on Fulu",
     report: "Read the full technical report",
     stats: [
-      ["59", "OS functions answered"],
-      ["55", "C runtime routines"],
-      ["0", "differences from the original OS"],
+      [String(FULU_COUNTS.functions), "OS functions answered"],
+      [String(FULU_COUNTS.routines), "C runtime routines"],
+      [`${SUMMARY.plays + SUMMARY.ends}/${SUMMARY.total}`, "programs play without Fulu stopping them"],
       ["16×", "faster than emulating the firmware"],
     ],
     whyTitle: "Why an operating system?",
@@ -44,7 +48,7 @@ const TEXT = {
     checkText: "The shadow run: from the same moment of a game, the real firmware answers a call, then Fulu answers it, and the two machines are compared — registers, memory banks and all of RAM. Every call in a minute of play of each game, hundreds of thousands of them: no differences.",
     check: ["Same machine state", "BBK's firmware answers", "Fulu answers", "Compare everything", "0 differences"],
     gamesTitle: "What runs",
-    games: "The whole 伏魔记 series (1.0, 1.2, 1.3, 完美版, 怀旧终曲), 英雄坛说 and 三国霸业: play and save, no firmware needed.",
+    games: `The whole 伏魔记 series (1.0, 1.2, 1.3, 完美版, 怀旧终曲), 英雄坛说 and 三国霸业 are checked against the original OS call by call, saving included. Of the collection's ${SUMMARY.total} programs, ${SUMMARY.plays} play for three minutes of random keys without stopping and ${SUMMARY.ends} more end on their own; the rest, and the problems known, are listed below.`,
     extrasTitle: "What it adds",
     extras: [
       ["HD text", "Fulu draws every character, so it can redraw them in real fonts."],
@@ -62,9 +66,9 @@ const TEXT = {
     play: "用符箓玩一款游戏",
     report: "阅读完整的技术报告",
     stats: [
-      ["59", "个系统函数"],
-      ["55", "个 C 运行库例程"],
-      ["0", "处与原机系统的差异"],
+      [String(FULU_COUNTS.functions), "个系统函数"],
+      [String(FULU_COUNTS.routines), "个 C 运行库例程"],
+      [`${SUMMARY.plays + SUMMARY.ends}/${SUMMARY.total}`, "个程序运行时符箓不会中止"],
       ["16×", "比模拟固件快"],
     ],
     whyTitle: "为什么要写一个操作系统？",
@@ -92,7 +96,7 @@ const TEXT = {
     checkText: "影子运行：从游戏的同一时刻出发，先让真正的固件回答一次调用，再让符箓回答，然后比较两台机器——寄存器、内存分页和全部内存。每款游戏玩一分钟，数十万次调用：没有任何差异。",
     check: ["同样的机器状态", "步步高固件回答", "符箓回答", "全部比较", "0 处差异"],
     gamesTitle: "能运行什么",
-    games: "整个伏魔记系列（1.0、1.2、1.3、完美版、怀旧终曲）、英雄坛说和三国霸业：都能玩、能存档，不需要固件。",
+    games: `整个伏魔记系列（1.0、1.2、1.3、完美版、怀旧终曲）、英雄坛说和三国霸业已与原版系统逐个调用对比，包括存档。合集的 ${SUMMARY.total} 个程序中，${SUMMARY.plays} 个随机按键三分钟不会中止，另有 ${SUMMARY.ends} 个自行结束；其余的和已知问题列在下面。`,
     extrasTitle: "它带来了什么",
     extras: [
       ["高清文字", "每个字都由符箓绘制，所以能用真正的字体重新画出来。"],
@@ -107,6 +111,7 @@ const TEXT = {
 
 const REPORT_URL = `${REPO_URL}/blob/main/docs/fulu-report.md`;
 const SOURCE_URL = `${REPO_URL}/tree/main/src/fulu`;
+const GAMES_URL = `${REPO_URL}/blob/main/docs/fulu-games.md`;
 
 /** The layers: the game on Fulu on the emulated hardware, in the browser. */
 function StackDiagram({ labels }: { labels: string[] }) {
@@ -302,6 +307,8 @@ export function FuluPage() {
           </div>
         </div>
       </section>
+
+      <FuluProgress lang={lang} docUrl={GAMES_URL} />
 
       <section className="f-open">
         <h2>{t.openTitle}</h2>

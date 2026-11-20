@@ -1145,14 +1145,23 @@ Found on the way, in the OS:
   Windows whose other sums wrap past 255 pass the OS's checks and it draws
   into its own variables; Fulu draws nothing.
 
+The programs Fulu should run, how far each has got, those the owner has
+tested by hand and the problems still open are kept in one list,
+`src/app/fuluGames.ts`, shown on the site's Fulu page and written to
+`docs/fulu-games.md` (`npx tsx scripts/bbk/fulu-games-doc.mts`; a test
+fails when the document is out of date).
+
 ### 16.2 Other limitations
 
-- **Sound.** Fulu plays none. `$EA52` and `$EA64` drive the sound hardware
-  only when the sound is on; on Fulu's own machine it is off, and they
-  return at once, as on the device. In the shadow runs, on the firmware's
-  state, it is on (Eros方块, 二十四点, 滑雪, 豪斯), and there Fulu stops: their
-  "on" paths (hardware registers and busy waits, no state a program reads)
-  are not written.
+- **Sound is kept off** (the owner's decision, for now). Fulu plays none.
+  `$EA52` and `$EA64` drive the sound hardware only when the sound is on;
+  Fulu answers them as the device does with it off, returning at once,
+  whatever the setting. In the shadow runs, on the firmware's state, it is
+  on (Eros方块, 二十四点, 滑雪, 豪斯): the firmware then goes through its
+  "on" path (hardware registers and busy waits, no state a program reads),
+  and the comparison leaves those calls out, marking them "sound on: left
+  out". Whether to write the "on" paths is the owner's to decide later; the
+  problems list (`docs/fulu-games.md`) keeps it.
 
 - **Where a new file goes.** The OS allocates flash pages, reusing freed
   ones, among its own files (the device keeps alarms and checklists as user
@@ -1166,9 +1175,9 @@ Found on the way, in the OS:
 - **Not written:** input methods (`$E919`, `$E925`…, for typing Chinese:
   their size, and whether they need the OS's own data, is not measured
   yet; 恶龙传说, 电子宠物, 对对碰 and 碰碰车 switch to them), GuiGetMsg's
-  other events, `$E92F` (GuiMsgBox's message `$0A` 3), and the input mode
-  changes other than between 2 and 1.
-- **No sound**, in either OS mode.
+  other events, and the input mode changes other than between 2 and 1.
+- **No sound**, in either OS mode: kept off, by the owner's decision, until
+  they decide otherwise (`$EA52` / `$EA64` act as with the sound off).
 - **Timing** is a model of the firmware's cost, within a few percent on the
   games measured, not cycle-exact. A program's own pacing can still differ
   slightly: 三国霸业's intro runs a second longer on Fulu.

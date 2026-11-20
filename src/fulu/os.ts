@@ -299,14 +299,13 @@ export const FUNCTIONS: Record<number, OsFunction> = {
     cpu.y = 1;
   }),
   // $EA52 and $EA64 drive the sound hardware, each only when it is on ($2059;
-  // $2021 bit 2). Fulu plays no sound: with it off they return at once, as on
-  // the device; with it on a program stops (not met yet)
-  0xea52: fn(0x7ce5, () => {
-    if (cmp((cpu.a = ram[0x2059]), 0)) return void os.stop("Fulu has no sound yet ($EA52, with the sound on)");
-  }),
+  // $2021 bit 2). Fulu plays no sound and keeps it off (docs/fulu-games.md,
+  // "sound"): it returns at once, as the OS does with the sound off, also when
+  // a program has switched it on
+  0xea52: fn(0x7ce5, () => void cmp((cpu.a = ram[0x2059]), 0)),
   0xea64: fn(0x88ab, () => {
     cpu.a = nz(ram[KEY_EVENTS] & 0x04);
-    if (cmp(cpu.a, 0)) return void os.stop("Fulu has no sound yet ($EA64, with the sound on)");
+    cmp(cpu.a, 0);
   }),
   // $E8D4: $0244 = 0 and $2021 bit 1 cleared (flags kept: PHP ... PLP), A = 1
   0xe8d4: fn(0x7b0d, () => {

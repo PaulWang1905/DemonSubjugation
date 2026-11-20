@@ -612,4 +612,10 @@ again.
 - **Round 3:** `$E9AD` (挖金子, 869), `$E99E` (幸运花, 1,764 with what it
   calls), `$E94D` (中国象棋, 3,943), and input methods (宠物精灵, 电子宠物).
 - **Separately:** the OS's page allocation for new files (§16.2 of the
-  report); `$EA52` / `$EA64` with the sound on (the shadow runs' state).
+  report). Sound stays off (the owner's decision): `$EA52` / `$EA64` act
+  as with the sound off, and the shadow runs leave out their calls made
+  with it on.
+- **Tracking:** `src/app/fuluGames.ts` holds the programs Fulu should run
+  and how far each has got, the owner's hand tests and the problems (with
+  the owner's decisions); the site's Fulu page shows it and
+  `docs/fulu-games.md` is written from it. Update it with each round.

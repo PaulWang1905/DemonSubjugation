@@ -439,7 +439,9 @@ arguments: SysRand; strcat $E712, strcmp $E718; itoa $E709 and ltoa $E70F
 (their constants read where the OS has them); SysPlayMelody $E8A1 and
 SysStopMelody $E8A4 (Fulu plays no sound: what the melody takes from the
 OS's tune data, the notes' pointers and Y, is declared `fromRom`, and the
-comparison leaves it out; the emulated machine never raises the sound timer
+comparison leaves it out; $EA52 / $EA64 act as with the sound off even when
+it is on, by the owner's decision, and the shadow run leaves out calls made
+with it on; the emulated machine never raises the sound timer
 MT's interrupt, on the firmware either); GuiSetKbdState $E968; memcmp $E904;
 and the runtime's float routines (divide $E520, multiply $E52C, int and
 byte to float $DD32 / $DD52 through long to float $E31D), negate long

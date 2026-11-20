@@ -206,13 +206,17 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys: number[] |
       if (flashBefore) m.flash.data.set(flashBefore);
     };
     back();
-    const [name, answered, function_] = entryOf(at);
+    let [name, answered, function_] = entryOf(at);
+    // the sound's functions with the sound on: Fulu keeps it off (docs/fulu-games.md, "sound"), so these are left out
+    if (at === FAR_CALL && soundOn(before!)) [name, answered, function_] = [`${name} (sound on: left out)`, true, undefined];
     const row = rows.get(name) ?? { calls: 0, interrupted: 0, mismatches: 0 };
     rows.set(name, row);
     row.calls++;
     if (nested.length) row.interrupted++;
     if (!answered || nested.some((n) => !INTERRUPTS[n.vector])) row.missing = true;
-    else {
+    else if (name.endsWith("(sound on: left out)")) {
+      // (not judged)
+    } else {
       // An interrupt can come at any point of a function on the device, and
       // several while it sleeps; Fulu answers at once. So any of these orders
       // of the interrupts is the device's.
@@ -339,6 +343,12 @@ function runFirmware(m: Machine, limit = 2_000_000): void {
 }
 
 /** The firmware's machine with RAM in banks 1-4 and the OS's resident code in banks D-F, and Fulu answering for it. */
+/** Whether an entry is one of the sound's functions called with the sound on ($EA52: $2059; $EA64: $2021 bit 2). */
+function soundOn(state: Snapshot): boolean {
+  const ptr = state.ram[0x26] | (state.ram[0x27] << 8);
+  return (ptr === 0xea52 && state.ram[0x2059] !== 0) || (ptr === 0xea64 && (state.ram[0x2021] & 0x04) !== 0);
+}
+
 function bareMachine(): [Machine, Fulu] {
   const m = new Machine(loadFirmware());
   [1, 2, 3, 4].forEach((b) => (m.write(0x0c, b), m.write(0x0d, b), m.write(0x0e, 0)));
