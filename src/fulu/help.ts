@@ -360,8 +360,13 @@ function switchOn(): number {
 
 // ---- $761E: the dialog's loop ----
 
-/** The loop's frame (its software stack pointer), kept while GuiGetMsg waits. */
-let loopFrame = 0;
+/**
+ * The loop's frame: $F262's caller's software stack pointer less 54 (its 33
+ * locals, the 4 bytes it pushes, the loop's 17), worked out again when it is
+ * asked again after waiting, so that it goes on right also in a machine
+ * restored from a saved state.
+ */
+const LOOP_FRAME = 54;
 
 /** A page from L16[8] at line L[19]: L[2] = what it returns, L16[6] = the next page's start. */
 function redraw(): void {
@@ -412,14 +417,13 @@ function back(k: number): void {
 }
 
 /** The loop: its result in A, or "wait" (GuiGetMsg waiting; the frames stay as they are). */
-function loop(retrying: boolean): void | "wait" {
+function loop(retrying: boolean, frame: number): void | "wait" {
   if (!retrying) {
     reserve(17);
     load(0x20, 17);
     store(8);
     redraw();
-    loopFrame = sp();
-  } else set16(0x28, loopFrame);
+  } else set16(0x28, frame);
   let resumed = retrying;
   for (;;) {
     if (!resumed) {
@@ -447,6 +451,8 @@ function loop(retrying: boolean): void | "wait" {
     resumed = false;
     os.retrying = false;
     if (r === "wait") return "wait";
+    // (a stop in what it called ends it here: Fulu leaves it, for Continue to go on from the program's call)
+    if (os.stopped) return;
     cpu.x = cpu.a;
     drop(2);
     cpu.a = nz(cpu.x);
@@ -455,6 +461,7 @@ function loop(retrying: boolean): void | "wait" {
     os.retrying = false;
     pushLocal(0x0d);
     os.call(0xe93e);
+    if (os.stopped) return;
     cpu.x = cpu.a;
     drop(2);
     cpu.a = nz(cpu.x);
@@ -565,6 +572,7 @@ function loop(retrying: boolean): void | "wait" {
 
 /** $F262(text). */
 function dialog(): void | "wait" {
+  const caller = word(0x28);
   if (!os.retrying) {
     reserve(33);
     pushLocal(0x0c);
@@ -596,7 +604,12 @@ function dialog(): void | "wait" {
     load(0x20, 35);
     helper(0xdaca);
   }
-  if (loop(os.retrying) === "wait") return "wait";
+  const r = loop(os.retrying, (caller - LOOP_FRAME) & 0xffff);
+  if (r === "wait") {
+    set16(0x28, caller);
+    return "wait";
+  }
+  if (os.stopped) return;
   drop(4);
   load(0x20, 18);
   helper(0xdaca);

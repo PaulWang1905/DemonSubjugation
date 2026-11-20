@@ -967,8 +967,14 @@ function putBack(): void {
 
 // ---- 9:$5024 ----
 
-/** The frame (its software stack pointer), kept while GuiGetMsg waits; and whether it waits in the help screen. */
-let frame = 0, inHelp = false;
+/**
+ * Its frame is the caller's software stack pointer less 26 (A pushed, 25
+ * locals): worked out again when it is asked again after waiting, so that it
+ * goes on right also in a machine restored from a saved state. While the
+ * help screen it opened waits, L[16] (a chosen item's number, 1-36,
+ * otherwise) holds $FF: the menu then goes back into the help screen.
+ */
+const FRAME = 26, DIGIT = 16, IN_HELP = 0xff;
 
 /** A digit or letter's item (L[16], from 1): if it is one of the items, A = it - 1 and true. */
 function chosen(): boolean {
@@ -992,10 +998,11 @@ function compareWord(v: number): void {
 function menu(): void | "wait" {
   const caller = word(0x28);
   let retrying = os.retrying;
+  const frame = (caller - FRAME) & 0xffff;
   if (!retrying) {
-    inHelp = false;
     helper(0xdaaa);
     reserve(25);
+    wr(frame + DIGIT, 0); // (not in the help screen)
     // a message already queued: put back ($0A 3: leave with $FD)
     pushLocal(0x11);
     callByte(0xea25, 2);
@@ -1049,10 +1056,9 @@ function menu(): void | "wait" {
     getB(24);
     page();
     drop(4);
-    frame = sp();
   } else set16(0x28, frame);
   for (;;) {
-    if (retrying && inHelp) {
+    if (retrying && rd(frame + DIGIT) === IN_HELP) {
       // back into the help screen, where it waited
       set16(0x28, (frame - 2) & 0xffff);
       os.retrying = true;
@@ -1062,7 +1068,8 @@ function menu(): void | "wait" {
         set16(0x28, caller);
         return "wait";
       }
-      inHelp = false;
+      if (os.stopped) return;
+      wr(frame + DIGIT, 0);
       drop(2);
       marked();
       continue;
@@ -1078,6 +1085,8 @@ function menu(): void | "wait" {
       set16(0x28, caller);
       return "wait";
     }
+    // (a stop in what it called ends it here: Fulu leaves it, for Continue to go on from the program's call)
+    if (os.stopped) return;
     cpu.x = cpu.a;
     drop(2);
     cpu.a = nz(cpu.x);
@@ -1085,6 +1094,7 @@ function menu(): void | "wait" {
     if (!cpu.a) continue;
     pushLocal(0x11);
     callByte(0xe93e, 2);
+    if (os.stopped) return;
     minus(0);
     if (!cpu.a) continue;
     setConst(0x15, 0);
@@ -1196,10 +1206,11 @@ function menu(): void | "wait" {
           load(0x20, 12);
           helper(0xdaca);
           if (os.call(0xe96b) === "wait") {
-            inHelp = true;
+            wr(frame + DIGIT, IN_HELP);
             set16(0x28, caller);
             return "wait";
           }
+          if (os.stopped) return;
           drop(2);
         }
       }

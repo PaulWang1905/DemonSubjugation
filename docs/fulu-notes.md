@@ -436,6 +436,12 @@ Round 3, first part (the report's §16.1). Details worth keeping:
   中国象棋's call: A 0, the menu at $9FF3 (2 items).
 - $E96B (1:$6C66): $FFFF nothing; above $8000 $E980(w); else 1:$69BB, the
   OS's own help texts through a table of far calls ($7E2F): not in Fulu.
+- Asked again after waiting, an OS function that waits in a loop of its own
+  finds its frame from its caller's software stack pointer, which it puts
+  back when it waits: $E94D's is the caller's less 26, $F262's loop's less
+  54 (33 + 4 pushed + 17). It keeps nothing outside the machine, so it goes
+  on right in a machine restored from a saved state; while $E94D waits in
+  its help screen, its L[16] holds $FF. The help command is type 5, $26.
 
 - Chinese input (input modes 4 and 8): the mode changes are 8:$5E2C-$5FF2
   (mode, then $E913 / $E91F to open the bar, $E916 / $E922 to close it,

@@ -57,6 +57,9 @@ const PAD_KEYS = new Map<EngineKey, number>([
 /** How often a running device is put away (besides when the page is left). */
 const SAVE_EVERY_MS = 30_000;
 
+/** The keys that go from the empty Chinese box to the device (the others type in it). */
+const THROUGH_BOX = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Escape", "Backspace", "Delete", "Insert", "Home", "F1", "F2", "F3", "F4", "F12"]);
+
 type Status = { kind: "loading" | "starting" | "running" } | { kind: "error"; message: string; canGoOn?: boolean };
 
 export function DevicePlayer({ game, os: wanted, onExit }: Props) {
@@ -274,9 +277,10 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
             const canGoOn = d.fulu.resumable;
             if (!canGoOn) d.fulu.stopped = null;
             else shownStop.current = why;
-            // keep the device as it stopped (its flash holds the saves made just before)
+            // keep the device as it stopped (its flash holds the saves made just before; if the
+            // page is closed at the stop, the program starts afresh next time, with those saves)
             const kept = deviceRef.current;
-            if (kept && !canGoOn) saveDevice(id, kept.os, kept.device).catch(notStored);
+            if (kept) saveDevice(id, kept.os, kept.device).catch(notStored);
             setStatus({ kind: "error", message: canGoOn ? text.fuluCannot(why) : text.ended, canGoOn });
           }
         }
@@ -369,7 +373,9 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   useEffect(() => {
     const keys = held.current;
     const down = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.closest?.("input, select, textarea")) return;
+      const t = e.target as HTMLElement;
+      // (from the empty Chinese box, the device's keys that do not type go to the device)
+      if (t?.closest?.("input, select, textarea") && (t !== typingBox.current || typingBox.current.value || e.isComposing || e.keyCode === 229 || !THROUGH_BOX.has(e.code))) return;
       if (debugRef.current) {
         if (e.code === "Escape") setDebugOpen(false);
         return;
@@ -704,7 +710,16 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
           <form className="typing" onSubmit={sendTyped}>
             <label>
               <span>{dt.typing.label}</span>
-              <input ref={typingBox} type="text" lang="zh-CN" autoComplete="off" placeholder={dt.typing.placeholder} enterKeyHint="send" />
+              <input
+              ref={typingBox}
+              type="text"
+              lang="zh-CN"
+              autoComplete="off"
+              placeholder={dt.typing.placeholder}
+              enterKeyHint="send"
+              // (an Enter that picks the input method's choice is not one that sends: Safari ends the choosing first)
+              onKeyDown={(e) => e.key === "Enter" && (e.nativeEvent.isComposing || e.keyCode === 229) && e.preventDefault()}
+            />
             </label>
             <button type="submit">{dt.typing.send}</button>
             <p className="muted small">{dt.typing.hint}</p>

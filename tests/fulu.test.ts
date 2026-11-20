@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { Key } from "../src/bbk/keys";
 import { CPU_HZ } from "../src/bbk/machine";
-import { Fulu } from "../src/fulu/fulu";
+import { FAR_CALL, Fulu } from "../src/fulu/fulu";
 
 /** A .gam: segment 0 (code at $5050), segment 1, and data at file offset $8000. */
 function program(main: number[], segment1: number[], data: number[]): Uint8Array {
@@ -101,6 +101,108 @@ describe("Fulu", () => {
     fulu.type("你好a😀");
     expect(ram[0x2b0b]).toBe(4); // (the emoji has no GB2312 code: left out)
     expect([1, 2, 3].map(record)).toEqual([[3, 0xc4e3], [3, 0xbac3], [2, 0x61]]);
+  });
+
+  it("drops typed text the program did not take before it left Chinese input", () => {
+    const far = (entry: number) => [0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2];
+    const fulu = run(program([...far(0xe932), 0xa9, 4, ...far(0xe93b), 0x60], [], []));
+    const ram = fulu.machine.ram;
+    fulu.type("一二三四五六七八九十");
+    expect(ram[0x2b0b]).toBe(8); // the queue full: three left to give
+    ram[0x2b27] = (ram[0x2b27] & 0xf0) | 2; // out of Chinese input
+    ram.set([0, 0, 0], 0x2b09); // and the queue read
+    fulu.feedTyped();
+    ram[0x2b27] = (ram[0x2b27] & 0xf0) | 4;
+    fulu.feedTyped();
+    expect(ram[0x2b0b]).toBe(0);
+  });
+
+  describe("an OS function that waits in its own loop goes on when asked again, also in a machine restored from a saved state", () => {
+    const far = (entry: number) => [0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2];
+    const push = (w: number) => [0xa9, w & 0xff, 0x85, 0x20, 0xa9, w >> 8, 0x85, 0x21, 0x20, 0xca, 0xda];
+    const MENU = 0x3000, LAYOUT = 0x3080, ITEMS = 0x3200, RECORDS = 0x3300, TEXTS = 0x3800;
+    /** $E94D(MENU, LAYOUT) with item 1 chosen, `extra` bytes pushed first; [$3010] = what it returns, [$3011] = the software stack pointer after. */
+    const menuProgram = (extra: number) => {
+      const g = program(
+        [
+          ...Array.from({ length: extra }, () => push(0)).flat(),
+          ...push(LAYOUT), ...push(MENU), 0xa9, 1, ...far(0xe94d),
+          0x8d, 0x10, 0x30,
+          0x18, 0xa5, 0x28, 0x69, 4, 0x85, 0x28, 0xa5, 0x29, 0x69, 0, 0x85, 0x29,
+          0xa5, 0x28, 0x8d, 0x11, 0x30, 0xa5, 0x29, 0x8d, 0x12, 0x30,
+          0x60,
+        ],
+        [],
+        [],
+      );
+      g.set([0, ...new TextEncoder().encode("HELP"), 0], 0x3000); // the help text, at $8001
+      const fulu = new Fulu();
+      fulu.start(fulu.install(g)!);
+      // five one-column items, "ABC" to "EBC", on the top four rows; the help word $8001
+      const ram = fulu.machine.ram;
+      ram.set([5, 1, 0x00, 0x31, 0, ITEMS & 0xff, ITEMS >> 8], MENU);
+      ram[0x3100] = 2;
+      for (let i = 0; i < 5; i++) {
+        const rec = RECORDS + 8 * i, text = TEXTS + 24 * i;
+        ram.set([rec & 0xff, rec >> 8], ITEMS + 2 * i);
+        ram.set([3, text & 0xff, text >> 8, 0, 0, 0, 0], rec);
+        ram.set([0x41 + i, 0x42, 0x43, 0], text);
+      }
+      ram.set([0, 159, 0, 63, 0, 0, 0, 0], LAYOUT);
+      ram.set([0x01, 0x80], 0x2ba8);
+      return fulu;
+    };
+    const settle = (fulu: Fulu) => fulu.machine.run(CPU_HZ / 2);
+    const keys = (fulu: Fulu, ...ks: number[]) => ks.forEach((k) => (fulu.machine.press(k), settle(fulu)));
+    /** The help command (Shift twice in other input modes), into GuiGetMsg's queue. */
+    const help = (fulu: Fulu) => {
+      fulu.machine.ram.set([0, 1, 1, 0, 0, 0, 5, 0x26, 0], 0x2b09);
+      fulu.machine.ram[0x200] &= ~0x08;
+      settle(fulu);
+    };
+    /** The machine saved and put back in a new Fulu, as the player does when the page is opened again. */
+    const reload = (fulu: Fulu) => {
+      const again = new Fulu();
+      again.machine.flash.data.set(fulu.machine.flash.data);
+      again.machine.loadState(fulu.machine.saveState());
+      again.waiting = again.machine.cpu.pc === FAR_CALL && (again.machine.ram[0x200] & 0x08) !== 0;
+      return again;
+    };
+    const result = (fulu: Fulu) => {
+      const ram = fulu.machine.ram;
+      return [fulu.stopped, ram[0x3010], ram[0x3011] | (ram[0x3012] << 8)];
+    };
+
+    for (const reloaded of [false, true]) {
+      const how = reloaded ? ", restored meanwhile (and another menu waiting deeper in another Fulu)" : "";
+      it(`the menu ($E94D) in GuiGetMsg${how}`, () => {
+        let fulu = menuProgram(0);
+        settle(fulu);
+        expect([fulu.stopped, fulu.waiting]).toEqual([null, true]);
+        if (reloaded) {
+          fulu = reload(fulu);
+          settle(menuProgram(3));
+        }
+        keys(fulu, Key.down, Key.enter);
+        expect(result(fulu)).toEqual(["The program ended", 2, 0x17bb]);
+      });
+      it(`the menu's help screen ($E96B, $E980, $F262)${how}`, () => {
+        let fulu = menuProgram(0);
+        settle(fulu);
+        help(fulu);
+        expect([fulu.stopped, fulu.waiting]).toEqual([null, true]);
+        if (reloaded) {
+          fulu = reload(fulu);
+          const other = menuProgram(3);
+          settle(other);
+          help(other);
+        }
+        keys(fulu, Key.exit); // the help screen closes, the menu waits again
+        expect([fulu.stopped, fulu.waiting]).toEqual([null, true]);
+        keys(fulu, Key.down, Key.down, Key.enter);
+        expect(result(fulu)).toEqual(["The program ended", 3, 0x17bb]);
+      });
+    }
   });
 
   it("forgets keys pressed while the program has not asked for one for a while", () => {

@@ -43,6 +43,7 @@ export class FuluDevice {
    */
   resumed(): void {
     const m = this.machine;
+    this.fulu.clearStop();
     this.fulu.waiting = m.cpu.pc === FAR_CALL && (m.ram[0x200] & 0x08) !== 0;
   }
 

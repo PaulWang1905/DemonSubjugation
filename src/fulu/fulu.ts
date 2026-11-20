@@ -13,6 +13,7 @@
 
 import { gb2312 } from "./gb2312";
 import { post } from "./gui";
+import { use } from "./alu";
 import { MoreText } from "./moreText";
 import { C, N, V, Z } from "../bbk/cpu";
 import { REGION_SIZE } from "../bbk/firmware";
@@ -219,7 +220,7 @@ export class Fulu {
   start(file: FlashFile): void {
     const m = this.machine, ram = m.ram, flash = m.flash.data, h = file.offset;
     m.reset();
-    this.stopped = null;
+    this.clearStop();
     this.textMarks.clear();
     const base = 0x200 + (h >> 12);
     const data = base + ((flash[h + 0x42] | (flash[h + 0x43] << 8) | (flash[h + 0x44] << 16)) >> 12);
@@ -266,14 +267,26 @@ export class Fulu {
 
   /** Typed characters into GuiGetMsg's queue, as it has room. */
   feedTyped(): void {
+    // (what the program did not take before it left Chinese input is dropped: it is not for what comes next)
+    if (!this.chineseInput) return void (this.typed.length = 0);
+    use(this);
     while (this.typed.length && post(...this.typed[0])) this.typed.shift();
   }
 
   /** Stop the program: `final` when it has ended, else for something Fulu lacks, which the player can go on past (goOn). */
   stop(why: string, final = false): void {
+    // (a program that has ended stays ended: a later stop does not make it one to go on past)
+    if (this.stopped !== null && !this.resumable) return;
     this.stopped = why;
     this.resumable = !final && this.entered !== null;
     this.machine.cpu.stopped = true;
+  }
+
+  /** No stop (after the machine is restored from a saved state, or the program starts), and no typed text left. */
+  clearStop(): void {
+    this.stopped = null;
+    this.resumable = false;
+    this.typed.length = 0;
   }
 
   /**
@@ -291,7 +304,9 @@ export class Fulu {
     ram[0x28] = e.sp & 0xff;
     ram[0x29] = e.sp >> 8;
     ram[0x200] &= ~0x08; // not halted
-    this.waiting = this.retrying = false;
+    // (an interrupt that stopped came while the program was where it was: an OS function waiting
+    // there is still waiting, and is asked again when the interrupt returns; a call is done with)
+    if (e.kind !== "interrupt") this.waiting = this.retrying = false;
     if (e.kind === "interrupt") {
       cpu.p = (this.pull() | 0x20) & ~0x10;
       cpu.pc = this.pull() | (this.pull() << 8);
