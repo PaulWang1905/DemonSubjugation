@@ -49,4 +49,14 @@ export class FuluDevice {
   press(key: number): void {
     this.machine.press(key);
   }
+
+  /** Whether the program takes Chinese typed with the computer's own input method now (see type). */
+  get chineseInput(): boolean {
+    return this.fulu.chineseInput;
+  }
+
+  /** Text typed with the computer's or phone's input method, given to the program as the OS's input method gives it. */
+  type(text: string): void {
+    this.fulu.type(text);
+  }
 }

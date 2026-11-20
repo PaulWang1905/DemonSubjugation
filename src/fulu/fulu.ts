@@ -11,6 +11,8 @@
 // that what programs see is the same as on the device: the same registers,
 // stack and memory after each call (docs/fulu-notes.md has the map).
 
+import { gb2312 } from "./gb2312";
+import { post } from "./gui";
 import { MoreText } from "./moreText";
 import { C, N, V, Z } from "../bbk/cpu";
 import { REGION_SIZE } from "../bbk/firmware";
@@ -128,6 +130,8 @@ export class Fulu {
   retrying = false;
   /** Whether the last OS function answered is waiting to be asked again. */
   waiting = false;
+  /** Text typed with the computer's or phone's input method, as messages still to give the program (type 3 a hanzi's GB2312 code, type 2 an ASCII character). */
+  private typed: [number, number][] = [];
   /** Called before each far call the OS makes to another of its functions (for checking Fulu: interrupts can come between them). */
   onCall: ((entry: number) => void) | null = null;
 
@@ -232,6 +236,37 @@ export class Fulu {
     ram.set(STACK, 0x101 + STACK_TOP);
     ram.set(frame(data, base), SOFT_STACK);
     Object.assign(m.cpu, { pc: entry, s: STACK_TOP, a: 0x17, x: 0x17, y: 0x17, p: 0x21 });
+  }
+
+  /**
+   * Text typed with the computer's or phone's own input method, while the
+   * program is in Chinese input (input mode 4 or 8): each character is given
+   * to it as the OS's input method gives a chosen one, a message of type 3
+   * with its GB2312 code (ASCII as a character, type 2), through GuiGetMsg's
+   * queue. Characters GB2312 does not have are left out. Wakes the program if
+   * it waits for a message.
+   */
+  type(text: string): void {
+    for (const ch of text) {
+      const c = ch.codePointAt(0)!;
+      if (c >= 0x20 && c < 0x7f) this.typed.push([2, c]);
+      else {
+        const code = gb2312(ch);
+        if (code !== null) this.typed.push([3, code]);
+      }
+    }
+    this.feedTyped();
+    this.machine.ram[0x200] &= ~0x08; // a halted GuiGetMsg looks again
+  }
+
+  /** The program in Chinese input (input mode 4 or 8, the keyboard state's bits 2 and 3). */
+  get chineseInput(): boolean {
+    return (this.machine.ram[0x2b27] & 0x0c) !== 0;
+  }
+
+  /** Typed characters into GuiGetMsg's queue, as it has room. */
+  feedTyped(): void {
+    while (this.typed.length && post(...this.typed[0])) this.typed.shift();
   }
 
   /** Stop the program: `final` when it has ended, else for something Fulu lacks, which the player can go on past (goOn). */

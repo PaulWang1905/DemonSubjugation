@@ -42,7 +42,7 @@ answered by TypeScript that leaves the machine exactly as the firmware
 would: the same registers, flags, banks and RAM, including the OS's own
 variables.
 
-Fulu answers 130 API-table entries, 74 resident C-runtime routines and the
+Fulu answers 131 API-table entries, 75 resident C-runtime routines and the
 keyboard, ST1 and CT interrupts, in about 6,000 lines (`src/fulu`). It
 plays and saves 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0, 英雄坛说
 and 三国霸业.
@@ -58,9 +58,10 @@ dropping keys pressed while a game is busy, and a debug menu. It runs about
 16 times faster than emulating the firmware.
 
 Beyond the seven games: of the 138 programs of the bbk-games collection,
-131 play 180 s of random keys on Fulu without stopping and 5 more end on
-their own, and 131 call nothing Fulu lacks at all (all 86 made with the RPG
-kit). §16 sizes what is left: about 1,500 instructions of OS code, most of
+132 play 180 s of random keys on Fulu without stopping and the 6 others end
+on their own, as on the device; 132 call nothing Fulu lacks at all (all 86
+made with the RPG kit). Chinese is typed with the computer's own input
+method (§16.2). §16 sizes what is left: about 1,450 instructions of OS code, most of
 it needed by one small game each, and the input methods.
 
 ```mermaid
@@ -968,11 +969,11 @@ games draw as pictures (the title, the big 穿 / 戴) stays pixels.
 | | |
 |---|---|
 | Games verified against the firmware, playing and saving | 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0; 英雄坛说; 三国霸业 |
-| Programs of the collection playing 180 s on Fulu without stopping | 131 of 138 (and 5 that end on their own) |
+| Programs of the collection playing 180 s on Fulu without stopping | 132 of 138 (and the 6 others end on their own) |
 | Programs of the collection calling nothing Fulu lacks (static) | 92 of 138 |
-| API entries answered | 130: 102 of the 107 the collection calls, and 28 the OS calls itself |
+| API entries answered | 131: 103 of the 107 the collection calls, and 28 the OS calls itself |
 | Resident routines answered | 74: all 61 the collection calls, and 13 more the floats and multiplies use |
-| OS code those stand for | about 46,700 instructions of the firmware's (about 1,500 left, and the input methods, §16) |
+| OS code those stand for | about 46,800 instructions of the firmware's (about 1,450 left, §16; the OS's own input method not written, §16.2) |
 | Interrupt handlers | keyboard, ST1, CT |
 | Shadow-run mismatches | 0 (seven games, every entry, play, typing and save scripts) |
 | Code | about 6,000 lines in `src/fulu` (runtime 1,207, GUI 850, screen 562, files 452, OS table 450, core 438, More text 346) |
@@ -1067,9 +1068,8 @@ Two measures, which differ a lot:
 
 ```mermaid
 pie showData title 138 programs played on Fulu for 180 s
-  "run the whole time" : 131
-  "end on their own" : 5
-  "stop: input methods" : 2
+  "run the whole time" : 132
+  "end on their own" : 6
 ```
 
 The five that end do so as on the device, their `main` returning: 坦克大战
@@ -1083,19 +1083,24 @@ programs' code, was the biggest item, a help screen of 2,429 instructions
 Before the rounds below, 114 played the whole time. What the 21 that
 stopped needed was mostly small; the big functions are each needed by one
 to seven small arcade, board and pet games, never by the RPG kit's games.
-What is left after round 3:
+What is left after round 3 and Chinese input (§16.2): nothing a program
+stops at in play. The scan still finds four functions in one or two
+programs' code each, on paths play never took:
 
-| Function | Size (with what it calls) | Programs that stop at it |
+| Function | Size (with what it calls) | Programs whose code calls it |
 |---|---|---|
-| input methods (`$E93B`'s change to mode 4, `$E913`, `$E919`, `$E925`, `$E91F`, `$E7BE`) | about 3,800, and the OS's pinyin tables | 宠物精灵, 电子宠物 |
+| `$E7BE` | 718 | 智多星 |
+| `$E706` | 528 | 体闲麻将, 宠物精灵 |
+| `$E8E0` | 138 | 华容道, 滑雪 |
+| `$E8D1` | 65 | 宠物精灵, 恶龙传说 |
 
 `$E94D`'s first count (3,943) missed its nine key cases, reached only
 through a switch's table: the disassembler follows branches and calls, not
-tables (`$F262`'s first count, 1,969, missed its six). The five functions
-the scan finds in one or two programs each and play never reached
-(`$E706`, `$E7BE`, `$E8D1`, `$E8E0`, `$E929`) come to about 1,550. The input methods need the OS's own tables of pinyin and hanzi,
-which Fulu cannot copy; whether to make them again is the owner's to
-decide (docs/fulu-games.md, `input-methods`).
+tables (`$F262`'s first count, 1,969, missed its six). The OS's own input
+method (its pinyin bar, `$E913`, `$E919`, `$E925`, `$E91F`, `$E916`,
+`$E922`, about 3,800 instructions, and its tables of pinyin and hanzi,
+which Fulu cannot copy) is not written: the owner chose the computer's own
+input method instead (§16.2).
 
 **The plan** is therefore by play, in rounds: write what programs stop at,
 check each function against the firmware on random arguments, run the
@@ -1195,7 +1200,7 @@ start): done the same way, flag for flag. Compared with the firmware on
 300 random menus with keys queued (289 reaching its loop: 1,152 messages,
 2,033 items' texts, 1,198 icons, 711 marks), and in 中国象棋's play and
 typing (11 calls, each waiting): no mismatches. 中国象棋 plays: 131 of
-138, and every program plays but the two that type Chinese. `$E96B` with
+138, and every program plays but the two that type Chinese (done since, §16.2). `$E96B` with
 one of the OS's own help texts (a word below `$8000`) stops: those texts
 are the OS's.
 
@@ -1207,6 +1212,23 @@ tested by hand and the problems still open are kept in one list,
 fails when the document is out of date).
 
 ### 16.2 Other limitations
+
+- **Chinese input.** When a program switches to input mode 4 or 8
+  (`$E93B`), the OS opens its input bar, and the program gets letters as
+  "taken" (A 0) while they are spelled, then the chosen character as a
+  message of type 3 with its GB2312 code (on the device: "ni", 1 → `$C4E3`,
+  你). Fulu makes the mode changes as the OS does (the mode, the icon
+  `$E8D7`, and the message `$0A` 1 into Chinese input, 2 out of it), but
+  has no bar: the player shows a box under the screen, and what is typed
+  there with the computer's or phone's own input method is given to the
+  program as those type-3 messages, through GuiGetMsg's queue (ASCII as
+  characters, type 2; `Fulu.type`, `src/fulu/gb2312.ts` for the codes, made
+  from the platform's own decoder). Letters pressed on the device go to
+  the input method (A 0), as on the device. In the firmware comparison
+  those calls (`$E93B`, `$E93E` in Chinese input) differ in the input
+  method's own scratch only (the zero page it leaves); what the program
+  reads is the same. 宠物精灵 plays; 电子宠物 plays until it ends, as on the
+  firmware.
 
 - **Going on past a stop.** A program that meets something Fulu lacks (an
   OS function, a routine, an interrupt, a case of a function not written)

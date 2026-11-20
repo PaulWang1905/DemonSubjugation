@@ -62,7 +62,9 @@ describe("Fulu", () => {
       program(
         [
           0xa9, 0x55, ...far(0xe7be), 0x8d, 0x00, 0x30, // a function Fulu lacks; [$3000] = what it returned
-          ...far(0xe932), 0xa9, 4, ...far(0xe93b), // the GUI's start-up, then input mode 4, which Fulu stops in
+          // $E96B(one of the OS's own help texts), which Fulu stops in: the word pushed, the call, the word dropped
+          0xa9, 0x00, 0x85, 0x20, 0xa9, 0x01, 0x85, 0x21, 0x20, 0xca, 0xda, ...far(0xe96b),
+          0x18, 0xa5, 0x28, 0x69, 2, 0x85, 0x28, 0xa5, 0x29, 0x69, 0, 0x85, 0x29,
           0xa5, 0x28, 0x8d, 0x01, 0x30, 0xa5, 0x29, 0x8d, 0x02, 0x30, // [$3001] = the software stack pointer
           0xa9, 42, 0x8d, 0x03, 0x30, // [$3003] = 42
           0x60, // main returns
@@ -77,7 +79,7 @@ describe("Fulu", () => {
     expect(fulu.goOn()).toBe(true);
     fulu.machine.run(200_000);
     expect(ram[0x3000]).toBe(0);
-    expect(fulu.stopped).toBe("Fulu has no change of input mode from 2 to 4 yet");
+    expect(fulu.stopped).toBe("Fulu has no $E96B with one of the OS's own help texts yet");
     expect(fulu.goOn()).toBe(true);
     fulu.machine.run(200_000);
     expect(ram[0x3001] | (ram[0x3002] << 8)).toBe(sp); // (its stack as it was before the call)
@@ -85,6 +87,20 @@ describe("Fulu", () => {
     expect(fulu.stopped).toBe("The program ended");
     expect(fulu.resumable).toBe(false);
     expect(fulu.goOn()).toBe(false);
+  });
+
+  it("takes Chinese typed with the computer's input method, as the OS's input method gives it", () => {
+    const far = (entry: number) => [0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2];
+    const fulu = run(program([...far(0xe932), 0xa9, 4, ...far(0xe93b), 0x60], [], []));
+    const ram = fulu.machine.ram, record = (i: number) => [ram[0x2b0f + 3 * i], ram[0x2b10 + 3 * i] | (ram[0x2b11 + 3 * i] << 8)];
+    expect(fulu.stopped).toBe("The program ended");
+    expect(ram[0x2b27] & 0x0f).toBe(4); // input mode 4: Chinese
+    expect(fulu.chineseInput).toBe(true);
+    expect(ram[0x2b0b]).toBe(1); // the mode change's message, $0A 1
+    expect(record(0)).toEqual([0x0a, 1]);
+    fulu.type("你好a😀");
+    expect(ram[0x2b0b]).toBe(4); // (the emoji has no GB2312 code: left out)
+    expect([1, 2, 3].map(record)).toEqual([[3, 0xc4e3], [3, 0xbac3], [2, 0x61]]);
   });
 
   it("forgets keys pressed while the program has not asked for one for a while", () => {

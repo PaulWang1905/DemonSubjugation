@@ -823,6 +823,14 @@ function negate32(): void {
   point(0x20, 8);
 }
 
+/** $D7F1: the 32-bit complement of ($20), at scratch + 8 ($20 pointing at it; A its high byte, Y $0B). */
+function complement32(): void {
+  const p = word(0x20), s = scratch() + 8;
+  for (let i = 0; i < 4; i++) wr(s + i, (cpu.a = nz(rd(p + i) ^ 0xff)));
+  cpu.y = 0x0b;
+  point(0x20, 8);
+}
+
 /** $DD32: the unsigned int in $20/$21 as a float, at scratch + $10 ($20 pointing at it; $23/$24 kept, A its high byte). */
 function uintToFloat(): void {
   const s = scratch();
@@ -1135,6 +1143,7 @@ const table: Record<number, () => unknown> = {
   0xe901: memmove,
   0xe904: memcmp,
   0xd7b4: negate32,
+  0xd7f1: complement32,
   0xd7a6: negate16,
   0xd90b: shiftRight16,
   0xd93f: shiftRight32,

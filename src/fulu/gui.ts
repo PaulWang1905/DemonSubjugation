@@ -6,7 +6,7 @@ import { Key, keyChar } from "../bbk/keys";
 import { adc, carry, clc, cmp, cpu, farCalled, fn, get16, long, nz, os, put16, ram, rd, sbc, sec, set16, softPop, softPush, store, word, wr } from "./alu";
 import type { OsFunction } from "./fulu";
 import { HELPERS } from "./runtime";
-import { add20, getB, imm, leave, put23, reserve, setB } from "./compiled";
+import { add20, drop, getB, imm, leave, put23, reserve, setB } from "./compiled";
 import { load, move, store as storeL } from "./itoa";
 import { lcd } from "./screen";
 
@@ -337,12 +337,73 @@ const MODES: Record<number, number[]> = { 2: [4, 8, 1], 4: [8, 2, 1], 8: [2, 4, 
 /** Where the OS keeps that switch's table (8:$8B9C: 4 modes, then their code's addresses). */
 const MODE_TABLE = 0x8b9c, MODE_ORDER = [2, 4, 8, 1], MODE_CODE = [0x6028, 0x605e, 0x6094, 0x60ca];
 
+/** $E929: GuiGetMsg's queue emptied: its indexes and count 0, its 24 bytes by memset (8:$6BC2, two locals). */
+const emptyQueue = fn(0x6bc2, () => {
+  reserve(2);
+  ram[QUEUE_READ] = cpu.a = 0;
+  ram[QUEUE_WRITE] = 0;
+  ram[QUEUE_COUNT] = 0;
+  imm(0x20, QUEUE);
+  storeL(0);
+  cpu.a = nz(0);
+  HELPERS[0xdaaa](os);
+  imm(0x20, 0x18);
+  HELPERS[0xdaca](os);
+  load(0x20, 3);
+  HELPERS[0xdaca](os);
+  os.call(0xe700);
+  drop(5);
+  drop(2);
+});
+
+/** Post a message at the back of GuiGetMsg's queue, if it has room (8:$6C3E, without its zero-page traffic). */
+export function post(type: number, word: number): boolean {
+  if (ram[QUEUE_COUNT] >= 8) return false;
+  const at = QUEUE + 3 * (ram[QUEUE_WRITE] & 7);
+  ram[at] = type;
+  ram[at + 1] = word & 0xff;
+  ram[at + 2] = word >> 8;
+  ram[QUEUE_WRITE] = (ram[QUEUE_WRITE] + 1) & 7;
+  ram[QUEUE_COUNT]++;
+  return true;
+}
+
+/** A mode change: the keyboard state's mode, the icon $E8D7 (on, off or left), and the message $0A 1 (into Chinese input) or 2 (out of it), in the OS's order. */
+function modeChange(mode: number, icon: number | null, message: number | null, iconFirst = true): () => void {
+  return () => {
+    ram[KEYBOARD] = (ram[KEYBOARD] & 0xf0) | mode;
+    const setIcon = () => {
+      if (icon === null) return;
+      cpu.a = icon;
+      os.call(0xe8d7);
+    };
+    if (iconFirst) setIcon();
+    if (message !== null) post(0x0a, message);
+    if (!iconFirst) setIcon();
+  };
+}
+
 /**
- * The changes of input mode Fulu has (8:$5E6F, 8:$5F8B): to mode 1 its icon
- * ($E8D7) on, caps off (with its icon, $E848); back to 2 that icon off. The
- * others switch input methods on or off.
+ * The changes of input mode Fulu has (8:$5E2C-8:$5FF2): to mode 1 its icon
+ * ($E8D7) on, caps off (with its icon, $E848); back to 2 that icon off.
+ * Modes 4 and 8 are Chinese input: on the device the OS opens and closes
+ * its input bar ($E913, $E91F, $E916, $E922) and the program is told by
+ * the message $0A 1 or 2. Fulu has no input bar of its own: the player
+ * takes the characters from the computer's or phone's input method, and
+ * Fulu gives them to the program as the OS's does (Fulu.type). So it makes
+ * the changes, the icon and the messages, without the bar.
  */
 const MODE_CHANGES: Record<string, () => void> = {
+  "2>4": modeChange(4, null, 1),
+  "2>8": modeChange(8, 1, 1),
+  "4>8": modeChange(8, 1, null),
+  "4>2": modeChange(2, null, 2),
+  "4>1": modeChange(1, 1, 2),
+  "8>2": modeChange(2, 0, 2, false),
+  "8>4": modeChange(4, 0, null),
+  "8>1": modeChange(1, 1, 2),
+  "1>4": modeChange(4, 0, 1),
+  "1>8": modeChange(8, 1, 1),
   "2>1": () => {
     ram[KEYBOARD] = (ram[KEYBOARD] & 0xf0) | 1;
     cpu.a = 1;
@@ -652,6 +713,7 @@ export const GUI: Record<number, OsFunction> = {
   0xe92c: fn(0x6c3e, () => queueMessage(false)),
   0xe92f: fn(0x6d5d, () => queueMessage(true)),
   0xea25: takeMessage,
+  0xe929: emptyQueue,
   0xe8cb: saveScreen,
   0xe8ce: restoreScreen,
   0xe8e9: cursorState,
@@ -887,7 +949,15 @@ export const GUI: Record<number, OsFunction> = {
     if (rd(msg) !== 1) return void (cpu.a = cpu.y = nz(1));
     const state = ram[KEYBOARD], latch = state & 0x20;
     const [type, translated] = KEY_CLASSES[latch ? 1 : 0][rd(msg + 1) & 0x3f];
-    if (state & 0x0c) return void os.stop(`Fulu has no input methods yet (GuiTranslateMsg, keyboard state $${state.toString(16)})`);
+    if (state & 0x0c && type === 2 && (isLower(translated) || (translated >= 0x41 && translated <= 0x5a))) {
+      // Chinese input: a letter goes to the input method (on the device, its bar; here, the player's
+      // box for the computer's own), not to the program: as the OS answers, a capital, and 0
+      wr(msg, 2);
+      const capital = isLower(translated) ? translated - 0x20 : translated;
+      set16(0x20, capital);
+      put16(msg + 1, capital);
+      return void (cpu.a = cpu.y = nz(0));
+    }
     let code = translated;
     wr(msg, type);
     clc();
@@ -948,6 +1018,7 @@ export const GUI: Record<number, OsFunction> = {
    */
   0xe935: fn(0x5093, () => {
     os.listen();
+    os.feedTyped();
     if (os.retrying) farCalled(WAIT); // the trace of the OS's last time round its loop
     for (const [flag, type] of FLAG_MESSAGES) {
       if (!test(flag)) continue;

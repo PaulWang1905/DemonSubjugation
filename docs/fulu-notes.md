@@ -437,6 +437,16 @@ Round 3, first part (the report's §16.1). Details worth keeping:
 - $E96B (1:$6C66): $FFFF nothing; above $8000 $E980(w); else 1:$69BB, the
   OS's own help texts through a table of far calls ($7E2F): not in Fulu.
 
+- Chinese input (input modes 4 and 8): the mode changes are 8:$5E2C-$5FF2
+  (mode, then $E913 / $E91F to open the bar, $E916 / $E922 to close it,
+  $E8D7 for mode 8's icon, and 8:$5D60 posting $0A 1 into Chinese input, 2
+  out); in it GuiTranslateMsg answers a letter with type 2, the capital,
+  A 0 (the bar takes it), and the chosen character comes as type 3, its
+  GB2312 code (high byte first). 电子宠物 returns to the OS (its main ends)
+  on the firmware too.
+- $E929 (8:$6BC2): the queue's indexes and count 0, memset of its 24
+  bytes. $D7F1: the 32-bit complement of ($20) at scratch + 8.
+
 What the others stop at is in the plan. Not Fulu's: 一中传奇 and 热血传奇
 show 烫烫烫 (uninitialised memory) in places, on the firmware too.
 

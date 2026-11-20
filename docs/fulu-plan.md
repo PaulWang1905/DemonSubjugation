@@ -618,11 +618,13 @@ again.
 - **Round 3, the menu, done:** `$E94D` and `$E96B` (but the OS's own help
   texts). 131 play 180 s, 5 end on their own: every program but the two
   that type Chinese.
-- **Next:** the input methods, if the owner decides to; and the five
-  functions play has never reached (`$E706`, `$E7BE`, `$E8D1`, `$E8E0`,
-  `$E929`, about 1,550 instructions), as programs are seen to need them. The input methods (宠物精灵, 电子宠物: about 3,800, and the
-  OS's pinyin tables, which would have to be made again) wait on the
-  owner's decision.
+- **Chinese input, done (the owner's choice):** the computer's own input
+  method through a box in the player; the mode changes, their icon and
+  messages as the OS's; `$E929`, `$D7F1`. 132 play 180 s, 6 end on their
+  own: every program.
+- **Next:** the four functions play has never reached (`$E706`, `$E7BE`,
+  `$E8D1`, `$E8E0`, about 1,450 instructions), as programs are seen to need
+  them. Meanwhile a program that meets one stops, and Continue goes on.
 - **Separately:** the OS's page allocation for new files (§16.2 of the
   report). Sound stays off (the owner's decision): `$EA52` / `$EA64` act
   as with the sound off, and the shadow runs leave out their calls made

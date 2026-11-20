@@ -853,6 +853,37 @@ footer {
   font-size: 14px;
 }
 
+/* the box for Chinese typed with the computer's own input method (DevicePlayer) */
+.typing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  width: min(100%, 640px);
+  margin: 10px auto 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.typing label {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 220px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.typing input {
+  width: 100%;
+  min-width: 0;
+  font-size: 18px;
+}
+.typing p {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
 /* (its outline buttons on the dark: light, as the text) */
 .crash button.ghost {
   color: #f3f1ec;

@@ -3,7 +3,7 @@
 // from the OS's game menu. Without them it runs on Fulu (src/fulu), the
 // site's stand-in for the OS. Like the real device it stays as it was left
 // between visits.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Device, FPS } from "../bbk/device";
 import { findLib } from "../bbk/gam";
 import { KitCheats } from "../bbk/kitCheats";
@@ -92,6 +92,10 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const goneOnPast = useRef(new Set<string>());
   /** The stop on screen (left as it is, for Continue), so that it is shown once. */
   const shownStop = useRef<string | null>(null);
+  /** Whether the program on Fulu takes Chinese now (its input mode 4 or 8): the box for the computer's own input method shows. */
+  const [chinese, setChinese] = useState(false);
+  const chineseRef = useRef(false);
+  const typingBox = useRef<HTMLInputElement>(null);
   /** Storing the device failed (the browser's storage refused it): say so. */
   const notStored = (e: unknown) => {
     console.warn("Could not store the device", e);
@@ -256,6 +260,9 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
           kitRef.current?.tick();
           if (d instanceof FuluDevice && d.stopped) break;
         }
+        // on Fulu, Chinese input: the box for the computer's own input method
+        const zh = d instanceof FuluDevice && d.chineseInput;
+        if (zh !== chineseRef.current) setChinese((chineseRef.current = zh));
         // on Fulu, a program stops when it ends or needs what Fulu does not have yet; past the
         // latter the player can go on (and Fulu does by itself, for one the player went on past before)
         if (d instanceof FuluDevice && d.stopped && d.stopped !== shownStop.current) {
@@ -394,6 +401,19 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   }, [touch]);
 
   const title = game?.name ?? nm({ label: "Longman 4988", zh: "朗文 4988" });
+  // the box takes the keyboard when it shows (on a phone, its keyboard opens)
+  useEffect(() => {
+    if (chinese) typingBox.current?.focus();
+  }, [chinese]);
+  /** The box's text to the program, as the OS's input method gives it; an empty box presses the device's Enter. */
+  const sendTyped = (e: FormEvent) => {
+    e.preventDefault();
+    const d = deviceRef.current?.device, box = typingBox.current;
+    if (!(d instanceof FuluDevice) || !box) return;
+    if (box.value) d.type(box.value);
+    else d.press(Key.enter);
+    box.value = "";
+  };
   /** Go on past a stop on Fulu: what the program called returns as if done, and it plays on. */
   const goOn = () => {
     const d = deviceRef.current?.device;
@@ -680,6 +700,16 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
             )}
           </div>
         </div>
+        {chinese && (
+          <form className="typing" onSubmit={sendTyped}>
+            <label>
+              <span>{dt.typing.label}</span>
+              <input ref={typingBox} type="text" lang="zh-CN" autoComplete="off" placeholder={dt.typing.placeholder} enterKeyHint="send" />
+            </label>
+            <button type="submit">{dt.typing.send}</button>
+            <p className="muted small">{dt.typing.hint}</p>
+          </form>
+        )}
         {showPad && <Keypad onDown={(k) => keyDown(PAD_KEYS.get(k)!)} onUp={(k) => keyUp(PAD_KEYS.get(k)!)} labels={pt.keys} />}
       </div>
 

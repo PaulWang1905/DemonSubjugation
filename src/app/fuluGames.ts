@@ -75,7 +75,7 @@ export const GAMES: FuluGame[] = [
   { name: "妖 传说", kit: true, onFulu: "plays", firmware: "none" },
   { name: "妖·传说终曲版", kit: true, onFulu: "plays", firmware: "none" },
   { name: "娱乐无极限之无影奸细", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "宠物精灵", kit: false, onFulu: "stops", stopsAt: "input methods", scan: ["$E706", "$E8D1"], firmware: "play", problems: ["input-methods", "unexplained-reads"] },
+  { name: "宠物精灵", kit: false, onFulu: "plays", scan: ["$E706", "$E8D1"], firmware: "play", problems: ["input-methods", "unexplained-reads"] },
   { name: "对对碰", kit: false, onFulu: "plays", firmware: "play", problems: ["input-methods"] },
   { name: "封魔录", kit: true, onFulu: "plays", firmware: "none" },
   { name: "将门风云", kit: true, onFulu: "plays", firmware: "none" },
@@ -125,7 +125,7 @@ export const GAMES: FuluGame[] = [
   { name: "猫狗大战", kit: false, onFulu: "plays", firmware: "play" },
   { name: "王氏传", kit: true, onFulu: "plays", firmware: "none" },
   { name: "生命女神之暗之诅咒", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "电子宠物", kit: false, onFulu: "stops", stopsAt: "input methods", scan: ["$E929"], firmware: "play", problems: ["input-methods", "file-place"] },
+  { name: "电子宠物", kit: false, onFulu: "ends", firmware: "play", problems: ["input-methods", "file-place"] },
   { name: "疯狂校园", kit: true, onFulu: "plays", firmware: "none" },
   { name: "疯狂盗墓人", kit: true, onFulu: "plays", firmware: "none" },
   { name: "白中传奇", kit: true, onFulu: "plays", firmware: "none" },
@@ -235,12 +235,16 @@ export const PROBLEMS: Problem[] = [
   },
   {
     id: "input-methods",
-    title: { en: "Chinese input methods", zh: "中文输入法" },
+    title: { en: "Chinese input: the computer's own input method", zh: "中文输入：用电脑自己的输入法" },
     detail: {
-      en: "Typing Chinese (the input modes 4 and 8) is not written. 宠物精灵 and 电子宠物 switch to mode 4 at once and stop on Fulu; 恶龙传说, 碰碰车 and 对对碰 reach it in the firmware comparison. Switching to mode 4 alone draws the input line through $E913 and $E7BE (about 1,400 instructions); typing goes through $E919, $E925 and $E91F (about 2,400 more) and looks up the OS's own tables of pinyin and hanzi, which Fulu cannot copy: they would have to be made again, in the OS's order. The owner is to decide whether to do this.",
-      zh: "中文输入（输入模式 4 和 8）尚未实现。宠物精灵、电子宠物一开始就切换到模式 4，在符箓上停止；恶龙传说、碰碰车、对对碰在与固件的对比中会用到。仅切换到模式 4 就要通过 $E913 和 $E7BE 绘制输入行（约 1,400 条指令）；输入还要经过 $E919、$E925、$E91F（另约 2,400 条），并查找系统自带的拼音与汉字表，符箓不能照搬，只能按系统的顺序重新制作。是否进行由作者决定。",
+      en: "The OS's own input method (its pinyin bar, about 3,800 instructions, and its tables of pinyin and hanzi, which Fulu cannot copy) is not written. Instead, when a program switches to Chinese input (modes 4 and 8), the player shows a box under the screen: what is typed there with the computer's or phone's own input method (pinyin, handwriting, any) goes to the program as the OS's input method gives a chosen character (a message of type 3 with its GB2312 code). The mode changes, their icon and messages are the OS's; BBK's bar is not drawn, and letters pressed on the device go to the box's place (not to the program, as on the device while typing). In the firmware comparison those calls differ in the input method's own scratch only. 宠物精灵 plays; 电子宠物 plays until it ends, as on the device.",
+      zh: "系统自带的输入法（拼音输入栏约 3,800 条指令，以及符箓不能照搬的拼音与汉字表）没有实现。改为：程序切换到中文输入（模式 4 和 8）时，播放器在屏幕下方显示一个输入框，用电脑或手机自己的输入法（拼音、手写都可以）在框里输入的文字，按系统输入法交出选定汉字的方式交给程序（类型 3 的消息，内容为 GB2312 码）。模式切换、相应图标和消息与系统一致；不绘制步步高的输入栏；在掌机上按下的字母不交给程序（和掌机输入时一样）。与固件对比时，这些调用只在输入法自己的暂存数据上不同。宠物精灵可以运行；电子宠物运行到它自行结束，与设备上一样。",
     },
-    status: "open",
+    status: "decided",
+    decision: {
+      en: "Use the computer's or phone's own input method (the owner's choice).",
+      zh: "使用电脑或手机自己的输入法（作者的选择）。",
+    },
   },
   {
     id: "e94d",
@@ -282,8 +286,8 @@ export const PROBLEMS: Problem[] = [
     id: "unreached",
     title: { en: "Functions a program can call but none did in play", zh: "程序可能调用、试玩中没有调用的函数" },
     detail: {
-      en: "$E706, $E7BE, $E8D1, $E8E0 and $E929 are in the code of one or two programs each (about 1,550 instructions in all), on paths 180 s of random keys never took. A program that takes one stops on Fulu and names it.",
-      zh: "$E706、$E7BE、$E8D1、$E8E0 和 $E929 各出现在一两个程序的代码里（合计约 1,550 条指令），随机按键 180 秒都没有走到。程序一旦调用，就会在符箓上停止并说出函数名。",
+      en: "$E706, $E7BE, $E8D1 and $E8E0 are in the code of one or two programs each (about 1,450 instructions in all), on paths 180 s of random keys never took. A program that takes one stops on Fulu and names it; Continue goes on past it.",
+      zh: "$E706、$E7BE、$E8D1 和 $E8E0 各出现在一两个程序的代码里（合计约 1,450 条指令），随机按键 180 秒都没有走到。程序一旦调用，就会在符箓上停止并说出函数名；选择“继续”即可跳过。",
     },
     status: "open",
   },
@@ -351,7 +355,7 @@ export const PROBLEMS: Problem[] = [
 export const UPDATED = "2026-11-20";
 
 /** What Fulu answers (tests/fulu-games.test.ts checks these against src/fulu). */
-export const FULU_COUNTS = { functions: 130, routines: 74 };
+export const FULU_COUNTS = { functions: 131, routines: 75 };
 
 /**
  * How much of the OS the collection needs, by the code scan
@@ -360,7 +364,7 @@ export const FULU_COUNTS = { functions: 130, routines: 74 };
  * left (left: what the missing entries take with what they call; input
  * methods not measured).
  */
-export const COVERAGE = { apiUsed: 107, residentUsed: 61, written: 46700, left: 1547 };
+export const COVERAGE = { apiUsed: 107, residentUsed: 61, written: 46800, left: 1449 };
 
 /** The programs that played 180 s of random keys after each step (and those that ended on their own). */
 export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; ends: number }[] = [
@@ -370,6 +374,7 @@ export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; en
   { step: { en: "Round 3, first part", zh: "第 3 轮（前半）" }, plays: 129, ends: 5 },
   { step: { en: "Round 3, the help screen", zh: "第 3 轮，帮助画面" }, plays: 130, ends: 5 },
   { step: { en: "Round 3, the menu", zh: "第 3 轮，菜单" }, plays: 131, ends: 5 },
+  { step: { en: "Chinese typed with the computer's input method", zh: "用电脑的输入法输入中文" }, plays: 132, ends: 6 },
 ];
 
 export interface Milestone {
@@ -478,6 +483,22 @@ export const MILESTONES: Milestone[] = [
   },
   {
     date: "2026-11-20",
+    title: { en: "Continue past a stop", zh: "停下后可以继续" },
+    detail: {
+      en: "A program that meets something Fulu lacks no longer ends there: Continue skips it (the call returns as if done) and the game plays on.",
+      zh: "程序遇到符箓尚缺的功能时不再就此结束：选择“继续”即可跳过（这次调用当作已完成返回），游戏接着运行。",
+    },
+  },
+  {
+    date: "2026-11-20",
+    title: { en: "Chinese typed with the computer's own input method", zh: "用电脑自己的输入法输入中文" },
+    detail: {
+      en: "When a program switches to Chinese input, the player shows a box for the computer's or phone's own input method, and Fulu gives what is typed to the program as the OS's input method gives a chosen character; with $E929 and $D7F1, 宠物精灵 plays and 电子宠物 plays until it ends. Every program of the collection now plays or ends as on the device.",
+      zh: "程序切换到中文输入时，播放器显示一个输入框，使用电脑或手机自己的输入法；符箓按系统输入法交出选定汉字的方式，把输入的文字交给程序。加上 $E929 和 $D7F1，宠物精灵可以运行，电子宠物运行到自行结束。合集中的每个程序现在都能运行，或像在设备上一样自行结束。",
+    },
+  },
+  {
+    date: "2026-11-20",
     title: { en: "This progress report; sound kept off", zh: "本进展报告；声音保持关闭" },
     detail: {
       en: "The games list, the owner's hand tests and the problems in one place. The owner decided to keep the sound off for now.",
@@ -502,11 +523,9 @@ export interface Remaining {
 }
 
 export const REMAINING: Remaining[] = [
-  { what: "input methods", about: { en: "typing Chinese (input modes 4 and 8): the owner to decide", zh: "中文输入（输入模式 4 和 8）：由作者决定" }, plan: "later", problem: "input-methods" },
   { what: "$E7BE", size: 718, plan: "later", problem: "unreached" },
   { what: "$E706", size: 528, plan: "later", problem: "unreached" },
   { what: "$E8E0", size: 138, plan: "later", problem: "unreached" },
-  { what: "$E929", size: 98, plan: "later", problem: "unreached" },
   { what: "$E8D1", size: 65, plan: "later", problem: "unreached" },
 ];
 

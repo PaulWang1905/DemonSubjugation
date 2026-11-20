@@ -66,6 +66,12 @@ const en = {
     fuluCannot: (why: string) =>
       `${why}. Fulu, the stand-in OS, does not have this yet. Continue to skip it and keep playing (the game may go wrong where it needed it; if this comes again, Fulu skips it by itself), or add the 4988's firmware files on the Games page to play it on the original OS.`,
     goOn: "Continue",
+    typing: {
+      label: "Chinese input",
+      placeholder: "Type here with your own input method",
+      send: "Send",
+      hint: "The game is waiting for Chinese: type it with your computer's or phone's own input method (pinyin, handwriting, any), then Enter to give it to the game. Enter in an empty box presses the device's Enter.",
+    },
     goOnTitle: "Skip what Fulu does not have and keep playing",
     wentOn: (why: string) => `Skipped again: ${why}`,
     notStarted: "The device is on, but the program did not open: choose it in the 游戏 (games) menu.",
@@ -175,6 +181,12 @@ const zh: PlayerText = {
     ended: "程序已结束。重新开机即可再玩，存档会保留。",
     fuluCannot: (why: string) => `${why}。符箓暂时还没有这部分功能。可以选择“继续”，跳过它继续玩（游戏在需要它的地方可能出错；再遇到时符箓会自动跳过），或在游戏库页面添加 4988 固件文件，在原机系统上运行。`,
     goOn: "继续",
+    typing: {
+      label: "中文输入",
+      placeholder: "用你自己的输入法在这里输入",
+      send: "送出",
+      hint: "游戏在等待中文：用电脑或手机自己的输入法（拼音、手写都可以）输入，按回车交给游戏。输入框为空时按回车，相当于按掌机的“输入”键。",
+    },
     goOnTitle: "跳过符箓尚缺的功能，继续玩",
     wentOn: (why: string) => `已再次跳过：${why}`,
     notStarted: "词典已开机，但程序没有自动打开：请在“游戏”菜单里选择它。",

@@ -472,6 +472,8 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       ...[0xe8cb, 0xe8ce].map((e): [number, () => number[]] => [e, () => (m.ram[0x202d] = [0, 0, 1, 2, rand(256)][rand(5)], m.write(0x207, rand(4) ? 0x03 : rand(16)), [])]),
       // the text cursor's state into p
       [0xe8e9, () => (m.ram.set([rand(256), rand(256), rand(256), rand(256), rand(256), rand(256)], 0x20ba), [rand(256), 0x30 + rand(8)])],
+      // the queue emptied
+      [0xe929, () => (m.ram.set([rand(8), rand(8), rand(10)], 0x2b09), [])],
       // the next message taken from the queue (indexes 0-7, 0-9 queued, now and then 255)
       [0xea25, () => (m.ram.set([rand(8), rand(8), rand(8) ? rand(10) : 0xff], 0x2b09), [rand(256), 0x30 + rand(8)])],
       // the bar graph's icons: a run, mostly valid
