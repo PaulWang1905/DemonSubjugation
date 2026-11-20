@@ -88,31 +88,36 @@ export function App() {
         const { items, errors } = await importFiles(files);
         const notes = [...errors];
         for (const it of items) {
-          if (it.kind === "font") {
-            await putFont(it.font, copyBuffer(it.data));
-            notes.push(gamesText().imported.font(it.font));
-          } else if (it.kind === "firmware") {
-            await putFirmwareFile(it.region, copyBuffer(it.data));
-            notes.push(gamesText().imported.firmware(it.fileName));
-          } else {
-            const id = await archiveId(it.data);
-            const g: StoredGame = {
-              id,
-              name: it.name,
-              fileName: it.fileName,
-              size: it.data.length,
-              addedAt: Date.now(),
-              data: copyBuffer(it.data),
-              ...(it.kind === "program" && {
-                format: "gam" as const,
-                libOffset: findLib(it.data) >= 0 ? findLib(it.data) : undefined,
-                engine: preferredEngine(new Uint8Array(it.data)) ?? undefined,
-                reactOnly: isReactOnly(new Uint8Array(it.data)) || undefined,
-              }),
-            };
-            await putGame(g);
-            added.push(g);
-            notes.push(it.kind === "program" ? gamesText().imported.program(it.name) : gamesText().imported.game(it.name, it.info.maps, it.info.scripts));
+          try {
+            if (it.kind === "font") {
+              await putFont(it.font, copyBuffer(it.data));
+              notes.push(gamesText().imported.font(it.font));
+            } else if (it.kind === "firmware") {
+              await putFirmwareFile(it.region, copyBuffer(it.data));
+              notes.push(gamesText().imported.firmware(it.fileName));
+            } else {
+              const id = await archiveId(it.data);
+              const g: StoredGame = {
+                id,
+                name: it.name,
+                fileName: it.fileName,
+                size: it.data.length,
+                addedAt: Date.now(),
+                data: copyBuffer(it.data),
+                ...(it.kind === "program" && {
+                  format: "gam" as const,
+                  libOffset: findLib(it.data) >= 0 ? findLib(it.data) : undefined,
+                  engine: preferredEngine(new Uint8Array(it.data)) ?? undefined,
+                  reactOnly: isReactOnly(new Uint8Array(it.data)) || undefined,
+                }),
+              };
+              await putGame(g);
+              added.push(g);
+              notes.push(it.kind === "program" ? gamesText().imported.program(it.name) : gamesText().imported.game(it.name, it.info.maps, it.info.scripts));
+            }
+          } catch (e) {
+            // (the browser's storage refused it: say so, rather than show it added)
+            notes.push(gamesText().imported.notStored(it.kind === "font" ? it.font : it.kind === "firmware" ? it.fileName : it.name, String((e as Error).message ?? e)));
           }
         }
         setMessages(notes);
@@ -128,7 +133,12 @@ export function App() {
   const onDelete = useCallback(
     async (g: StoredGame) => {
       if (!confirm(gamesText().removeConfirm(g.name))) return;
-      await deleteGame(g.id);
+      try {
+        await deleteGame(g.id);
+      } catch (e) {
+        setMessages([gamesText().imported.notRemoved(g.name, String((e as Error).message ?? e))]);
+        return;
+      }
       deleteSavesFor(g.id);
       deleteSavesFor(`${g.id}-lib`);
       if (g.format === "gam") {
@@ -156,7 +166,7 @@ export function App() {
   const play = useCallback(
     (g: StoredGame, engine: EngineId = engineFor(g, firmwareReady)) => {
       // (remembered for the library's order; playtests and the demos are not stored)
-      if (games.some((s) => s.id === g.id)) void putGame({ ...g, playedAt: Date.now() }).then(refresh);
+      if (games.some((s) => s.id === g.id)) void putGame({ ...g, playedAt: Date.now() }).then(refresh, (e) => console.warn("Could not note when the game was played", e));
       if (engine === "react") setPlaying(g.format === "gam" ? { ...g, id: `${g.id}-lib`, format: undefined, data: g.data.slice(g.libOffset) } : g);
       else {
         setDeviceOs(engine);

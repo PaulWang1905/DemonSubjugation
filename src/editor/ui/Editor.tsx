@@ -421,7 +421,11 @@ export function Editor({ onPlaytest }: Props) {
                       className="ghost danger"
                       onClick={async () => {
                         if (confirm(h.confirmDelete(p.name))) {
-                          await deleteProject(p.id);
+                          try {
+                            await deleteProject(p.id);
+                          } catch (e) {
+                            alert(`${p.name}: ${(e as Error).message ?? e}`);
+                          }
                           void refresh();
                         }
                       }}

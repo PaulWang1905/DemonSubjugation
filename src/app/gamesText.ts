@@ -115,6 +115,8 @@ const en = {
     invalid: (file: string, why: string) => `${file}: not a valid game archive (${why})`,
     unknown: (file: string) => `${file}: unrecognised file (expected a .lib or .gam game, a font or a 4988 firmware file)`,
     noRom: (file: string) => `${file}: no fmj.rom["…"] entries found`,
+    notStored: (name: string, why: string) => `${name}: could not be stored in this browser (${why}).`,
+    notRemoved: (name: string, why: string) => `${name}: could not be removed (${why}).`,
   },
 };
 
@@ -231,6 +233,8 @@ const zh: GamesText = {
     invalid: (file: string, why: string) => `${file}：不是有效的游戏文件（${why}）`,
     unknown: (file: string) => `${file}：无法识别的文件（应为 .lib 或 .gam 游戏、字库或 4988 固件文件）`,
     noRom: (file: string) => `${file}：没有找到 fmj.rom["…"] 条目`,
+    notStored: (name: string, why: string) => `${name}：未能保存到这个浏览器（${why}）。`,
+    notRemoved: (name: string, why: string) => `${name}：未能删除（${why}）。`,
   },
 };
 

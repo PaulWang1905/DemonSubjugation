@@ -88,6 +88,11 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [onFulu, setOnFulu] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Storing the device failed (the browser's storage refused it): say so. */
+  const notStored = (e: unknown) => {
+    console.warn("Could not store the device", e);
+    setNotice(dt.saves.notStored);
+  };
   const [generation, setGeneration] = useState(0);
   // How the device starts next: resumed as kept, or the machine afresh on the
   // flash it had (restarting keeps the program's saves), which `carry` holds.
@@ -186,7 +191,8 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
       alive = false;
       const d = deviceRef.current;
       deviceRef.current = null;
-      if (d) void saveDevice(id, d.os, d.device);
+      // (the player is closing: nowhere left to say it failed but the console)
+      if (d) saveDevice(id, d.os, d.device).catch((e) => console.warn("Could not store the device", e));
     };
   }, [id, game, generation]);
 
@@ -195,7 +201,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
     if (status.kind !== "running") return;
     const save = () => {
       const d = deviceRef.current;
-      if (d) void saveDevice(id, d.os, d.device);
+      if (d) saveDevice(id, d.os, d.device).catch(notStored);
     };
     const hidden = () => document.visibilityState === "hidden" && save();
     const timer = window.setInterval(save, SAVE_EVERY_MS);
@@ -251,7 +257,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
           d.fulu.stopped = null;
           // keep the device as it ended (its flash holds the saves made just before)
           const kept = deviceRef.current;
-          if (kept) void saveDevice(id, kept.os, kept.device);
+          if (kept) saveDevice(id, kept.os, kept.device).catch(notStored);
           setStatus({ kind: "error", message: why === "The program ended" ? text.ended : text.fuluCannot(why) });
         }
         decodeLcd(d.machine.ram, pixels);
@@ -389,7 +395,11 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const saveState = async (n: number) => {
     const d = deviceRef.current;
     if (!d) return;
-    await saveSlot(id, n, d.os, d.device);
+    try {
+      await saveSlot(id, n, d.os, d.device);
+    } catch (e) {
+      return notStored(e);
+    }
     setSlotTimes(await slotTimes(id));
     setNotice(dt.saves.saved(n));
   };
@@ -421,8 +431,13 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   };
   const importSaves = async (file: File | undefined) => {
     if (!file) return;
+    let device: Awaited<ReturnType<typeof importDevice>>["device"];
     try {
-      const { device } = await importDevice(id, file);
+      device = (await importDevice(id, file)).device;
+    } catch {
+      return setNotice(dt.saves.notAFile);
+    }
+    try {
       // the device in play is replaced, not saved over the file's
       deviceRef.current = null;
       await storeDevice(device);
@@ -430,8 +445,8 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
       setOptionsOpen(false);
       setGeneration((g) => g + 1);
       setNotice(dt.saves.imported);
-    } catch {
-      setNotice(dt.saves.notAFile);
+    } catch (e) {
+      notStored(e);
     }
   };
   const screen = (

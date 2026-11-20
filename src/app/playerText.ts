@@ -51,6 +51,7 @@ const en = {
   importedSaves: (n: number) => `Imported ${n} save slot${n === 1 ? "" : "s"}. Load them from the title menu.`,
   importFailed: (why: string) => `Could not import saves: ${why}`,
   notSaves: "Not a save backup file",
+  savesNotStored: "This browser's storage is full: new saves are kept only until this page closes. Export them (Options → Export saves) to keep them.",
   fontFailed: (status: number) => `Could not load the font (${status}).`,
   device: {
     moreTextTitle: "Smaller text in dialogues, so a page holds more (menus and message boxes keep the device's size)",
@@ -83,6 +84,7 @@ const en = {
       importTitle: "Put back a device from an exported file (the one in play is replaced)",
       imported: "Saves imported.",
       notAFile: "That is not an exported save file.",
+      notStored: "Could not store the device in this browser (its storage may be full). Export it to keep it.",
     },
     keys: [
       ["Move / choose", "Arrow keys"],
@@ -157,6 +159,7 @@ const zh: PlayerText = {
   importedSaves: (n: number) => `已导入 ${n} 个存档位，可以在标题菜单中读取。`,
   importFailed: (why: string) => `无法导入存档：${why}`,
   notSaves: "这不是存档备份文件",
+  savesNotStored: "这个浏览器的存储空间已满：新的存档只保留到关闭本页为止。请导出存档（选项 → 导出存档）以免丢失。",
   fontFailed: (status: number) => `无法加载字体（${status}）。`,
   device: {
     moreTextTitle: "对话使用更小的文字，一页能放下更多内容（菜单和消息框保持掌机原大小）",
@@ -187,6 +190,7 @@ const zh: PlayerText = {
       importTitle: "从导出的文件恢复词典（会替换当前的）",
       imported: "存档已导入。",
       notAFile: "这不是导出的存档文件。",
+      notStored: "未能把词典存到这个浏览器（存储空间可能已满）。请导出以免丢失。",
     },
     keys: [
       ["移动 / 选择", "方向键"],

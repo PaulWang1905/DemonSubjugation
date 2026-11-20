@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createDeviceFont } from "./deviceFont";
-import { createEngine, detectUiLanguage, EngineSettings, type SmallFonts, type UiLanguage, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, Keys, type Engine, type EngineKey } from "../engine";
-import { exportSaves, importSaves, savesFor } from "../storage/saves";
+import { createEngine, detectUiLanguage, EngineSettings, type UiLanguage, SCREEN_HEIGHT, SCREEN_WIDTH, TICK_MS, type Engine } from "../engine";
+import type { SaveStorage } from "../engine/java";
+import { exportSaves, importSaves, savesFor, savesStored } from "../storage/saves";
 import type { StoredGame } from "../storage/db";
-import { KEYMAP } from "./keys";
+import { useEngineKeys } from "./useEngineKeys";
+import { usePlayerFonts } from "./usePlayerFonts";
 import { Keypad } from "./Keypad";
 import { DebugMenu } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { HiresText, outputScale, type ScreenEffect, type TextStyle } from "./hiresText";
 import { effectOf, MAP_VIEWS, mapViewOf, type MapView, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
-import { boldSmallFonts, FONT_SETS, loadPixelFonts, loadSmallFonts, type FontSetId } from "./fonts";
 import { PLAYER_TEXT } from "./playerText";
 import { SITE_TEXT } from "./siteText";
 import { useSiteLang } from "./siteLang";
@@ -23,12 +24,18 @@ interface Props {
   onExit: () => void;
 }
 
-/** Map view: how many extra tile columns (each side) and rows (above and below) to show. */
-/** Key repeat: first repeat after this long, then one every REPEAT_RATE ms. */
-const REPEAT_DELAY = 250;
-const REPEAT_RATE = 100;
-const REPEATS = new Set<EngineKey>([Keys.UP, Keys.DOWN, Keys.LEFT, Keys.RIGHT, Keys.PAGEUP, Keys.PAGEDOWN]);
 
+/** A game's save slots, calling `refused` after a save the browser's storage would not keep (it is then kept for this page only). */
+function savesTelling(gameId: string, refused: () => void): SaveStorage {
+  const saves = savesFor(gameId);
+  return {
+    ...saves,
+    set(path, value) {
+      saves.set(path, value);
+      if (!savesStored()) refused();
+    },
+  };
+}
 export function Player({ game, fonts, onExit }: Props) {
   // the player's own text follows the site language
   const lang = useSiteLang();
@@ -79,37 +86,6 @@ export function Player({ game, fonts, onExit }: Props) {
   };
   // The game's language: its English font menu comes first.
   const englishGame = useMemo(() => (uiLang === "auto" ? detectUiLanguage(new Uint8Array(game.data)) : uiLang) === "en", [game, uiLang]);
-  // The pixel fonts the engine draws with (also under HD text, which is
-  // drawn over them): bundled ones are loaded when chosen, then swapped in
-  // without restarting; "original" is the uploaded files.
-  const cjkSet: FontSetId | null = text.pixelChinese === "original" ? null : text.pixelChinese;
-  const latinSet: FontSetId | null = text.pixelEnglish === "original" ? null : text.pixelEnglish;
-  const wantKey = `${cjkSet ?? "-"}|${latinSet ?? "-"}`;
-  const [bundled, setBundled] = useState<{ key: string; hzk16: Uint8Array; asc16: Uint8Array } | null>(null);
-  useEffect(() => {
-    if (!cjkSet && !latinSet) return;
-    let alive = true;
-    loadPixelFonts(cjkSet ?? latinSet!, latinSet ?? cjkSet!).then(
-      (f) => alive && setBundled({ key: wantKey, ...f }),
-      (e) => alive && setNotice(String((e as Error).message ?? e)),
-    );
-    return () => {
-      alive = false;
-    };
-  }, [cjkSet, latinSet, wantKey]);
-  const needBundled = !!(cjkSet || latinSet);
-  const useBundled = needBundled && bundled?.key === wantKey;
-  const uploadedHzk = fonts.hzk16 ? new Uint8Array(fonts.hzk16) : null;
-  const uploadedAsc = fonts.asc16 ? new Uint8Array(fonts.asc16) : null;
-  const fontPick = {
-    hzk16: cjkSet && useBundled ? bundled!.hzk16 : uploadedHzk,
-    asc16: latinSet && useBundled ? bundled!.asc16 : uploadedAsc,
-  };
-  const fontPickRef = useRef(fontPick);
-  fontPickRef.current = fontPick;
-  // Wait for a chosen bundled font before the first start, so the game does
-  // not open in another font; later changes only swap the font.
-  const startedRef = useRef(false);
   // The hidden debug menu: press and hold the game screen. The game is paused
   // while it is open.
   const [debugOpen, setDebugOpen] = useState(false);
@@ -127,13 +103,16 @@ export function Player({ game, fonts, onExit }: Props) {
   const { scale, zoomInfo } = useScreenFit(stageRef, canvasRef, { touch, sideways, showPad, fullscreen, zoom, frameW, frameH });
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
-  // Let go of every key the game still thinks is held, then pause it.
-  const releaseKeys = useCallback(() => {
-    if (repeat.current) window.clearTimeout(repeat.current.t);
-    repeat.current = null;
-    for (const k of pressed.current) engineRef.current?.keyUp(k);
-    pressed.current.clear();
-  }, []);
+  // Keys from the keyboard and the keypad (paused with the game).
+  const { keyDown, keyUp, releaseKeys } = useEngineKeys({
+    engine: engineRef,
+    paused: debugRef,
+    onEscapePaused: () => {
+      setDebugOpen(false);
+      setOptionsOpen(false);
+    },
+    onError: (e) => setError(String((e as Error).stack ?? e)),
+  });
   const openDebug = useCallback(() => {
     releaseKeys();
     setDebugOpen(true);
@@ -143,9 +122,6 @@ export function Player({ game, fonts, onExit }: Props) {
     setOptionsOpen(true);
   }, [releaseKeys]);
   const hold = useLongPress(openDebug);
-  // Keys the game has seen pressed: only their releases are passed on, so the
-  // Esc that closes the debug menu does not reach the game.
-  const pressed = useRef(new Set<EngineKey>());
   const speedRef = useRef(speed);
   const paletteRef = useRef(paletteId);
   speedRef.current = speed;
@@ -154,38 +130,9 @@ export function Player({ game, fonts, onExit }: Props) {
   // Experimental: smaller text cells so dialogue, menus and descriptions hold more.
   const [textSize, setTextSize] = useState(() => Number(pref("textSize", "16")) as 16 | 12 | 10);
   EngineSettings.textSize = textSize === 12 || textSize === 10 ? textSize : 16;
-  // Fonts drawn for those sizes, loaded the first time they are needed.
-  const [small, setSmall] = useState<SmallFonts | null>(null);
-  // (bold for the fonts that are bold at full size: Retro's Chinese, its letters)
-  const isBold = (id: FontSetId | null) => !!id && !!FONT_SETS.find((f) => f.id === id)?.boldSmall;
-  const boldCjk = isBold(cjkSet);
-  const boldLatin = isBold(latinSet);
-  const smallPick = useMemo(() => {
-    if (!small || (!boldCjk && !boldLatin)) return small;
-    const b = boldSmallFonts(small);
-    return {
-      hzk12: boldCjk ? b.hzk12 : small.hzk12,
-      hzk10: boldCjk ? b.hzk10 : small.hzk10,
-      asc12: boldLatin ? b.asc12 : small.asc12,
-      asc10: boldLatin ? b.asc10 : small.asc10,
-    };
-  }, [small, boldCjk, boldLatin]);
-  const smallRef = useRef(smallPick);
-  smallRef.current = smallPick;
-  useEffect(() => {
-    if (textSize === 16 || small) return;
-    let alive = true;
-    loadSmallFonts().then(
-      (f) => alive && setSmall(f),
-      (e) => alive && setNotice(String((e as Error).message ?? e)),
-    );
-    return () => {
-      alive = false;
-    };
-  }, [textSize, small]);
-  // (also wait for these on the first start)
-  if ((!needBundled || useBundled) && (textSize === 16 || small)) startedRef.current = true;
-  const canStart = startedRef.current;
+  // The fonts the engine draws with, More text's included; the first start waits for them.
+  const playerFonts = usePlayerFonts({ text, uploaded: fonts, textSize, engine: engineRef, onError: setNotice });
+  const fontPickRef = playerFonts.pick, smallRef = playerFonts.small, canStart = playerFonts.canStart;
 
   // Boot the engine and run the fixed-step loop (the original ticks every 40 ms).
   useEffect(() => {
@@ -201,7 +148,7 @@ export function Player({ game, fonts, onExit }: Props) {
         },
         fontFallback: fonts.hzk16 && fonts.asc16 ? undefined : createDeviceFont(),
         uiLanguage: uiLang,
-        saves: savesFor(game.id),
+        saves: savesTelling(game.id, () => setNotice(PLAYER_TEXT[lang].savesNotStored)),
         onExit,
       });
     } catch (e) {
@@ -271,106 +218,6 @@ export function Player({ game, fonts, onExit }: Props) {
       engineRef.current = null;
     };
   }, [game, fonts, onExit, generation, uiLang, canStart]);
-
-  // Switch the engine's font when the choice (or its loading) changes.
-  useEffect(() => {
-    const e = engineRef.current;
-    if (!e) return;
-    e.setFonts(fontPick.hzk16, fontPick.asc16, smallPick);
-    e.redraw();
-    // fontPick is rebuilt each render; these say when it really changed
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useBundled, bundled, wantKey, fonts, smallPick]);
-
-  // Held keys repeat at one fixed rate whatever sends them (keypad, keyboard,
-  // gamepad), so walking feels the same everywhere. Each repeat is one more
-  // key message, as on the device: one step on the map, one line in a menu.
-  const repeat = useRef<{ key: EngineKey; t: number } | null>(null);
-  const stopRepeat = useCallback(() => {
-    if (repeat.current) window.clearTimeout(repeat.current.t);
-    repeat.current = null;
-  }, []);
-  const startRepeat = useCallback(
-    (k: EngineKey, delay: number) => {
-      stopRepeat();
-      const fire = () => {
-        if (!repeat.current || debugRef.current) return;
-        try {
-          engineRef.current?.keyDown(k);
-        } catch (e) {
-          setError(String((e as Error).stack ?? e));
-          return;
-        }
-        repeat.current.t = window.setTimeout(fire, REPEAT_RATE);
-      };
-      repeat.current = { key: k, t: window.setTimeout(fire, delay) };
-    },
-    [stopRepeat],
-  );
-
-  const keyDown = useCallback(
-    (k: EngineKey) => {
-      if (debugRef.current || pressed.current.has(k)) return;
-      pressed.current.add(k);
-      try {
-        engineRef.current?.keyDown(k);
-      } catch (e) {
-        setError(String((e as Error).stack ?? e));
-      }
-      if (REPEATS.has(k)) startRepeat(k, REPEAT_DELAY);
-    },
-    [startRepeat],
-  );
-  const keyUp = useCallback(
-    (k: EngineKey) => {
-      if (!pressed.current.delete(k)) return;
-      if (repeat.current?.key === k) {
-        stopRepeat();
-        // another held direction takes over, as on a keyboard
-        const other = [...pressed.current].reverse().find((x) => REPEATS.has(x));
-        if (other !== undefined) startRepeat(other, REPEAT_DELAY);
-      }
-      if (debugRef.current) return;
-      try {
-        engineRef.current?.keyUp(k);
-      } catch (e) {
-        setError(String((e as Error).stack ?? e));
-      }
-    },
-    [startRepeat, stopRepeat],
-  );
-  useEffect(() => stopRepeat, [stopRepeat]);
-
-  // Keyboard input. The browser's own auto-repeat is ignored: holding a key
-  // repeats at the same rate as the keypad.
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.closest?.("input, select, textarea")) return;
-      if (debugRef.current) {
-        if (e.code === "Escape") {
-          setDebugOpen(false);
-          setOptionsOpen(false);
-        }
-        return;
-      }
-      const k = KEYMAP[e.code];
-      if (k === undefined || e.ctrlKey || e.metaKey || e.altKey) return;
-      e.preventDefault();
-      if (!e.repeat) keyDown(k);
-    };
-    const up = (e: KeyboardEvent) => {
-      const k = KEYMAP[e.code];
-      if (k === undefined) return;
-      e.preventDefault();
-      keyUp(k);
-    };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-    };
-  }, [keyDown, keyUp]);
 
   // Change the map view while playing.
   useEffect(() => {
@@ -567,7 +414,7 @@ export function Player({ game, fonts, onExit }: Props) {
           </select>
         </label>
         {textSize !== 16 && text.look === "pixel" && (
-          <p className="muted small">{pt.smallFonts(boldCjk || boldLatin, pt.smallCredit)}</p>
+          <p className="muted small">{pt.smallFonts(playerFonts.boldSmall, pt.smallCredit)}</p>
         )}
         <label className="check">
           <input
