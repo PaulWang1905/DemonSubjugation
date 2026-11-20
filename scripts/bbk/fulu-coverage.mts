@@ -1,6 +1,8 @@
 // How much of what a folder of .gam programs calls Fulu answers, and what
 // to write next.
-//   npx tsx scripts/bbk/fulu-coverage.mts <folder of .gam> [0E00.DAT]
+//   npx tsx scripts/bbk/fulu-coverage.mts <folder of .gam> [0E00.DAT] [--programs]
+// (--programs also lists, for each program, what it can call that Fulu lacks:
+// the scan column of src/app/fuluGames.ts)
 // For each program: the OS functions it far-calls (a byte search for
 // LDX/STX $26, LDX/STX $27, JSR $D2F6, as api-scan.mjs) and the resident
 // routines it JSRs or JMPs to (a byte search for the collection's 61, as
@@ -17,7 +19,9 @@ import { join } from "node:path";
 import { FUNCTIONS } from "../../src/fulu/os";
 import { HELPERS } from "../../src/fulu/runtime";
 
-const [folder, rom] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const eachProgram = args.includes("--programs");
+const [folder, rom] = args.filter((a) => a !== "--programs");
 if (!folder) throw new Error("usage: npx tsx scripts/bbk/fulu-coverage.mts <folder of .gam> [0E00.DAT]");
 const hex = (n: number) => `$${n.toString(16).toUpperCase()}`;
 const has = (a: number) => !!FUNCTIONS[a] || !!HELPERS[a] || a === 0xd2f6 || a === 0xd313;
@@ -60,6 +64,11 @@ const programs = readdirSync(folder)
   .map((f) => scan(f.replace(/\.gam$/i, ""), new Uint8Array(readFileSync(join(folder, f)))));
 const complete = programs.filter((p) => !p.missing.size);
 console.log(`${programs.length} programs; ${complete.length} call nothing Fulu lacks (${complete.filter((p) => p.kit).length} of the ${programs.filter((p) => p.kit).length} made with the RPG kit)`);
+
+if (eachProgram) {
+  console.log("\neach program, with what it can call that Fulu lacks:");
+  for (const p of programs) console.log(`  ${p.name}\t${[...p.missing].sort((a, b) => a - b).map(hex).join(" ")}`);
+}
 
 const needs = new Map<number, string[]>();
 for (const p of programs) for (const a of p.missing) needs.set(a, [...(needs.get(a) ?? []), p.name]);

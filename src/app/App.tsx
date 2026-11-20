@@ -8,6 +8,7 @@ import { forgetDevice, forgetSlots } from "./deviceStore";
 import { deleteSavesFor } from "../storage/saves";
 import { archiveId, importFiles } from "./importFiles";
 import { FuluPage } from "./FuluPage";
+import { FuluProgressPage } from "./FuluProgressPage";
 import { Library } from "./Library";
 import { engineFor, type EngineId } from "./engines";
 import { Player } from "./Player";
@@ -198,7 +199,7 @@ export function App() {
             <span>FMJ React</span>
           </Link>
           <nav className={menuOpen ? "site-nav open" : "site-nav"} id="site-nav" aria-label="Site">
-            {PAGES.filter((p) => p.page !== "home").map((p) => (
+            {PAGES.filter((p) => p.page !== "home" && !p.parent).map((p) => (
               <Link key={p.page} to={p.page} onClick={closeMenu}>
                 {t.nav[p.page]}
               </Link>
@@ -287,6 +288,7 @@ export function App() {
           )}
           {page === "guide" && <GuidePage onPlayDemo={() => playDemo("bell")} />}
           {page === "fulu" && <FuluPage />}
+          {page === "fulu-progress" && <FuluProgressPage />}
           {page === "about" && <AboutPage />}
           {page === "notfound" && <NotFoundPage onPlayDemo={playDemo} />}
           {page !== "editor" && <SiteFooter onPlayDemo={playDemo} />}

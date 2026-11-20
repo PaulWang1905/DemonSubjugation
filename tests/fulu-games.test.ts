@@ -1,7 +1,7 @@
 // The games list (src/app/fuluGames.ts) and docs/fulu-games.md, written from it, agree.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { FULU_COUNTS, GAMES, HAND_TESTS, PROBLEMS } from "../src/app/fuluGames";
+import { COVERAGE, FULU_COUNTS, GAMES, HAND_TESTS, MILESTONES, PROBLEMS, REMAINING } from "../src/app/fuluGames";
 import { FUNCTIONS } from "../src/fulu/os";
 import { HELPERS } from "../src/fulu/runtime";
 import { fuluGamesMarkdown } from "../src/app/fuluGamesDoc";
@@ -23,6 +23,22 @@ describe("the games Fulu should run", () => {
   it("counts what Fulu answers as src/fulu has it (the site shows the counts)", () => {
     expect(Object.keys(FUNCTIONS).length).toBe(FULU_COUNTS.functions);
     expect(Object.keys(HELPERS).length).toBe(FULU_COUNTS.routines);
+  });
+
+  it("lists as left exactly what the programs stop at or their code calls", () => {
+    const left = new Set(REMAINING.map((r) => r.what));
+    expect(left.size).toBe(REMAINING.length);
+    const needed = new Set(GAMES.flatMap((g) => [...(g.scan ?? []), ...(g.stopsAt ? [g.stopsAt] : [])]));
+    expect([...left].sort()).toEqual([...needed].sort());
+    for (const r of REMAINING) expect(PROBLEMS.map((p) => p.id)).toContain(r.problem);
+    // nothing listed as left is answered by Fulu
+    for (const r of REMAINING) if (r.what.startsWith("$")) expect(FUNCTIONS[parseInt(r.what.slice(1), 16)]).toBeUndefined();
+    expect(COVERAGE.apiUsed).toBeGreaterThan(left.size);
+  });
+
+  it("dates the milestones in order", () => {
+    const dates = MILESTONES.map((m) => m.date);
+    expect([...dates].sort()).toEqual(dates);
   });
 
   it("says what a stopping game stops at, and dates every hand test", () => {

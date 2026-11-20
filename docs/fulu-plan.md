@@ -617,5 +617,6 @@ again.
   with it on.
 - **Tracking:** `src/app/fuluGames.ts` holds the programs Fulu should run
   and how far each has got, the owner's hand tests and the problems (with
-  the owner's decisions); the site's Fulu page shows it and
+  the owner's decisions); the Fulu page's progress tab (`/fulu/progress`)
+  shows it and
   `docs/fulu-games.md` is written from it. Update it with each round.

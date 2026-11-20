@@ -48,9 +48,9 @@ const en = {
     },
     fulu: {
       name: "Fulu",
-      what: "Our stand-in for the 4988's operating system: .gam programs run as written, without BBK's firmware. The 伏魔记 series and 英雄坛说 play and save.",
+      what: "Our stand-in for the 4988's operating system: .gam programs run as written, without BBK's firmware. The 伏魔记 series, 英雄坛说 and 三国霸业 play and save, checked against the original; most of the other 4988 games run too.",
       short: "The 4988, on our stand-in OS",
-      state: "Built in · 6 games tested",
+      state: "Built in · 7 games checked in full",
     },
     original: {
       name: "Original OS",
@@ -167,9 +167,9 @@ const zh: GamesText = {
     },
     fulu: {
       name: "符箓",
-      what: "本站代替 4988 操作系统的程序：.gam 程序按原样运行，不需要步步高的固件。伏魔记系列和英雄坛说可以玩，也可以存档。",
+      what: "本站代替 4988 操作系统的程序：.gam 程序按原样运行，不需要步步高的固件。伏魔记系列、英雄坛说和三国霸业可以玩、可以存档，并已与原版对比；其他 4988 游戏大多也能运行。",
       short: "4988，运行在本站的代替系统上",
-      state: "内置 · 已测试 6 款游戏",
+      state: "内置 · 7 款游戏已完整对比",
     },
     original: {
       name: "原机系统",

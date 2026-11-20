@@ -8,6 +8,10 @@
     {
       "source": "/:page(games|guide|fulu|about|editor)",
       "destination": "/index.html"
+    },
+    {
+      "source": "/fulu/progress",
+      "destination": "/index.html"
     }
   ],
   "headers": [

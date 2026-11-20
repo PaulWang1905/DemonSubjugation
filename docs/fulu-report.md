@@ -1147,7 +1147,8 @@ Found on the way, in the OS:
 
 The programs Fulu should run, how far each has got, those the owner has
 tested by hand and the problems still open are kept in one list,
-`src/app/fuluGames.ts`, shown on the site's Fulu page and written to
+`src/app/fuluGames.ts`, shown on the site's Fulu progress report
+(`/fulu/progress`, a tab of the Fulu page) and written to
 `docs/fulu-games.md` (`npx tsx scripts/bbk/fulu-games-doc.mts`; a test
 fails when the document is out of date).
 
@@ -1170,14 +1171,10 @@ fails when the document is out of date).
   open the file again, but the shadow run counts it (电子宠物's save). Doing
   it as the OS does means reading its file system's code (some 2,600
   instructions).
-### 16.2 Other limitations
-
 - **Not written:** input methods (`$E919`, `$E925`…, for typing Chinese:
   their size, and whether they need the OS's own data, is not measured
   yet; 恶龙传说, 电子宠物, 对对碰 and 碰碰车 switch to them), GuiGetMsg's
   other events, and the input mode changes other than between 2 and 1.
-- **No sound**, in either OS mode: kept off, by the owner's decision, until
-  they decide otherwise (`$EA52` / `$EA64` act as with the sound off).
 - **Timing** is a model of the firmware's cost, within a few percent on the
   games measured, not cycle-exact. A program's own pacing can still differ
   slightly: 三国霸业's intro runs a second longer on Fulu.
