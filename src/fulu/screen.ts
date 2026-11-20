@@ -2,7 +2,7 @@
 // screen's shape: 96 rows of 20 bytes, one bit a pixel, the most significant
 // bit leftmost.
 
-import { adc, asl, carry, clc, cmp, cpu, farCalled, fn, get16, nz, ram, rd, rol, set16, word, wr } from "./alu";
+import { adc, asl, carry, clc, cmp, cpu, farCalled, fn, get16, nz, ram, rd, rol, sbc, sec, set16, word, wr } from "./alu";
 import type { OsFunction } from "./fulu";
 
 const STRIDE = 20;
@@ -110,11 +110,12 @@ function plot(x: number, y: number, on: boolean): void {
 /**
  * The OS's line from (x0, y0) to (x1, y1), coordinates of 8 bits: endpoints
  * ordered by x (swapped when x0 ≥ x1), the line folded into one of four
- * octants, a midpoint error term of 16 bits, each point mapped back and set.
+ * octants, a midpoint error term of 16 bits, each point mapped back and set
+ * (or, with `on` false, cleared: the colour the OS keeps at $2080).
  */
-function line(x0: number, y0: number, x1: number, y1: number): void {
+function line(x0: number, y0: number, x1: number, y1: number, on = true): void {
   if (x0 >= x1) [x0, y0, x1, y1] = [x1, y1, x0, y0];
-  plot(x0, y0, true);
+  plot(x0, y0, on);
   const dx = (x1 - x0) & 0xff;
   let dy = (y1 - y0) & 0xff, octant: number;
   if (!(dy & 0x80)) octant = dx >= dy ? 1 : 2;
@@ -139,14 +140,63 @@ function line(x0: number, y0: number, x1: number, y1: number): void {
       d = (d + diagonal) & 0xffff;
     } else d = (d + flat) & 0xffff;
     const along = (x - x0) & 0xff, across = (y - y0) & 0xff;
-    if (octant === 1) plot(x, y, true);
-    else if (octant === 2) plot((x0 + across) & 0xff, (y0 + along) & 0xff, true);
-    else if (octant === 3) plot((x0 + across) & 0xff, (y0 - along) & 0xff, true);
-    else plot(x, (y0 - across) & 0xff, true);
+    if (octant === 1) plot(x, y, on);
+    else if (octant === 2) plot((x0 + across) & 0xff, (y0 + along) & 0xff, on);
+    else if (octant === 3) plot((x0 + across) & 0xff, (y0 - along) & 0xff, on);
+    else plot(x, (y0 - across) & 0xff, on);
   }
   cpu.x = cpu.y = 0;
   cmp((cpu.a = x), x1);
   cpu.p &= ~0x40;
+}
+
+/**
+ * 5:$8714: the addresses of the byte holding pixel (x = $2081, y = $2082),
+ * as the OS computes them with the same arithmetic (so its flags): byte 0 of
+ * the row at $38/$39 (for x < 8), the row's byte x / 8 at $3A/$3B.
+ */
+function pixelAddress(): void {
+  const x = ram[0x2081], y = ram[0x2082];
+  cmp((cpu.a = y), 0x41);
+  if (y === 0x41) {
+    ram[0x38] = 0xf3;
+    ram[0x39] = 0x0f;
+    ram[0x3a] = 0x00;
+    ram[0x3b] = nz(0x04);
+  } else {
+    if (y > 0x41) {
+      sec();
+      ram[0x2085] = sbc(y, 0x42);
+      ram[0x2087] = 0x20;
+      multiply();
+      clc();
+      ram[0x3a] = adc(0x40, ram[0x2089]);
+      ram[0x3b] = adc(0x0c, ram[0x2085]);
+    } else {
+      ram[0x2085] = y;
+      ram[0x2087] = 0x20;
+      multiply();
+      sec();
+      ram[0x3a] = sbc(0x20, ram[0x2089]);
+      ram[0x3b] = sbc(0x0c, ram[0x2085]);
+    }
+    sec();
+    ram[0x38] = sbc(ram[0x3a], 0x0d);
+    ram[0x39] = sbc(ram[0x3b], 0);
+  }
+  cmp((cpu.a = x), 8);
+  if (x < 8) return;
+  sec();
+  ram[0x20b7] = sbc(x, 8);
+  for (;;) {
+    sec();
+    const a = (cpu.a = sbc(ram[0x20b7], 8));
+    if (!carry()) return;
+    ram[0x20b7] = a;
+    clc();
+    ram[0x3a] = adc(1, ram[0x3a]);
+    ram[0x3b] = adc(0, ram[0x3b]);
+  }
 }
 
 /** The OS variables the line functions use as temporaries. */
@@ -243,6 +293,55 @@ export const SCREEN: Record<number, OsFunction> = {
     line(x1, y1, x1, y2);
     line(x1, y1, x2, y1);
     line(x2, y1, x2, y2);
+  }, LINE),
+  // $E8BF (clear a rectangle's outline)(x1 in A, y1, x2, y2): SysRect drawn with colour 0 (the OS's 5:$8603: the same code with $2080 = 0)
+  0xe8bf: fn(0x8603, () => {
+    const sp = word(0x28), x1 = cpu.a, y1 = rd(sp), x2 = rd(sp + 1);
+    cpu.y = 1;
+    cmp((cpu.a = x2), WIDTH);
+    if (x2 >= WIDTH || (cmp(x2, x1), x2 < x1)) return;
+    const y2 = rd(sp + 2);
+    cpu.y = 2;
+    cmp((cpu.a = y2), HEIGHT);
+    if (y2 >= HEIGHT || (cmp(y2, y1), y2 < y1)) return;
+    line(x1, y2, x2, y2, false);
+    line(x1, y1, x1, y2, false);
+    line(x1, y1, x2, y1, false);
+    line(x2, y1, x2, y2, false);
+  }, LINE),
+  /**
+   * $E7FA (a pixel)(x in A, y, colour): set the pixel (colour not 0) or clear
+   * it, unclipped, through the OS's address arithmetic (5:$852A, 5:$8714),
+   * with the boot page's redirect of one byte ($03F8-$03FC).
+   */
+  0xe7fa: fn(0x852a, () => {
+    const sp = word(0x28);
+    ram[0x2081] = cpu.a;
+    ram[0x2082] = rd(sp);
+    const colour = (ram[0x2080] = rd(sp + 1));
+    pixelAddress();
+    const x = ram[0x2081];
+    ram[0x20b8] = 0x80 >> (x & 7);
+    ram[0x20b9] = nz(ram[0x20b8] ^ 0xff);
+    cpu.x = 0;
+    cmp(x, 8);
+    const put = (at: number) => {
+      cmp(colour, 0);
+      const v = rd(at) & ram[0x20b9];
+      wr(at, (cpu.a = nz(colour ? v | ram[0x20b8] : v)));
+    };
+    cpu.y = 0;
+    if (x < 8) return put(word(0x38));
+    cmp(ram[0x3f8], 1);
+    if (ram[0x3f8] === 1 && ram[0x3b] === ram[0x3fa] && ram[0x3a] === ram[0x3f9]) {
+      ram[0x3a] = ram[0x3fb];
+      ram[0x3b] = ram[0x3fc];
+      put(word(0x3a));
+      ram[0x3a] = ram[0x3f9];
+      ram[0x3b] = (cpu.a = nz(ram[0x3fa]));
+      return;
+    }
+    put(word(0x3a));
   }, LINE),
   // $E85D SysLcdPartClear(x1 in A, y1, x2, y2): clear a rectangle of the screen
   0xe85d: fn(0x6fde, () => paint((v, inside) => v & ~inside), RECTANGLE),

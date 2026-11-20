@@ -394,6 +394,19 @@ export const USER_FILES: Record<number, OsFunction> = {
     wr(record(cpu.a & 3), 0);
     result(true);
   }),
+  /**
+   * $E9E3 (rename)(handle in A, name): give an open file a new name (10
+   * bytes): the OS erases its directory sector and writes it back with the
+   * name in its entry, which leaves the flash as this does.
+   */
+  0xe9e3: fileFn(0x7aa4, () => {
+    const h = cpu.a, name = get16(word(0x28));
+    inFiles(() => {
+      const r = record(h & 3), f = flash(), entry = unplace(u24(r + 9));
+      for (let i = 0; i < 10; i++) f[entry + 2 + i] = rd(name + i);
+      return true;
+    });
+  }),
   /** $E9DD FileDel(handle in A): delete a file open to write (its entry deleted, its pages freed) and close it. */
   0xe9dd: fileFn(0x7c59, () => {
     const h = cpu.a;

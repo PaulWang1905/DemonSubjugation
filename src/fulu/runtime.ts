@@ -615,6 +615,137 @@ function floatMultiply(): void {
   unframe(x, 0x0e);
 }
 
+/** The 24-bit mantissa in f[i..i+2]. */
+const mantissa = (f: Uint8Array, i: number) => f[i] | (f[i + 1] << 8) | (f[i + 2] << 16);
+function setMantissa(f: Uint8Array, i: number, v: number): void {
+  f[i] = v & 0xff;
+  f[i + 1] = (v >> 8) & 0xff;
+  f[i + 2] = (v >> 16) & 0xff;
+}
+
+/**
+ * $DE29 (by $E517, and $E530 to subtract): ($20) + ($23), or − ($23), into
+ * scratch + 8, $20 pointing at it. Exponents aligned by shifting the smaller
+ * right (the last bit shifted out rounds a sum, not a difference), the
+ * mantissas added or the smaller taken from the larger, then normalised.
+ */
+function floatAdd(subtract: boolean): void {
+  const s = cpu.s, f = frame(), x = (s - 2 - 13) & 0xff;
+  if (subtract) f[8] ^= 0x80;
+  const zero = (i: number) => !((f[i + 3] & 0x7f) | f[i + 2] | f[i + 1] | f[i]);
+  const exponent = (i: number) => ((f[i + 3] << 1) | (f[i + 2] >> 7)) & 0xff;
+  if (zero(1)) {
+    // the first is 0: the second
+    for (let i = 0; i < 4; i++) f[1 + i] = f[5 + i];
+    f[12] = f[8];
+    f[11] = exponent(5);
+  } else if (zero(5)) {
+    f[12] = f[4];
+    f[11] = exponent(1);
+  } else {
+    f[9] = exponent(1);
+    f[10] = exponent(5);
+    f[3] |= 0x80;
+    f[7] |= 0x80;
+    f[13] = 0;
+    // align: shift the smaller's mantissa right, keeping the last bit out in f[13]
+    const shiftOut = (i: number) => {
+      const m = mantissa(f, i);
+      setMantissa(f, i, m >>> 1);
+      f[13] = m & 1;
+    };
+    const d = (f[9] - f[10]) & 0xff;
+    if (f[9] > f[10]) for (let k = 0; k < d; k++) shiftOut(5);
+    else if (f[9] < f[10]) for (let k = 0; k < 256 - d; k++) shiftOut(1);
+    const m1 = mantissa(f, 1), m2 = mantissa(f, 5);
+    const first = m1 >= m2;
+    f[11] = first ? f[9] : f[10];
+    f[12] = first ? f[4] : f[8];
+    if (!((f[4] ^ f[8]) & 0x80)) {
+      // the same sign: add, rounding with the last bit shifted out; a carry out shifts right (losing it)
+      let sum = m1 + m2 + (f[13] ? 1 : 0);
+      if (sum > 0xffffff) {
+        sum = (sum & 0xffffff) >>> 1;
+        f[11] = (f[11] + 1) & 0xff;
+      }
+      setMantissa(f, 1, sum);
+    } else if (m1 === m2) {
+      setMantissa(f, 1, 0);
+      f[11] = f[12] = 0;
+    } else {
+      let r = first ? m1 - m2 : m2 - m1;
+      while (!(r & 0x800000)) {
+        r = (r << 1) & 0xffffff;
+        f[11] = (f[11] - 1) & 0xff;
+      }
+      setMantissa(f, 1, r);
+    }
+  }
+  point(0x20, 8);
+  storeFloat(f, 1, f[11], f[12] & 0x80);
+  unframe(x, 0x0d);
+  cpu.y = 0;
+}
+
+/**
+ * $E282 (by $E524): the float at ($20) as a long at ($23), truncated: its
+ * mantissa shifted left by its exponent less 126 (a byte, so below 1 it
+ * wraps and shifts it all out: 0), then negated for a negative float. A = X
+ * = the frame (x) + 8.
+ */
+function floatToLong(x: number): void {
+  const p = word(0x20), q = word(0x23);
+  const f = [0, 1, 2, 3].map((i) => rd(p + i));
+  let v = 0;
+  if ((f[3] & 0x7f) | f[2] | f[1] | f[0]) {
+    const shifts = (((((f[3] << 1) | (f[2] >> 7)) & 0xff) - 0x7f + 1) & 0xff) || 256;
+    const m = BigInt(f[0] | (f[1] << 8) | ((f[2] | 0x80) << 16));
+    v = shifts >= 56 ? 0 : Number(((m << BigInt(shifts)) >> 24n) & 0xffffffffn);
+    if (f[3] & 0x80) v = (0x100000000 - v) % 0x100000000;
+  }
+  for (let i = 0; i < 4; i++) wr(q + i, (v >>> (8 * i)) & 0xff);
+  cpu.y = 3;
+  clc();
+  cpu.a = cpu.x = adc(x, 8);
+}
+
+/** $D835: the float at ($20) as a long at scratch + $10, $20 pointing at it ($23/$24 kept; A its high byte). */
+function floatToLongAt10(): void {
+  const lo = ram[0x23], hi = ram[0x24];
+  clc();
+  ram[0x23] = adc(ram[0x2a], 0x10);
+  ram[0x24] = adc(ram[0x2b], 0);
+  floatToLong((cpu.s - 16) & 0xff);
+  ram[0x20] = ram[0x23];
+  ram[0x21] = ram[0x24];
+  ram[0x23] = lo;
+  ram[0x24] = cpu.a = nz(hi);
+}
+
+/** $DD4F: the long at scratch + $10 ($20 pointing at it) as a float there ($23/$24 kept, A its high byte). */
+function floatAt10(): void {
+  const lo = ram[0x23], hi = ram[0x24];
+  clc();
+  ram[0x23] = adc(ram[0x2a], 0x10);
+  ram[0x24] = cpu.a = adc(ram[0x2b], 0);
+  longToFloat((cpu.s - 11) & 0xff);
+  ram[0x20] = ram[0x23];
+  ram[0x21] = ram[0x24];
+  ram[0x23] = lo;
+  ram[0x24] = cpu.a = nz(hi);
+}
+
+/** $DD8C / $D557: the long at scratch + $20 ($23 pointing at it) as a float there ($20/$21 kept, A its high byte). */
+function floatAt20(): void {
+  const lo = ram[0x20], hi = ram[0x21];
+  ram[0x20] = ram[0x23];
+  ram[0x21] = cpu.a = ram[0x24];
+  point(0x23, 0x20);
+  longToFloat((cpu.s - 11) & 0xff);
+  ram[0x20] = lo;
+  ram[0x21] = cpu.a = nz(hi);
+}
+
 /** $D7A6: $20/$21 negated (A its high byte). */
 function negate16(): void {
   sec();
@@ -791,7 +922,18 @@ const table: Record<number, () => unknown> = {
   0xdb19: () => copy4(word(0x20), word(0x23)),
   0xdaaa: () => push(1, () => [(cpu.x = cpu.a)]),
   0xdaca: () => push(2, () => [ram[0x20], ram[0x21]]),
-  0xdafc: () => (push(4, () => [0, 1, 2, 3].map((i) => rd(word(0x20) + i))), (cpu.y = 4), (cpu.x = 0)),
+  // push the long at ($20), byte by byte as the OS copies it (where they overlap, a byte written is read again)
+  0xdafc: () => {
+    const p = cpu.p;
+    sec();
+    ram[0x28] = sbc(ram[0x28], 4);
+    ram[0x29] = sbc(ram[0x29], 0);
+    const sp = word(0x28), src = word(0x20);
+    for (let i = 0; i < 4; i++) wr(sp + i, (cpu.a = rd(src + i)));
+    cpu.y = 4;
+    cpu.x = 0;
+    plp(p);
+  },
   0xdde4: () => (cpu.a = nz(cpu.a ? 0 : 1)),
   0xda09: () => shift8(asl),
   0xdbe1: () => shift8(lsr),
@@ -840,6 +982,46 @@ const table: Record<number, () => unknown> = {
   0xdd32: uintToFloat,
   0xdd52: ubyteToFloat,
   0xe520: floatDivide,
+  0xe517: () => (clc(), floatAdd(false)),
+  0xe530: () => (sec(), floatAdd(true)),
+  // float to char (A) and to int ($20/$21)
+  0xd81d: () => {
+    floatToLongAt10();
+    cpu.y = 0;
+    cpu.a = nz(rd(word(0x20)));
+  },
+  0xd825: () => {
+    floatToLongAt10();
+    const p = word(0x20);
+    cpu.x = rd(p);
+    cpu.y = 1;
+    cpu.a = ram[0x21] = nz(rd(p + 1));
+    ram[0x20] = cpu.x;
+  },
+  // char (signed, in $23), unsigned char (in A) and unsigned int ($23/$24) to float
+  0xd506: () => (table[0xd519](), floatAt20()),
+  0xdd19: () => (table[0xdd1f](), floatAt10()),
+  0xdd6f: () => (table[0xdd75](), floatAt20()),
+  // $23/$24 = the word at ($23), A kept
+  0xd8ae: () => {
+    const a = cpu.a, p = word(0x23);
+    cpu.x = rd(p);
+    cpu.y = 1;
+    ram[0x24] = rd(p + 1);
+    ram[0x23] = cpu.x;
+    cpu.a = nz(a);
+  },
+  // call through the pointer at $26/$27 (it is decremented, pushed and returned to); A in Y too
+  0xd572: () => {
+    const a = cpu.a;
+    cpu.y = a;
+    sec();
+    ram[0x26] = sbc(ram[0x26], 1);
+    ram[0x27] = sbc(ram[0x27], 0);
+    cpu.a = nz(a);
+    cpu.pc = (word(0x26) + 1) & 0xffff;
+    return "jump";
+  },
   0xe52c: floatMultiply,
   0xe907: mapBanks,
   0xe90a: savePage,

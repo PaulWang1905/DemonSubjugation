@@ -423,6 +423,8 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     const cases: [number, () => number[]][] = [
       [0xe794, () => ((y0) => [y0, x(), near(y0)])(y())],
       [0xe797, () => [y(), x(), y()]],
+      [0xe8bf, () => [y(), x(), y()]],
+      [0xe7fa, () => [y(), rand(3) ? rand(2) : rand(256)]],
       [0xe85d, () => [y(), x(), y()]],
       [0xe860, () => [y(), x(), y()]],
       [0xe877, () => [y(), x(), y(), rand(256), 0x30 + rand(8)]],
@@ -565,7 +567,10 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
           set16(0x23, ptr());
           const c = m.ram[0x23] | (m.ram[0x24] << 8);
           [rand(40), rand(8) ? 0 : rand(256), rand(8) ? 0 : rand(256), 0].forEach((v, i) => m.write(c + i, v));
-        } else if (addr === 0xe520 || addr === 0xe52c) {
+        } else if (addr === 0xd572) {
+          // a call through $26/$27: to somewhere in the program's memory (where the comparison stops)
+          set16(0x26, 0x1000 + rand(0x3000));
+        } else if (addr === 0xe520 || addr === 0xe52c || addr === 0xe517 || addr === 0xe530 || addr === 0xd81d || addr === 0xd825) {
           // float ÷ and ×: floats at ($20) and ($23), now and then 0, ±0, an extreme exponent, or the same number
           const float = (at: number) => {
             const e = [0x7f, 0x7f + rand(20), 0x7f - rand(20), rand(256), 0, 0xfe][rand(8) % 6], sign = rand(2) << 7;

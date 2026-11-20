@@ -149,9 +149,13 @@ export class Fulu {
    * then skip what comes next and walk on. So when the program asks for a key
    * after not asking for longer than FORGET_AFTER, those keys are dropped.
    * Waiting in GuiGetMsg is asking: a key that ends a wait, however long, is
-   * kept.
+   * kept. Only for a program made with the RPG kit (its library in its data
+   * area): 三国霸业 is busy for half a second at a time while its menus
+   * animate, and on the device keys pressed then are acted on.
    */
   forgetsKeys = false;
+  /** The program base (page) last looked at, and whether its program is the RPG kit's. */
+  private kit: [number, boolean] = [-1, false];
   /** The clock when the program last asked for a key, or null if it has not yet. */
   private asked: number | null = null;
 
@@ -161,11 +165,22 @@ export class Fulu {
    */
   listen(): void {
     const m = this.machine, now = m.clock;
-    if (this.forgetsKeys && !this.retrying && this.asked !== null && now - this.asked > FORGET_AFTER) {
+    if (this.forgetsKeys && !this.retrying && this.asked !== null && now - this.asked > FORGET_AFTER && this.kitProgram()) {
       m.dropKeys();
       m.ram[KEY_READ] = m.ram[KEY_WRITE];
     }
     this.asked = now;
+  }
+
+  /** Whether the running program is made with the RPG kit: "LIB" at the start of its data area. */
+  private kitProgram(): boolean {
+    const m = this.machine, base = m.ram[PROGRAM_BASE] | (m.ram[PROGRAM_BASE + 1] << 8);
+    if (this.kit[0] !== base) {
+      const flash = m.flash.data, h = ((base - 0x200) & 0xfff) << 12;
+      const data = h + (flash[h + 0x42] | (flash[h + 0x43] << 8) | (flash[h + 0x44] << 16));
+      this.kit = [base, flash[data] === 0x4c && flash[data + 1] === 0x49 && flash[data + 2] === 0x42];
+    }
+    return this.kit[1];
   }
 
   /**

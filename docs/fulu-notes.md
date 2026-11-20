@@ -193,7 +193,7 @@ its size in instructions (with the resident code it uses), what it does.
 | $E797 | SysRect | 5:$860B | 473 | (x1 in A, y1, x2, y2): an outline as four SysLines (bottom, left, top, right); nothing unless x1 ≤ x2 < 160, y1 ≤ y2 < 96 |
 | $E79A | SysPrintString | 5:$582C | 1343 | (x in A, y, s): a string: ASCII 8 wide (as SysAscii), double-byte 16 wide ($FD-$FF + ≥ $A1: 8 wide, the left halves), wrapping to x = 0 and 16 rows down, stopping at the end or below row 80; $2F/$30 left where it stopped |
 | $E7BB | SysAscii | 5:$638C | 461 | (x in A, y, c): an 8 × 16 ASCII glyph (font ROM $08B363 + 16c) at (x, y), x ≤ 152, y ≤ 80, replacing the pixels under it; at x = 152 its last column is dropped (the icons). Reads the glyph through DATA4 into $208D (far-calling $E749) |
-| $E7FA | | 5:$852A | 221 | |
+| $E7FA | (pixel) | 5:$852A | 221 | (x in A, y, colour): set the pixel (colour ≠ 0) or clear it, unclipped, by the OS's address arithmetic (5:$8714: the row from a multiply, then x / 8 by repeated subtraction, flags and all), with the boot page's one-byte redirect at $03F8 |
 | $E85D | SysLcdPartClear | 5:$6FDE | 556 | (x1 in A, y1, x2, y2): clear a rectangle; counts $2F/$30 up once a row |
 | $E860 | SysLcdReverse | 5:$7336 | 677 | (x1 in A, y1, x2, y2): invert a rectangle; counts $2F/$30 up once a row |
 | $E874 | (screen buffer size) | 5:$7AC4 | | (x1 in A, y1, x2, y2, &n): n = (⌊x2/8⌋ − ⌊x1/8⌋ + 1) × (y2 − y1 + 1), by the multiply 5:$7BD2; off screen it writes 0 through $2F/$30 as they are |
@@ -201,7 +201,7 @@ its size in instructions (with the resident code it uses), what it does.
 | $E87D | SysFillRect | 5:$86A9 | | (x1 in A, y1, x2, y2): checks as SysRect (no swapping), then ORs each row's bytes; A = the last byte written, C = 1 |
 | $E877 | SysSaveScreen | 5:$77CD | 517 | (x1 in A, y1, x2, y2, buffer): the screen's bytes under a rectangle, row by row, to a buffer ($2F/$30 left after it) |
 | $E889 | SysPictureDummy | 6:$5B18 | 323 | (x1 in A, y1, x2, y2, bitmap, buffer): as SysPicture (mode 0) into a 20-byte-stride buffer; far-calls the multiply $EAEC |
-| $E8BF | | 5:$8603 | 474 | |
+| $E8BF | (clear an outline) | 5:$8603 | 474 | (x1 in A, y1, x2, y2): SysRect's code with the colour at $2080 = 0: the outline cleared |
 | $E8EC | (icons off) | 6:$624D | 333 | every status icon off (all icon rows but 6, 7, 8, 13, 20, 31, 41, 68, 78, 89-91); icon n's row is 6:$6D15[n] |
 | $E932 | (GUI start-up) | 8:$5000 | 164 | clears $2B09-$2B0B, memset($2B0F, 0, $18), $2B27 = 2, $2B28 = $0F; far-calls $E9A1($FFFF), $E91C, $E848(0), $E8D7(0), $E845(0); returns 1 |
 | $E935 | GuiGetMsg | 8:$5093 | 2075 | (msg): the message pump (below) |
@@ -337,8 +337,11 @@ buttons at 9:$8CB2): the site's icon (public/favicon.svg at 1.5 x) and 是 /
 (computed per call: the screen under them and the heap blocks they pass
 through) and left out of the comparison; the rest matches the firmware.
 
-三国霸业 still needs $E7FA, $E8BF and the runtime's $D506, $D572, $D81D,
-$D825, $D8AE, $DD19, $DD6F, $E517 (floating point).
+**三国霸业 is done too.** Its code reaches nothing Fulu lacks (gam-calls.mjs
+with the list of what Fulu has: no `<- Fulu lacks`). Its last were $E7FA
+(a pixel), $E8BF (an outline cleared), $E9E3 (rename an open file) and the
+runtime's $D506, $D572, $D81D, $D825, $D8AE, $DD19, $DD6F, $E517 / $E530
+(below).
 
 ## The file functions
 
@@ -397,9 +400,36 @@ switched on), $E92F (GuiMsgBox's message $0A 3), input mode changes in
 $E93B, GuiGetMsg's other events. 15 minutes idle on Fulu: fine (no other
 interrupt came).
 
-**三国霸业** needs, besides: $E7FA, $E8BF, $E9E3, and more runtime helpers
-($D506, $D572, $D81D, $D825, $D8AE, $DD19, $DD6F, $E517), with many more calls
-to $E709, $E70F, $E712.
+**三国霸业**, done last, each checked against the firmware on random
+arguments (the screen functions' and the runtime's tests) and in its shadow
+runs (240 s of play by three key scripts, and a save, a second save and a
+load: every entry, 0 mismatches):
+
+- $E7FA (a pixel) and $E8BF (an outline cleared), in the table above.
+- $E9E3 (handle in A, name): renames an open file (its directory entry's 10
+  bytes). Saving does not use it; only code reached through a pointer calls
+  it, so it is written from the OS's code and not checked in a game.
+- float add $E517 (C clear) and subtract $E530 (C set), the OS's $DE29: the
+  smaller operand shifted to the larger's exponent keeping the last bit
+  shifted out, a same-sign sum rounded with that bit (a carry shifts right
+  and raises the exponent), a different-sign difference normalised, equal
+  magnitudes giving 0.
+- float to long $E282 (shifts of the exponent − $7F + 1, 256 for 0; the
+  sign by negation), and through it $D81D (to char, in A), $D825 (to int,
+  $20/$21) and $D835; the frame-tail variants $D506, $DD19, $DD6F (the
+  conversion, then the result stored at 10 or 20 in the frame).
+- $D8AE: $23/$24 = the word at ($23); $D572: a call through $26/$27 (to the
+  word there, + 1, as RTS would).
+- $DAFC (copy) now copies byte by byte, so overlapping copies come out as
+  the OS's (found by 三国霸业's random arguments).
+
+Its keys: 三国霸业 is busy for about half a second at a time while its
+menus animate (the title, the scenarios), without asking for a key, and on
+the device a key pressed then is acted on. Fulu's forgetting of keys
+(below, "Pace") is for the RPG kit's games only: those whose data area
+starts with their library ("LIB"). Its title also reads keys in two places
+(GuiGetMsg and SysGetKey after each timer message): a press taken by the
+second is not acted on, on the firmware as on Fulu.
 
 To do one: disassemble it (scripts/bbk/os-function.mjs, then
 scripts/bbk/fold-c.mjs for compiled C), write it, check it on random
@@ -421,6 +451,12 @@ clock, so a stall longer than a frame is paid back by the next frames rather
 than added to the time. Measured over the same script: the number of
 pictures drawn within 1% of the firmware's (2145 / 2165, 883 / 875, 1745 /
 1767). Not when Fulu answers for the firmware's OS (the shadow run).
+
+Keys pressed while a program has not asked for one for over 0.3 s (a
+scene, a notice) are forgotten when it next asks, as the player's own
+presses would otherwise skip what comes next; only for the RPG kit's games
+(their library at the start of their data area), since 三国霸业's menus are
+busy for half a second at a time and act on what was pressed meanwhile.
 
 The device player also repeats a held key only once the program has read the
 last one (Machine.keysWaiting: none queued, and the OS's key buffer at

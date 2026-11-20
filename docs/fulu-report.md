@@ -42,13 +42,14 @@ answered by TypeScript that leaves the machine exactly as the firmware
 would: the same registers, flags, banks and RAM, including the OS's own
 variables.
 
-Fulu answers 59 API-table entries, 55 resident C-runtime routines and the
-keyboard, ST1 and CT interrupts, in about 4,450 lines (`src/fulu`). It
-plays and saves 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0 and 英雄坛说.
+Fulu answers 62 API-table entries, 64 resident C-runtime routines and the
+keyboard, ST1 and CT interrupts, in about 5,200 lines (`src/fulu`). It
+plays and saves 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0, 英雄坛说
+and 三国霸业.
 It was verified by a **shadow run**: the firmware and Fulu answer each entry
 from the same machine state, and the results are compared. A minute of play
 in each game, every entry, gave 0 mismatches. Static tracing confirms that
-nothing else the six games' code can reach is missing.
+nothing else the seven games' code can reach is missing.
 
 A cost model charges the firmware's measured time for each entry, so the
 games keep the device's pace. Because Fulu draws every character and sees
@@ -974,12 +975,12 @@ Findings about the games:
 
 ## 16. Limitations and future work
 
-- **Other programs.** Fulu answers what the six games need: 59 API entries
-  (of the 107 the collection uses) and 55 resident routines. A program that
-  calls something missing stops with its name, and still runs on the
-  original OS. 三国霸业 needs `$E7FA` and `$E8BF`, `$E9E3`, and the
-  routines `$D506`, `$D572`, `$D81D`, `$D825`, `$D8AE`, `$DD19`, `$DD6F` and
-  `$E517` (floating point).
+- **Other programs.** Fulu answers what the seven games need: 62 API
+  entries (of the 107 the collection uses) and 64 resident routines. A
+  program that calls something missing stops with its name, and still runs
+  on the original OS. 三国霸业, the seventh, was done last: `$E7FA`,
+  `$E8BF`, `$E9E3` and the float routines `$D506`, `$D572`, `$D81D`,
+  `$D825`, `$D8AE`, `$DD19`, `$DD6F`, `$E517` / `$E530`.
 - **Not written:** input methods (`$E919`, `$E925`…), GuiGetMsg's other
   events, `$E92F` (GuiMsgBox's message `$0A` 3), and the mode changes in
   `$E93B`.
@@ -991,7 +992,7 @@ Findings about the games:
   the device's own tiles match it. More text (F6), answering the kit's
   dialogue commands (SAY, MESSAGE, TIMEMSG) in TypeScript, first exactly as
   the game's code, then with 12 / 10 px layouts. The same routine trapping
-  would make walking through walls possible. Then 三国霸业 and the rest of the
+  would make walking through walls possible. Then the rest of the
   collection, one shadow-run table at a time.
 
 ---

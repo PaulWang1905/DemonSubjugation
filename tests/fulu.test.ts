@@ -52,14 +52,15 @@ describe("Fulu", () => {
   it("names an OS function it does not have", () => {
     const call = (entry: number) =>
       run(program([0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2, 0x60], [], [])).stopped;
-    expect(call(0xe8bf)).toBe("Fulu has no OS function $E8BF yet");
-    expect(call(0xe7fa)).toBe("Fulu has no OS function $E7FA yet");
+    expect(call(0xe919)).toBe("Fulu has no OS function $E919 yet");
+    expect(call(0xe92f)).toBe("Fulu has no OS function $E92F yet");
   });
 
   it("forgets keys pressed while the program has not asked for one for a while", () => {
     // SysGetKey into [$3000], a busy loop of `loops` x 256 x 256 x 5 cycles, SysGetKey into [$3001]
     const getKey = [0xa2, 0xc1, 0x86, 0x26, 0xa2, 0xe7, 0x86, 0x27, 0x20, 0xf6, 0xd2];
-    const after = (loops: number) => {
+    // (only an RPG kit game's: its library, "LIB", at the start of its data area)
+    const after = (loops: number, kit = true) => {
       const fulu = new Fulu(), file = fulu.install(
         program(
           [
@@ -70,7 +71,7 @@ describe("Fulu", () => {
             0x60,
           ],
           [],
-          [],
+          kit ? [0x4c, 0x49, 0x42] : [],
         ),
       )!;
       fulu.start(file);
@@ -82,5 +83,6 @@ describe("Fulu", () => {
     };
     expect(after(1)).toEqual([0xff, Key.enter]); // asked again after 40 ms: kept
     expect(after(14)).toEqual([0xff, 0xff]); // after 580 ms: forgotten
+    expect(after(14, false)).toEqual([0xff, Key.enter]); // any other program's: kept
   });
 });

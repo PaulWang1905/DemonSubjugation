@@ -156,8 +156,8 @@ play each): about 910,000 entries into the OS checked, 0 mismatches.
 伏魔记 series and 英雄坛说): every OS function reached is in `src/fulu`, and the shadow run of the six
 (60 s of play each) checks every entry into the OS with 0 mismatches, with
 the screen, string and heap functions also checked on random arguments.
-三国霸业 is deferred, on purpose, to ship first: what it alone needs is
-listed below and in docs/fulu-notes.md ("Deferred").
+三国霸业 was deferred, on purpose, to ship first, and is done since: see
+"Not done, found later" below.
 
 **F3 is done for the six.** Without the firmware's files, the device player
 runs a .gam on Fulu (`src/fulu/device.ts`), with a font ROM made from the
@@ -178,7 +178,7 @@ lacks stops with its name and a note to add the firmware.
   $E8BF, and the floating-point helpers ($D506, $D81D, $DD19, $E517, $E520,
   $E52C)
 
-All done but 三国霸业's ($E7B8 too, which GuiMsgBox uses).
+All done, 三国霸业's last.
 
 **Not done, found later:** the shadow runs reach only the first minute of
 each game. Tracing each game's code (scripts/bbk/gam-calls.mjs) showed more
@@ -188,9 +188,12 @@ GuiSetKbdState, memcmp and the runtime's float and 32-bit helpers. Saving and
 loading (the file functions) are done since, checked against the firmware
 while saving, overwriting and loading. So is 伏魔记 1.0's "overwrite the
 save?" dialog $E950, with the site's icon. **For the six games nothing their
-code can reach is missing** (scripts/bbk/gam-calls.mjs); 三国霸业 needs two
-more OS functions and eight runtime routines. The
-list is in docs/fulu-notes.md ("Still to do"). Also not written: input
+code can reach is missing** (scripts/bbk/gam-calls.mjs). 三国霸业's last
+three OS functions ($E7FA, $E8BF, $E9E3) and nine runtime routines (floats)
+are done since, checked against the firmware on random arguments and in
+its shadow runs (play, and a save and load): nothing its code can reach is
+missing either, so **all seven games of the plan play on Fulu** (details in
+docs/fulu-notes.md, "Still to do"). Also not written: input
 methods, $E92F (GuiMsgBox's message $0A 3), the input mode changes in $E93B,
 GuiGetMsg's other events.
 

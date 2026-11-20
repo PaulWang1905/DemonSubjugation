@@ -44,7 +44,7 @@ const TEXT = {
     checkText: "The shadow run: from the same moment of a game, the real firmware answers a call, then Fulu answers it, and the two machines are compared — registers, memory banks and all of RAM. Every call in a minute of play of each game, hundreds of thousands of them: no differences.",
     check: ["Same machine state", "BBK's firmware answers", "Fulu answers", "Compare everything", "0 differences"],
     gamesTitle: "What runs",
-    games: "The whole 伏魔记 series (1.0, 1.2, 1.3, 完美版, 怀旧终曲) and 英雄坛说: play and save, no firmware needed.",
+    games: "The whole 伏魔记 series (1.0, 1.2, 1.3, 完美版, 怀旧终曲), 英雄坛说 and 三国霸业: play and save, no firmware needed.",
     extrasTitle: "What it adds",
     extras: [
       ["HD text", "Fulu draws every character, so it can redraw them in real fonts."],
@@ -92,7 +92,7 @@ const TEXT = {
     checkText: "影子运行：从游戏的同一时刻出发，先让真正的固件回答一次调用，再让符箓回答，然后比较两台机器——寄存器、内存分页和全部内存。每款游戏玩一分钟，数十万次调用：没有任何差异。",
     check: ["同样的机器状态", "步步高固件回答", "符箓回答", "全部比较", "0 处差异"],
     gamesTitle: "能运行什么",
-    games: "整个伏魔记系列（1.0、1.2、1.3、完美版、怀旧终曲）和英雄坛说：都能玩、能存档，不需要固件。",
+    games: "整个伏魔记系列（1.0、1.2、1.3、完美版、怀旧终曲）、英雄坛说和三国霸业：都能玩、能存档，不需要固件。",
     extrasTitle: "它带来了什么",
     extras: [
       ["高清文字", "每个字都由符箓绘制，所以能用真正的字体重新画出来。"],
