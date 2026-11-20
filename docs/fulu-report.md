@@ -42,7 +42,7 @@ answered by TypeScript that leaves the machine exactly as the firmware
 would: the same registers, flags, banks and RAM, including the OS's own
 variables.
 
-Fulu answers 112 API-table entries, 74 resident C-runtime routines and the
+Fulu answers 123 API-table entries, 74 resident C-runtime routines and the
 keyboard, ST1 and CT interrupts, in about 6,000 lines (`src/fulu`). It
 plays and saves 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0, 英雄坛说
 and 三国霸业.
@@ -58,9 +58,9 @@ dropping keys pressed while a game is busy, and a debug menu. It runs about
 16 times faster than emulating the firmware.
 
 Beyond the seven games: of the 138 programs of the bbk-games collection,
-128 play 180 s of random keys on Fulu without stopping and 5 more end on
+129 play 180 s of random keys on Fulu without stopping and 5 more end on
 their own, and 92 call nothing Fulu lacks at all (all 86 made with the RPG
-kit). §16 sizes what is left: about 10,000 instructions of OS code, most of
+kit). §16 sizes what is left: about 9,600 instructions of OS code, most of
 it needed by one small game each, and the input methods.
 
 ```mermaid
@@ -968,11 +968,11 @@ games draw as pictures (the title, the big 穿 / 戴) stays pixels.
 | | |
 |---|---|
 | Games verified against the firmware, playing and saving | 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0; 英雄坛说; 三国霸业 |
-| Programs of the collection playing 180 s on Fulu without stopping | 128 of 138 (and 5 that end on their own) |
+| Programs of the collection playing 180 s on Fulu without stopping | 129 of 138 (and 5 that end on their own) |
 | Programs of the collection calling nothing Fulu lacks (static) | 92 of 138 |
-| API entries answered | 112: 96 of the 107 the collection calls, and 16 the OS calls itself |
+| API entries answered | 123: 100 of the 107 the collection calls, and 23 the OS calls itself |
 | Resident routines answered | 74: all 61 the collection calls, and 13 more the floats and multiplies use |
-| OS code those stand for | about 35,000 instructions of the firmware's (about 10,000 left, §16) |
+| OS code those stand for | about 38,000 instructions of the firmware's (about 9,600 left, §16) |
 | Interrupt handlers | keyboard, ST1, CT |
 | Shadow-run mismatches | 0 (seven games, every entry, play, typing and save scripts) |
 | Code | about 6,000 lines in `src/fulu` (runtime 1,207, GUI 850, screen 562, files 452, OS table 450, core 438, More text 346) |
@@ -1067,31 +1067,37 @@ Two measures, which differ a lot:
 
 ```mermaid
 pie showData title 138 programs played on Fulu for 180 s
-  "run the whole time" : 128
+  "run the whole time" : 129
   "end on their own" : 5
   "stop: input methods" : 2
-  "stop: a function not written" : 3
+  "stop: a function not written" : 2
 ```
 
 The five that end do so as on the device, their `main` returning: 坦克大战
 and 钓鲨鱼 after a game-over box, 跳蛋 and 恶龙传说 from their menus' 退出,
 潜艇大战 after two and a half minutes. Of
-what the scan lists, most is never reached in play: `$E980`, missing in 43
-programs, is never called in 180 s of any of them (a help screen, it
-seems), and it is the biggest item, as it calls a dialog of 1,969
-instructions (`$F262`) built on 13 more functions.
+what the scan lists, most is never reached in play. `$E980`, missing in 43
+programs, is the biggest item, as it calls a dialog of 1,969 instructions
+(`$F262`) built on 13 more functions (a help screen, it seems); only
+幸运花 has been seen to open it, 3 seconds in, once round 3 let it past its
+date.
 
 Before the rounds below, 114 played the whole time. What the 21 that
 stopped needed was mostly small; the big functions are each needed by one
 to seven small arcade, board and pet games, never by the RPG kit's games.
-What is left after two rounds:
+What is left after round 3's first part:
 
 | Function | Size (with what it calls) | Programs that stop at it |
 |---|---|---|
-| input methods (`$E93B`'s change to mode 4, `$E919`, `$E925`…) | not measured | 宠物精灵, 电子宠物 |
-| `$E94D` (a GUI dialog) | 3,943 | 中国象棋 |
-| `$E99E` | 1,764 | 幸运花 |
-| `$E9AD` | 869 | 挖金子 |
+| `$E980` (a help screen, it seems) | 2,101 | 幸运花 (43 can call it) |
+| `$E94D` (a menu with its own key loop) | 5,278, and `$E96B` 637 | 中国象棋 |
+| input methods (`$E93B`'s change to mode 4, `$E913`, `$E919`, `$E925`, `$E91F`, `$E7BE`) | about 3,800, and the OS's pinyin tables | 宠物精灵, 电子宠物 |
+
+`$E94D`'s first count (3,943) missed its nine key cases, reached only
+through a switch's table: the disassembler follows branches and calls, not
+tables. The input methods need the OS's own tables of pinyin and hanzi,
+which Fulu cannot copy; whether to make them again is the owner's to
+decide (docs/fulu-games.md, `input-methods`).
 
 **The plan** is therefore by play, in rounds: write what programs stop at,
 check each function against the firmware on random arguments, run the
@@ -1144,6 +1150,27 @@ Found on the way, in the OS:
   left of where it starts, and the OS gives up there. Fulu does the same.
   Windows whose other sums wrap past 255 pass the OS's checks and it draws
   into its own variables; Fulu draws nothing.
+
+Round 3's first part took them to 129 (挖金子 plays; 幸运花 gets past its
+date to `$E980`):
+- `$E9AD`: a 32-bit number drawn at (x, y) in a radix (2-16, and past 16
+  the bytes after its digit table, as the OS does), through SysAscii;
+- `$E99E`: today's date from the clock's day counter and the year at
+  `$2B04` (the next year past the year's last day, 1901 after 2100), into
+  day, month, year - 1900 and weekday; with the calendar under it: days in
+  a year (`$EBEF`) and a month (`$EBF2`), day of the year (`$EBF8`),
+  weekday (`$EBF5`), month and day from a day of the year (`$EC67`,
+  `$EC6A`), and setting the day counter (`$E7EE`);
+- `$E791`: a whole screen from memory (96 rows of 20 bytes);
+- `$EA25`: the next message taken from GuiGetMsg's queue.
+
+Each was compared with the firmware on random arguments (the calendar on
+3,000 random dates), and 挖金子, 跳蛋 and 幸运花 were shadow-run for a minute
+of play and of typing: no mismatches. Their tables (the digits, the days
+before each month, 1 January's weekday for 1901-2100) are calendar facts
+made in Fulu, not copied. The C runtime's 32-bit helpers keep their scratch
+at ($2A): a test that leaves $2A at 0 has them write over their own
+pointers, on the firmware as on Fulu.
 
 The programs Fulu should run, how far each has got, those the owner has
 tested by hand and the problems still open are kept in one list,

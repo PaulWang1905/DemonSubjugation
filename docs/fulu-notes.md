@@ -393,6 +393,28 @@ Open: in 宠物精灵's shadow run the firmware reads $2088 and $20C8 (declared
 temporaries) before writing them, inside one of the program's own far calls,
 with no difference in the result; not looked into yet.
 
+Round 3, first part (the report's §16.1). Details worth keeping:
+
+- the os-function listings name a segment in hex: "13:50b6" is segment
+  $13 (19), at page base + 4 × 19.
+- $E9AD (x in A, y, a long, radix, signed): locals 32; its digits, lowest
+  first, in locals 0-19 (more than 20, in radix 2 or 3, write over its own
+  counters); the digit characters at 8:$8BD8 ("0123456789ABCDEF", then its
+  long constants 0, 0, 0, 1, 1). It leaves SysAscii's temporaries.
+- the calendar: the year at $2B04/$2B05, the day of the year in the clock's
+  day counter ($0237/$0238, 9 bits; $E7EE also writes $0232/$0233); tables
+  at $13:$8E49 (1 January's weekday, 1901-2100, Sunday 7, then a 0), $13:$8F12
+  (days in each month), $14:$8DE7 and $14:$8E01 (days before each month, in
+  a year of 365 and 366 days). $EC67 past month 12 returns 13 - 12 = 1.
+- $E791 (p): per row, byte 0 to ($38), bytes 1-18 to ($3A)… through the
+  $03F8 redirect, byte 19 into ($3A)+18 keeping bit 0; rows by $8714 and
+  $65FB (now in screen.ts as nextRow).
+- $EA25 (msg): GuiGetMsg's queue path as a function of its own.
+- $E94D's key cases are reached through the runtime's switch ($DB5C) on a
+  table at 9:$8AB6 (keys $24, $25, $22, $23, $20, $21, $27, $28, $26; then
+  their code's addresses). `os-function.mjs <0E00.DAT> 9:55a5,58bd,...`
+  disassembles from given addresses, for such cases.
+
 What the others stop at is in the plan. Not Fulu's: 一中传奇 and 热血传奇
 show 烫烫烫 (uninitialised memory) in places, on the firmware too.
 

@@ -82,7 +82,7 @@ const TEXT = {
     historyText: "Each round: play all 138 programs, see where they stop, write what they stop at, check it against the firmware, play them all again.",
     historyBars: "Programs that play 180 s (dark) or end on their own (light), out of 138",
     leftText:
-      "Ten OS functions and the input methods. For each: the programs that stop at it in play, and those whose code can call it. “Next” is the next round of work; the others no program has reached in play yet.",
+      "The OS functions the programs still need, and the input methods. For each: the programs that stop at it in play, and those whose code can call it. “Next” is the next round of work; “later”, what no program has reached in play yet, or waits on the owner's decision.",
     leftCols: ["What", "Instructions", "Stops in play", "Code can call it", "When"],
     when: { next: "next round", later: "later" },
     notMeasured: "not measured",
@@ -196,7 +196,7 @@ const TEXT = {
     osNote: "剩余的指令数不含输入法（中文输入），尚未测量。",
     historyText: "每一轮：试玩全部 138 个程序，看它们停在哪里，写出缺少的部分，与固件对比，再全部试玩一遍。",
     historyBars: "全程运行 180 秒（深色）或自行结束（浅色）的程序，共 138 个",
-    leftText: "十个系统函数和输入法。每一项列出试玩时停在它上面的程序，以及代码中可能调用它的程序。“下一轮”是接下来要做的；其余的还没有程序在试玩中用到。",
+    leftText: "程序仍需要的系统函数，以及输入法。每一项列出试玩时停在它上面的程序，以及代码中可能调用它的程序。“下一轮”是接下来要做的；“以后”是试玩中还没有程序用到的，或等待作者决定的。",
     leftCols: ["内容", "指令数", "试玩时停止", "代码可能调用", "计划"],
     when: { next: "下一轮", later: "以后" },
     notMeasured: "未测量",

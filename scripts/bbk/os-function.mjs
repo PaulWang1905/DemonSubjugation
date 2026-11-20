@@ -1,4 +1,4 @@
-// Disassemble OS functions by their API table entry: node scripts/bbk/os-function.mjs <0E00.DAT> [--size] <entry hex>...
+// Disassemble OS functions by their API table entry: node scripts/bbk/os-function.mjs <0E00.DAT> [--size] <entry hex | seg:addr,addr... hex>...
 // Follows branches, JSR and JMP inside the function's segment and the resident banks D-F;
 // a far call (STX $26 / STX $27 / JSR $D2F6) is shown with its target's table entry.
 import fs from "node:fs";
@@ -17,10 +17,14 @@ const args = process.argv.slice(2), file = args.shift(), size = args[0] === "--s
 const g = fs.readFileSync(file);
 const resident = (pc) => 0x88000 + pc - 0xd000;
 const entryOf = (e) => { const o = resident(e); return [g[o] | (g[o + 1] << 8), g[o + 2]]; };
-for (const e of args.map((s) => parseInt(s, 16))) {
-  const [target, seg] = entryOf(e);
+for (const spec of args) {
+  // an API entry, or seg:addr[,addr...] (hex): code reached otherwise, such as a switch's cases
+  const [e, seg, targets] = spec.includes(":")
+    ? ((sg, list) => [parseInt(list[0], 16), parseInt(sg, 16), list.map((x) => parseInt(x, 16))])(...((x) => [x[0], x[1].split(",")])(spec.split(":")))
+    : ((n) => [n, entryOf(n)[1], [entryOf(n)[0]]])(parseInt(spec, 16));
+  const target = targets[0];
   const off = (pc) => (pc >= 0xd000 ? resident(pc) : pc >= 0x5000 && pc < 0x9000 ? (0x80 + 4 * seg) * 0x1000 + pc - 0x5000 : -1);
-  const seen = new Map(), todo = [target], far = new Set();
+  const seen = new Map(), todo = [...targets], far = new Set();
   while (todo.length) {
     let pc = todo.pop();
     while (!seen.has(pc) && off(pc) >= 0) {

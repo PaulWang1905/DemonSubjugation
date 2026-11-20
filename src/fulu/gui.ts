@@ -6,6 +6,8 @@ import { Key, keyChar } from "../bbk/keys";
 import { adc, carry, clc, cmp, cpu, farCalled, fn, get16, long, nz, os, put16, ram, rd, sbc, sec, set16, softPop, softPush, store, word, wr } from "./alu";
 import type { OsFunction } from "./fulu";
 import { HELPERS } from "./runtime";
+import { add20, getB, imm, leave, put23, reserve, setB } from "./compiled";
+import { load, move, store as storeL } from "./itoa";
 import { lcd } from "./screen";
 
 /** The OS's 32-bit event flags (bit 0 set by timer 1's interrupt). */
@@ -405,6 +407,69 @@ function shiftKey(msg: number): void {
   cpu.a = cpu.y = nz(1);
 }
 
+/** The queue's record at the read index, its address in $20 ($23/$24 kept, pushed and pulled round the runtime's multiply). */
+function readRecord(): void {
+  ram[0x20] = cpu.a = ram[QUEUE_READ];
+  ram[0x21] = cpu.a = 0;
+  const lo = ram[0x23], hi = ram[0x24];
+  imm(0x23, 3);
+  const s = cpu.s;
+  cpu.s = (s - 4) & 0xff; // (its two pushes and the JSR)
+  HELPERS[0xd6af](os);
+  cpu.s = s;
+  ram[0x23] = cpu.a = lo;
+  ram[0x24] = cpu.a = nz(hi);
+  add20(QUEUE);
+}
+
+/**
+ * $EA25 (msg): the next message from GuiGetMsg's queue into msg (its type,
+ * then its word), the count down and the read index on (each mod 8): A = 1;
+ * 0 if the queue is empty. (8:$6E7C, compiled C: two locals.)
+ */
+const takeMessage = fn(0x6e7c, () => {
+  reserve(2);
+  clc();
+  cpu.a = adc(ram[QUEUE_COUNT], 1);
+  sec();
+  cpu.a = sbc(cpu.a, 1);
+  if (!carry() || !cpu.a) {
+    cpu.a = nz(0);
+    return leave(2);
+  }
+  readRecord();
+  cpu.y = 0;
+  setB(0, nz(rd(word(0x20))));
+  load(0x20, 2);
+  move();
+  getB(0);
+  put23();
+  readRecord();
+  cpu.y = 1;
+  cpu.x = nz(rd(word(0x20) + 1));
+  cpu.y = 2;
+  const at = word(0x20);
+  ram[0x21] = cpu.a = nz(rd(at + 2));
+  ram[0x20] = cpu.x;
+  storeL(0);
+  load(0x20, 2);
+  add20(1);
+  move();
+  load(0x20, 0);
+  cpu.y = 0;
+  wr(word(0x23), (cpu.a = ram[0x20]));
+  cpu.y = 1;
+  wr(word(0x23) + 1, (cpu.a = ram[0x21]));
+  sec();
+  ram[QUEUE_COUNT] = sbc(ram[QUEUE_COUNT], 1);
+  ram[QUEUE_COUNT] = cpu.a = nz(ram[QUEUE_COUNT] & 7);
+  clc();
+  ram[QUEUE_READ] = adc(ram[QUEUE_READ], 1);
+  ram[QUEUE_READ] = cpu.a = nz(ram[QUEUE_READ] & 7);
+  cpu.a = nz(1);
+  leave(2);
+});
+
 export const GUI: Record<number, OsFunction> = {
   /**
    * $E8EC: turn the status icons off: every icon row's bit but those of
@@ -513,6 +578,7 @@ export const GUI: Record<number, OsFunction> = {
   }),
   0xe92c: fn(0x6c3e, () => queueMessage(false)),
   0xe92f: fn(0x6d5d, () => queueMessage(true)),
+  0xea25: takeMessage,
   /** $E866: turn the cursor on where it is: A = 1, or 0 if it already was. */
   0xe866: fn(0x51e9, () => {
     if (cmp(ram[CURSOR_ON], 0)) return void (cpu.a = nz(0));

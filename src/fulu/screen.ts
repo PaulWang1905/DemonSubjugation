@@ -334,7 +334,128 @@ function bitmapWindow(): void {
   cmp(0, 0);
 }
 
+/** $zp16 += k or -= k (CLC / LDA / ADC / STA, twice; SEC / SBC). */
+function step16(zp: number, k: number): void {
+  if (k >= 0) {
+    clc();
+    ram[zp] = adc(ram[zp], k);
+    ram[zp + 1] = cpu.a = adc(ram[zp + 1], 0);
+  } else {
+    sec();
+    ram[zp] = sbc(ram[zp], -k);
+    ram[zp + 1] = cpu.a = sbc(ram[zp + 1], 0);
+  }
+}
+
+/**
+ * 5:$65FB: the next row's addresses in $3A (and $38, 13 bytes before it),
+ * from row $2082: up $20 above row $40 (row $40: $38 = $0FF3), down $20
+ * below row $41, and row $41's own ($0C40, $0C33), moved right by x ($2081).
+ */
+function nextRow(): void {
+  const y = (cpu.a = ram[0x2082]);
+  cmp(y, 0x40);
+  if (y < 0x40) {
+    step16(0x3a, -0x20);
+    step16(0x38, -0x20);
+  } else if (y === 0x40) {
+    step16(0x3a, -0x20);
+    ram[0x38] = 0xf3;
+    ram[0x39] = cpu.a = nz(0x0f);
+  } else if (y === 0x41) {
+    cmp(y, 0x41);
+    ram[0x38] = 0x33;
+    ram[0x39] = 0x0c;
+    ram[0x3a] = 0x40;
+    ram[0x3b] = cpu.a = nz(0x0c);
+    cmp((cpu.a = ram[0x2081]), 8);
+    if (!carry()) return;
+    sec();
+    ram[0x20b7] = sbc(ram[0x2081], 8);
+    for (;;) {
+      sec();
+      cpu.a = sbc(ram[0x20b7], 8);
+      if (!carry()) return;
+      ram[0x20b7] = cpu.a;
+      clc();
+      ram[0x3a] = adc(1, ram[0x3a]);
+      ram[0x3b] = cpu.a = adc(0, ram[0x3b]);
+    }
+  } else {
+    cmp(y, 0x41);
+    step16(0x3a, 0x20);
+    step16(0x38, 0x20);
+  }
+}
+
+/** A byte to ($3A), or where $03F9-$03FC redirect it (as lcd() reads them). */
+function toRow(v: number): void {
+  if (rd(0x3f8) === 1 && ram[0x3b] === rd(0x3fa) && ram[0x3a] === rd(0x3f9)) {
+    ram[0x3a] = rd(0x3fb);
+    ram[0x3b] = rd(0x3fc);
+    cpu.y = 0;
+    wr(word(0x3a), (cpu.a = v));
+    ram[0x3a] = rd(0x3f9);
+    ram[0x3b] = rd(0x3fa);
+  } else {
+    cpu.y = 0;
+    wr(word(0x3a), (cpu.a = v));
+  }
+}
+
+/**
+ * $E791 (p): a whole screen from p, 96 rows of 20 bytes: each row's first
+ * byte to ($38) (13 bytes before the row), the next 18 to the row, the last
+ * into the row's 19th byte keeping its bit 0. $2F/$30 ends after the
+ * picture, $2082 at 96. (5:$66B2, its rows by $8714 and $65FB as $E8C5's.)
+ */
+function wholeScreen(): void {
+  cpu.y = 0;
+  ram[0x2f] = cpu.a = rd(word(0x28));
+  cpu.y = 1;
+  ram[0x30] = cpu.a = rd(word(0x28) + 1);
+  ram[0x20d8] = 0x13;
+  ram[0x20da] = 0x60;
+  ram[0x2081] = ram[0x2082] = cpu.a = 0;
+  pixelAddress();
+  ram[0x20e9] = ram[0x3a];
+  ram[0x20ea] = cpu.a = ram[0x3b];
+  for (;;) {
+    cpu.y = 0;
+    wr(word(0x38), (cpu.a = rd(word(0x2f))));
+    ram[0x20d8] = (ram[0x20d8] - 1) & 0xff;
+    step16(0x2f, 1);
+    do {
+      cpu.y = 0;
+      toRow(rd(word(0x2f)));
+      step16(0x3a, 1);
+      step16(0x2f, 1);
+      ram[0x20d8] = nz((ram[0x20d8] - 1) & 0xff);
+      cmp((cpu.a = ram[0x20d8]), 0);
+    } while (ram[0x20d8]);
+    // the row's last byte, its bit 0 kept (through $20D8, pushed and pulled)
+    const kept = ram[0x20d8];
+    cpu.y = 0;
+    ram[0x20d8] = cpu.a = nz(rd(word(0x3a)) & 0x01);
+    cpu.a = nz((rd(word(0x2f)) & 0xfe) | ram[0x20d8]);
+    wr(word(0x3a), cpu.a);
+    ram[0x20d8] = cpu.a = nz(kept);
+    ram[0x3a] = ram[0x20e9];
+    ram[0x3b] = cpu.a = ram[0x20ea];
+    nextRow();
+    ram[0x2082] = nz((ram[0x2082] + 1) & 0xff);
+    ram[0x20e9] = ram[0x3a];
+    ram[0x20ea] = cpu.a = ram[0x3b];
+    step16(0x2f, 1);
+    ram[0x20d8] = cpu.a = 0x13;
+    ram[0x20da] = nz((ram[0x20da] - 1) & 0xff);
+    cmp((cpu.a = ram[0x20da]), 0);
+    if (!ram[0x20da]) return;
+  }
+}
+
 export const SCREEN: Record<number, OsFunction> = {
+  0xe791: fn(0x66b2, wholeScreen),
   0xe8c5: { ...fn(0x5000, bitmapWindow, WINDOW_TEMPORARIES), ownState: { registers: ["y", "p"] } },
   0xe788: fn(0x7c17, () => circle(true), CIRCLE),
   0xe8bc: fn(0x7c0f, () => circle(false), CIRCLE),

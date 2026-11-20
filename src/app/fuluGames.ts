@@ -39,7 +39,7 @@ export const GAMES: FuluGame[] = [
   { name: "一中传奇2", kit: true, onFulu: "plays", firmware: "none" },
   { name: "七剑", kit: true, onFulu: "plays", firmware: "none" },
   { name: "三国霸业", kit: false, onFulu: "plays", firmware: "full" },
-  { name: "中国象棋", kit: false, onFulu: "stops", stopsAt: "$E94D", scan: ["$E791", "$E94D", "$E980"], firmware: "play", problems: ["e94d"] },
+  { name: "中国象棋", kit: false, onFulu: "stops", stopsAt: "$E94D", scan: ["$E94D", "$E980"], firmware: "play", problems: ["e94d"] },
   { name: "丰收", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
   { name: "乒乓球", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
   { name: "二十一点", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
@@ -82,7 +82,7 @@ export const GAMES: FuluGame[] = [
   { name: "少年行", kit: true, onFulu: "plays", firmware: "none" },
   { name: "屠魔", kit: true, onFulu: "plays", firmware: "none" },
   { name: "平面魔方", kit: false, onFulu: "plays", firmware: "play" },
-  { name: "幸运花", kit: false, onFulu: "stops", stopsAt: "$E99E", scan: ["$E980", "$E99E"], firmware: "play", problems: ["e99e"] },
+  { name: "幸运花", kit: false, onFulu: "stops", stopsAt: "$E980", scan: ["$E980"], firmware: "play", problems: ["help-dialog"] },
   { name: "异世大陆", kit: true, onFulu: "plays", firmware: "none" },
   { name: "异时空游记", kit: true, onFulu: "plays", firmware: "none" },
   { name: "异时空游记2-纵横之旅", kit: true, onFulu: "plays", firmware: "none" },
@@ -94,7 +94,7 @@ export const GAMES: FuluGame[] = [
   { name: "投篮游戏", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
   { name: "抗日小兵", kit: true, onFulu: "plays", firmware: "none" },
   { name: "拱猪", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
-  { name: "挖金子", kit: false, onFulu: "stops", stopsAt: "$E9AD", scan: ["$E980", "$E9AD"], firmware: "play", problems: ["e9ad"] },
+  { name: "挖金子", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
   { name: "接龙", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
   { name: "搬运工", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
   { name: "新仙剑奇侠传", kit: true, onFulu: "plays", firmware: "none" },
@@ -150,7 +150,7 @@ export const GAMES: FuluGame[] = [
   { name: "赤壁之战 乱世枭雄", kit: true, onFulu: "plays", firmware: "none" },
   { name: "赤壁之战乱世枭雄终曲版", kit: true, onFulu: "plays", firmware: "none" },
   { name: "跟花", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
-  { name: "跳蛋", kit: false, onFulu: "ends", scan: ["$E980", "$E9AD"], firmware: "none" },
+  { name: "跳蛋", kit: false, onFulu: "ends", scan: ["$E980"], firmware: "play" },
   { name: "过关斩将", kit: true, onFulu: "plays", firmware: "none" },
   { name: "过关斩将4988(终曲版)", kit: true, onFulu: "plays", firmware: "none" },
   { name: "过关斩将4988改主角", kit: true, onFulu: "plays", firmware: "none" },
@@ -237,8 +237,8 @@ export const PROBLEMS: Problem[] = [
     id: "input-methods",
     title: { en: "Chinese input methods", zh: "中文输入法" },
     detail: {
-      en: "Typing Chinese (the input modes 4 and 8, $E919, $E925…) is not written. 宠物精灵 and 电子宠物 switch to it at once and stop on Fulu; 恶龙传说, 碰碰车 and 对对碰 reach it in the firmware comparison.",
-      zh: "中文输入（输入模式 4 和 8，$E919、$E925 等）尚未实现。宠物精灵、电子宠物一开始就切换过去，在符箓上停止；恶龙传说、碰碰车、对对碰在与固件的对比中会用到。",
+      en: "Typing Chinese (the input modes 4 and 8) is not written. 宠物精灵 and 电子宠物 switch to mode 4 at once and stop on Fulu; 恶龙传说, 碰碰车 and 对对碰 reach it in the firmware comparison. Switching to mode 4 alone draws the input line through $E913 and $E7BE (about 1,400 instructions); typing goes through $E919, $E925 and $E91F (about 2,400 more) and looks up the OS's own tables of pinyin and hanzi, which Fulu cannot copy: they would have to be made again, in the OS's order. The owner is to decide whether to do this.",
+      zh: "中文输入（输入模式 4 和 8）尚未实现。宠物精灵、电子宠物一开始就切换到模式 4，在符箓上停止；恶龙传说、碰碰车、对对碰在与固件的对比中会用到。仅切换到模式 4 就要通过 $E913 和 $E7BE 绘制输入行（约 1,400 条指令）；输入还要经过 $E919、$E925、$E91F（另约 2,400 条），并查找系统自带的拼音与汉字表，符箓不能照搬，只能按系统的顺序重新制作。是否进行由作者决定。",
     },
     status: "open",
   },
@@ -246,29 +246,35 @@ export const PROBLEMS: Problem[] = [
     id: "e94d",
     title: { en: "$E94D (a GUI dialog)", zh: "$E94D（一个对话框）" },
     detail: {
-      en: "About 3,400 instructions with what it calls, and 中国象棋 also calls $E791 (334); only 中国象棋 needs them, $E94D at its start.",
-      zh: "连同调用的函数约 3,400 条指令，中国象棋还会调用 $E791（334 条）；只有中国象棋需要，$E94D 一开始就用到。",
+      en: "A menu with its own key loop, at 中国象棋's start: 5,278 instructions with its nine key cases (the first count, 3,400, missed them), and its help key calls $E96B (637), which opens $E980. Only 中国象棋 needs it.",
+      zh: "一个自带按键循环的菜单，中国象棋一开始就用到：连同九个按键分支共 5,278 条指令（最初估计的 3,400 条漏掉了这些分支）；它的帮助键调用 $E96B（637 条），后者打开 $E980。只有中国象棋需要。",
     },
     status: "open",
   },
   {
     id: "e99e",
     title: { en: "$E99E", zh: "$E99E" },
-    detail: { en: "About 1,800 instructions with what it calls; only 幸运花 needs it, at its start.", zh: "连同调用的函数约 1,800 条指令；只有幸运花需要，一开始就用到。" },
-    status: "open",
+    detail: {
+      en: "Today's date, from the clock's day counter, through seven more of the OS's calendar functions (about 1,750 instructions). Done in round 3 and compared with the firmware on random dates.",
+      zh: "从时钟的日计数得到今天的日期，经过系统另外七个日历函数（约 1,750 条指令）。第 3 轮完成，并已用随机日期与固件对比。",
+    },
+    status: "fixed",
   },
   {
     id: "e9ad",
     title: { en: "$E9AD", zh: "$E9AD" },
-    detail: { en: "About 870 instructions; only 挖金子 needs it, at its start.", zh: "约 870 条指令；只有挖金子需要，一开始就用到。" },
-    status: "open",
+    detail: {
+      en: "A number drawn in a radix (about 870 instructions). Done in round 3: 挖金子 plays, and its calls, and 跳蛋's, match the firmware.",
+      zh: "按进制绘制一个数字（约 870 条指令）。第 3 轮完成：挖金子可以运行，它和跳蛋的调用都与固件一致。",
+    },
+    status: "fixed",
   },
   {
     id: "help-dialog",
     title: { en: "$E980 (probably a help screen)", zh: "$E980（可能是帮助画面）" },
     detail: {
-      en: "43 programs can call it, none did in play; it calls a 1,969-instruction dialog ($F262) and 13 more functions. A program that opens it stops on Fulu.",
-      zh: "43 个程序可能调用，试玩中都没有调用；它调用一个 1,969 条指令的对话框（$F262）和另外 13 个函数。打开它的程序会在符箓上停止。",
+      en: "43 programs can call it; it calls a 1,969-instruction dialog ($F262) and 13 more functions. 幸运花 opens it 3 seconds in (in the firmware comparison, 28 times a minute); the others did not in play. A program that opens it stops on Fulu.",
+      zh: "43 个程序可能调用；它调用一个 1,969 条指令的对话框（$F262）和另外 13 个函数。幸运花在开始 3 秒后就会打开它（与固件对比时，一分钟 28 次）；其他程序试玩中没有打开。打开它的程序会在符箓上停止。",
     },
     status: "open",
   },
@@ -276,8 +282,8 @@ export const PROBLEMS: Problem[] = [
     id: "unreached",
     title: { en: "Functions a program can call but none did in play", zh: "程序可能调用、试玩中没有调用的函数" },
     detail: {
-      en: "$E706, $E7BE, $E8D1, $E8E0, $E929 and $E791 are in the code of one or two programs each (about 1,900 instructions in all), on paths 180 s of random keys never took. A program that takes one stops on Fulu and names it.",
-      zh: "$E706、$E7BE、$E8D1、$E8E0、$E929 和 $E791 各出现在一两个程序的代码里（合计约 1,900 条指令），随机按键 180 秒都没有走到。程序一旦调用，就会在符箓上停止并说出函数名。",
+      en: "$E706, $E7BE, $E8D1, $E8E0 and $E929 are in the code of one or two programs each (about 1,550 instructions in all), on paths 180 s of random keys never took. A program that takes one stops on Fulu and names it.",
+      zh: "$E706、$E7BE、$E8D1、$E8E0 和 $E929 各出现在一两个程序的代码里（合计约 1,550 条指令），随机按键 180 秒都没有走到。程序一旦调用，就会在符箓上停止并说出函数名。",
     },
     status: "open",
   },
@@ -345,7 +351,7 @@ export const PROBLEMS: Problem[] = [
 export const UPDATED = "2026-11-20";
 
 /** What Fulu answers (tests/fulu-games.test.ts checks these against src/fulu). */
-export const FULU_COUNTS = { functions: 112, routines: 74 };
+export const FULU_COUNTS = { functions: 123, routines: 74 };
 
 /**
  * How much of the OS the collection needs, by the code scan
@@ -354,13 +360,14 @@ export const FULU_COUNTS = { functions: 112, routines: 74 };
  * left (left: what the missing entries take with what they call; input
  * methods not measured).
  */
-export const COVERAGE = { apiUsed: 107, residentUsed: 61, written: 35000, left: 9978 };
+export const COVERAGE = { apiUsed: 107, residentUsed: 61, written: 38200, left: 9563 };
 
 /** The programs that played 180 s of random keys after each step (and those that ended on their own). */
 export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; ends: number }[] = [
   { step: { en: "First play of all 138", zh: "首次试玩全部 138 个" }, plays: 103, ends: 0 },
   { step: { en: "Round 1", zh: "第 1 轮" }, plays: 114, ends: 3 },
   { step: { en: "Round 2", zh: "第 2 轮" }, plays: 128, ends: 5 },
+  { step: { en: "Round 3, first part", zh: "第 3 轮（前半）" }, plays: 129, ends: 5 },
 ];
 
 export interface Milestone {
@@ -442,6 +449,15 @@ export const MILESTONES: Milestone[] = [
   },
   {
     date: "2026-11-20",
+    step: "F8",
+    title: { en: "Round 3, first part", zh: "第 3 轮（前半）" },
+    detail: {
+      en: "A number drawn in a radix ($E9AD: 挖金子 plays), today's date and the calendar under it ($E99E and seven more), a whole screen from memory ($E791) and taking a message from the queue ($EA25), each compared with the firmware on random arguments. 幸运花 now gets past its date to the help screen ($E980). Measured on the way: $E94D is 5,278 instructions with its key cases, and the input methods need the OS's pinyin tables.",
+      zh: "按进制绘制数字（$E9AD：挖金子可以运行）、今天的日期及其下的日历（$E99E 和另外七个函数）、从内存绘制整屏（$E791）、从队列取消息（$EA25），每个都用随机参数与固件对比过。幸运花现在能越过日期，到达帮助画面（$E980）。同时测得：$E94D 连同按键分支有 5,278 条指令，输入法需要系统的拼音表。",
+    },
+  },
+  {
+    date: "2026-11-20",
     title: { en: "This progress report; sound kept off", zh: "本进展报告；声音保持关闭" },
     detail: {
       en: "The games list, the owner's hand tests and the problems in one place. The owner decided to keep the sound off for now.",
@@ -466,12 +482,9 @@ export interface Remaining {
 }
 
 export const REMAINING: Remaining[] = [
-  { what: "$E9AD", size: 869, plan: "next", problem: "e9ad" },
-  { what: "$E99E", calls: ["$EBEF", "$EC67", "$EC6A", "$EBF5", "$EBF8", "$EBF2", "$E7EE"], size: 1750, plan: "next", problem: "e99e" },
-  { what: "$E94D", about: { en: "a GUI dialog", zh: "一个对话框" }, calls: ["$EA25"], size: 3377, plan: "next", problem: "e94d" },
-  { what: "$E791", size: 334, plan: "next", problem: "unreached" },
-  { what: "input methods", about: { en: "typing Chinese ($E919, $E925…, input modes 4 and 8)", zh: "中文输入（$E919、$E925……，输入模式 4 和 8）" }, plan: "next", problem: "input-methods" },
-  { what: "$E980", about: { en: "probably a help screen", zh: "可能是帮助画面" }, calls: ["$F262", "$E8E9", "$E8CB", "$E8CE"], size: 2101, plan: "later", problem: "help-dialog" },
+  { what: "$E980", about: { en: "probably a help screen", zh: "可能是帮助画面" }, calls: ["$F262", "$E8E9", "$E8CB", "$E8CE"], size: 2101, plan: "next", problem: "help-dialog" },
+  { what: "$E94D", about: { en: "a menu with its own key loop", zh: "一个自带按键循环的菜单" }, calls: ["$E96B"], size: 5915, plan: "next", problem: "e94d" },
+  { what: "input methods", about: { en: "typing Chinese (input modes 4 and 8): the owner to decide", zh: "中文输入（输入模式 4 和 8）：由作者决定" }, plan: "later", problem: "input-methods" },
   { what: "$E7BE", size: 718, plan: "later", problem: "unreached" },
   { what: "$E706", size: 528, plan: "later", problem: "unreached" },
   { what: "$E8E0", size: 138, plan: "later", problem: "unreached" },

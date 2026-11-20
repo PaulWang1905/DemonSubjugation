@@ -609,8 +609,15 @@ again.
   queue `$E92C` / `$E92F`; `$E7D3`, `$E7E5`, `$E8AD`, `$E8D4`; `$EA52` /
   `$EA64` with the sound off; runtime `$D4C0`, `$D534`, `$D604`, `$D65B`,
   `$D6F5`, `$D780`, `$DAC4`. 128 play 180 s, 5 end on their own.
-- **Round 3:** `$E9AD` (挖金子, 869), `$E99E` (幸运花, 1,764 with what it
-  calls), `$E94D` (中国象棋, 3,943), and input methods (宠物精灵, 电子宠物).
+- **Round 3, first part, done:** `$E9AD` (挖金子 plays), `$E99E` and the
+  calendar under it (`$EBEF`, `$EBF2`, `$EBF5`, `$EBF8`, `$EC67`, `$EC6A`,
+  `$E7EE`), `$E791`, `$EA25`. 129 play 180 s, 5 end on their own; 幸运花
+  now stops at `$E980`.
+- **Round 3, next:** `$E980` (2,101 with `$F262`: 幸运花, and 43 programs
+  can call it), then `$E94D` (中国象棋: 5,278 with its key cases, and
+  `$E96B`, 637). The input methods (宠物精灵, 电子宠物: about 3,800, and the
+  OS's pinyin tables, which would have to be made again) wait on the
+  owner's decision.
 - **Separately:** the OS's page allocation for new files (§16.2 of the
   report). Sound stays off (the owner's decision): `$EA52` / `$EA64` act
   as with the sound off, and the shadow runs leave out their calls made

@@ -9,11 +9,11 @@ shows the same lists, in its progress report (/fulu/progress).
 
 Updated 2026-11-20.
 
-- **On Fulu alone** (180 s of random keys each, docs/fulu-report.md §16): 128 play the whole time, 5 end on their own (their `main` returns, as on the device), 5 stop at something Fulu lacks.
-- **Compared with BBK's firmware** (the shadow run): 7 in full (their code traced, play, typing and saves compared), 33 for a minute of play.
+- **On Fulu alone** (180 s of random keys each, docs/fulu-report.md §16): 129 play the whole time, 5 end on their own (their `main` returns, as on the device), 4 stop at something Fulu lacks.
+- **Compared with BBK's firmware** (the shadow run): 7 in full (their code traced, play, typing and saves compared), 34 for a minute of play.
 - **Tested by hand**: 2 reports (below).
-- **Problems**: 10 open, 3 decided or fixed.
-- **Code scan** (`scripts/bbk/fulu-coverage.mts --programs`): 92 programs call nothing Fulu lacks. The programs call 107 OS functions (Fulu answers 97) and 61 runtime routines (all answered); about 35,000 instructions of OS code are written and 9,978 left, not counting the input methods.
+- **Problems**: 8 open, 5 decided or fixed.
+- **Code scan** (`scripts/bbk/fulu-coverage.mts --programs`): 92 programs call nothing Fulu lacks. The programs call 107 OS functions (Fulu answers 100) and 61 runtime routines (all answered); about 38,200 instructions of OS code are written and 9,563 left, not counting the input methods.
 
 ## How it got here
 
@@ -22,6 +22,7 @@ Updated 2026-11-20.
 | First play of all 138 | 103 | 0 |
 | Round 1 | 114 | 3 |
 | Round 2 | 128 | 5 |
+| Round 3, first part | 129 | 5 |
 
 | Date | Step | What |
 |---|---|---|
@@ -33,18 +34,16 @@ Updated 2026-11-20.
 | 2026-11-18 | F5, F6 | **Wider map view and More text**: For the RPG kit's games: more of the map around the device's screen, and dialogues and message boxes in smaller type, more per page. Both checked by hand by the owner. |
 | 2026-11-20 |  | **三国霸业, the seventh game**: Three more OS functions and eight floating-point routines; checked against the firmware in full. |
 | 2026-11-20 | F8 | **The whole collection, in rounds**: All 138 programs played on Fulu: 103 ran the whole time. Round 1 (small OS functions, the runtime's divides) took it to 114; round 2 (bitmaps, circles, the text cursor, the status bar, the message queue) to 128, and 5 more end on their own. |
+| 2026-11-20 | F8 | **Round 3, first part**: A number drawn in a radix ($E9AD: 挖金子 plays), today's date and the calendar under it ($E99E and seven more), a whole screen from memory ($E791) and taking a message from the queue ($EA25), each compared with the firmware on random arguments. 幸运花 now gets past its date to the help screen ($E980). Measured on the way: $E94D is 5,278 instructions with its key cases, and the input methods need the OS's pinyin tables. |
 | 2026-11-20 |  | **This progress report; sound kept off**: The games list, the owner's hand tests and the problems in one place. The owner decided to keep the sound off for now. |
 
 ## What is left
 
 | What | Instructions | Stops in play | Code can call it | When |
 |---|---|---|---|---|
-| `$E9AD` | 869 | 挖金子 | 挖金子, 跳蛋 | next round |
-| `$E99E`, with `$EBEF` `$EC67` `$EC6A` `$EBF5` `$EBF8` `$EBF2` `$E7EE` | 1,750 | 幸运花 | 幸运花 | next round |
-| `$E94D` (a GUI dialog), with `$EA25` | 3,377 | 中国象棋 | 中国象棋 | next round |
-| `$E791` | 334 | — | 中国象棋 | next round |
-| input methods: typing Chinese ($E919, $E925…, input modes 4 and 8) | not measured | 宠物精灵, 电子宠物 | — | next round |
-| `$E980` (probably a help screen), with `$F262` `$E8E9` `$E8CB` `$E8CE` | 2,101 | — | 43 programs | later |
+| `$E980` (probably a help screen), with `$F262` `$E8E9` `$E8CB` `$E8CE` | 2,101 | 幸运花 | 43 programs | next round |
+| `$E94D` (a menu with its own key loop), with `$E96B` | 5,915 | 中国象棋 | 中国象棋 | next round |
+| input methods: typing Chinese (input modes 4 and 8): the owner to decide | not measured | 宠物精灵, 电子宠物 | — | later |
 | `$E7BE` | 718 | — | 智多星 | later |
 | `$E706` | 528 | — | 体闲麻将, 宠物精灵 | later |
 | `$E8E0` | 138 | — | 华容道, 滑雪 | later |
@@ -56,12 +55,12 @@ Updated 2026-11-20.
 | | Problem | Status | Decision | Games |
 |---|---|---|---|---|
 | `sound` | **Sound**: Fulu plays no sound, and keeps the sound off. Programs that switch the sound on ($EA52, $EA64: Eros方块, 二十四点, 滑雪, 豪斯 on the original OS) run as if it were off; their sound-on paths are not written, and the firmware comparison leaves those calls out. | decided | Keep the sound off; ignore sound-on for games that ask for it. The owner will decide later whether to do more. | Eros方块, 二十四点, 滑雪, 豪斯 |
-| `input-methods` | **Chinese input methods**: Typing Chinese (the input modes 4 and 8, $E919, $E925…) is not written. 宠物精灵 and 电子宠物 switch to it at once and stop on Fulu; 恶龙传说, 碰碰车 and 对对碰 reach it in the firmware comparison. | open | — | 宠物精灵, 对对碰, 恶龙传说, 电子宠物, 碰碰车 |
-| `e94d` | **$E94D (a GUI dialog)**: About 3,400 instructions with what it calls, and 中国象棋 also calls $E791 (334); only 中国象棋 needs them, $E94D at its start. | open | — | 中国象棋 |
-| `e99e` | **$E99E**: About 1,800 instructions with what it calls; only 幸运花 needs it, at its start. | open | — | 幸运花 |
-| `e9ad` | **$E9AD**: About 870 instructions; only 挖金子 needs it, at its start. | open | — | 挖金子 |
-| `help-dialog` | **$E980 (probably a help screen)**: 43 programs can call it, none did in play; it calls a 1,969-instruction dialog ($F262) and 13 more functions. A program that opens it stops on Fulu. | open | — | — |
-| `unreached` | **Functions a program can call but none did in play**: $E706, $E7BE, $E8D1, $E8E0, $E929 and $E791 are in the code of one or two programs each (about 1,900 instructions in all), on paths 180 s of random keys never took. A program that takes one stops on Fulu and names it. | open | — | — |
+| `input-methods` | **Chinese input methods**: Typing Chinese (the input modes 4 and 8) is not written. 宠物精灵 and 电子宠物 switch to mode 4 at once and stop on Fulu; 恶龙传说, 碰碰车 and 对对碰 reach it in the firmware comparison. Switching to mode 4 alone draws the input line through $E913 and $E7BE (about 1,400 instructions); typing goes through $E919, $E925 and $E91F (about 2,400 more) and looks up the OS's own tables of pinyin and hanzi, which Fulu cannot copy: they would have to be made again, in the OS's order. The owner is to decide whether to do this. | open | — | 宠物精灵, 对对碰, 恶龙传说, 电子宠物, 碰碰车 |
+| `e94d` | **$E94D (a GUI dialog)**: A menu with its own key loop, at 中国象棋's start: 5,278 instructions with its nine key cases (the first count, 3,400, missed them), and its help key calls $E96B (637), which opens $E980. Only 中国象棋 needs it. | open | — | 中国象棋 |
+| `e99e` | **$E99E**: Today's date, from the clock's day counter, through seven more of the OS's calendar functions (about 1,750 instructions). Done in round 3 and compared with the firmware on random dates. | fixed | — | — |
+| `e9ad` | **$E9AD**: A number drawn in a radix (about 870 instructions). Done in round 3: 挖金子 plays, and its calls, and 跳蛋's, match the firmware. | fixed | — | — |
+| `help-dialog` | **$E980 (probably a help screen)**: 43 programs can call it; it calls a 1,969-instruction dialog ($F262) and 13 more functions. 幸运花 opens it 3 seconds in (in the firmware comparison, 28 times a minute); the others did not in play. A program that opens it stops on Fulu. | open | — | 幸运花 |
+| `unreached` | **Functions a program can call but none did in play**: $E706, $E7BE, $E8D1, $E8E0 and $E929 are in the code of one or two programs each (about 1,550 instructions in all), on paths 180 s of random keys never took. A program that takes one stops on Fulu and names it. | open | — | — |
 | `file-place` | **Where a new save goes in the flash**: The original OS places a new file by pages among its own files; Fulu gives it sectors of its own. Games see only a different file id (电子宠物 in the firmware comparison); saving and loading work. | open | — | 电子宠物 |
 | `unexplained-reads` | **Unexplained reads in 宠物精灵**: In the firmware comparison the OS reads two of its scratch bytes ($2088, $20C8) before writing them, in one of the game's own calls; the results match. | open | — | 宠物精灵 |
 | `wrapped-drawing` | **Drawing that wraps past the screen**: A bitmap window whose sizes wrap past 255 passes the OS's checks, and the OS then draws into its own variables; Fulu draws nothing. No game seen doing it. | open | — | — |
@@ -89,7 +88,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 3 | 一中传奇2 | yes | plays | — |  |  |  |
 | 4 | 七剑 | yes | plays | — |  |  |  |
 | 5 | 三国霸业 |  | plays | full |  |  |  |
-| 6 | 中国象棋 |  | stops at $E94D | a minute of play | `$E791` `$E94D` `$E980` |  | `e94d` |
+| 6 | 中国象棋 |  | stops at $E94D | a minute of play | `$E94D` `$E980` |  | `e94d` |
 | 7 | 丰收 |  | plays | a minute of play | `$E980` |  |  |
 | 8 | 乒乓球 |  | plays | — | `$E980` |  |  |
 | 9 | 二十一点 |  | plays | — | `$E980` |  |  |
@@ -132,7 +131,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 46 | 少年行 | yes | plays | — |  |  |  |
 | 47 | 屠魔 | yes | plays | — |  |  |  |
 | 48 | 平面魔方 |  | plays | a minute of play |  |  |  |
-| 49 | 幸运花 |  | stops at $E99E | a minute of play | `$E980` `$E99E` |  | `e99e` |
+| 49 | 幸运花 |  | stops at $E980 | a minute of play | `$E980` |  | `help-dialog` |
 | 50 | 异世大陆 | yes | plays | — |  |  |  |
 | 51 | 异时空游记 | yes | plays | — |  |  |  |
 | 52 | 异时空游记2-纵横之旅 | yes | plays | — |  |  |  |
@@ -144,7 +143,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 58 | 投篮游戏 |  | plays | a minute of play | `$E980` |  |  |
 | 59 | 抗日小兵 | yes | plays | — |  |  |  |
 | 60 | 拱猪 |  | plays | a minute of play | `$E980` |  |  |
-| 61 | 挖金子 |  | stops at $E9AD | a minute of play | `$E980` `$E9AD` |  | `e9ad` |
+| 61 | 挖金子 |  | plays | a minute of play | `$E980` |  |  |
 | 62 | 接龙 |  | plays | — | `$E980` |  |  |
 | 63 | 搬运工 |  | plays | a minute of play | `$E980` |  |  |
 | 64 | 新仙剑奇侠传 | yes | plays | — |  |  |  |
@@ -200,7 +199,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 114 | 赤壁之战 乱世枭雄 | yes | plays | — |  |  |  |
 | 115 | 赤壁之战乱世枭雄终曲版 | yes | plays | — |  |  |  |
 | 116 | 跟花 |  | plays | a minute of play | `$E980` |  |  |
-| 117 | 跳蛋 |  | ends on its own | — | `$E980` `$E9AD` |  |  |
+| 117 | 跳蛋 |  | ends on its own | a minute of play | `$E980` |  |  |
 | 118 | 过关斩将 | yes | plays | — |  |  |  |
 | 119 | 过关斩将4988(终曲版) | yes | plays | — |  |  |  |
 | 120 | 过关斩将4988改主角 | yes | plays | — |  |  |  |

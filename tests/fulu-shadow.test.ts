@@ -468,6 +468,8 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xe8e3, () => [], () => (rand(4) ? rand(101) : rand(256))],
       // a message posted to, or put back at the front of, GuiGetMsg's queue (indexes 0-7, 0-9 queued)
       ...[0xe92c, 0xe92f].map((e): [number, () => number[]] => [e, () => (m.ram.set([rand(8), rand(8), rand(10)], 0x2b09), [rand(256), 0x30 + rand(8)])]),
+      // the next message taken from the queue (indexes 0-7, 0-9 queued, now and then 255)
+      [0xea25, () => (m.ram.set([rand(8), rand(8), rand(8) ? rand(10) : 0xff], 0x2b09), [rand(256), 0x30 + rand(8)])],
       // the bar graph's icons: a run, mostly valid
       [0xe80f, () => [rand(4) ? rand(20) : rand(256), rand(2) ? 0 : rand(256)], () => (rand(4) ? rand(20) : rand(256))],
       ...[0xe800, 0xe812, 0xe830, 0xe84e].map((e): [number, () => number[], () => number] => [e, () => [], () => (rand(2) ? 0 : rand(256))]),
@@ -506,6 +508,20 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xe87d, () => [y(), x(), y()]],
       [0xe874, () => [y(), x(), y(), rand(256), 0x30 + rand(8)]],
       [0xe7bb, () => [rand(8) ? rand(81) : rand(100), rand(256)]],
+      // $E791(p): a whole screen from p, with the boot page's redirect of $0400 to $1000 ($03F8-$03FC) on or off
+      [0xe791, () => {
+        m.ram.set([rand(2), 0x00, 0x04, 0x00, 0x10], 0x3f8);
+        const p = 0x1100 + rand(0x700);
+        return [p & 0xff, p >> 8];
+      }],
+      // $E9AD(x in A, y, a long, radix, signed): values small, extremes or any; radix 10, 16, 8, 4-37, or 2
+      // (its buffer holds 20 digits: more, in radix 2 or 3, write over its own counters, on the device too)
+      [0xe9ad, () => {
+        m.ram.set([0xd7, 0x17], 0x2a); // the C runtime's scratch area, which its 32-bit helpers use
+        const radix = [10, 16, 8, 4 + rand(34), 2][rand(5)];
+        const v = radix === 2 ? rand(1 << 19) : [0, 1, 9, 10, 0x7fffffff, 0x80000000, 0xffffffff, rand(1000), rand(0x10000) * 0x10000 + rand(0x10000)][rand(9)];
+        return [rand(8) ? rand(81) : rand(100), v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, v >>> 24, radix, [0, 1, 1, rand(256)][rand(4)]];
+      }, () => (rand(4) ? rand(160) : rand(256))],
       // a string at $1000 of ASCII, GB2312 (hanzi, symbols), other double-byte codes, and anything
       [0xe79a, () => {
         const s: number[] = [];
@@ -526,8 +542,11 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xe889, () => [rand(96), x(), rand(96), rand(256), 0x10, rand(256), 0x30 + rand(8), 0]],
     ];
     const failures: string[] = [];
+    // (FULU_ONLY=E9AD,E7BB: only those)
+    const only = process.env.FULU_ONLY?.toLowerCase().split(",");
     for (const [entry, args, aOf] of cases) {
-      for (let trial = 0; trial < 300; trial++) {
+      if (only && !only.includes(hex(entry, 4))) continue;
+      for (let trial = 0; trial < Number(process.env.FULU_TRIALS ?? 300); trial++) {
         for (let a = 0x400; a < 0x4000; a++) m.ram[a] = rand(256);
         // (CT, which the cursor functions start, stopped, and no interrupt pending: an interrupt is not the function's)
         m.ram[0x22e] &= ~0x10;
@@ -577,6 +596,43 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
         if (rand(2)) m.ram[q + rand(k + 1)] = rand(256);
       }
       const diff = farCallBoth(m, fulu, entry, entry === 0xe8a1 ? rand(16) : rand(256), args);
+      if (diff) failures.push(`$${hex(entry, 4)} (${args.map((v) => hex(v)).join(" ")}): ${diff}`);
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it("the calendar, on random dates", { timeout: 300_000 }, () => {
+    const [m, fulu] = bareMachine();
+    let seed = 13;
+    const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
+    const w = (v: number) => [v & 0xff, (v >> 8) & 0xff];
+    // years mostly 1901-2100 (the OS's tables), now and then the edges; months 1-12 (13 for the day of the month); days of a year 0-367
+    // (the weekday of a year before 1901 reads the OS's code before its table: not tried)
+    const year = () => [1901 + rand(200), 1901, 2000, 2100, 2101, 1904, 1996][rand(4) ? 0 : 1 + rand(6)];
+    const month = () => 1 + rand(12), day = () => 1 + rand(31), doy = () => (rand(8) ? 1 + rand(366) : rand(368));
+    const failures: string[] = [];
+    for (let trial = 0; trial < 3000 && !failures.length; trial++) {
+      for (let a = 0x1000; a < 0x2000; a++) m.ram[a] = rand(256);
+      m.ram.set([0xd7, 0x17], 0x2a); // the C runtime's scratch area
+      const [entry, args] = [
+        [0xebef, w(rand(4) ? year() : rand(0x10000))],
+        [0xebf2, [...w(year()), month()]],
+        [0xebf8, [...w(year()), month(), day()]],
+        [0xebf5, [...w(year()), month(), day()]],
+        [0xec67, [...w(year()), ...w(doy())]],
+        [0xec6a, [...w(year()), rand(8) ? month() : 13, ...w(doy())]],
+        [0xe7ee, w(rand(0x200))],
+        [0xe99e, w(0x1800 + rand(0x400))],
+      ][rand(8)] as [number, number[]];
+      if (entry === 0xe99e) {
+        // the year kept, and the clock's day counter: mostly within the year, now and then past its end
+        const y = rand(8) ? year() : 2100;
+        m.ram.set(w(y), 0x2b04);
+        const n = rand(4) ? 1 + rand(365) : 365 + rand(3);
+        m.write(0x237, n & 0xff);
+        m.write(0x238, n >> 8);
+      }
+      const diff = farCallBoth(m, fulu, entry, rand(256), args);
       if (diff) failures.push(`$${hex(entry, 4)} (${args.map((v) => hex(v)).join(" ")}): ${diff}`);
     }
     expect(failures).toEqual([]);

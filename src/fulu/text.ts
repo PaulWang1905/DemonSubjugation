@@ -134,6 +134,9 @@ function ascii(x: number, y: number, c: number): void {
   mark(x, y, 8, 1, c > 0x20 && c < 0x7f ? String.fromCharCode(c) : "");
 }
 
+/** SysAscii's scratch (also left by the OS functions that call it). */
+export const SYS_ASCII_TEMPORARIES: [number, number][] = [[0x38, 0x3c], [0x2081, 0x208d], [0x20ad, 0x20b8], [0x20e5, 0x20e7], [0x20ef, 0x20f0]];
+
 export const TEXT: Record<number, OsFunction> = {
   /**
    * $E79A SysPrintString(x in A, y, s): a string at (x, y): ASCII 8 wide,
@@ -199,6 +202,6 @@ export const TEXT: Record<number, OsFunction> = {
       cpu.y = 1;
       ascii(cpu.a, rd(sp), rd(sp + 1));
     },
-    [[0x38, 0x3c], [0x2081, 0x208d], [0x20ad, 0x20b8], [0x20e5, 0x20e7], [0x20ef, 0x20f0]],
+    SYS_ASCII_TEMPORARIES,
   ),
 };
