@@ -547,3 +547,44 @@ Limits:
 - *Win this battle* is not yet checked in a battle (the first maps have none);
   it only acts on enemy slots that look like enemies (a level, HP within its
   limit), so a wrong address shows no battle rather than being written to.
+
+## 15. F8: the rest of the collection (plan)
+
+**Goal.** The 138 programs of the bbk-games collection (`eebbk/roms`) on
+Fulu, without firmware. Not the whole OS: about half of the firmware serves
+the device's own applications (dictionaries, organiser), which no program
+calls. What counts is what the programs call.
+
+**Where it stands** (`npx tsx scripts/bbk/fulu-coverage.mts <roms> 0E00.DAT`):
+86 programs call nothing Fulu lacks (84 of the 86 made with the RPG kit,
+and 三国霸业, 对对碰). 50 API entries and 6 resident routines are missing,
+about 13,000 instructions of the firmware's code; what Fulu answers stands
+for about 29,000.
+
+**Order:** the programs each function completes, per instruction (the
+script's plan), in four stages:
+
+| Stage | What | Programs complete | Instructions |
+|---|---|---|---|
+| 1 | `$E980`, `$E7DC`, `$E7F4`, `$E7F7`; resident `$D31A`, `$D435`, `$D65B` | 86 → 110 | ~280 |
+| 2 | `$EA64`, `$E7D0`; `$E818`-`$E821`, `$E8E0`; `$E92F`, `$EA52`; `$E800`, `$E824`-`$E82A`; `$E92C` | → 122 | ~1,600 |
+| 3 | `$E8C5`, `$E9AD`, `$E8B9`, `$E788`, `$E8BC`, small ones; `$D4C0`, `$D604`, `$D6F5` | → 130 | ~3,650 |
+| 4 | `$E94D` (中国象棋's dialog, 3,113), `$E791`, `$E863`-`$E871` (the pet games), `$E78B`, `$E706`, `$E7BE`, `$E99E`, others | → 138 | ~7,950 |
+
+**Each stage:**
+1. Disassemble each function (`os-function.mjs`, `fold-c.mjs`), write it as
+   behaviour, with the OS's state at its addresses and its temporaries
+   declared.
+2. Where it takes arguments, compare it with the firmware on random ones
+   (the shadow test's random-argument cases).
+3. Put the stage's programs in a folder and run the shadow run on them
+   (`BBK_GAMES`), with the play and typing scripts: every entry, 0
+   mismatches. What the scan cannot see shows up here: interrupts and
+   GuiGetMsg events the seven games never raised, calls through pointers.
+   Those join the stage.
+4. Play each for a few minutes on Fulu alone, looking at its screens.
+5. Ship: build, all tests, docs (notes' function table, report §16).
+
+**Done when** every program of the stage plays on Fulu, against the
+firmware, with 0 mismatches. A program the scan calls complete but that
+needs something else is listed in the notes with what it needs.

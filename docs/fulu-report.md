@@ -57,6 +57,22 @@ every key, it also provides what the original OS could not: HD text,
 dropping keys pressed while a game is busy, and a debug menu. It runs about
 16 times faster than emulating the firmware.
 
+Beyond the seven games, a static scan of the 138 programs of the bbk-games
+collection finds 86 that call nothing Fulu lacks (84 of the 86 made with
+the RPG kit). §16 sizes what is left: about 13,000 instructions of OS code
+in 55 functions and routines, most of it needed by one or two small games.
+
+```mermaid
+flowchart TB
+  G["<b>The game</b> (.gam)<br/>its own 65C02 code, unchanged"]
+  F["<b>Fulu</b> (src/fulu)<br/>TypeScript in place of BBK's firmware"]
+  H["<b>The emulated 4988</b> (src/bbk)<br/>65C02 · banks · RAM · flash · LCD · timers · keys"]
+  G -->|"calls the OS: the OS ROM is all $02 bytes,<br/>and reaching one traps"| F
+  F -->|"answers: registers, flags, banks, RAM<br/>as the firmware would leave them"| H
+  H -->|"interrupts: keys, timers"| F
+  G -.->|"runs on its CPU"| H
+```
+
 ---
 
 ## 2. The platform
@@ -246,6 +262,27 @@ Because the trap is per address, nothing of the OS's code is needed: the
     the trap fires again, and the handler runs again with `retrying` set.
   - Otherwise Fulu maps the caller's segment back, applies the return
     state (X = A, N/Z from A) and does an RTS.
+
+```mermaid
+sequenceDiagram
+  participant P as Program
+  participant T as Fulu's trap at $D2F6
+  participant H as Handler (TypeScript)
+  P->>T: STX $26 / STX $27 (the entry), JSR $D2F6
+  T->>T: read the entry: target, segment
+  alt segment $E0 and up: the program's own
+    T->>P: push the segment, map the target's, push $D313 − 1, jump
+    P->>T: its RTS reaches $D313: map the segment back, X = A
+  else an OS function
+    T->>H: charge its cost, set the arrival state, run
+    alt the handler returns "wait"
+      H-->>T: A, X, Y, P, PC as before the call, halt the CPU
+      Note over T: the next interrupt wakes it at $D2F6:<br/>the handler is asked again (retrying)
+    else it answers
+      H-->>P: map the caller's segment, X = A, N/Z from A, RTS
+    end
+  end
+```
 
 **The arrival state** (`arrive`) is exactly the trampoline's:
 
@@ -626,7 +663,7 @@ each file's contents) rather than raw flash bytes.
 
 ## 8. The C runtime (`src/fulu/runtime.ts`)
 
-All 55 routines leave memory, registers and flags as the OS's own do,
+All 64 routines leave memory, registers and flags as the OS's own do,
 including the incidental ones: X and Y as the loop left them, and the flags
 of the last operation. They are grouped below by kind:
 
@@ -641,6 +678,8 @@ of the last operation. They are grouped below by kind:
 | `switch` | `$DB5C` | walks a table of (value, target) pairs after the call; jumps to the match, or to the default in `$20` |
 | negate, logical not | `$D7B4`, `$D7A6`, `$DDE4` | |
 | float | `$DD32`, `$DD52` (int, byte → float, through long → float `$E31D`), `$E520` (divide), `$E52C` (multiply) | the OS's divide hangs when its rounding overflows; Fulu stops there instead |
+| float, for 三国霸业 | `$E517` / `$E530` (add / subtract, the OS's `$DE29`), `$D81D` (→ char), `$D825` (→ int), `$D835`, and the frame-tail variants `$D506`, `$DD19`, `$DD6F` (through float → long `$E282`) | add aligns the smaller operand keeping the last bit shifted out and rounds a same-sign sum with it |
+| other | `$D8AE` (`$23/$24` = the word at `($23)`), `$D572` (a call through `$26/$27`) | |
 | memory | `$E901` memmove, `$E904` memcmp | memmove moves whole pages, then the rest, forwards or backwards as the pointers compare |
 | banks | `$E907` map banks, `$E90A` save a bank's page | |
 
@@ -653,6 +692,20 @@ afterwards.
 ## 9. Verification
 
 ### 9.1 The shadow run (`tests/fulu-shadow.test.ts`)
+
+```mermaid
+flowchart TB
+  A["The game runs on the firmware"] --> B{"PC enters the OS?"}
+  B -- no --> A
+  B -- yes --> C["Snapshot: RAM, registers, banks, timers, flash"]
+  C --> D["The firmware answers; its interrupts are recorded"]
+  D --> E["Restore the snapshot; Fulu answers,<br/>given the interrupts in 5 orders"]
+  E --> F["Set aside: dead stacks, temporaries, the clock"]
+  F --> G{"Same registers, banks, RAM, files?"}
+  G -- "in some order: ok" --> R["Continue from the firmware's result"]
+  G -- "in none: mismatch, first difference shown" --> R
+  R --> A
+```
 
 The firmware runs the game on a machine whose `step`, `read` and `write` are
 instrumented. Fulu is attached to that same machine (`new Fulu(m)`), as a
@@ -708,11 +761,18 @@ to-do list throughout.
 **Results.** In milestone F1, about 910,000 entries into the OS over a
 minute of each game, with 0 mismatches. In milestone F2, the six games,
 60 s each, every entry: 0 mismatches. The save script also gives 0
-mismatches, with the flash compared.
+mismatches, with the flash compared. 三国霸业, done last: 240 s of play by
+the play and typing scripts, and a script of its own that starts a game,
+saves twice and loads: every entry, 0 mismatches.
+
+Only the program's entry into the OS is judged, not where its own code goes
+afterwards. A program's `main` returning shows up as "far return into the
+OS" (the firmware then goes back to its menu), which Fulu answers by ending
+the program.
 
 ### 9.2 Random arguments
 
-The 55 runtime routines are compared with the firmware on 400 random calls
+The 64 runtime routines are compared with the firmware on 400 random calls
 each. The screen, string and heap functions get random rectangles,
 strings and allocation sequences: 1,500 heap calls, for example, with
 coordinates kept below row 200. Beyond that, the OS's loose checks let it
@@ -727,7 +787,8 @@ to `$DB5C` followed by their table). It collects every far-call site into
 the OS and every resident routine the code can reach: about 136,000
 instructions per game. For all six games it reaches every far-call site a
 byte search finds, so the list is complete for direct calls, and Fulu has
-all of them.
+all of them. For 三国霸业 it reaches all but two (a rename and a delete
+reached through a pointer), which Fulu has too.
 
 ### 9.4 Without firmware
 
@@ -832,6 +893,12 @@ without changing what a program sees.
    key that ends a long wait is always kept. The first ask after start-up
    doesn't check either.
 
+   Only for programs made with the RPG kit (their library, "LIB", at the
+   start of their data area). 三国霸业's title and scenario screens are
+   busy for half a second at a time while they animate, and on the device
+   a key pressed then is acted on: with the rule, half the presses there
+   were lost.
+
    The 300 ms threshold comes from measuring the gaps between asks in the
    six games. Walking and menus ask at least every 250 ms. Scenes, notices
    (真气不足!, 340 ms) and map loads go longer: 伏魔记 1.3's opening scene
@@ -899,12 +966,14 @@ games draw as pictures (the title, the big 穿 / 戴) stays pixels.
 
 | | |
 |---|---|
-| Games that play and save without firmware | 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0; 英雄坛说 |
-| API entries answered | 59 (29 with SDK names) |
-| Resident routines answered | 55 |
+| Games verified against the firmware, playing and saving | 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0; 英雄坛说; 三国霸业 |
+| Programs of the collection calling nothing Fulu lacks (static) | 86 of 138 |
+| API entries answered | 62: 57 of the 107 the collection calls, and 5 the OS calls itself |
+| Resident routines answered | 64: 55 of the 61 the collection calls, and 9 the floats use |
+| OS code those stand for | about 29,000 instructions of the firmware's (about 13,000 left, §16) |
 | Interrupt handlers | keyboard, ST1, CT |
-| Shadow-run mismatches | 0 (six games, every entry, play and save scripts) |
-| Code | about 4,450 lines in `src/fulu` (runtime 865, files 427, GUI 424, core 404, OS table 376, screen 309) |
+| Shadow-run mismatches | 0 (seven games, every entry, play, typing and save scripts) |
+| Code | about 5,200 lines in `src/fulu` (runtime 1,047, files 440, GUI 437, core 434, screen 408, OS table 376, More text 346) |
 
 ### 14.2 Speed
 
@@ -975,25 +1044,73 @@ Findings about the games:
 
 ## 16. Limitations and future work
 
-- **Other programs.** Fulu answers what the seven games need: 62 API
-  entries (of the 107 the collection uses) and 64 resident routines. A
-  program that calls something missing stops with its name, and still runs
-  on the original OS. 三国霸业, the seventh, was done last: `$E7FA`,
-  `$E8BF`, `$E9E3` and the float routines `$D506`, `$D572`, `$D81D`,
-  `$D825`, `$D8AE`, `$DD19`, `$DD6F`, `$E517` / `$E530`.
-- **Not written:** input methods (`$E919`, `$E925`…), GuiGetMsg's other
-  events, `$E92F` (GuiMsgBox's message `$0A` 3), and the mode changes in
-  `$E93B`.
+### 16.1 How much of the OS is left
+
+Fulu is not meant to translate the whole firmware. About half of it serves
+the device's own applications (the dictionaries, the organiser), which no
+game calls. What matters is what the collection's programs call: 107 API
+entries and 61 resident routines over 138 programs.
+
+```mermaid
+pie showData title 138 programs: OS functions each lacks
+  "none" : 86
+  "1 or 2" : 27
+  "3 to 7" : 19
+  "10 or more" : 6
+```
+
+The count comes from a byte search of each program for far calls into the
+API table and JSRs to the resident routines, checked against Fulu's own
+tables (`npx tsx scripts/bbk/fulu-coverage.mts <folder> [0E00.DAT]`, which
+also prints the plan below). It shows what a program
+*can* call: a call on a path rarely taken (an options screen) may never
+come in play, and calls through pointers are not seen. 50 API entries and 6
+resident routines are missing in all, about 13,000 instructions of the
+firmware's code (by `scripts/bbk/os-function.mjs --size`), against about
+29,000 for what Fulu answers now.
+
+They are very unequal. Ordered by the programs each completes per
+instruction:
+
+```mermaid
+flowchart LR
+  S0["Now<br/><b>86</b> programs"] -->|"7 small functions<br/>~280 instructions"| S1["Stage 1<br/><b>110</b>"]
+  S1 -->|"14 functions<br/>~1,600"| S2["Stage 2<br/><b>122</b>"]
+  S2 -->|"13 functions<br/>~3,650"| S3["Stage 3<br/><b>130</b>"]
+  S3 -->|"21 functions<br/>~7,950"| S4["All<br/><b>138</b>"]
+```
+
+| Stage | Functions | Programs it completes |
+|---|---|---|
+| 1 | `$E980` (43 instructions, missing in 43 programs), `$E7DC`, `$E7F4`, `$E7F7`; resident `$D31A`, `$D435`, `$D65B` | 24 |
+| 2 | `$EA64` and `$E7D0` (11 programs), `$E818`-`$E821` and `$E8E0`, `$E92F` and `$EA52`, `$E800` and `$E824`-`$E82A`, `$E92C` | 12 |
+| 3 | `$E8C5` (1,158 instructions, 7 programs) and `$E9AD`, `$E8B9`, `$E788`, `$E8BC`, and small ones; resident `$D4C0`, `$D604`, `$D6F5` | 8 |
+| 4 | `$E94D` (a GUI dialog of 3,113 instructions, only 中国象棋) and `$E791`; `$E863`-`$E871` (the pet games); `$E78B`, `$E706`, `$E7BE`, `$E99E` and others | 8 |
+
+The big functions are each needed by one to seven small arcade, board and
+pet games, never by the RPG kit's games: 84 of the kit's 86 games already
+call nothing Fulu lacks.
+
+**How each stage is done**, as for 三国霸业: disassemble the function
+(`os-function.mjs`, then `fold-c.mjs`), write it as behaviour with the
+OS's state at the OS's addresses, compare it with the firmware on random
+arguments where it takes them, then run the shadow run on the programs the
+stage completes, with key scripts that reach their calls, until every
+entry matches. A stage counts as done when its programs play on Fulu
+against the firmware with 0 mismatches, not when the scan says nothing is
+missing: other programs may also use interrupts or events the seven games
+never raised (timer 2, the sound timer, GuiGetMsg's other events).
+
+### 16.2 Other limitations
+
+- **Not written:** input methods (`$E919`, `$E925`…, for typing Chinese:
+  their size, and whether they need the OS's own data, is not measured
+  yet), GuiGetMsg's other events, `$E92F` (GuiMsgBox's message `$0A` 3,
+  stage 2), and the mode changes in `$E93B`.
 - **No sound**, in either OS mode.
 - **Timing** is a model of the firmware's cost, within a few percent on the
-  games measured, not cycle-exact.
-- **Next:** the wider map view for `.gam` games (F5), drawing the rest of the
-  map around the device's screen from the `.gam`'s library, shown only while
-  the device's own tiles match it. More text (F6), answering the kit's
-  dialogue commands (SAY, MESSAGE, TIMEMSG) in TypeScript, first exactly as
-  the game's code, then with 12 / 10 px layouts. The same routine trapping
-  would make walking through walls possible. Then the rest of the
-  collection, one shadow-run table at a time.
+  games measured, not cycle-exact. A program's own pacing can still differ
+  slightly: 三国霸业's intro runs a second longer on Fulu.
 
 ---
 
@@ -1065,4 +1182,5 @@ its address >> 8.
 | `src/fulu/device.ts` | the device player's interface |
 | `tests/fulu-shadow.test.ts` | the shadow run (`BBK_FIRMWARE`, `BBK_GAMES`, `BBK_SECONDS`) |
 | `scripts/bbk/gam-calls.mjs`, `os-function.mjs`, `fold-c.mjs` | reachability, disassembling an OS function, folding compiled C |
-| `docs/fulu-plan.md`, `docs/fulu-notes.md` | the plan with F1-F7, the working notes |
+| `scripts/bbk/fulu-coverage.mts` | what a collection's programs call that Fulu lacks, and the order to write it in |
+| `docs/fulu-plan.md`, `docs/fulu-notes.md` | the plan with F1-F8, the working notes |
