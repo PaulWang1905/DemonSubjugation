@@ -15,7 +15,6 @@ import {
   PROBLEMS,
   REMAINING,
   remainingGames,
-  UPDATED,
   type FuluGame,
   type ProblemStatus,
 } from "./fuluGames";
@@ -38,7 +37,6 @@ const TEXT = {
     kicker: "Fulu · progress report",
     title: "Progress report",
     lead: "Where Fulu stands, program by program: what runs, what has been checked against BBK's original OS, what is left to write, and every problem known. Kept up to date as the work goes on.",
-    updated: (d: string) => `Updated ${d}`,
     onPage: "On this page",
     sections: {
       glance: "At a glance",
@@ -97,7 +95,7 @@ const TEXT = {
     notFulu: "not Fulu's",
     games: "Programs",
     handText: "Games the site's author played by hand, as they reported them. Reports are added as they come.",
-    handCols: ["Date", "Game", "On", "What was tried", "Result", "Notes"],
+    handCols: ["Game", "On", "What was tried", "Result", "Notes"],
     where: { fulu: "Fulu", firmware: "original OS", react: "FMJ React" },
     result: { works: "works", problems: "problems" },
     programsText: (n: ReturnType<typeof fuluSummary>) =>
@@ -154,7 +152,6 @@ const TEXT = {
     kicker: "符箓 · 进展报告",
     title: "进展报告",
     lead: "符箓逐个程序的进展：哪些能运行，哪些已与步步高原版系统对比，还剩什么要写，以及所有已知问题。随工作进展持续更新。",
-    updated: (d: string) => `更新于 ${d}`,
     onPage: "本页内容",
     sections: {
       glance: "概况",
@@ -212,7 +209,7 @@ const TEXT = {
     notFulu: "不是符箓的问题",
     games: "程序",
     handText: "本站作者亲手玩过的游戏，按其报告记录。收到新的报告就会加进来。",
-    handCols: ["日期", "游戏", "运行于", "测试内容", "结果", "说明"],
+    handCols: ["游戏", "运行于", "测试内容", "结果", "说明"],
     where: { fulu: "符箓", firmware: "原版系统", react: "FMJ React" },
     result: { works: "正常", problems: "有问题" },
     programsText: (n: ReturnType<typeof fuluSummary>) =>
@@ -350,7 +347,6 @@ export function FuluProgressPage() {
         <p className="h-kicker">{t.kicker}</p>
         <h1 className="i-title">{t.title}</h1>
         <p className="f-lead">{t.lead}</p>
-        <p className="h-meta fp-updated">{t.updated(UPDATED)}</p>
       </header>
 
       <nav className="fp-toc" aria-label={t.onPage}>
@@ -450,10 +446,7 @@ export function FuluProgressPage() {
         <ol className="fp-timeline">
           {MILESTONES.map((m) => (
             <li key={m.title.en}>
-              <div className="fp-when">
-                <span className="h-meta">{m.date}</span>
-                {m.step && <span className="fp-step">{m.step}</span>}
-              </div>
+              <div className="fp-when">{m.step && <span className="fp-step">{m.step}</span>}</div>
               <div>
                 <strong>{m.title[lang]}</strong>
                 <p>{m.detail[lang]}</p>
@@ -552,7 +545,6 @@ export function FuluProgressPage() {
             <tbody>
               {HAND_TESTS.map((h, i) => (
                 <tr key={i}>
-                  <td className="fp-nowrap">{h.date}</td>
                   <td>{h.game}</td>
                   <td>{t.where[h.engine]}</td>
                   <td>{h.tested}</td>

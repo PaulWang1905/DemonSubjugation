@@ -5355,10 +5355,6 @@ p.f-prose {
 .fp-head {
   padding-top: clamp(24px, 4vw, 56px);
 }
-.fp-updated {
-  margin: 18px 0 0;
-  color: var(--muted);
-}
 .fp-toc {
   display: flex;
   flex-wrap: wrap;
@@ -5547,7 +5543,7 @@ p.f-prose {
 }
 .fp-timeline li {
   display: grid;
-  grid-template-columns: 9em minmax(0, 1fr);
+  grid-template-columns: 5em minmax(0, 1fr);
   gap: 6px 24px;
   padding: 18px 0;
   border-bottom: 1px solid var(--line);
@@ -5557,9 +5553,6 @@ p.f-prose {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px 10px;
-}
-.fp-when .h-meta {
-  color: var(--muted);
 }
 .fp-step {
   padding: 1px 7px;
