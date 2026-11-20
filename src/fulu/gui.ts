@@ -971,7 +971,7 @@ export const GUI: Record<number, OsFunction> = {
       // The system keys (0-3: power, the menu, the two dictionaries) leave the
       // program on the device, for the power-off, the OS's menu or a
       // dictionary. Fulu has none of those: the program ends.
-      if (key <= 3) return void os.stop("The program ended");
+      if (key <= 3) return void os.stop("The program ended", true);
       // the key's class, looked up
       const entry = 0x8c36 + 2 * (key & 0x3f);
       set16(0x20, entry);

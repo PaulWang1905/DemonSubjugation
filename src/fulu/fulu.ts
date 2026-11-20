@@ -120,6 +120,10 @@ export class Fulu {
   readonly recentCalls: number[] = [];
   /** Why the program stopped, once it has (it ended, or met an OS function Fulu lacks). */
   stopped: string | null = null;
+  /** Whether the program can go on past the stop (goOn): it met something Fulu lacks; it did not end. */
+  resumable = false;
+  /** The program as it entered the OS last (by a far call, a routine or an interrupt), to go on from if a stop comes. */
+  private entered: { kind: "call" | "routine" | "interrupt"; s: number; sp: number } | null = null;
   /** Whether the OS function being answered is asked again after waiting (its loop on the device went round). */
   retrying = false;
   /** Whether the last OS function answered is waiting to be asked again. */
@@ -230,9 +234,45 @@ export class Fulu {
     Object.assign(m.cpu, { pc: entry, s: STACK_TOP, a: 0x17, x: 0x17, y: 0x17, p: 0x21 });
   }
 
-  stop(why: string): void {
+  /** Stop the program: `final` when it has ended, else for something Fulu lacks, which the player can go on past (goOn). */
+  stop(why: string, final = false): void {
     this.stopped = why;
+    this.resumable = !final && this.entered !== null;
     this.machine.cpu.stopped = true;
+  }
+
+  /**
+   * Go on past a stop for something Fulu lacks: the program is put back as it
+   * entered the OS (its stacks), and what it called returns as if it had
+   * done nothing (A, $20/$21 = 0); an interrupt returns as it came. The
+   * program may then go wrong where it needed what was skipped, but it plays
+   * on. False if it cannot (it ended).
+   */
+  goOn(): boolean {
+    const e = this.entered;
+    if (!this.resumable || !e) return false;
+    const m = this.machine, cpu = m.cpu, ram = m.ram;
+    cpu.s = e.s;
+    ram[0x28] = e.sp & 0xff;
+    ram[0x29] = e.sp >> 8;
+    ram[0x200] &= ~0x08; // not halted
+    this.waiting = this.retrying = false;
+    if (e.kind === "interrupt") {
+      cpu.p = (this.pull() | 0x20) & ~0x10;
+      cpu.pc = this.pull() | (this.pull() << 8);
+    } else {
+      cpu.a = 0;
+      ram[0x20] = ram[0x21] = 0;
+      if (e.kind === "call") {
+        this.mapSegment(this.segment());
+        this.leave();
+      }
+      this.rts();
+    }
+    this.stopped = null;
+    this.resumable = false;
+    cpu.stopped = false;
+    return true;
   }
 
   /**
@@ -240,14 +280,19 @@ export class Fulu {
    * true; in the program's own memory it is a NOP, as on the chip.
    */
   enter(pc: number): boolean {
-    if (pc >= 0x300 && pc < 0x350) return this.interrupt((pc - 0x300) >> 2);
-    if (this.machine.page(pc >>> 12) < 0xe00) return false;
+    const m = this.machine;
+    if (pc >= 0x300 && pc < 0x350) {
+      this.entered = { kind: "interrupt", s: m.cpu.s, sp: m.ram[0x28] | (m.ram[0x29] << 8) };
+      return this.interrupt((pc - 0x300) >> 2);
+    }
+    if (m.page(pc >>> 12) < 0xe00) return false;
+    if (pc !== FAR_RETURN) this.entered = { kind: pc === FAR_CALL ? "call" : "routine", s: m.cpu.s, sp: m.ram[0x28] | (m.ram[0x29] << 8) };
     if (pc === FAR_CALL) return this.farCall(pc);
     if (pc === FAR_RETURN) return this.farReturn();
     const h = HELPERS[pc];
     if (!h) return this.missing(`the OS routine at $${hex(pc)}`);
     this.charge(pc, false);
-    if (h(this) !== "jump") this.rts();
+    if (h(this) !== "jump" && !this.stopped) this.rts();
     return true;
   }
 
@@ -324,6 +369,11 @@ export class Fulu {
     this.arrive(f.at);
     this.retrying = this.waiting;
     this.waiting = f.run(this) === "wait";
+    if (this.stopped) {
+      // (stopped in it: left as it is, for goOn to return from)
+      this.waiting = false;
+      return true;
+    }
     if (!this.waiting) this.moreText.after(this, ptr);
     if (this.waiting) {
       // as before the call, to make it again after the next interrupt
@@ -377,7 +427,7 @@ export class Fulu {
   private farReturn(): boolean {
     const seg = this.pull();
     if (seg < 0xe0) {
-      this.stop("The program ended");
+      this.stop("The program ended", true);
       return true;
     }
     this.mapSegment(seg);

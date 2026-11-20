@@ -853,6 +853,16 @@ footer {
   font-size: 14px;
 }
 
+/* (its outline buttons on the dark: light, as the text) */
+.crash button.ghost {
+  color: #f3f1ec;
+  border-color: rgb(243 241 236 / 0.5);
+  background: transparent;
+}
+.crash button.ghost:hover {
+  border-color: #f3f1ec;
+}
+
 .crash pre {
   white-space: pre-wrap;
   font-size: 11px;

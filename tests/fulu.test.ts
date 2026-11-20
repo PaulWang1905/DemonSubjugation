@@ -56,6 +56,37 @@ describe("Fulu", () => {
     expect(call(0xe7be)).toBe("Fulu has no OS function $E7BE yet");
   });
 
+  it("goes on past what it lacks, when asked: the call returns 0 and the program plays on", () => {
+    const far = (entry: number) => [0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2];
+    const fulu = run(
+      program(
+        [
+          0xa9, 0x55, ...far(0xe7be), 0x8d, 0x00, 0x30, // a function Fulu lacks; [$3000] = what it returned
+          ...far(0xe932), 0xa9, 4, ...far(0xe93b), // the GUI's start-up, then input mode 4, which Fulu stops in
+          0xa5, 0x28, 0x8d, 0x01, 0x30, 0xa5, 0x29, 0x8d, 0x02, 0x30, // [$3001] = the software stack pointer
+          0xa9, 42, 0x8d, 0x03, 0x30, // [$3003] = 42
+          0x60, // main returns
+        ],
+        [],
+        [],
+      ),
+    );
+    const ram = fulu.machine.ram, sp = ram[0x28] | (ram[0x29] << 8);
+    expect(fulu.stopped).toBe("Fulu has no OS function $E7BE yet");
+    expect(fulu.resumable).toBe(true);
+    expect(fulu.goOn()).toBe(true);
+    fulu.machine.run(200_000);
+    expect(ram[0x3000]).toBe(0);
+    expect(fulu.stopped).toBe("Fulu has no change of input mode from 2 to 4 yet");
+    expect(fulu.goOn()).toBe(true);
+    fulu.machine.run(200_000);
+    expect(ram[0x3001] | (ram[0x3002] << 8)).toBe(sp); // (its stack as it was before the call)
+    expect(ram[0x3003]).toBe(42);
+    expect(fulu.stopped).toBe("The program ended");
+    expect(fulu.resumable).toBe(false);
+    expect(fulu.goOn()).toBe(false);
+  });
+
   it("forgets keys pressed while the program has not asked for one for a while", () => {
     // SysGetKey into [$3000], a busy loop of `loops` x 256 x 256 x 5 cycles, SysGetKey into [$3001]
     const getKey = [0xa2, 0xc1, 0x86, 0x26, 0xa2, 0xe7, 0x86, 0x27, 0x20, 0xf6, 0xd2];

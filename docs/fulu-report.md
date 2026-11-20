@@ -1208,6 +1208,15 @@ fails when the document is out of date).
 
 ### 16.2 Other limitations
 
+- **Going on past a stop.** A program that meets something Fulu lacks (an
+  OS function, a routine, an interrupt, a case of a function not written)
+  stops, and the player offers Continue: Fulu puts the program back as it
+  entered the OS (its hardware and software stack pointers) and returns
+  from the call as if it had done nothing (A and $20/$21 0; an interrupt
+  returns as it came), and the program plays on, wrong only where it needed
+  what was skipped (`Fulu.goOn`). The same stop again is skipped by itself,
+  with a notice. A program that ends cannot go on.
+
 - **Sound is kept off** (the owner's decision, for now). Fulu plays none.
   `$EA52` and `$EA64` drive the sound hardware only when the sound is on;
   Fulu answers them as the device does with it off, returning at once,

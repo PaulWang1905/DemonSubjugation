@@ -57,7 +57,7 @@ const PAD_KEYS = new Map<EngineKey, number>([
 /** How often a running device is put away (besides when the page is left). */
 const SAVE_EVERY_MS = 30_000;
 
-type Status = { kind: "loading" | "starting" | "running" } | { kind: "error"; message: string };
+type Status = { kind: "loading" | "starting" | "running" } | { kind: "error"; message: string; canGoOn?: boolean };
 
 export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const lang = useSiteLang();
@@ -88,6 +88,10 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [onFulu, setOnFulu] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  /** The stops on Fulu the player chose to go on past: when one comes again, Fulu goes on by itself. */
+  const goneOnPast = useRef(new Set<string>());
+  /** The stop on screen (left as it is, for Continue), so that it is shown once. */
+  const shownStop = useRef<string | null>(null);
   /** Storing the device failed (the browser's storage refused it): say so. */
   const notStored = (e: unknown) => {
     console.warn("Could not store the device", e);
@@ -250,15 +254,24 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
         for (let steps = 0; acc >= FRAME_MS && steps < 16; steps++, acc -= FRAME_MS) {
           d.machine.run(CPU_HZ / FPS);
           kitRef.current?.tick();
+          if (d instanceof FuluDevice && d.stopped) break;
         }
-        // on Fulu, a program stops when it ends or needs what Fulu does not have yet
-        if (d instanceof FuluDevice && d.stopped) {
+        // on Fulu, a program stops when it ends or needs what Fulu does not have yet; past the
+        // latter the player can go on (and Fulu does by itself, for one the player went on past before)
+        if (d instanceof FuluDevice && d.stopped && d.stopped !== shownStop.current) {
           const why = d.stopped, text = textRef.current;
-          d.fulu.stopped = null;
-          // keep the device as it ended (its flash holds the saves made just before)
-          const kept = deviceRef.current;
-          if (kept) saveDevice(id, kept.os, kept.device).catch(notStored);
-          setStatus({ kind: "error", message: why === "The program ended" ? text.ended : text.fuluCannot(why) });
+          if (d.fulu.resumable && goneOnPast.current.has(why)) {
+            d.fulu.goOn();
+            setNotice(text.wentOn(why));
+          } else {
+            const canGoOn = d.fulu.resumable;
+            if (!canGoOn) d.fulu.stopped = null;
+            else shownStop.current = why;
+            // keep the device as it stopped (its flash holds the saves made just before)
+            const kept = deviceRef.current;
+            if (kept && !canGoOn) saveDevice(id, kept.os, kept.device).catch(notStored);
+            setStatus({ kind: "error", message: canGoOn ? text.fuluCannot(why) : text.ended, canGoOn });
+          }
         }
         decodeLcd(d.machine.ram, pixels);
         const { mx, my } = o.view, w = wideRef.current;
@@ -381,11 +394,20 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   }, [touch]);
 
   const title = game?.name ?? nm({ label: "Longman 4988", zh: "朗文 4988" });
+  /** Go on past a stop on Fulu: what the program called returns as if done, and it plays on. */
+  const goOn = () => {
+    const d = deviceRef.current?.device;
+    if (!(d instanceof FuluDevice) || !d.stopped) return;
+    goneOnPast.current.add(d.stopped);
+    shownStop.current = null;
+    if (d.fulu.goOn()) setStatus({ kind: "running" });
+  };
   /** Turn the device off and on again: the program starts afresh on the same flash, its saves kept. */
   const restart = () => {
     setOptionsOpen(false);
     setNotice(null);
     carry.current = deviceRef.current?.device.machine.flash.data.slice() ?? null;
+    shownStop.current = null;
     nextStart.current = "restart";
     setGeneration((g) => g + 1);
   };
@@ -409,6 +431,8 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
     if (!(await loadSlot(id, n, d.os, d.device))) return setNotice(dt.saves.otherOs);
     if (d.device instanceof FuluDevice) {
       d.device.fulu.stopped = null;
+      d.device.fulu.resumable = false;
+      shownStop.current = null;
       d.device.fulu.textMarks.clear();
       d.device.resumed();
     }
@@ -634,6 +658,16 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
                   <>
                     <p>{status.message}</p>
                     <div className="row">
+                      {status.canGoOn && (
+                        <button onClick={goOn} title={dt.goOnTitle}>
+                          {dt.goOn}
+                        </button>
+                      )}
+                      {status.canGoOn && (
+                        <button className="ghost" onClick={restart} title={dt.restartTitle}>
+                          {dt.restart}
+                        </button>
+                      )}
                       <button className="ghost" onClick={onExit}>
                         {pt.backToLibrary}
                       </button>
