@@ -681,6 +681,57 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     expect(failures).toEqual([]);
   });
 
+  it("the menu ($E94D), on random menus and queued keys", { timeout: 600_000 }, () => {
+    const [m, fulu] = bareMachine();
+    let seed = 19;
+    const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
+    const failures: string[] = [];
+    const MENU = 0x3000, LAYOUT = 0x3080, COLUMNS = 0x3100, ITEMS = 0x3200, RECORDS = 0x3300, TEXTS = 0x3800, ICONS = 0x3c00;
+    const counts = new Map<number, number>();
+    fulu.onCall = (e) => counts.set(e, (counts.get(e) ?? 0) + 1);
+    for (let trial = 0; trial < Number(process.env.FULU_TRIALS ?? 300) && !failures.length; trial++) {
+      for (let a = 0x400; a < 0x4000; a++) m.ram[a] = rand(256);
+      m.ram.set([0xd7, 0x17], 0x2a);
+      m.ram[0x22e] &= ~0x10;
+      m.write(0x04, 0);
+      m.write(0x05, 0);
+      m.ram[0x2b27] = (m.ram[0x2b27] & 0xf0) | [1, 2][rand(2)];
+      m.ram.set([0, 0, 0, 0], 0x201e);
+      m.ram.set([0xff, 0xff], 0x2ba8); // no help word
+      // the menu: 1-20 items in 1-3 columns, icons or not, wrapping or not
+      const n = 1 + rand(20), cols = 1 + rand(3), flags = rand(4);
+      m.ram.set([n, cols, COLUMNS & 0xff, COLUMNS >> 8, flags, ITEMS & 0xff, ITEMS >> 8], MENU);
+      for (let c = 0; c < cols; c++) m.ram[COLUMNS + c] = c * 48 + rand(4);
+      for (let i = 0; i < n; i++) {
+        const rec = RECORDS + 8 * i, text = TEXTS + 24 * i, len = rand(9);
+        m.ram.set([rec & 0xff, rec >> 8], ITEMS + 2 * i);
+        m.ram.set([len, text & 0xff, text >> 8, ICONS & 0xff, ICONS >> 8, (ICONS + 0x40) & 0xff, (ICONS + 0x40) >> 8], rec);
+        for (let k = 0; k < len; k++) m.ram[text + k] = 0x21 + rand(0x5e);
+        m.ram[text + len] = 0;
+      }
+      // the layout: rows and columns of 16 pixels on the screen; the first item shown and the rest as left
+      const x1 = rand(16), w = 3 + rand(7), y1 = rand(16), h = 1 + rand(5);
+      m.ram.set([x1, Math.min(x1 + 16 * w - 1, 159), y1, Math.min(y1 + 16 * h - 1, 95), rand(n + 2), rand(256), rand(256), rand(256)], LAYOUT);
+      // the keys: up to 7 of the arrows, page keys, help and characters, then one that ends it
+      const keys: [number, number][] = [];
+      for (let k = rand(8); k > 0; k--) {
+        const r = rand(10);
+        keys.push(r < 7 ? [5, [0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26][rand(7)]] : r < 9 ? [2, [0x30 + rand(10), 0x61 + rand(26), 0x41 + rand(26), 0x20 + rand(0x60)][rand(4)]] : [[8, 10][rand(2)], rand(6)]);
+      }
+      keys.push([[5, 0x27], [5, 0x28], [10, 3], [2, 0x31]][rand(4)] as [number, number]);
+      m.ram.set([0, keys.length & 7, keys.length], 0x2b09);
+      keys.forEach(([type, wd], i) => m.ram.set([type, wd & 0xff, wd >> 8], 0x2b0f + 3 * i));
+      const sel = rand(n + 2);
+      const diff = farCallBoth(m, fulu, 0xe94d, sel, [MENU & 0xff, MENU >> 8, LAYOUT & 0xff, LAYOUT >> 8], { x: rand(256), y: rand(256), p: (rand(256) | 0x24) & ~0x18 });
+      const what = `${n} items, ${cols} columns, flags ${flags}, ${w} × ${h}, selection ${sel}; keys ${keys.map(([t, wd]) => `${t}:${wd.toString(16)}`).join(" ")}`;
+      if (m.cpu.pc !== RETURN) failures.push(`trial ${trial} (${what}): the firmware did not return (pc $${hex(m.cpu.pc, 4)})`);
+      if (diff) failures.push(`trial ${trial} (${what}): ${diff}`);
+    }
+    fulu.onCall = null;
+    if (process.env.FULU_COUNTS) console.log([...counts].map(([e, c]) => `${hex(e, 4)}:${c}`).join(" "));
+    expect(failures).toEqual([]);
+  });
+
   it("the heap, on random allocations and frees", { timeout: 300_000 }, () => {
     const [m, fulu] = bareMachine();
     let seed = 5;

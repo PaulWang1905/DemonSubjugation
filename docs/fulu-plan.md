@@ -615,8 +615,12 @@ again.
   now stops at `$E980`.
 - **Round 3, the help screen, done:** `$E980` / `$F262`, with `$E8CB`,
   `$E8CE`, `$E8E9`. 130 play 180 s.
-- **Round 3, next:** `$E94D` (中国象棋: 5,278 with its key cases, and
-  `$E96B`, 637). The input methods (宠物精灵, 电子宠物: about 3,800, and the
+- **Round 3, the menu, done:** `$E94D` and `$E96B` (but the OS's own help
+  texts). 131 play 180 s, 5 end on their own: every program but the two
+  that type Chinese.
+- **Next:** the input methods, if the owner decides to; and the five
+  functions play has never reached (`$E706`, `$E7BE`, `$E8D1`, `$E8E0`,
+  `$E929`, about 1,550 instructions), as programs are seen to need them. The input methods (宠物精灵, 电子宠物: about 3,800, and the
   OS's pinyin tables, which would have to be made again) wait on the
   owner's decision.
 - **Separately:** the OS's page allocation for new files (§16.2 of the

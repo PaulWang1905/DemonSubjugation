@@ -42,7 +42,7 @@ answered by TypeScript that leaves the machine exactly as the firmware
 would: the same registers, flags, banks and RAM, including the OS's own
 variables.
 
-Fulu answers 128 API-table entries, 74 resident C-runtime routines and the
+Fulu answers 130 API-table entries, 74 resident C-runtime routines and the
 keyboard, ST1 and CT interrupts, in about 6,000 lines (`src/fulu`). It
 plays and saves 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0, 英雄坛说
 and 三国霸业.
@@ -58,9 +58,9 @@ dropping keys pressed while a game is busy, and a debug menu. It runs about
 16 times faster than emulating the firmware.
 
 Beyond the seven games: of the 138 programs of the bbk-games collection,
-130 play 180 s of random keys on Fulu without stopping and 5 more end on
-their own, and 130 call nothing Fulu lacks at all (all 86 made with the RPG
-kit). §16 sizes what is left: about 7,500 instructions of OS code, most of
+131 play 180 s of random keys on Fulu without stopping and 5 more end on
+their own, and 131 call nothing Fulu lacks at all (all 86 made with the RPG
+kit). §16 sizes what is left: about 1,500 instructions of OS code, most of
 it needed by one small game each, and the input methods.
 
 ```mermaid
@@ -968,11 +968,11 @@ games draw as pictures (the title, the big 穿 / 戴) stays pixels.
 | | |
 |---|---|
 | Games verified against the firmware, playing and saving | 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0; 英雄坛说; 三国霸业 |
-| Programs of the collection playing 180 s on Fulu without stopping | 130 of 138 (and 5 that end on their own) |
+| Programs of the collection playing 180 s on Fulu without stopping | 131 of 138 (and 5 that end on their own) |
 | Programs of the collection calling nothing Fulu lacks (static) | 92 of 138 |
-| API entries answered | 128: 101 of the 107 the collection calls, and 27 the OS calls itself |
+| API entries answered | 130: 102 of the 107 the collection calls, and 28 the OS calls itself |
 | Resident routines answered | 74: all 61 the collection calls, and 13 more the floats and multiplies use |
-| OS code those stand for | about 40,800 instructions of the firmware's (about 7,500 left, §16) |
+| OS code those stand for | about 46,700 instructions of the firmware's (about 1,500 left, and the input methods, §16) |
 | Interrupt handlers | keyboard, ST1, CT |
 | Shadow-run mismatches | 0 (seven games, every entry, play, typing and save scripts) |
 | Code | about 6,000 lines in `src/fulu` (runtime 1,207, GUI 850, screen 562, files 452, OS table 450, core 438, More text 346) |
@@ -1067,10 +1067,9 @@ Two measures, which differ a lot:
 
 ```mermaid
 pie showData title 138 programs played on Fulu for 180 s
-  "run the whole time" : 130
+  "run the whole time" : 131
   "end on their own" : 5
   "stop: input methods" : 2
-  "stop: a function not written" : 1
 ```
 
 The five that end do so as on the device, their `main` returning: 坦克大战
@@ -1084,11 +1083,10 @@ programs' code, was the biggest item, a help screen of 2,429 instructions
 Before the rounds below, 114 played the whole time. What the 21 that
 stopped needed was mostly small; the big functions are each needed by one
 to seven small arcade, board and pet games, never by the RPG kit's games.
-What is left after round 3's help screen:
+What is left after round 3:
 
 | Function | Size (with what it calls) | Programs that stop at it |
 |---|---|---|
-| `$E94D` (a menu with its own key loop) | 5,278, and `$E96B` 637 | 中国象棋 |
 | input methods (`$E93B`'s change to mode 4, `$E913`, `$E919`, `$E925`, `$E91F`, `$E7BE`) | about 3,800, and the OS's pinyin tables | 宠物精灵, 电子宠物 |
 
 `$E94D`'s first count (3,943) missed its nine key cases, reached only
@@ -1183,6 +1181,23 @@ GuiMsgBox does. Compared with the firmware on 200 random texts with keys
 queued for GuiGetMsg (which takes queued messages before it waits, so each
 call runs to its end on both), and in 幸运花's play and typing (40 calls,
 every one waiting and resumed): no mismatches. 幸运花 plays: 130 of 138.
+
+Last, `$E94D`, the menu 中国象棋 opens at its start: items in a grid of
+16-pixel cells laid out in a rectangle (each with its text, and with
+16 × 16 icons if the menu says so), a page of them drawn and the chosen
+one inverted, with the arrows' icons and the bar graph; the arrows move a
+column or a row (paging, and wrapping round if the menu says), the page
+keys a page, 1-9 and A-Z choose that item, Enter returns it, Exit $FF,
+and help shows the help word's text through `$E96B` and `$E980`. Its
+signed tests (an item above 0) are compiled as a load and N and V, V left
+by whatever arithmetic came before (the switch helper's, at a case's
+start): done the same way, flag for flag. Compared with the firmware on
+300 random menus with keys queued (289 reaching its loop: 1,152 messages,
+2,033 items' texts, 1,198 icons, 711 marks), and in 中国象棋's play and
+typing (11 calls, each waiting): no mismatches. 中国象棋 plays: 131 of
+138, and every program plays but the two that type Chinese. `$E96B` with
+one of the OS's own help texts (a word below `$8000`) stops: those texts
+are the OS's.
 
 The programs Fulu should run, how far each has got, those the owner has
 tested by hand and the problems still open are kept in one list,

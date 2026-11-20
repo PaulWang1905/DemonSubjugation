@@ -427,6 +427,16 @@ Round 3, first part (the report's §16.1). Details worth keeping:
 - $E8CB / $E8CE: ADDR1 = $000401, ADDR2 = $007400 (and back), 12 × 256
   bytes by LDA $00 / STA $01; INCR is the OS's.
 
+- $E94D (9:$5024): (selection in A, menu, layout); its frame: the icons'
+  bits 0-11, the help word 12, the keyboard state 14, a digit's item 16,
+  the message 17-19, the selection (from the first item shown) 20, "mark
+  moved" 21, the old selection 22; the layout 8:$6641 (4 locals), a page
+  9:$69E4 (15), the mark 9:$6F1D (14). Its switch's table at 9:$8AB6 (keys
+  $24 $25 $22 $23 $20 $21 $27 $28 $26). The help word is $2BA8 (9:$5016).
+  中国象棋's call: A 0, the menu at $9FF3 (2 items).
+- $E96B (1:$6C66): $FFFF nothing; above $8000 $E980(w); else 1:$69BB, the
+  OS's own help texts through a table of far calls ($7E2F): not in Fulu.
+
 What the others stop at is in the plan. Not Fulu's: 一中传奇 and 热血传奇
 show 烫烫烫 (uninitialised memory) in places, on the firmware too.
 

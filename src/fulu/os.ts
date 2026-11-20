@@ -16,6 +16,7 @@ import { Ltoa } from "./ltoa";
 import { PrintLong } from "./printLong";
 import { CALENDAR } from "./calendar";
 import { HELP } from "./help";
+import { MENU } from "./menu";
 import { YesNo } from "./dialog";
 import { compare } from "./runtime";
 import type { Handler, OsFunction } from "./fulu";
@@ -50,6 +51,7 @@ export const FUNCTIONS: Record<number, OsFunction> = {
   0xe9ad: PrintLong,
   ...CALENDAR,
   ...HELP,
+  ...MENU,
   0xe950: YesNo,
   // memset(p, c, n), as compiled C: it counts p up and n down in its arguments
   0xe700: fn(0x5000, () => {

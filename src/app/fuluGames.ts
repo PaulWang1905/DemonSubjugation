@@ -39,7 +39,7 @@ export const GAMES: FuluGame[] = [
   { name: "一中传奇2", kit: true, onFulu: "plays", firmware: "none" },
   { name: "七剑", kit: true, onFulu: "plays", firmware: "none" },
   { name: "三国霸业", kit: false, onFulu: "plays", firmware: "full" },
-  { name: "中国象棋", kit: false, onFulu: "stops", stopsAt: "$E94D", scan: ["$E94D"], firmware: "play", problems: ["e94d"] },
+  { name: "中国象棋", kit: false, onFulu: "plays", firmware: "play" },
   { name: "丰收", kit: false, onFulu: "plays", firmware: "play" },
   { name: "乒乓球", kit: false, onFulu: "plays", firmware: "none" },
   { name: "二十一点", kit: false, onFulu: "plays", firmware: "none" },
@@ -244,12 +244,12 @@ export const PROBLEMS: Problem[] = [
   },
   {
     id: "e94d",
-    title: { en: "$E94D (a GUI dialog)", zh: "$E94D（一个对话框）" },
+    title: { en: "$E94D (a menu)", zh: "$E94D（菜单）" },
     detail: {
-      en: "A menu with its own key loop, at 中国象棋's start: 5,278 instructions with its nine key cases (the first count, 3,400, missed them), and its help key calls $E96B (637), which opens $E980 (done). Only 中国象棋 needs it.",
-      zh: "一个自带按键循环的菜单，中国象棋一开始就用到：连同九个按键分支共 5,278 条指令（最初估计的 3,400 条漏掉了这些分支）；它的帮助键调用 $E96B（637 条），后者打开 $E980（已完成）。只有中国象棋需要。",
+      en: "A menu of items in a grid with its own key loop (5,278 instructions with its nine key cases; the first count, 3,400, missed them). Done in round 3: compared with the firmware on 300 random menus and key sequences, and in 中国象棋's play; 中国象棋 plays. Its help key ($E96B) shows a text in memory through $E980; one of the OS's own help texts, which Fulu does not have, would stop it (not seen).",
+      zh: "一个网格排列、自带按键循环的菜单（连同九个按键分支共 5,278 条指令；最初估计的 3,400 条漏掉了这些分支）。第 3 轮完成：用 300 个随机菜单和按键序列与固件对比，并在中国象棋的试玩中对比；中国象棋可以运行。它的帮助键（$E96B）通过 $E980 显示内存中的文字；若是系统自带的帮助文字（符箓没有），会停止（尚未见到）。",
     },
-    status: "open",
+    status: "fixed",
   },
   {
     id: "e99e",
@@ -351,7 +351,7 @@ export const PROBLEMS: Problem[] = [
 export const UPDATED = "2026-11-20";
 
 /** What Fulu answers (tests/fulu-games.test.ts checks these against src/fulu). */
-export const FULU_COUNTS = { functions: 128, routines: 74 };
+export const FULU_COUNTS = { functions: 130, routines: 74 };
 
 /**
  * How much of the OS the collection needs, by the code scan
@@ -360,7 +360,7 @@ export const FULU_COUNTS = { functions: 128, routines: 74 };
  * left (left: what the missing entries take with what they call; input
  * methods not measured).
  */
-export const COVERAGE = { apiUsed: 107, residentUsed: 61, written: 40800, left: 7462 };
+export const COVERAGE = { apiUsed: 107, residentUsed: 61, written: 46700, left: 1547 };
 
 /** The programs that played 180 s of random keys after each step (and those that ended on their own). */
 export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; ends: number }[] = [
@@ -369,6 +369,7 @@ export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; en
   { step: { en: "Round 2", zh: "第 2 轮" }, plays: 128, ends: 5 },
   { step: { en: "Round 3, first part", zh: "第 3 轮（前半）" }, plays: 129, ends: 5 },
   { step: { en: "Round 3, the help screen", zh: "第 3 轮，帮助画面" }, plays: 130, ends: 5 },
+  { step: { en: "Round 3, the menu", zh: "第 3 轮，菜单" }, plays: 131, ends: 5 },
 ];
 
 export interface Milestone {
@@ -468,6 +469,15 @@ export const MILESTONES: Milestone[] = [
   },
   {
     date: "2026-11-20",
+    step: "F8",
+    title: { en: "Round 3: the menu", zh: "第 3 轮：菜单" },
+    detail: {
+      en: "$E94D, a menu of items in a grid with its own key loop (arrows, page keys, 1-9 and A-Z, Enter, Exit, help), with $E96B for its help key: compared with the firmware on 300 random menus and key sequences, and in 中国象棋's play. 中国象棋 plays: every program now plays but the two that type Chinese.",
+      zh: "$E94D：网格排列、自带按键循环的菜单（方向键、翻页键、1-9 与 A-Z、确认、退出、帮助），以及帮助键用的 $E96B。已用 300 个随机菜单和按键序列与固件对比，并在中国象棋的试玩中对比。中国象棋可以运行：除了两个需要输入中文的程序，所有程序都能运行。",
+    },
+  },
+  {
+    date: "2026-11-20",
     title: { en: "This progress report; sound kept off", zh: "本进展报告；声音保持关闭" },
     detail: {
       en: "The games list, the owner's hand tests and the problems in one place. The owner decided to keep the sound off for now.",
@@ -492,7 +502,6 @@ export interface Remaining {
 }
 
 export const REMAINING: Remaining[] = [
-  { what: "$E94D", about: { en: "a menu with its own key loop", zh: "一个自带按键循环的菜单" }, calls: ["$E96B"], size: 5915, plan: "next", problem: "e94d" },
   { what: "input methods", about: { en: "typing Chinese (input modes 4 and 8): the owner to decide", zh: "中文输入（输入模式 4 和 8）：由作者决定" }, plan: "later", problem: "input-methods" },
   { what: "$E7BE", size: 718, plan: "later", problem: "unreached" },
   { what: "$E706", size: 528, plan: "later", problem: "unreached" },
