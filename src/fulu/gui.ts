@@ -470,6 +470,79 @@ const takeMessage = fn(0x6e7c, () => {
   leave(2);
 });
 
+/** The screen's copy at $7400 (RAM), its nesting at $202D. */
+const SCREEN_SAVES = 0x202d;
+
+/** 12 × 256 bytes through the data ports: read DATA1 ($00), write DATA2 ($01), each stepping as INCR says (the copy's loop as the OS has it). */
+function portCopy(xFirst: boolean): void {
+  cpu.x = 0;
+  if (!xFirst) cpu.y = 0;
+  for (;;) {
+    cmp(cpu.x, 0x0c);
+    if (carry()) return;
+    if (xFirst) {
+      cpu.x = nz(cpu.x + 1);
+      cpu.y = 0;
+    } else {
+      cpu.y = 0;
+      cpu.x = nz(cpu.x + 1);
+    }
+    for (;;) {
+      cpu.a = nz(rd(0x00));
+      wr(0x01, cpu.a);
+      cmp(cpu.y, 0xff);
+      if (carry()) break;
+      cpu.y = nz(cpu.y + 1);
+    }
+  }
+}
+
+/** The ports' two addresses: ADDR1 = from, ADDR2 = to (24-bit, low byte first). */
+function portAddresses(from: number, to: number): void {
+  for (const [at, v] of [[0x208, from], [0x20b, to]]) for (let i = 0; i < 3; i++) wr(at + i, (v >> (8 * i)) & 0xff);
+}
+
+/**
+ * $E8CB: save the screen (its buffer from $0401, 3 KB, to $7400) when
+ * $202D is 0; $202D counts the saves (7:$7B20).
+ */
+const saveScreen = fn(0x7b20, () => {
+  if (!cmp(ram[SCREEN_SAVES], 0)) {
+    portAddresses(0x000401, 0x007400);
+    cpu.a = nz(0);
+    cpu.y = 0;
+    portCopy(false);
+  }
+  clc();
+  ram[SCREEN_SAVES] = cpu.a = adc(ram[SCREEN_SAVES], 1);
+});
+
+/** $E8CE: back from a save: $202D down, and the screen put back from $7400 when it reaches 0 (7:$7B66). */
+const restoreScreen = fn(0x7b66, () => {
+  cmp((cpu.a = ram[SCREEN_SAVES]), 1);
+  if (!carry()) return;
+  sec();
+  ram[SCREEN_SAVES] = cpu.a = sbc(ram[SCREEN_SAVES], 1);
+  if (cmp(cpu.a, 0)) return;
+  // (ADDR2 first, as the OS writes them)
+  for (const [at, v] of [[0x20b, 0x000401], [0x208, 0x007400]]) for (let i = 0; i < 3; i++) wr(at + i, (cpu.a = (v >> (8 * i)) & 0xff));
+  portCopy(true);
+});
+
+/** $E8E9 (p): the text cursor's state into p: its size, its place, on ($20BA-$20BD, $20BF). */
+const cursorState = fn(0x5094, () => {
+  const sp = word(0x28);
+  cpu.y = 0;
+  ram[0x2f] = cpu.a = rd(sp);
+  cpu.y = 1;
+  ram[0x30] = cpu.a = rd(sp + 1);
+  const p = word(0x2f);
+  [0x20ba, 0x20bb, 0x20bc, 0x20bd, 0x20bf].forEach((a, i) => {
+    cpu.y = i;
+    wr(p + i, (cpu.a = nz(ram[a])));
+  });
+});
+
 export const GUI: Record<number, OsFunction> = {
   /**
    * $E8EC: turn the status icons off: every icon row's bit but those of
@@ -579,6 +652,9 @@ export const GUI: Record<number, OsFunction> = {
   0xe92c: fn(0x6c3e, () => queueMessage(false)),
   0xe92f: fn(0x6d5d, () => queueMessage(true)),
   0xea25: takeMessage,
+  0xe8cb: saveScreen,
+  0xe8ce: restoreScreen,
+  0xe8e9: cursorState,
   /** $E866: turn the cursor on where it is: A = 1, or 0 if it already was. */
   0xe866: fn(0x51e9, () => {
     if (cmp(ram[CURSOR_ON], 0)) return void (cpu.a = nz(0));

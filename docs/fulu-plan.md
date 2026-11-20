@@ -613,8 +613,9 @@ again.
   calendar under it (`$EBEF`, `$EBF2`, `$EBF5`, `$EBF8`, `$EC67`, `$EC6A`,
   `$E7EE`), `$E791`, `$EA25`. 129 play 180 s, 5 end on their own; 幸运花
   now stops at `$E980`.
-- **Round 3, next:** `$E980` (2,101 with `$F262`: 幸运花, and 43 programs
-  can call it), then `$E94D` (中国象棋: 5,278 with its key cases, and
+- **Round 3, the help screen, done:** `$E980` / `$F262`, with `$E8CB`,
+  `$E8CE`, `$E8E9`. 130 play 180 s.
+- **Round 3, next:** `$E94D` (中国象棋: 5,278 with its key cases, and
   `$E96B`, 637). The input methods (宠物精灵, 电子宠物: about 3,800, and the
   OS's pinyin tables, which would have to be made again) wait on the
   owner's decision.

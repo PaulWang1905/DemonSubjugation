@@ -468,6 +468,10 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xe8e3, () => [], () => (rand(4) ? rand(101) : rand(256))],
       // a message posted to, or put back at the front of, GuiGetMsg's queue (indexes 0-7, 0-9 queued)
       ...[0xe92c, 0xe92f].map((e): [number, () => number[]] => [e, () => (m.ram.set([rand(8), rand(8), rand(10)], 0x2b09), [rand(256), 0x30 + rand(8)])]),
+      // the screen saved to $7400 and put back ($202D counts the saves; the data ports step as INCR says)
+      ...[0xe8cb, 0xe8ce].map((e): [number, () => number[]] => [e, () => (m.ram[0x202d] = [0, 0, 1, 2, rand(256)][rand(5)], m.write(0x207, rand(4) ? 0x03 : rand(16)), [])]),
+      // the text cursor's state into p
+      [0xe8e9, () => (m.ram.set([rand(256), rand(256), rand(256), rand(256), rand(256), rand(256)], 0x20ba), [rand(256), 0x30 + rand(8)])],
       // the next message taken from the queue (indexes 0-7, 0-9 queued, now and then 255)
       [0xea25, () => (m.ram.set([rand(8), rand(8), rand(8) ? rand(10) : 0xff], 0x2b09), [rand(256), 0x30 + rand(8)])],
       // the bar graph's icons: a run, mostly valid
@@ -634,6 +638,45 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       }
       const diff = farCallBoth(m, fulu, entry, rand(256), args);
       if (diff) failures.push(`$${hex(entry, 4)} (${args.map((v) => hex(v)).join(" ")}): ${diff}`);
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it("the help screen ($E980), on random texts and queued keys", { timeout: 300_000 }, () => {
+    const [m, fulu] = bareMachine();
+    let seed = 17;
+    const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
+    const failures: string[] = [];
+    for (let trial = 0; trial < Number(process.env.FULU_TRIALS ?? 200) && !failures.length; trial++) {
+      for (let a = 0x400; a < 0x4000; a++) m.ram[a] = rand(256);
+      m.ram.set([0xd7, 0x17], 0x2a); // the C runtime's scratch area
+      m.ram[0x22e] &= ~0x10; // (CT stopped, no interrupt pending)
+      m.write(0x04, 0);
+      m.write(0x05, 0);
+      m.write(0x207, 0x03); // the data ports step (the screen's copy)
+      m.ram[0x202d] = rand(4) ? 0 : 1; // the screen not saved yet (now and then, already)
+      m.ram.set([1 + rand(16), 1 + rand(16), rand(140), rand(80), rand(2), rand(2)], 0x20ba); // the text cursor, on the screen
+      m.ram[0x20cd] = rand(2);
+      m.ram[0x2b27] = (m.ram[0x2b27] & 0xf0) | [1, 2][rand(2)]; // input mode 1 or 2
+      m.ram.set([0, 0, 0, 0], 0x201e); // no events: GuiGetMsg takes the queue
+      // the text at $3000: lines of 0-20 ASCII characters, each ended by 0, then 1
+      const text: number[] = [];
+      for (let n = rand(4) ? rand(20) : rand(3); n > 0; n--) {
+        for (let k = rand(21); k > 0; k--) text.push(0x20 + rand(0x5f));
+        text.push(0);
+      }
+      text.push(rand(8) ? 0 : 0x41, 0, 1);
+      m.ram.set(text, 0x3000);
+      // the keys: up to 7 of the arrows and page keys, then one that ends it
+      const keys: [number, number][] = [];
+      for (let n = rand(8); n > 0; n--) keys.push(rand(8) ? [5, [0x20, 0x21, 0x22, 0x23][rand(4)]] : [[2, 8, 10][rand(3)], rand(3) ? 0 : 1]);
+      keys.push([[5, 0x28], [5, 0x27], [10, 3], [10, 4], [8, 1]][rand(5)] as [number, number]);
+      m.ram.set([0, keys.length & 7, keys.length], 0x2b09);
+      keys.forEach(([type, w], i) => m.ram.set([type, w & 0xff, w >> 8], 0x2b0f + 3 * i));
+      const diff = farCallBoth(m, fulu, 0xe980, rand(256), [0x00, 0x30], { x: rand(256), y: rand(256), p: (rand(256) | 0x24) & ~0x18 });
+      // (the firmware returned: the queue's last key ended it)
+      if (m.cpu.pc !== RETURN) failures.push(`trial ${trial}: the firmware did not return (pc $${hex(m.cpu.pc, 4)})`);
+      if (diff) failures.push(`trial ${trial} (${text.filter((c) => !c).length} lines; keys ${keys.map(([t, w]) => `${t}:${w.toString(16)}`).join(" ")}): ${diff}`);
     }
     expect(failures).toEqual([]);
   });

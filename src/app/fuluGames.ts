@@ -34,17 +34,17 @@ export interface FuluGame {
 }
 
 export const GAMES: FuluGame[] = [
-  { name: "Eros方块", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play", problems: ["sound"] },
+  { name: "Eros方块", kit: false, onFulu: "plays", firmware: "play", problems: ["sound"] },
   { name: "一中传奇", kit: true, onFulu: "plays", firmware: "none", problems: ["game-bugs"] },
   { name: "一中传奇2", kit: true, onFulu: "plays", firmware: "none" },
   { name: "七剑", kit: true, onFulu: "plays", firmware: "none" },
   { name: "三国霸业", kit: false, onFulu: "plays", firmware: "full" },
-  { name: "中国象棋", kit: false, onFulu: "stops", stopsAt: "$E94D", scan: ["$E94D", "$E980"], firmware: "play", problems: ["e94d"] },
-  { name: "丰收", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
-  { name: "乒乓球", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
-  { name: "二十一点", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
-  { name: "二十四点", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play", problems: ["sound"] },
-  { name: "五子棋", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
+  { name: "中国象棋", kit: false, onFulu: "stops", stopsAt: "$E94D", scan: ["$E94D"], firmware: "play", problems: ["e94d"] },
+  { name: "丰收", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "乒乓球", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "二十一点", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "二十四点", kit: false, onFulu: "plays", firmware: "play", problems: ["sound"] },
+  { name: "五子棋", kit: false, onFulu: "plays", firmware: "play" },
   { name: "仙三外传", kit: true, onFulu: "plays", firmware: "none" },
   { name: "仙剑三", kit: true, onFulu: "plays", firmware: "none" },
   { name: "仙剑奇侠传二之虎啸飞剑", kit: true, onFulu: "plays", firmware: "none" },
@@ -58,15 +58,15 @@ export const GAMES: FuluGame[] = [
   { name: "体闲麻将", kit: false, onFulu: "plays", scan: ["$E706"], firmware: "play" },
   { name: "侠客行", kit: true, onFulu: "plays", firmware: "none" },
   { name: "侠客行4988(终曲版)", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "公路快车", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
+  { name: "公路快车", kit: false, onFulu: "plays", firmware: "none" },
   { name: "冒险岛", kit: true, onFulu: "plays", firmware: "none" },
   { name: "剑缘-第一部", kit: true, onFulu: "plays", firmware: "none" },
   { name: "十字之门", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "升级", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
-  { name: "华容道", kit: false, onFulu: "plays", scan: ["$E8E0", "$E980"], firmware: "play" },
+  { name: "升级", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "华容道", kit: false, onFulu: "plays", scan: ["$E8E0"], firmware: "play" },
   { name: "同福奇缘", kit: true, onFulu: "plays", firmware: "none" },
   { name: "地牢围攻", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "坦克大战", kit: false, onFulu: "ends", scan: ["$E980"], firmware: "play" },
+  { name: "坦克大战", kit: false, onFulu: "ends", firmware: "play" },
   { name: "基督山传奇", kit: true, onFulu: "plays", firmware: "none" },
   { name: "大乱斗之火影忍者", kit: true, onFulu: "plays", firmware: "none" },
   { name: "大话三国", kit: true, onFulu: "plays", firmware: "none" },
@@ -82,7 +82,7 @@ export const GAMES: FuluGame[] = [
   { name: "少年行", kit: true, onFulu: "plays", firmware: "none" },
   { name: "屠魔", kit: true, onFulu: "plays", firmware: "none" },
   { name: "平面魔方", kit: false, onFulu: "plays", firmware: "play" },
-  { name: "幸运花", kit: false, onFulu: "stops", stopsAt: "$E980", scan: ["$E980"], firmware: "play", problems: ["help-dialog"] },
+  { name: "幸运花", kit: false, onFulu: "plays", firmware: "play" },
   { name: "异世大陆", kit: true, onFulu: "plays", firmware: "none" },
   { name: "异时空游记", kit: true, onFulu: "plays", firmware: "none" },
   { name: "异时空游记2-纵横之旅", kit: true, onFulu: "plays", firmware: "none" },
@@ -90,17 +90,17 @@ export const GAMES: FuluGame[] = [
   { name: "恶龙传说", kit: false, onFulu: "ends", scan: ["$E8D1"], firmware: "play", problems: ["input-methods"] },
   { name: "我的世界", kit: true, onFulu: "plays", firmware: "none" },
   { name: "战国争霸", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "扫雷", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
-  { name: "投篮游戏", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
+  { name: "扫雷", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "投篮游戏", kit: false, onFulu: "plays", firmware: "play" },
   { name: "抗日小兵", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "拱猪", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
-  { name: "挖金子", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
-  { name: "接龙", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
-  { name: "搬运工", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
+  { name: "拱猪", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "挖金子", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "接龙", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "搬运工", kit: false, onFulu: "plays", firmware: "play" },
   { name: "新仙剑奇侠传", kit: true, onFulu: "plays", firmware: "none" },
   { name: "新仙剑奇侠传终曲版", kit: true, onFulu: "plays", firmware: "none" },
   { name: "新能源危机", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "智多星", kit: false, onFulu: "plays", scan: ["$E7BE", "$E980"], firmware: "play" },
+  { name: "智多星", kit: false, onFulu: "plays", scan: ["$E7BE"], firmware: "play" },
   { name: "最终幻想", kit: true, onFulu: "plays", firmware: "none" },
   { name: "末日传说", kit: true, onFulu: "plays", firmware: "none" },
   { name: "校园传奇", kit: true, onFulu: "plays", firmware: "none" },
@@ -108,29 +108,29 @@ export const GAMES: FuluGame[] = [
   { name: "梦幻西游", kit: true, onFulu: "plays", firmware: "none" },
   { name: "步步高网友俱乐部", kit: true, onFulu: "plays", firmware: "none" },
   { name: "武林新传", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "比大小", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
+  { name: "比大小", kit: false, onFulu: "plays", firmware: "none" },
   { name: "泡泡侠", kit: false, onFulu: "plays", firmware: "play" },
   { name: "泡泡侠 加速版", kit: false, onFulu: "plays", firmware: "none" },
   { name: "洛克人", kit: true, onFulu: "plays", firmware: "none" },
   { name: "洛特传奇", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "海盗船", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
+  { name: "海盗船", kit: false, onFulu: "plays", firmware: "none" },
   { name: "混战三国", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "滑雪", kit: false, onFulu: "plays", scan: ["$E8E0", "$E980"], firmware: "play", problems: ["sound"] },
-  { name: "潜艇大战", kit: false, onFulu: "ends", scan: ["$E980"], firmware: "play" },
-  { name: "炸弹小子", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
+  { name: "滑雪", kit: false, onFulu: "plays", scan: ["$E8E0"], firmware: "play", problems: ["sound"] },
+  { name: "潜艇大战", kit: false, onFulu: "ends", firmware: "play" },
+  { name: "炸弹小子", kit: false, onFulu: "plays", firmware: "none" },
   { name: "烈中轶事", kit: true, onFulu: "plays", firmware: "none" },
   { name: "热血传奇", kit: true, onFulu: "plays", firmware: "none", problems: ["game-bugs"] },
   { name: "牛妞历险记", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "猪小弟", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
-  { name: "猫狗大战", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
+  { name: "猪小弟", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "猫狗大战", kit: false, onFulu: "plays", firmware: "play" },
   { name: "王氏传", kit: true, onFulu: "plays", firmware: "none" },
   { name: "生命女神之暗之诅咒", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "电子宠物", kit: false, onFulu: "stops", stopsAt: "input methods", scan: ["$E929", "$E980"], firmware: "play", problems: ["input-methods", "file-place"] },
+  { name: "电子宠物", kit: false, onFulu: "stops", stopsAt: "input methods", scan: ["$E929"], firmware: "play", problems: ["input-methods", "file-place"] },
   { name: "疯狂校园", kit: true, onFulu: "plays", firmware: "none" },
   { name: "疯狂盗墓人", kit: true, onFulu: "plays", firmware: "none" },
   { name: "白中传奇", kit: true, onFulu: "plays", firmware: "none" },
   { name: "碰碰车", kit: false, onFulu: "plays", firmware: "play", problems: ["input-methods"] },
-  { name: "秘密潜入", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
+  { name: "秘密潜入", kit: false, onFulu: "plays", firmware: "none" },
   { name: "紫璇刀", kit: true, onFulu: "plays", firmware: "none" },
   { name: "纯蓝记", kit: true, onFulu: "plays", firmware: "none" },
   { name: "英雄剑", kit: true, onFulu: "plays", firmware: "none" },
@@ -142,36 +142,36 @@ export const GAMES: FuluGame[] = [
   { name: "英雄战士", kit: true, onFulu: "plays", firmware: "none" },
   { name: "落世沉浮", kit: true, onFulu: "plays", firmware: "none" },
   { name: "蜘蛛侠三", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "螃蟹回家", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
+  { name: "螃蟹回家", kit: false, onFulu: "plays", firmware: "play" },
   { name: "诸神黄昏", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "豪斯", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play", problems: ["sound"] },
-  { name: "贪食蛇", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
-  { name: "赛马", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
+  { name: "豪斯", kit: false, onFulu: "plays", firmware: "play", problems: ["sound"] },
+  { name: "贪食蛇", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "赛马", kit: false, onFulu: "plays", firmware: "play" },
   { name: "赤壁之战 乱世枭雄", kit: true, onFulu: "plays", firmware: "none" },
   { name: "赤壁之战乱世枭雄终曲版", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "跟花", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
-  { name: "跳蛋", kit: false, onFulu: "ends", scan: ["$E980"], firmware: "play" },
+  { name: "跟花", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "跳蛋", kit: false, onFulu: "ends", firmware: "play" },
   { name: "过关斩将", kit: true, onFulu: "plays", firmware: "none" },
   { name: "过关斩将4988(终曲版)", kit: true, onFulu: "plays", firmware: "none" },
   { name: "过关斩将4988改主角", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "迷宫游戏", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
+  { name: "迷宫游戏", kit: false, onFulu: "plays", firmware: "none" },
   { name: "遗忘传说", kit: true, onFulu: "plays", firmware: "none" },
   { name: "遗忘传说终曲版", kit: true, onFulu: "plays", firmware: "none" },
   { name: "释厄传", kit: true, onFulu: "plays", firmware: "none" },
   { name: "金庸群侠传", kit: true, onFulu: "plays", firmware: "none" },
   { name: "金庸群侠传终曲版", kit: true, onFulu: "plays", firmware: "none" },
   { name: "金庸群侠黑暗时代终曲版", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "钓鱼", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
-  { name: "钓鲨鱼", kit: false, onFulu: "ends", scan: ["$E980"], firmware: "play" },
+  { name: "钓鱼", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "钓鲨鱼", kit: false, onFulu: "ends", firmware: "play" },
   { name: "问道", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "阶梯小子", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
-  { name: "飞行特训", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "play" },
-  { name: "魔塔", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
-  { name: "魔塔BT版", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
-  { name: "魔塔超级版", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
+  { name: "阶梯小子", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "飞行特训", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "魔塔", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "魔塔BT版", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "魔塔超级版", kit: false, onFulu: "plays", firmware: "none" },
   { name: "魔法学院", kit: true, onFulu: "plays", firmware: "none" },
   { name: "黑暗之心", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "黑白子", kit: false, onFulu: "plays", scan: ["$E980"], firmware: "none" },
+  { name: "黑白子", kit: false, onFulu: "plays", firmware: "none" },
 ];
 
 /** A game the owner played by hand, and what they found. */
@@ -246,8 +246,8 @@ export const PROBLEMS: Problem[] = [
     id: "e94d",
     title: { en: "$E94D (a GUI dialog)", zh: "$E94D（一个对话框）" },
     detail: {
-      en: "A menu with its own key loop, at 中国象棋's start: 5,278 instructions with its nine key cases (the first count, 3,400, missed them), and its help key calls $E96B (637), which opens $E980. Only 中国象棋 needs it.",
-      zh: "一个自带按键循环的菜单，中国象棋一开始就用到：连同九个按键分支共 5,278 条指令（最初估计的 3,400 条漏掉了这些分支）；它的帮助键调用 $E96B（637 条），后者打开 $E980。只有中国象棋需要。",
+      en: "A menu with its own key loop, at 中国象棋's start: 5,278 instructions with its nine key cases (the first count, 3,400, missed them), and its help key calls $E96B (637), which opens $E980 (done). Only 中国象棋 needs it.",
+      zh: "一个自带按键循环的菜单，中国象棋一开始就用到：连同九个按键分支共 5,278 条指令（最初估计的 3,400 条漏掉了这些分支）；它的帮助键调用 $E96B（637 条），后者打开 $E980（已完成）。只有中国象棋需要。",
     },
     status: "open",
   },
@@ -271,12 +271,12 @@ export const PROBLEMS: Problem[] = [
   },
   {
     id: "help-dialog",
-    title: { en: "$E980 (probably a help screen)", zh: "$E980（可能是帮助画面）" },
+    title: { en: "$E980 (a help screen)", zh: "$E980（帮助画面）" },
     detail: {
-      en: "43 programs can call it; it calls a 1,969-instruction dialog ($F262) and 13 more functions. 幸运花 opens it 3 seconds in (in the firmware comparison, 28 times a minute); the others did not in play. A program that opens it stops on Fulu.",
-      zh: "43 个程序可能调用；它调用一个 1,969 条指令的对话框（$F262）和另外 13 个函数。幸运花在开始 3 秒后就会打开它（与固件对比时，一分钟 28 次）；其他程序试玩中没有打开。打开它的程序会在符箓上停止。",
+      en: "A text shown a page at a time and scrolled by the keys (2,429 instructions with its key cases, and $E8CB, $E8CE, $E8E9). Done in round 3: compared with the firmware on 200 random texts and key sequences, and 幸运花, which opens it 28 times a minute, matches the firmware and plays. The 43 programs that can call it no longer stop there.",
+      zh: "一页一页显示文字、用按键滚动的画面（连同按键分支共 2,429 条指令，另有 $E8CB、$E8CE、$E8E9）。第 3 轮完成：用 200 段随机文字和按键序列与固件对比过；一分钟打开它 28 次的幸运花与固件一致，可以运行。可能调用它的 43 个程序不会再停在这里。",
     },
-    status: "open",
+    status: "fixed",
   },
   {
     id: "unreached",
@@ -351,7 +351,7 @@ export const PROBLEMS: Problem[] = [
 export const UPDATED = "2026-11-20";
 
 /** What Fulu answers (tests/fulu-games.test.ts checks these against src/fulu). */
-export const FULU_COUNTS = { functions: 123, routines: 74 };
+export const FULU_COUNTS = { functions: 128, routines: 74 };
 
 /**
  * How much of the OS the collection needs, by the code scan
@@ -360,7 +360,7 @@ export const FULU_COUNTS = { functions: 123, routines: 74 };
  * left (left: what the missing entries take with what they call; input
  * methods not measured).
  */
-export const COVERAGE = { apiUsed: 107, residentUsed: 61, written: 38200, left: 9563 };
+export const COVERAGE = { apiUsed: 107, residentUsed: 61, written: 40800, left: 7462 };
 
 /** The programs that played 180 s of random keys after each step (and those that ended on their own). */
 export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; ends: number }[] = [
@@ -368,6 +368,7 @@ export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; en
   { step: { en: "Round 1", zh: "第 1 轮" }, plays: 114, ends: 3 },
   { step: { en: "Round 2", zh: "第 2 轮" }, plays: 128, ends: 5 },
   { step: { en: "Round 3, first part", zh: "第 3 轮（前半）" }, plays: 129, ends: 5 },
+  { step: { en: "Round 3, the help screen", zh: "第 3 轮，帮助画面" }, plays: 130, ends: 5 },
 ];
 
 export interface Milestone {
@@ -458,6 +459,15 @@ export const MILESTONES: Milestone[] = [
   },
   {
     date: "2026-11-20",
+    step: "F8",
+    title: { en: "Round 3: the help screen", zh: "第 3 轮：帮助画面" },
+    detail: {
+      en: "$E980, a text shown a page at a time and scrolled by the keys, with the screen saved and put back ($E8CB, $E8CE) and the cursor's state ($E8E9): compared with the firmware on 200 random texts and key sequences, and in 幸运花's play. 幸运花 plays; the 43 programs that can call it no longer stop there.",
+      zh: "$E980：一页一页显示文字、用按键滚动，并保存和恢复屏幕（$E8CB、$E8CE）及光标状态（$E8E9）。已用 200 段随机文字和按键序列与固件对比，并在幸运花的试玩中对比。幸运花可以运行；可能调用它的 43 个程序不会再停在这里。",
+    },
+  },
+  {
+    date: "2026-11-20",
     title: { en: "This progress report; sound kept off", zh: "本进展报告；声音保持关闭" },
     detail: {
       en: "The games list, the owner's hand tests and the problems in one place. The owner decided to keep the sound off for now.",
@@ -482,7 +492,6 @@ export interface Remaining {
 }
 
 export const REMAINING: Remaining[] = [
-  { what: "$E980", about: { en: "probably a help screen", zh: "可能是帮助画面" }, calls: ["$F262", "$E8E9", "$E8CB", "$E8CE"], size: 2101, plan: "next", problem: "help-dialog" },
   { what: "$E94D", about: { en: "a menu with its own key loop", zh: "一个自带按键循环的菜单" }, calls: ["$E96B"], size: 5915, plan: "next", problem: "e94d" },
   { what: "input methods", about: { en: "typing Chinese (input modes 4 and 8): the owner to decide", zh: "中文输入（输入模式 4 和 8）：由作者决定" }, plan: "later", problem: "input-methods" },
   { what: "$E7BE", size: 718, plan: "later", problem: "unreached" },

@@ -415,6 +415,18 @@ Round 3, first part (the report's §16.1). Details worth keeping:
   their code's addresses). `os-function.mjs <0E00.DAT> 9:55a5,58bd,...`
   disassembles from given addresses, for such cases.
 
+- $E980 / $F262 (25:$73FA): frames: $F262's 33 locals (the icons' bits
+  0-11, the cursor's state 12-16, the keyboard state 18, then 20 = 1, 21 =
+  0, 22 the lines); its loop 25:$761E (17 locals: 19 the top line, 20 the
+  lines, 2 what the page returned, 6 the next page, 8 the top line's
+  start, 13-15 the message); the page 25:$7C3A (38 locals, the line in
+  2-22: a line over 21 characters runs into its own counters, on the
+  device too). The switch's table at 25:$82C7 (keys $23 $22 $21 $20 $28
+  $27), the 32-bit 100 at 25:$82DF. Its result is A as its epilogue leaves
+  it ($29), not the key.
+- $E8CB / $E8CE: ADDR1 = $000401, ADDR2 = $007400 (and back), 12 × 256
+  bytes by LDA $00 / STA $01; INCR is the OS's.
+
 What the others stop at is in the plan. Not Fulu's: 一中传奇 and 热血传奇
 show 烫烫烫 (uninitialised memory) in places, on the firmware too.
 
