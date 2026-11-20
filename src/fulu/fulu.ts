@@ -282,13 +282,17 @@ export class Fulu {
   /**
    * $D2F6: call through the 3-byte entry at ($26): an address and a segment.
    * Below $E0 the segment is the OS's (the entry is an OS function); from $E0
-   * up it is the program's own, mapped into $5000-$8FFF for the call.
+   * up it is the program's own, mapped into $5000-$8FFF for the call. An
+   * entry in the program's own memory (below $D000) naming an OS segment is
+   * called as the trampoline calls any: 阶梯小子 calls its own code in its
+   * data banks ($9F7C) through one naming segment 0, which the OS maps in
+   * meanwhile.
    */
   private farCall(pc: number): boolean {
     const m = this.machine, ram = m.ram, cpu = m.cpu;
     const ptr = ram[0x26] | (ram[0x27] << 8);
     const seg = m.read((ptr + 2) & 0xffff);
-    if (seg >= 0xe0) {
+    if (seg >= 0xe0 || ptr < 0xd000) {
       const target = m.read(ptr) | (m.read((ptr + 1) & 0xffff) << 8);
       this.push(this.segment());
       this.mapSegment(seg);

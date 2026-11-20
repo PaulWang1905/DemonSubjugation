@@ -206,6 +206,21 @@ const LINE: [number, number][] = [[0x38, 0x3c], [0x2080, 0x208a], [0x20b7, 0x20b
 const RECTANGLE: [number, number][] = [[0x38, 0x3c], [0x2081, 0x208a], [0x20b7, 0x20b8], [0x20cf, 0x20d1], [0x20d8, 0x20eb]];
 
 export const SCREEN: Record<number, OsFunction> = {
+  /**
+   * $E7F7 (clear the whole screen buffer): $0400-$0FF3 to 0, counting $20E5/$20E6
+   * down from $0BF4 with the pointer at $3A/$3B, then the byte the boot page
+   * points at ($03FB, the screen's first byte where it is redirected) to 0.
+   */
+  0xe7f7: fn(0x5762, () => {
+    for (let a = 0x400; a < 0x400 + 0xbf4; a++) wr(a, 0);
+    ram[0x20e5] = ram[0x20e6] = 0;
+    const to = word(0x3fb);
+    set16(0x3a, to);
+    wr(to, 0);
+    cpu.a = cpu.y = 0;
+    cmp(0, 0); // N, Z and C as its last comparison of the count (and LDA #0) leave them
+    cpu.p &= ~0x40; // V of the count's last subtraction
+  }),
   // $E877 SysSaveScreen(x1 in A, y1, x2, y2, buffer): copy the screen's bytes under a rectangle, row by row, to a buffer
   0xe877: fn(0x77cd, () => {
     const sp = word(0x28), r = rectangle(sp);

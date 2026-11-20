@@ -132,7 +132,7 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys: number[] |
     if (pc === 0xd313 && m.ram[0x100 | ((cpu.s + 1) & 0xff)] < 0xe0) return ["far return into the OS", false];
     if (pc !== FAR_CALL) return [`$${hex(pc, 4)}`, pc === 0xd313 || !!HELPERS[pc]];
     const ptr = m.ram[0x26] | (m.ram[0x27] << 8), seg = m.read((ptr + 2) & 0xffff), f = FUNCTIONS[ptr];
-    return seg >= 0xe0 ? ["far call", true] : [`OS function $${hex(ptr, 4)}`, !!f, f];
+    return seg >= 0xe0 || ptr < 0xd000 ? ["far call", true] : [`OS function $${hex(ptr, 4)}`, !!f, f];
   }
 
   function replay(n: Nested): void {
@@ -420,8 +420,17 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     const x = () => (rand(8) ? rand(160) : rand(256)), y = () => (rand(8) ? rand(96) : rand(200));
     const near = (v: number) => Math.min(199, Math.max(0, v + rand(255) - 127)); // a y the line's 8-bit difference reaches
     // the function, and its arguments after the first (in A)
-    const cases: [number, () => number[]][] = [
+    // (and A, where it is not an x)
+    const cases: [number, () => number[], (() => number)?][] = [
       [0xe794, () => ((y0) => [y0, x(), near(y0)])(y())],
+      [0xe7f7, () => []],
+      ...[0xe818, 0xe81b, 0xe81e, 0xe821].map((e): [number, () => number[], () => number] => [e, () => [], () => (rand(4) ? rand(17) : rand(256))]),
+      // the clock and the key buffer
+      [0xe7dc, () => []],
+      [0xe7df, () => []],
+      [0xe7d0, () => []],
+      [0xe7f4, () => [rand(256), 0x30 + rand(8)]],
+      [0xe7e2, () => [rand(256), 0x30 + rand(8)]],
       [0xe797, () => [y(), x(), y()]],
       [0xe8bf, () => [y(), x(), y()]],
       [0xe7fa, () => [y(), rand(3) ? rand(2) : rand(256)]],
@@ -452,10 +461,10 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xe889, () => [rand(96), x(), rand(96), rand(256), 0x10, rand(256), 0x30 + rand(8), 0]],
     ];
     const failures: string[] = [];
-    for (const [entry, args] of cases) {
+    for (const [entry, args, aOf] of cases) {
       for (let trial = 0; trial < 300; trial++) {
         for (let a = 0x400; a < 0x4000; a++) m.ram[a] = rand(256);
-        const a = x(), list = args();
+        const a = aOf ? aOf() : x(), list = args();
         const diff = farCallBoth(m, fulu, entry, a, list, { x: rand(256), y: rand(256), p: (rand(256) | 0x24) & ~0x18 });
         if (diff) {
           failures.push(`$${hex(entry, 4)} trial ${trial} (A ${hex(a)}, ${list.map((v) => hex(v)).join(" ")}): ${diff}`);
@@ -550,7 +559,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
         set16(0x28, 0x1100 + rand(0x3000));
         const cpu = m.cpu, sp = m.ram[0x28] | (m.ram[0x29] << 8);
         Object.assign(cpu, { a: rand(2) ? value() & 0xff : rand(256), x: rand(256), y: rand(256), p: (rand(256) | 0x24) & ~0x18, s: 0x40 + rand(0xb0) });
-        if (addr === 0xd362 || addr === 0xd29d || addr === 0xd2ca || addr === 0xdb2f || addr === 0xdc83 || addr === 0xdcc8 || addr === 0xdcf7) {
+        if (addr === 0xd362 || addr === 0xd29d || addr === 0xd2ca || addr === 0xdb2f || addr === 0xdc83 || addr === 0xdcc8 || addr === 0xdcf7 || addr === 0xd435) {
           set16(0x20, ptr());
           set16(0x23, ptr());
           if (rand(3) === 0) fill(m.ram[0x23] | (m.ram[0x24] << 8), 4, () => (rand(2) ? 0 : rand(256)));
@@ -570,7 +579,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
         } else if (addr === 0xd572) {
           // a call through $26/$27: to somewhere in the program's memory (where the comparison stops)
           set16(0x26, 0x1000 + rand(0x3000));
-        } else if (addr === 0xe520 || addr === 0xe52c || addr === 0xe517 || addr === 0xe530 || addr === 0xd81d || addr === 0xd825) {
+        } else if (addr === 0xe520 || addr === 0xe52c || addr === 0xe517 || addr === 0xe530 || addr === 0xd81d || addr === 0xd825 || addr === 0xd31a) {
           // float ÷ and ×: floats at ($20) and ($23), now and then 0, ±0, an extreme exponent, or the same number
           const float = (at: number) => {
             const e = [0x7f, 0x7f + rand(20), 0x7f - rand(20), rand(256), 0, 0xfe][rand(8) % 6], sign = rand(2) << 7;

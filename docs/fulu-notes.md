@@ -337,6 +337,36 @@ buttons at 9:$8CB2): the site's icon (public/favicon.svg at 1.5 x) and 是 /
 (computed per call: the screen under them and the heap blocks they pass
 through) and left out of the comparison; the rest matches the firmware.
 
+**The rest of the collection** (docs/fulu-plan.md, F8): played on Fulu,
+114 of the 138 programs run 180 s of random keys without stopping. Done for
+them, each compared with the firmware on random arguments and in the
+shadow run of the programs that call it:
+
+- the clock: $E7DC (minutes, `$0235 & $3F`), $E7DF (hours, `$0236 & $1F`),
+  $E7F4(p) (`$0234-$0236` to p[0..2]), $E7E2(p) (`$0237`, and `$0238`'s
+  bit 0, to p[0..1]); each through `$2F/$30` where it takes p;
+- $E7D0: forget the keys in the OS's buffer (`$2003` = `$2004`);
+- $E7F7: clear `$0400-$0FF3` (counting `$20E5/$20E6` down from `$0BF4`),
+  then the byte the boot page points at (`($03FB)`);
+- $E818, $E81B, $E81E, $E821: the status bar's four seven-segment digits
+  (6:$6CDE the patterns of 0-F and blank, 6:$6CC2/$6CC9/$6CD0/$6CD7 each
+  digit's seven icon rows; a segment is bit 0 of byte 18 of its row, found
+  by the multiply 6:$6C85);
+- the runtime's $D31A (float compare $E039 as flags: Z equal, N less, N
+  and V greater, through PHP / AND #$1C / PLP), $D435 (signed long divide:
+  $D0A8 on the magnitudes, negated if the signs differ), $D5DC (signed int
+  remainder, with the dividend's sign);
+- $E93B's change of input mode between 2 and 1 (8:$5E6F, 8:$5F8B: the mode,
+  $E8D7's icon, and to 1 caps off);
+- a far call through an entry in the program's own memory (below $D000)
+  naming an OS segment: called as any (阶梯小子 calls its own code at $9F7C,
+  in its data banks, through such an entry naming segment 0);
+- files over 4 KB: they had one sector and ran into the next file's pages;
+  now they take whole sectors just below the user area, in order.
+
+What the 24 others stop at is in the plan. Not Fulu's: 一中传奇 and 热血传奇
+show 烫烫烫 (uninitialised memory) in places, on the firmware too.
+
 **三国霸业 is done too.** Its code reaches nothing Fulu lacks (gam-calls.mjs
 with the list of what Fulu has: no `<- Fulu lacks`). Its last were $E7FA
 (a pixel), $E8BF (an outline cleared), $E9E3 (rename an open file) and the

@@ -85,4 +85,37 @@ describe("Fulu", () => {
     expect(after(14)).toEqual([0xff, 0xff]); // after 580 ms: forgotten
     expect(after(14, false)).toEqual([0xff, Key.enter]); // any other program's: kept
   });
+
+  it("gives each new file pages of its own, a file over 4 KB whole sectors that run on", () => {
+    // create (type 9) files of these sizes, each closed, then end
+    const sizes = [41, 300, 5000, 41, 9000, 41];
+    const code: number[] = [];
+    const sta = (v: number, a: number) => code.push(0xa9, v & 0xff, 0x8d, a & 0xff, a >> 8);
+    const call = (entry: number) => code.push(0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2);
+    sizes.forEach((size, n) => {
+      [0x54, 0x30 + n, 0].forEach((c, i) => sta(c, 0x1e20 + i)); // name "Tn"
+      [size, size >> 8, 0, 0, 0x20, 0x1e, 0x10 + 2 * n, 0x1f, 0x40, 0x1f].forEach((v, i) => sta(v, 0x1e00 + i)); // size (long), name, &id, &handle
+      sta(0x00, 0x28);
+      sta(0x1e, 0x29);
+      code.push(0xa9, 0x09);
+      call(0xe9c8);
+      code.push(0xad, 0x40, 0x1f);
+      call(0xe9d1);
+    });
+    code.push(0x60);
+    const fulu = run(program(code, [], []));
+    const m = fulu.machine, f = m.flash.data, ram = m.ram;
+    const pageMap = (p: number) => (p < 0x1000 ? 0x4000 : 0xb000) + (p & 0xfff);
+    const used = new Map<number, number>();
+    sizes.forEach((size, n) => {
+      const first = ram[0x1f10 + 2 * n] | (ram[0x1f11 + 2 * n] << 8);
+      expect(first).not.toBe(0);
+      for (let p = first; p < first + Math.ceil(size / 0x100); p++) {
+        expect(used.get(p)).toBeUndefined(); // no page shared with another file
+        used.set(p, n);
+        expect(f[pageMap(p)]).toBe(2); // marked used
+        expect(f[(p < 0x1000 ? 0x1000 : 0x8000) + ((p >> 4) & 0xff)]).toBe(2); // in a data sector
+      }
+    });
+  });
 });

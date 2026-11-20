@@ -68,33 +68,51 @@ console.log(`\nmissing (${byCount.length}), with the programs that call each:`);
 for (const [a, ps] of byCount) console.log(`  ${hex(a)}  ${ps.length}  ${ps.slice(0, 8).join(" ")}${ps.length > 8 ? " …" : ""}`);
 
 if (rom) {
-  /** A missing entry's size in instructions (a resident routine's is not measured: taken as 60). */
-  const size = new Map<number, number>();
-  for (const [a] of byCount) {
-    if (a < 0xe700 || a >= 0xeb00) {
-      size.set(a, 60);
-      continue;
-    }
-    const out = execFileSync("node", ["scripts/bbk/os-function.mjs", rom, "--size", a.toString(16)], { encoding: "utf8" });
-    size.set(a, Number(/(\d+) instructions/.exec(out)?.[1] ?? 60));
+  /**
+   * An OS entry's size in instructions and the OS entries it far-calls (as
+   * os-function.mjs --size counts them); a resident routine's size is not
+   * measured: taken as 60.
+   */
+  const info = new Map<number, { size: number; calls: number[] }>();
+  const measure = (a: number) => {
+    if (info.has(a)) return info.get(a)!;
+    if (a < 0xe700) return info.set(a, { size: 60, calls: [] }).get(a)!;
+    const out = execFileSync("node", ["scripts/bbk/os-function.mjs", rom, "--size", a.toString(16)], { encoding: "utf8" }).split("\n")[0];
+    const calls = (/far calls: (.*)$/.exec(out)?.[1] ?? "").split(" ").filter(Boolean).map((t) => parseInt(t, 16));
+    return info.set(a, { size: Number(/(\d+) instructions/.exec(out)?.[1] ?? 60), calls }).get(a)!;
+  };
+  /** What writing `a` takes: it and every OS entry it reaches that Fulu lacks. */
+  const closure = (a: number, into = new Set<number>()) => {
+    if (into.has(a) || has(a)) return into;
+    into.add(a);
+    for (const c of measure(a).calls) closure(c, into);
+    return into;
+  };
+  const deep = new Map(byCount.map(([a]) => [a, closure(a)]));
+  const cost = (set: Iterable<number>) => [...set].reduce((n, a) => n + measure(a).size, 0);
+  console.log(`\nwhat each takes, with the OS entries it calls that Fulu lacks (instructions):`);
+  for (const [a, ps] of byCount) {
+    const d = deep.get(a)!;
+    console.log(`  ${hex(a)}  ${String(cost(d)).padStart(6)}  ${ps.length} programs${d.size > 1 ? `  (with ${[...d].filter((x) => x !== a).map(hex).join(" ")})` : ""}`);
   }
   // greedy: each time, the remainder of one program that completes the most programs per instruction
   const done = new Set<number>();
   let total = 0, count = complete.length;
+  const need = (p: Program) => new Set([...p.missing].flatMap((a) => [...deep.get(a)!]));
   console.log(`\nplan (programs complete, instructions written, in all):`);
   for (;;) {
-    const open = programs.filter((p) => [...p.missing].some((a) => !done.has(a)));
+    const open = programs.filter((p) => [...need(p)].some((a) => !done.has(a)));
     if (!open.length) break;
     let best: { add: number[]; cost: number; gain: number } | null = null;
     for (const p of open) {
-      const add = [...p.missing].filter((a) => !done.has(a));
-      const cost = add.reduce((s, a) => s + size.get(a)!, 0);
-      const gain = open.filter((q) => [...q.missing].every((a) => done.has(a) || add.includes(a))).length;
-      if (!best || gain / cost > best.gain / best.cost) best = { add, cost, gain };
+      const add = [...need(p)].filter((a) => !done.has(a));
+      const c = cost(add);
+      const gain = open.filter((q) => [...need(q)].every((a) => done.has(a) || add.includes(a))).length;
+      if (!best || gain / c > best.gain / best.cost) best = { add, cost: c, gain };
     }
     best!.add.forEach((a) => done.add(a));
     total += best!.cost;
     count += best!.gain;
-    console.log(`  ${String(count).padStart(4)} ${String(total).padStart(6)}  + ${best!.add.map((a) => `${hex(a)} (${size.get(a)})`).join(", ")}`);
+    console.log(`  ${String(count).padStart(4)} ${String(total).padStart(6)}  + ${best!.add.map((a) => `${hex(a)} (${measure(a).size})`).join(", ")}`);
   }
 }

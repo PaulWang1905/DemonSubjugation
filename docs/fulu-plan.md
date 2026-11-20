@@ -588,3 +588,24 @@ script's plan), in four stages:
 **Done when** every program of the stage plays on Fulu, against the
 firmware, with 0 mismatches. A program the scan calls complete but that
 needs something else is listed in the notes with what it needs.
+
+**Changed after measuring play.** The scan counts what a program *can*
+call. Played on Fulu alone (180 s of random keys each, until a missing
+call), 103 of the 138 already ran the whole time, and `$E980`, stage 1's
+biggest item (it calls a 1,969-instruction dialog and 13 more functions,
+which the first sizes left out), was never called. So the stages are
+replaced by rounds by play: write what programs stop at, compare with the
+firmware on random arguments, shadow-run the programs affected, play all
+again.
+
+- **Round 1, done:** `$E7D0`, `$E7DC`, `$E7DF`, `$E7E2`, `$E7F4`, `$E7F7`,
+  `$E818`-`$E821`, `$D31A`, `$D435`, `$D5DC`, input mode 2 ↔ 1, far calls
+  through a program's own entries naming an OS segment (阶梯小子), and a
+  fix: a file over 4 KB had one sector and ran into the next file's. 114
+  play 180 s.
+- **Round 2:** `$E8C5` (4 programs), `$E788`, `$E8BC`, `$EA64` (2 each),
+  then the one-program ones: `$E863`, `$E8B9`, `$E8EF`, `$E92C`, `$E92F`,
+  `$E99E`, `$E9AD`, `$EA52`, `$D65B`, `$D6F5`; `$E94D` (3,943 with what it
+  calls, only 中国象棋) last.
+- **Separately:** the OS's page allocation for new files (§16.2 of the
+  report), input methods.

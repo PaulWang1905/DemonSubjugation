@@ -248,18 +248,30 @@ function freeSlot(): number | null {
   return s << 12;
 }
 
-/** Sectors for a file of `size` bytes, contiguous, at the bottom of the user area: its first page, or null. */
+/**
+ * Sectors for a file of `size` bytes: its first page, or null. One sector:
+ * as claimSector finds it. More: that many free sectors just below the user
+ * area, so that the file's pages run on from the lowest without a gap (a
+ * file's pages are read one after another from its first).
+ */
 function allocate(size: number): number | null {
   const f = flash(), sectors = Math.max(1, Math.ceil(size / 0x1000));
-  let first = -1;
-  for (let i = 0; i < sectors; i++) {
+  let first: number;
+  if (sectors === 1) {
     const s = claimSector();
     if (s === null) return null;
-    f[sectorMap(s)] = 2;
-    for (let p = 0; p < 16; p++) f[pageMap((s << 4) | p)] = 0xff;
     first = s;
+  } else {
+    const area = userSectors(), top = area.length ? area[area.length - 1] - 1 : TOP;
+    first = top - sectors + 1;
+    if (first <= 0) return null;
+    for (let s = first; s <= top; s++) if (f[sectorMap(s)] !== 0xff) return null;
   }
-  // (claimed downward, so the last is the lowest)
+  for (let s = first; s < first + sectors; s++) {
+    f[sectorMap(s)] = 2;
+    f.fill(0xff, s << 12, (s + 1) << 12);
+    for (let p = 0; p < 16; p++) f[pageMap((s << 4) | p)] = 0xff;
+  }
   for (let p = 0; p < Math.max(1, Math.ceil(size / 0x100)); p++) f[pageMap((first << 4) + p)] = 2;
   return first << 4;
 }

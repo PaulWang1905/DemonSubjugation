@@ -118,10 +118,68 @@ const icon = (at: number, row: number) =>
     ICON_TEMPORARIES,
   );
 
+/** The seven-segment patterns of the status bar's digits (6:$6CDE): 0-F, then blank for anything above. */
+const SEGMENTS = [0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x77, 0x7c, 0x39, 0x5e, 0x79, 0x71, 0x00];
+/** The icon rows of each of the four digits' seven segments (6:$6CC2, $6CC9, $6CD0, $6CD7). */
+const DIGIT_ROWS = [
+  [0x13, 0x11, 0x25, 0x23, 0x20, 0x1a, 0x1c],
+  [0x3f, 0x3e, 0x2b, 0x2a, 0x28, 0x40, 0x41],
+  [0x3b, 0x3a, 0x30, 0x2f, 0x2e, 0x3c, 0x39],
+  [0x37, 0x36, 0x34, 0x33, 0x32, 0x38, 0x35],
+];
+/**
+ * $E818, $E81B, $E81E, $E821: the status bar's digit 1-4 shows A (0-15, blank
+ * above): each segment is bit 0 of byte 18 of its RAM row, the row's address
+ * found by the OS's multiply (6:$6C85: $2085 × $2087 → $2085:$2089).
+ */
+const digit = (at: number, rows: number[]) =>
+  fn(
+    at,
+    () => {
+      let pattern = SEGMENTS[cpu.a < 0x10 ? cpu.a : 0x10];
+      for (const row of rows) {
+        const product = row * 0x20, a = 0x412 + product;
+        ram[0x2087] = 0x20;
+        ram[0x2089] = product & 0xff;
+        ram[0x2085] = product >> 8;
+        set16(0x38, a);
+        const on = pattern & 1;
+        ram[0x2080] = pattern >>= 1;
+        wr(a, (cpu.a = (rd(a) & 0xfe) | on));
+      }
+      cpu.x = 7;
+      cpu.y = 0;
+      cmp(7, 7);
+      cpu.p &= ~0x40;
+    },
+    ICON_TEMPORARIES,
+  );
+
 /** The input modes $E93B switches between (the keyboard state's low 4 bits), and the modes each tests for a change to, in order. */
 const MODES: Record<number, number[]> = { 2: [4, 8, 1], 4: [8, 2, 1], 8: [2, 4, 1], 1: [4, 8, 2] };
 /** Where the OS keeps that switch's table (8:$8B9C: 4 modes, then their code's addresses). */
 const MODE_TABLE = 0x8b9c, MODE_ORDER = [2, 4, 8, 1], MODE_CODE = [0x6028, 0x605e, 0x6094, 0x60ca];
+
+/**
+ * The changes of input mode Fulu has (8:$5E6F, 8:$5F8B): to mode 1 its icon
+ * ($E8D7) on, caps off (with its icon, $E848); back to 2 that icon off. The
+ * others switch input methods on or off.
+ */
+const MODE_CHANGES: Record<string, () => void> = {
+  "2>1": () => {
+    ram[KEYBOARD] = (ram[KEYBOARD] & 0xf0) | 1;
+    cpu.a = 1;
+    os.call(0xe8d7);
+    ram[KEYBOARD] &= 0xef;
+    cpu.a = 0;
+    os.call(0xe848);
+  },
+  "1>2": () => {
+    ram[KEYBOARD] = (ram[KEYBOARD] & 0xf0) | 2;
+    cpu.a = 0;
+    os.call(0xe8d7);
+  },
+};
 
 /** The LCD rows of the status icons $E8EC leaves alone (those of icons 20-22, the GUI's three, and four more). */
 const ICONS_KEPT = [6, 7, 8, 13, 20, 31, 41, 68, 78, 89, 90, 91];
@@ -209,15 +267,22 @@ export const GUI: Record<number, OsFunction> = {
       const i = MODE_ORDER.indexOf(current);
       set16(0x20, MODE_TABLE + 8 + 2 * i);
       set16(0x26, MODE_CODE[i]);
-      if (order.includes(mode)) return void os.stop(`Fulu has no change of input mode from ${current} to ${mode} yet`);
+      const change = order.includes(mode) && MODE_CHANGES[`${current}>${mode}`];
+      if (order.includes(mode) && !change) return void os.stop(`Fulu has no change of input mode from ${current} to ${mode} yet`);
       for (const m of order) {
         sec();
         sbc(mode, m);
+        if (m === mode) break;
       }
       cpu.y = 3;
+      if (change) change(); // (its calls leave the registers and flags; the epilogue restores the flags)
     }
     cpu.a = ram[0x29];
-  }),
+  }, ICON_TEMPORARIES), // (the icons' a mode change sets)
+  0xe818: digit(0x6b19, DIGIT_ROWS[0]),
+  0xe81b: digit(0x6b71, DIGIT_ROWS[1]),
+  0xe81e: digit(0x6bcf, DIGIT_ROWS[2]),
+  0xe821: digit(0x6c2d, DIGIT_ROWS[3]),
   0xe845: icon(0x672b, ICON_ROWS.e845),
   0xe848: icon(0x6730, ICON_ROWS.e848),
   0xe8d7: icon(0x6735, ICON_ROWS.e8d7),

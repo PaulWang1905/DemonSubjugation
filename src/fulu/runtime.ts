@@ -891,6 +891,83 @@ function savePage(): void {
   cpu.y = 1;
 }
 
+/**
+ * $E039 (through $E51C): compare the floats at ($20) and ($23): 0 equal, 1
+ * less, 2 greater. By the signs, then the exponents (bits 30-23, by ROLs of
+ * the top two bytes), then the mantissas from the top byte down (its sign
+ * bit masked), reversed for two negatives. A = X = the result, N/Z from it;
+ * Y and C as its comparisons leave them. (A on entry is pushed and popped;
+ * the stack byte, dead afterwards, is overwritten meanwhile.)
+ */
+function floatCompare(): number {
+  const a = word(0x20), b = word(0x23), byte = (p: number, i: number) => rd(p + i);
+  let result: number;
+  cpu.y = 3;
+  const sa = byte(a, 3) & 0x80, sb = byte(b, 3) & 0x80;
+  if (sa !== sb) result = sa ? 1 : 2;
+  else {
+    const exp = (p: number) => ((byte(p, 3) << 1) | (byte(p, 2) >> 7)) & 0xff;
+    // (ROL of the low byte first: C = its top bit, then 0 from the top byte's ROL, as the code goes)
+    const ea = exp(a), eb = exp(b);
+    let order = 0;
+    if (cmp(ea, eb), ea !== eb) order = ea > eb ? 2 : 1;
+    else {
+      cpu.y = 2;
+      const ma = byte(a, 2) & 0x7f, mb = byte(b, 2) & 0x7f;
+      if ((cmp(ma, mb), ma !== mb)) order = ma > mb ? 2 : 1;
+      else
+        for (cpu.y = 1; ; cpu.y--) {
+          const x = byte(a, cpu.y), y = byte(b, cpu.y);
+          cmp(x, y);
+          if (x !== y) {
+            order = x > y ? 2 : 1;
+            break;
+          }
+          if (!cpu.y) break;
+        }
+    }
+    result = sa && order ? 3 - order : order;
+  }
+  cpu.x = result;
+  cpu.a = nz(result);
+  return result;
+}
+
+/** $D31A: compare floats ($E039), the result as flags: Z equal, N less, N and V greater; I and D kept, C cleared (PHP, AND #$1C, ORA, PLP); A = those flags. */
+function floatCompareFlags(): void {
+  const r = floatCompare();
+  if (r) cmp(r, 1);
+  const pushed = cpu.p | 0x30;
+  cpu.a = (pushed & 0x1c) | (r === 0 ? 0x02 : r === 1 ? 0x80 : 0xc0);
+  plp(cpu.a);
+}
+
+/** $D5DC: the remainder of the signed int $20/$21 by $23/$24 ($D3EF's, in $26/$27), with the dividend's sign; 0 stays 0. */
+function remainder16(): void {
+  const negative = nz((cpu.a = ram[0x21])) & 0x80;
+  if (!negative && !ram[0x21] && !nz((cpu.a = ram[0x20]))) return;
+  const s = cpu.s;
+  cpu.s = (s - 2) & 0xff; // (the JSR to $D3EF)
+  table[0xd3ef]();
+  cpu.s = s;
+  ram[0x20] = ram[0x26];
+  cpu.a = ram[0x21] = nz(ram[0x27]);
+  if (negative) negate16();
+}
+
+/**
+ * $D435: signed 32-bit ($20) / ($23): $D0A8 on the magnitudes (the OS negates
+ * its copies on the 6502 stack, $D752), the quotient negated ($D7B4) if the
+ * signs differ.
+ */
+function sdiv32(): void {
+  const s = cpu.s, n = long(word(0x20)), d = long(word(0x23));
+  const nNeg = n >>> 31, dNeg = d >>> 31;
+  div32(nNeg ? (-n >>> 0) : n, dNeg ? (-d >>> 0) : d);
+  if (nNeg !== dNeg) negate32();
+  unwind(s, 0x0c);
+}
+
 // ---- the table ----
 
 /** Each returns "jump" if it has set the PC; anything else it returns is ignored. */
@@ -958,6 +1035,9 @@ const table: Record<number, () => unknown> = {
   },
   0xd6af: () => signed16(mul16),
   0xdc83: () => udiv32(cpu.s),
+  0xd435: sdiv32,
+  0xd5dc: remainder16,
+  0xd31a: floatCompareFlags,
   0xdcc8: () => {
     const s = scratch();
     udiv32((cpu.s - 2) & 0xff);

@@ -278,8 +278,28 @@ export const FUNCTIONS: Record<number, OsFunction> = {
   }),
   // whether the key sound is on
   0xe7c7: fn(0x772e, () => void (cpu.a = nz(ram[SOUND] & 0x04 ? 1 : 0))),
-  // the real-time clock's seconds
+  // the real-time clock's seconds, minutes ($E7DC) and hours ($E7DF)
   0xe7d9: fn(0x759f, () => void (cpu.a = nz(rd(0x234) & 0x3f))),
+  0xe7dc: fn(0x75a5, () => void (cpu.a = nz(rd(0x235) & 0x3f))),
+  0xe7df: fn(0x75ab, () => void (cpu.a = nz(rd(0x236) & 0x1f))),
+  // (p): the clock's seconds, minutes and hours to p[0..2] (through $2F/$30)
+  0xe7f4: fn(0x7618, () => {
+    const p = get16(word(0x28));
+    set16(0x2f, p);
+    for (let i = 0; i < 3; i++) wr(p + i, (cpu.a = rd(0x234 + i)));
+    cpu.y = 2;
+    nz(cpu.a);
+  }),
+  // (p): the clock's next two registers to p[0] and p[1] (bit 0 of $0238) (through $2F/$30)
+  0xe7e2: fn(0x75b1, () => {
+    const p = get16(word(0x28));
+    set16(0x2f, p);
+    wr(p, rd(0x237));
+    wr(p + 1, (cpu.a = nz(rd(0x238) & 0x01)));
+    cpu.y = 1;
+  }),
+  // forget the keys in the OS's buffer (write index = read index)
+  0xe7d0: fn(0x770f, () => void (ram[KEY_WRITE] = cpu.a = nz(ram[KEY_READ]))),
   // clear four records at $2122 (their first bytes) and $216A
   0xe9c2: fn(0x6911, () => {
     ram[0x216a] = 0;

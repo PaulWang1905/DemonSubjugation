@@ -57,10 +57,11 @@ every key, it also provides what the original OS could not: HD text,
 dropping keys pressed while a game is busy, and a debug menu. It runs about
 16 times faster than emulating the firmware.
 
-Beyond the seven games, a static scan of the 138 programs of the bbk-games
-collection finds 86 that call nothing Fulu lacks (84 of the 86 made with
-the RPG kit). §16 sizes what is left: about 13,000 instructions of OS code
-in 55 functions and routines, most of it needed by one or two small games.
+Beyond the seven games: of the 138 programs of the bbk-games collection,
+114 play 180 s of random keys on Fulu without stopping, and 88 call
+nothing Fulu lacks at all (85 of the 86 made with the RPG kit). §16 sizes
+what is left: about 16,500 instructions of OS code, most of it needed by
+one or two small games each.
 
 ```mermaid
 flowchart TB
@@ -967,7 +968,8 @@ games draw as pictures (the title, the big 穿 / 戴) stays pixels.
 | | |
 |---|---|
 | Games verified against the firmware, playing and saving | 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0; 英雄坛说; 三国霸业 |
-| Programs of the collection calling nothing Fulu lacks (static) | 86 of 138 |
+| Programs of the collection playing 180 s on Fulu without stopping | 114 of 138 |
+| Programs of the collection calling nothing Fulu lacks (static) | 88 of 138 |
 | API entries answered | 62: 57 of the 107 the collection calls, and 5 the OS calls itself |
 | Resident routines answered | 64: 55 of the 61 the collection calls, and 9 the floats use |
 | OS code those stand for | about 29,000 instructions of the firmware's (about 13,000 left, §16) |
@@ -1051,62 +1053,84 @@ the device's own applications (the dictionaries, the organiser), which no
 game calls. What matters is what the collection's programs call: 107 API
 entries and 61 resident routines over 138 programs.
 
+Two measures, which differ a lot:
+
+- **What a program can call** (`npx tsx scripts/bbk/fulu-coverage.mts
+  <folder> [0E00.DAT]`): a byte search of each program for far calls into
+  the API table and JSRs to the resident routines, against Fulu's own
+  tables. A call on a path rarely taken (a help screen) counts; calls
+  through pointers are not seen.
+- **What it does call when played**: each program on Fulu alone, 180 s of
+  random keys (Enter, the arrows, space), until it stops at something Fulu
+  lacks. Fulu stops a program only when it makes the call, so a program
+  plays until then.
+
 ```mermaid
-pie showData title 138 programs: OS functions each lacks
-  "none" : 86
-  "1 or 2" : 27
-  "3 to 7" : 19
-  "10 or more" : 6
+pie showData title 138 programs played on Fulu for 180 s
+  "run the whole time" : 114
+  "stop: a function not written" : 21
+  "end on their own" : 3
 ```
 
-The count comes from a byte search of each program for far calls into the
-API table and JSRs to the resident routines, checked against Fulu's own
-tables (`npx tsx scripts/bbk/fulu-coverage.mts <folder> [0E00.DAT]`, which
-also prints the plan below). It shows what a program
-*can* call: a call on a path rarely taken (an options screen) may never
-come in play, and calls through pointers are not seen. 50 API entries and 6
-resident routines are missing in all, about 13,000 instructions of the
-firmware's code (by `scripts/bbk/os-function.mjs --size`), against about
-29,000 for what Fulu answers now.
+The three that end do so as on the device: 坦克大战 after its game-over
+box, 跳蛋 from its menu's 退出, 潜艇大战 after two and a half minutes. Of
+what the scan lists, most is never reached in play: `$E980`, missing in 43
+programs, is never called in 180 s of any of them (a help screen, it
+seems), and it is the biggest item, as it calls a dialog of 1,969
+instructions (`$F262`) built on 13 more functions.
 
-They are very unequal. Ordered by the programs each completes per
-instruction:
+Left, by the scan: 46 API entries and their callees, and 4 resident
+routines, about 16,500 instructions of the firmware's code (each counted
+with the OS functions it calls that Fulu lacks), against about 29,000 for
+what Fulu answers. By play, the 21 programs that stop need 17 functions,
+four of them for more than one program:
+
+| Function | Size (with what it calls) | Programs that stop at it |
+|---|---|---|
+| `$E8C5` | 1,158 | 体闲麻将, 宠物精灵, 赛马, 飞行特训 |
+| `$E788` | 436 | 投篮游戏, 碰碰车 |
+| `$E8BC` | 437 | 泡泡侠, 泡泡侠 加速版 |
+| `$EA64` | 420 | 滑雪, 豪斯 |
+| `$E863`, `$E8B9`, `$E8EF`, `$E92C`, `$E92F`, `$E99E`, `$E9AD`, `$EA52`, `$E94D`; `$D65B`, `$D6F5` | 8 to 3,943 | one program each |
+
+The big functions are each needed by one to seven small arcade, board and
+pet games, never by the RPG kit's games.
+
+**The plan** is therefore by play, in rounds: write what programs stop at,
+check each function against the firmware on random arguments, run the
+shadow run on the programs it affects, play all 138 again, repeat.
 
 ```mermaid
 flowchart LR
-  S0["Now<br/><b>86</b> programs"] -->|"7 small functions<br/>~280 instructions"| S1["Stage 1<br/><b>110</b>"]
-  S1 -->|"14 functions<br/>~1,600"| S2["Stage 2<br/><b>122</b>"]
-  S2 -->|"13 functions<br/>~3,650"| S3["Stage 3<br/><b>130</b>"]
-  S3 -->|"21 functions<br/>~7,950"| S4["All<br/><b>138</b>"]
+  A["Play all 138 on Fulu<br/>(180 s of random keys)"] --> B["Where they stop:<br/>the functions to write"]
+  B --> C["Write them; compare with the<br/>firmware on random arguments"]
+  C --> D["Shadow run on the<br/>programs they affect"]
+  D --> A
 ```
 
-| Stage | Functions | Programs it completes |
-|---|---|---|
-| 1 | `$E980` (43 instructions, missing in 43 programs), `$E7DC`, `$E7F4`, `$E7F7`; resident `$D31A`, `$D435`, `$D65B` | 24 |
-| 2 | `$EA64` and `$E7D0` (11 programs), `$E818`-`$E821` and `$E8E0`, `$E92F` and `$EA52`, `$E800` and `$E824`-`$E82A`, `$E92C` | 12 |
-| 3 | `$E8C5` (1,158 instructions, 7 programs) and `$E9AD`, `$E8B9`, `$E788`, `$E8BC`, and small ones; resident `$D4C0`, `$D604`, `$D6F5` | 8 |
-| 4 | `$E94D` (a GUI dialog of 3,113 instructions, only 中国象棋) and `$E791`; `$E863`-`$E871` (the pet games); `$E78B`, `$E706`, `$E7BE`, `$E99E` and others | 8 |
+Round 1 (`$E7D0`, `$E7DC`, `$E7DF`, `$E7E2`, `$E7F4`, `$E7F7`, the status
+bar's digits `$E818`-`$E821`, the runtime's `$D31A`, `$D435`, `$D5DC`, the
+input mode's change between 2 and 1, and far calls through a program's own
+entries naming an OS segment) took the programs that play 180 s from 103
+to 114, and its 22 programs' shadow runs match the firmware but for what
+is not written yet (input methods) and one file's place (§16.2).
 
-The big functions are each needed by one to seven small arcade, board and
-pet games, never by the RPG kit's games: 84 of the kit's 86 games already
-call nothing Fulu lacks.
+### 16.2 Other limitations
 
-**How each stage is done**, as for 三国霸业: disassemble the function
-(`os-function.mjs`, then `fold-c.mjs`), write it as behaviour with the
-OS's state at the OS's addresses, compare it with the firmware on random
-arguments where it takes them, then run the shadow run on the programs the
-stage completes, with key scripts that reach their calls, until every
-entry matches. A stage counts as done when its programs play on Fulu
-against the firmware with 0 mismatches, not when the scan says nothing is
-missing: other programs may also use interrupts or events the seven games
-never raised (timer 2, the sound timer, GuiGetMsg's other events).
-
+- **Where a new file goes.** The OS allocates flash pages, reusing freed
+  ones, among its own files (the device keeps alarms and checklists as user
+  files too); Fulu gives each file sectors of its own. A program sees the
+  difference only as the file's id (its first page), which it uses only to
+  open the file again, but the shadow run counts it (电子宠物's save). Doing
+  it as the OS does means reading its file system's code (some 2,600
+  instructions).
 ### 16.2 Other limitations
 
 - **Not written:** input methods (`$E919`, `$E925`…, for typing Chinese:
   their size, and whether they need the OS's own data, is not measured
-  yet), GuiGetMsg's other events, `$E92F` (GuiMsgBox's message `$0A` 3,
-  stage 2), and the mode changes in `$E93B`.
+  yet; 恶龙传说, 电子宠物, 对对碰 and 碰碰车 switch to them), GuiGetMsg's
+  other events, `$E92F` (GuiMsgBox's message `$0A` 3), and the input mode
+  changes other than between 2 and 1.
 - **No sound**, in either OS mode.
 - **Timing** is a model of the firmware's cost, within a few percent on the
   games measured, not cycle-exact. A program's own pacing can still differ
