@@ -1,6 +1,7 @@
 // The site's text in English and Simplified Chinese: the top bar, the front
-// page, the footer and the browser tab titles. (The Guide, About, Games and
-// editor pages are still English only.)
+// page, the footer and the browser tab titles. (The Guide and About pages have
+// theirs in InfoPages.tsx, the Games page in gamesText.ts, the Fulu pages in
+// FuluPage.tsx and FuluProgressPage.tsx; the editor is still English only.)
 import type { SiteLang } from "./siteLang";
 
 /** The site's pages (as in router.tsx). */

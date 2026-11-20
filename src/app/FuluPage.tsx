@@ -6,7 +6,7 @@ import { Link } from "./router";
 import { REPO_URL } from "./links";
 import { useSiteLang, type SiteLang } from "./siteLang";
 import { Arrow } from "./Tile";
-import { fuluSummary, GAMES } from "./fuluGames";
+import { FULU_COUNTS, fuluSummary, GAMES, REMAINING } from "./fuluGames";
 import { FuluTabs } from "./FuluProgressPage";
 
 const SUMMARY = fuluSummary();
@@ -14,6 +14,7 @@ const runs = (f: (g: (typeof GAMES)[number]) => boolean) => GAMES.filter((g) => 
 const KIT = { all: SUMMARY.kit, run: runs((g) => g.kit) };
 const OWN = { all: SUMMARY.total - SUMMARY.kit, run: runs((g) => !g.kit) };
 const RUN = SUMMARY.plays + SUMMARY.ends;
+const ALL_RUN = RUN === SUMMARY.total;
 
 const TEXT = {
   en: {
@@ -38,7 +39,7 @@ const TEXT = {
     stackTitle: "Where Fulu sits",
     stack: ["The game", "its own code, unchanged", "Fulu", "a new operating system, in place of BBK's", "The emulated 4988", "its chips: processor, memory, screen, keys", "Your browser"],
     gamesTitle: "What you can play",
-    gamesLead: `${RUN} of the ${SUMMARY.total} programs in the bbk-games collection for the 4988 run on Fulu. You add the game files (.gam) yourself on the Games page.`,
+    gamesLead: `${ALL_RUN ? "All" : `${RUN} of the`} ${SUMMARY.total} programs in the bbk-games collection for the 4988 run on Fulu: ${SUMMARY.plays} play right through our three-minute test, and ${SUMMARY.ends} more end on their own, as they do on the device. You add the game files (.gam) yourself on the Games page.`,
     cards: [
       ["伏魔记, 英雄坛说, 三国霸业", `The whole 伏魔记 series (1.0, 1.2, 1.3, 完美版, 怀旧终曲), 英雄坛说 and 三国霸业: compared with the original OS call by call, saving included.`, `${SUMMARY.full} checked in full`],
       ["Games made with the RPG kit", "RPGs built on BBK's kit, like 伏魔记: on Fulu they also get the wider map view, HD text and more text per page.", `${KIT.run} of ${KIT.all} run`],
@@ -58,7 +59,7 @@ const TEXT = {
     howTitle: "How it works",
     how: [
       ["The game runs as it is", "Its own machine code runs, unchanged, on an emulated copy of the 4988's chips."],
-      ["Fulu answers its calls", "Whenever the game asks for something (draw this, which key was pressed, save), Fulu answers and leaves the machine just as BBK's system would."],
+      ["Fulu answers its calls", `Whenever the game asks for something (draw this, which key was pressed, save), Fulu answers and leaves the machine just as BBK's system would. It answers ${FULU_COUNTS.functions} of the system's functions and ${FULU_COUNTS.routines} routines of its C runtime.`],
       ["At the device's pace", "Each answer takes as long as it did on the real device, so games keep their original speed."],
     ],
     checkTitle: "How we know it is right",
@@ -67,10 +68,10 @@ const TEXT = {
     faqTitle: "Good to know",
     faq: [
       ["Do I need anything from BBK?", "No firmware. You need only the game itself, a .gam file, added on the Games page."],
-      ["Is there sound?", "Not yet: Fulu keeps the sound off for now. Games play the same without it."],
+      ["Is there sound?", "No: Fulu keeps the sound off, and games that would switch it on play as if it were off. They play the same without it."],
       ["Where are my saves?", "In this browser, as they were on the device. Export them from the player's options to keep a copy."],
       ["How do I type Chinese?", "When a game asks for Chinese, a box shows under the screen: type in it with your computer's or phone's own input method (pinyin, handwriting, any) and press Enter. BBK's own input bar is not drawn."],
-      ["What if a game stops?", "Every game in the collection runs in our tests, but a few rare paths are still missing. If a game meets one, it stops and says what is missing: choose Continue to skip it and keep playing. The progress report lists every program and every known problem."],
+      ["What if a game stops?", `Every game in the collection runs in our tests, but ${REMAINING.length} rarely used system functions are still missing (no game reached them in play). If a game meets one, it stops and says what is missing: choose Continue to skip it and keep playing. If the same thing comes up again, Fulu skips it by itself. The progress report lists every program and every known problem.`],
       ["Can I play on the original system instead?", "Yes: add the 4988's firmware files on the Games page and choose Original OS on a game's tile."],
       ["Why do some keys do nothing?", "The power, 目录 and dictionary keys open the device's own menus and dictionaries, which Fulu does not have."],
     ],
@@ -101,7 +102,7 @@ const TEXT = {
     stackTitle: "符箓在哪一层",
     stack: ["游戏", "它自己的代码，原样运行", "符箓", "新的操作系统，代替步步高的", "模拟的 4988", "它的芯片：处理器、内存、屏幕、按键", "你的浏览器"],
     gamesTitle: "能玩什么",
-    gamesLead: `bbk-games 合集中 ${SUMMARY.total} 个 4988 程序，有 ${RUN} 个能在符箓上运行。游戏文件（.gam）需要你自己在游戏库页面添加。`,
+    gamesLead: `bbk-games 合集中 ${SUMMARY.total} 个 4988 程序，${ALL_RUN ? "全部" : `有 ${RUN} 个`}能在符箓上运行：${SUMMARY.plays} 个在我们三分钟的测试中一直运行，另外 ${SUMMARY.ends} 个像在设备上一样自行结束。游戏文件（.gam）需要你自己在游戏库页面添加。`,
     cards: [
       ["伏魔记、英雄坛说、三国霸业", "整个伏魔记系列（1.0、1.2、1.3、完美版、怀旧终曲）、英雄坛说和三国霸业：已与原版系统逐个调用对比，包括存档。", `${SUMMARY.full} 款完整对比`],
       ["用 RPG 工具制作的游戏", "像伏魔记一样用步步高工具做的 RPG：在符箓上还能用更宽的地图、高清文字和每页更多文字。", `${KIT.all} 个中 ${KIT.run} 个能运行`],
@@ -121,7 +122,7 @@ const TEXT = {
     howTitle: "工作原理",
     how: [
       ["游戏原样运行", "它自己的机器码不加改动，运行在模拟的 4988 芯片上。"],
-      ["符箓回答它的请求", "每当游戏请求什么（画这个、按了哪个键、存档），符箓就回答，并让机器的状态和步步高的系统留下的完全一样。"],
+      ["符箓回答它的请求", `每当游戏请求什么（画这个、按了哪个键、存档），符箓就回答，并让机器的状态和步步高的系统留下的完全一样。它实现了 ${FULU_COUNTS.functions} 个系统函数和 ${FULU_COUNTS.routines} 个 C 运行库例程。`],
       ["真机的节奏", "每次回答花的时间和真机一样，游戏保持原来的速度。"],
     ],
     checkTitle: "怎么知道它是对的",
@@ -130,10 +131,10 @@ const TEXT = {
     faqTitle: "须知",
     faq: [
       ["需要步步高的什么东西吗？", "不需要固件。只需要游戏本身，一个 .gam 文件，在游戏库页面添加。"],
-      ["有声音吗？", "暂时没有：符箓目前保持声音关闭。没有声音，游戏玩起来也一样。"],
+      ["有声音吗？", "没有：符箓保持声音关闭，会打开声音的游戏也按声音关闭运行。没有声音，游戏玩起来也一样。"],
       ["存档在哪里？", "在这个浏览器里，就像在设备上一样。可以在播放器的选项里导出，保留一份。"],
       ["怎样输入中文？", "游戏需要中文时，屏幕下方会出现一个输入框：用电脑或手机自己的输入法（拼音、手写都可以）输入，按回车即可。不绘制步步高自带的输入栏。"],
-      ["游戏停下了怎么办？", "合集中的每个游戏在我们的测试中都能运行，但仍有少数很少走到的功能没有实现。游戏遇到时会停下并说明缺少什么：选择“继续”跳过它接着玩。进展报告列出了每个程序和每个已知问题。"],
+      ["游戏停下了怎么办？", `合集中的每个游戏在我们的测试中都能运行，但仍有 ${REMAINING.length} 个很少用到的系统函数没有实现（试玩中没有游戏走到过）。游戏遇到时会停下并说明缺少什么：选择“继续”即可跳过它接着玩；同样的情况再出现时，符箓会自动跳过。进展报告列出了每个程序和每个已知问题。`],
       ["可以改用原版系统吗？", "可以：在游戏库页面添加 4988 的固件文件，然后在游戏卡片上选择“原机系统”。"],
       ["为什么有些键没有反应？", "开关、目录和词典键会打开设备自己的菜单和词典，符箓没有这些。"],
     ],

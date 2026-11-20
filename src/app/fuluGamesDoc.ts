@@ -28,7 +28,7 @@ export function fuluGamesMarkdown(): string {
     `- **Compared with BBK's firmware** (the shadow run): ${n.full} in full (their code traced, play, typing and saves compared), ${n.play} for a minute of play.`,
     `- **Tested by hand**: ${HAND_TESTS.length} report${HAND_TESTS.length === 1 ? "" : "s"} (below).`,
     `- **Problems**: ${n.open} open, ${PROBLEMS.length - n.open} decided or fixed.`,
-    `- **Code scan** (\`scripts/bbk/fulu-coverage.mts --programs\`): ${n.scanClean} programs call nothing Fulu lacks. The programs call ${COVERAGE.apiUsed} OS functions (Fulu answers ${apiDone}) and ${COVERAGE.residentUsed} runtime routines (all answered); about ${COVERAGE.written.toLocaleString("en-US")} instructions of OS code are written and ${COVERAGE.left.toLocaleString("en-US")} left, not counting the input methods.`,
+    `- **Code scan** (\`scripts/bbk/fulu-coverage.mts --programs\`): ${n.scanClean} programs call nothing Fulu lacks. The programs call ${COVERAGE.apiUsed} OS functions (Fulu answers ${apiDone}) and ${COVERAGE.residentUsed} runtime routines (all answered); about ${COVERAGE.written.toLocaleString("en-US")} instructions of OS code are written and ${COVERAGE.left.toLocaleString("en-US")} left, not counting the OS's own input method (Fulu takes Chinese from the computer's own instead).`,
     "",
     "## How it got here",
     "",

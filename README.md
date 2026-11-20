@@ -8,8 +8,10 @@ site on Vercel.
 It also emulates the **Longman 4988 dictionary itself** (步步高朗文 4988): a
 65C02 and the device's hardware, running its own firmware, so any program made
 for it (`*.gam`) plays as on the device. Without the firmware, programs run on
-**Fulu** (符箓), a stand-in for its OS in TypeScript, still being written (the
-伏魔记 series and 英雄坛说 play and save). See [Device emulator](#device-emulator-longman-4988).
+**Fulu** (符箓), a stand-in for its OS in TypeScript: all 138 programs of the
+bbk-games collection run on it, and seven games (the 伏魔记 series, 英雄坛说,
+三国霸业) are checked against the original OS call by call. See
+[Device emulator](#device-emulator-longman-4988).
 
 **No game content is included.** The engine plays resource archives that you
 import yourself in the browser: a game archive (`DAT.LIB` or any `*.lib`).
@@ -79,8 +81,8 @@ the right to use.
   switched while playing. Built by
   `scripts/fonts/build_fonts.py`; credits and licences (SIL OFL 1.1) are in
   [public/fonts/LICENSES.md](public/fonts/LICENSES.md).
-- **Site language**: the front page, Games, Guide, About, the top bar and
-  the footer are in Simplified Chinese or English, following the browser's
+- **Site language**: the front page, Games, Guide, About, the Fulu pages, the
+  top bar and the footer are in Simplified Chinese or English, following the browser's
   languages, with a 中文 / EN switch in the top bar (the player's toolbar,
   options and keypad too; the debug menu and the editor are still English).
 - Keyboard controls, and a full-screen phone layout: the screen as large as it goes, a big on-screen keypad (slide the thumb on the d-pad to turn, hold a direction and A together), controls either side of the screen when held sideways, options in a sheet that pauses the game. Add it to the home screen to play without the browser bars. Held keys repeat at one rate on every device; 1×/2×/4× speed.
@@ -138,12 +140,30 @@ the dictionary complete. With a blank flash the OS formats it itself.
 **Fulu** (`src/fulu`): without the firmware, a program runs on Fulu instead,
 which answers every call into the OS in TypeScript (the far calls through the
 API table, the C compiler's helpers, the interrupts), keeping the OS's state
-where the OS does. It draws text with the site's Unifont. It has what the
-伏魔记 series and 英雄坛说 use, checked against the firmware by a shadow run
-that compares registers, banks and all of RAM after every entry into the OS
-(`tests/fulu-shadow.test.ts`, with `BBK_FIRMWARE` and `BBK_GAMES`); a program
-needing more stops with the function's name. docs/fulu-plan.md and
-docs/fulu-notes.md have the plan and what is known of the OS.
+where the OS does. It draws text with the site's Unifont. It answers 131 OS
+functions and 75 C runtime routines, and all 138 programs of the bbk-games
+collection run on it: 132 play the whole 180-second play test, and the other 6
+end on their own, as they do on the device. Seven games (the 伏魔记 series,
+英雄坛说, 三国霸业) are checked against the firmware call by call by a shadow
+run that compares registers, banks and all of RAM after every entry into the
+OS (`tests/fulu-shadow.test.ts`, with `BBK_FIRMWARE` and `BBK_GAMES`).
+
+- **A stop, and Continue**: a program that meets something Fulu lacks stops
+  and names it; the player offers **Continue**, which skips it (the call
+  returns as if done) so the game plays on, and the same stop again is
+  skipped by itself. Four rarely reached OS functions are still missing: they
+  are in the code of a few programs, never reached in play.
+- **Typing Chinese**: when a program asks for Chinese input, the player shows
+  a box under the screen; what is typed there with the computer's or phone's
+  own input method (pinyin, handwriting, any) goes to the program when Enter
+  is pressed. BBK's own input bar is not drawn.
+- **Sound** is kept off.
+
+The site's Fulu page (`/fulu`) explains it for everyone, and its progress
+report (`/fulu/progress`, also [docs/fulu-games.md](docs/fulu-games.md),
+written from `src/app/fuluGames.ts`) lists every program and every known
+problem. docs/fulu-report.md, docs/fulu-plan.md and docs/fulu-notes.md have
+the technical report, the plan and what is known of the OS.
 
 In the player, a device program installs, boots and opens in about a second.
 The device is kept as it was left (memory and flash, so the game's own saves

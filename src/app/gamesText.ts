@@ -2,6 +2,12 @@
 // locked game card, adding games from a link, and the messages from adding
 // files.
 import { currentSiteLang, type SiteLang } from "./siteLang";
+import { fuluSummary } from "./fuluGames";
+
+// Fulu's numbers, from its progress list: the programs of the collection that run on it.
+const FULU = fuluSummary();
+const FULU_RUN = FULU.plays + FULU.ends;
+const FULU_ALL = FULU_RUN === FULU.total;
 
 const en = {
   eyebrow: "Games",
@@ -48,9 +54,9 @@ const en = {
     },
     fulu: {
       name: "Fulu",
-      what: "Our stand-in for the 4988's operating system: .gam programs run as written, without BBK's firmware. The 伏魔记 series, 英雄坛说 and 三国霸业 play and save, checked against the original; most of the other 4988 games run too.",
+      what: `Our stand-in for the 4988's operating system: .gam programs run as written, without BBK's firmware. ${FULU_ALL ? "All" : `${FULU_RUN} of the`} ${FULU.total} programs of the 4988 game collection run on it; ${FULU.full} games (the 伏魔记 series, 英雄坛说, 三国霸业) are checked against the original call by call. Chinese is typed with your own input method.`,
       short: "The 4988, on our stand-in OS",
-      state: "Built in · 7 games checked in full",
+      state: `Built in · ${FULU_RUN} of ${FULU.total} programs run`,
     },
     original: {
       name: "Original OS",
@@ -167,9 +173,9 @@ const zh: GamesText = {
     },
     fulu: {
       name: "符箓",
-      what: "本站代替 4988 操作系统的程序：.gam 程序按原样运行，不需要步步高的固件。伏魔记系列、英雄坛说和三国霸业可以玩、可以存档，并已与原版对比；其他 4988 游戏大多也能运行。",
+      what: `本站代替 4988 操作系统的程序：.gam 程序按原样运行，不需要步步高的固件。4988 游戏合集的 ${FULU.total} 个程序${FULU_ALL ? "全部" : `中有 ${FULU_RUN} 个`}能在上面运行；${FULU.full} 款游戏（伏魔记系列、英雄坛说、三国霸业）已与原版逐个调用对比。中文用你自己的输入法输入。`,
       short: "4988，运行在本站的代替系统上",
-      state: "内置 · 7 款游戏已完整对比",
+      state: `内置 · ${FULU.total} 个程序中 ${FULU_RUN} 个能运行`,
     },
     original: {
       name: "原机系统",

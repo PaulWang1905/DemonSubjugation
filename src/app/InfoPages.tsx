@@ -1,5 +1,6 @@
 // The Guide and About pages, in the site's look (the home page's type and
 // buttons, the Fulu page's head, figures and numbered rows).
+import { fuluSummary } from "./fuluGames";
 import { REPO_URL } from "./links";
 import { Link } from "./router";
 import { useSiteLang } from "./siteLang";
@@ -7,6 +8,12 @@ import { SITE_TEXT } from "./siteText";
 import { Arrow } from "./Tile";
 
 type Row = [title: string, text: string];
+
+// How many of the 4988 game collection's programs run on Fulu (from its progress list).
+const FULU = fuluSummary();
+const FULU_RUN = FULU.plays + FULU.ends;
+const FULU_EN = `${FULU_RUN === FULU.total ? "All" : `${FULU_RUN} of the`} ${FULU.total} programs of the 4988 game collection run on it.`;
+const FULU_ZH = `4988 游戏合集的 ${FULU.total} 个程序${FULU_RUN === FULU.total ? "全部" : `中有 ${FULU_RUN} 个`}能在上面运行。`;
 
 const GUIDE = {
   en: {
@@ -31,8 +38,16 @@ const GUIDE = {
     enginesText: "A game made with the RPG kit (the 伏魔记 series, 英雄坛说) can play on any of them; other .gam programs on Fulu or the original OS.",
     engines: [
       ["FMJ React", "The site's own engine: the game's data remastered, with HD text, wider maps, More text and the debug menu. Plays .lib files and the library inside a kit .gam."],
-      ["Fulu", "The site's stand-in for the 4988's operating system: the game's own code runs as on the device, no firmware needed. Plays any .gam the site supports."],
+      ["Fulu", `The site's stand-in for the 4988's operating system: the game's own code runs as on the device, no firmware needed. ${FULU_EN}`],
       ["Original OS", "BBK's firmware, emulated. Add its files on the Games page and every .gam runs exactly as it did on the device."],
+    ] as Row[],
+    fuluTitle: "4988 games on Fulu",
+    fuluMore: "More about Fulu",
+    fulu: [
+      ["Typing Chinese", "When a game asks for Chinese, a box appears under the screen. Type in it with your computer's or phone's own input method (pinyin, handwriting, any) and press Enter: the game gets the characters. BBK's own input bar is not shown."],
+      ["If a game stops", "If a game reaches something Fulu does not have yet, it stops and says what. Choose Continue to skip it and play on; if the same thing comes up again, Fulu skips it by itself."],
+      ["Sound", "Fulu keeps the sound off. The games play the same without it."],
+      ["Keys that do nothing", "The power, 目录 and dictionary keys open the device's own menus and dictionaries, which Fulu does not have."],
     ] as Row[],
     controlsTitle: "Controls",
     controlsText: "On a phone the keypad appears by itself: slide your thumb on the d-pad to turn, and hold a direction with A.",
@@ -77,8 +92,16 @@ const GUIDE = {
     enginesText: "用 RPG 工具制作的游戏（伏魔记系列、英雄坛说）可以在任何一种上运行；其他 .gam 程序可在符箓或原版系统上运行。",
     engines: [
       ["FMJ React", "本站自己的引擎：重制游戏数据，带高清文字、更宽地图、更多文字和调试菜单。可玩 .lib 文件，以及 RPG 工具 .gam 里的资源库。"],
-      ["符箓", "本站替代 4988 操作系统的实现：游戏自己的代码像在掌机上一样运行，不需要固件。可玩本站支持的任何 .gam。"],
+      ["符箓", `本站替代 4988 操作系统的实现：游戏自己的代码像在掌机上一样运行，不需要固件。${FULU_ZH}`],
       ["原版系统", "模拟步步高的固件。在“游戏”页添加它的文件后，每个 .gam 都和在掌机上完全一样。"],
+    ] as Row[],
+    fuluTitle: "在符箓上玩 4988 游戏",
+    fuluMore: "进一步了解符箓",
+    fulu: [
+      ["输入中文", "游戏需要中文时，屏幕下方会出现一个输入框。用电脑或手机自己的输入法（拼音、手写都可以）在框里输入，按回车，文字就交给游戏。不显示步步高自带的输入栏。"],
+      ["游戏停下时", "游戏遇到符箓还没有的功能时，会停下并说明缺少什么。选择“继续”即可跳过它接着玩；同样的情况再出现时，符箓会自动跳过。"],
+      ["声音", "符箓保持声音关闭。没有声音，游戏玩起来也一样。"],
+      ["不起作用的键", "开关、目录和词典键会打开设备自己的菜单和词典，符箓没有这些。"],
     ] as Row[],
     controlsTitle: "操作",
     controlsText: "在手机上按键会自动出现：用拇指在方向键上滑动来转向，按住 A 可以持续走。",
@@ -122,7 +145,7 @@ const ABOUT = {
     enginesTitle: "Three engines",
     engines: [
       ["FMJ React", "The game's data, remastered: HD text, wider maps, More text, the debug menu."],
-      ["Fulu", "A new OS for the 4988, in TypeScript: the game's own code, no firmware."],
+      ["Fulu", `A new OS for the 4988, in TypeScript: the game's own code, no firmware. ${FULU_EN}`],
       ["Original OS", "BBK's firmware, emulated, for the device exactly."],
     ] as Row[],
     fuluMore: "How Fulu works",
@@ -157,7 +180,7 @@ const ABOUT = {
     enginesTitle: "三种引擎",
     engines: [
       ["FMJ React", "重制的游戏数据：高清文字、更宽地图、更多文字、调试菜单。"],
-      ["符箓", "用 TypeScript 为 4988 写的新操作系统：游戏自己的代码，无需固件。"],
+      ["符箓", `用 TypeScript 为 4988 写的新操作系统：游戏自己的代码，无需固件。${FULU_ZH}`],
       ["原版系统", "模拟步步高的固件，与掌机完全一致。"],
     ] as Row[],
     fuluMore: "符箓是怎么工作的",
@@ -252,6 +275,19 @@ export function GuidePage({ onPlayDemo }: { onPlayDemo: () => void }) {
           <p>{t.enginesText}</p>
         </header>
         <Rows rows={t.engines} />
+      </section>
+
+      <section className="h-section">
+        <header className="h-sec-head">
+          <h2>{t.fuluTitle}</h2>
+          <p>
+            <Link to="fulu" className="i-more">
+              {t.fuluMore}
+              <Arrow />
+            </Link>
+          </p>
+        </header>
+        <Rows rows={t.fulu} />
       </section>
 
       <section className="h-section">
