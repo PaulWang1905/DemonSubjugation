@@ -218,7 +218,7 @@ const CIRCLE: [number, number][] = [[0x38, 0x3c], [0x2080, 0x208a], [0x20b7, 0x2
  * with the carry of the 16-bit sum before), or 2(x - cx) - 2(y - cy) + 5 as y
  * steps in. A = 1.
  */
-function circle(on: boolean): void {
+function circle(on: boolean, filled = false): void {
   const sp = word(0x28), cx = cpu.a, cy = rd(sp), r = rd(sp + 1);
   cpu.y = 1;
   const fail = () => void ((cpu.a = 0), nz(0));
@@ -236,8 +236,15 @@ function circle(on: boolean): void {
   if (!carry()) return fail();
   plot(cx, cy + r, on);
   plot(cx, cy - r, on);
-  plot(cx + r, cy, on);
-  plot(cx - r, cy, on);
+  // a disc's rows: from x1 to x2 on row y, set (7:$7E5A)
+  const span = (x1: number, x2: number, row: number) => {
+    for (let px = Math.min(x1, x2); px <= Math.max(x1, x2); px++) plot(px, row, true);
+  };
+  if (filled) span(cx - r, cx + r, cy);
+  else {
+    plot(cx + r, cy, on);
+    plot(cx - r, cy, on);
+  }
   let d = 1 - r, x = cx, y = cy + r;
   for (;;) {
     const dx = x - cx, dy = y - cy;
@@ -252,9 +259,14 @@ function circle(on: boolean): void {
     }
     x++;
     const a = x - cx, b = y - cy;
-    for (const [px, py] of [[cx + a, cy + b], [cx - a, cy + b], [cx + a, cy - b], [cx - a, cy - b], [cx + b, cy + a], [cx + b, cy - a], [cx - b, cy + a], [cx - b, cy - a]]) plot(px, py, on);
+    if (filled) {
+      span(cx - a, cx + a, cy + b);
+      span(cx - a, cx + a, cy - b);
+      span(cx - b, cx + b, cy + a);
+      span(cx - b, cx + b, cy - a);
+    } else for (const [px, py] of [[cx + a, cy + b], [cx - a, cy + b], [cx + a, cy - b], [cx - a, cy - b], [cx + b, cy + a], [cx + b, cy - a], [cx - b, cy + a], [cx - b, cy - a]]) plot(px, py, on);
   }
-  // the last comparison (C set), A = 1; the plot leaves X and Y 0
+  // the last comparison (C set), A = 1; the plot leaves X and Y 0 (a disc's span: Y as it leaves it, not compared)
   cpu.x = cpu.y = 0;
   cmp(1, 0);
   cpu.a = nz(1);
@@ -288,10 +300,28 @@ function bitmapWindow(): void {
   for (const [v, limit] of checks) {
     if (cmp((cpu.a = v), limit), v >= limit) return;
   }
-  // (a window 0 wide or high, or one whose sums wrapped past 255 and so passed: the OS then draws past the screen, into its own variables; not done)
-  if (!w || !h || sx + w > 0x100 || sy + h > 0x100 || x + w > 0x100 || y + h > 0x100) return;
-  const stride = ((width - 1) >> 3) + 1;
+  const stride = ((width - 1) >> 3) + 1, x2 = (x + w - 1) & 0xff;
   let row = (bitmap + 2 + stride * sy + (sx >> 3)) & 0xffff;
+  // its last byte column left of its first (0 wide at a byte's start, or x + w wrapped past 255):
+  // the OS gives up after setting up the source and the first row's address ($EAE6), A the difference
+  if (x2 >> 3 < x >> 3) {
+    set16(0x2f, row);
+    farCalled(0x8714);
+    sec();
+    cpu.a = sbc(x2 >> 3, x >> 3);
+    return;
+  }
+  if (!w) {
+    // 0 wide within a byte: every pixel of the byte is kept, and the OS goes through its rows (256 if 0 high) changing
+    // nothing, stepping the source a row by its own 8-bit step $20DE (one more than the stride when sx is a byte's start)
+    const step = (((width - 1) >> 3) - (((sx + w - 1) & 0xff) >> 3) + (sx >> 3) + 1) & 0xff;
+    set16(0x2f, (row + step * (h || 0x100)) & 0xffff);
+    farCalled(0x65fb);
+    cpu.a = 0;
+    return void cmp(0, 0);
+  }
+  // (0 high, or other sums that wrapped past 255 and so passed: the OS then draws past the screen, into its own variables; not done)
+  if (!h || sx + w > 0x100 || sy + h > 0x100 || x + w > 0x100 || y + h > 0x100) return;
   for (let r = 0; r < h; r++, row = (row + stride) & 0xffff) {
     for (let c = 0; c < w; c++) {
       const i = (sx & 7) + c;
@@ -308,6 +338,8 @@ export const SCREEN: Record<number, OsFunction> = {
   0xe8c5: { ...fn(0x5000, bitmapWindow, WINDOW_TEMPORARIES), ownState: { registers: ["y", "p"] } },
   0xe788: fn(0x7c17, () => circle(true), CIRCLE),
   0xe8bc: fn(0x7c0f, () => circle(false), CIRCLE),
+  // $E78B (x in A, y, r): a disc: the circle's steps (5:$8102), filling its rows
+  0xe78b: { ...fn(0x8102, () => circle(true, true), [...CIRCLE, [0x20d8, 0x20d9], [0x20e3, 0x20f0]]), ownState: { registers: ["y"] } },
   /**
    * $E7F7 (clear the whole screen buffer): $0400-$0FF3 to 0, counting $20E5/$20E6
    * down from $0BF4 with the pointer at $3A/$3B, then the byte the boot page

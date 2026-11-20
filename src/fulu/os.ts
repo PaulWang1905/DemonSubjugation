@@ -316,6 +316,20 @@ export const FUNCTIONS: Record<number, OsFunction> = {
     cpu.p = p;
     cpu.a = nz(1);
   }),
+  // $E8AD(p): the running program's physical address (its base page, $2029/$202A, × $1000) as a long to p, through $2F/$30
+  0xe8ad: fn(0x74f4, () => {
+    const p = get16(word(0x28)), lo = ram[0x2029], hi = ram[0x202a];
+    set16(0x2f, p);
+    wr(p, 0);
+    wr(p + 1, (lo << 4) & 0xff);
+    // (the last ASL of $202A sets C)
+    wr(p + 2, ((hi << 4) | (lo >> 4)) & 0xff);
+    cpu.p = (cpu.p & ~0x01) | ((hi >> 4) & 0x01);
+    wr(p + 3, 0);
+    cpu.x = lo;
+    cpu.y = 3;
+    cpu.a = nz(lo);
+  }),
   // $E7E5: set the clock's seconds
   0xe7e5: fn(0x75cc, () => void wr(0x234, cpu.a)),
   // $E7D3(addr (3 bytes), _, p, n): n bytes of physical memory from addr to p, through

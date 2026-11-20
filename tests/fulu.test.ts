@@ -53,7 +53,7 @@ describe("Fulu", () => {
     const call = (entry: number) =>
       run(program([0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2, 0x60], [], [])).stopped;
     expect(call(0xe919)).toBe("Fulu has no OS function $E919 yet");
-    expect(call(0xe92f)).toBe("Fulu has no OS function $E92F yet");
+    expect(call(0xe9ad)).toBe("Fulu has no OS function $E9AD yet");
   });
 
   it("forgets keys pressed while the program has not asked for one for a while", () => {

@@ -818,6 +818,7 @@ export const GUI: Record<number, OsFunction> = {
       message(ram[record], ram[record + 1] | (ram[record + 2] << 8));
       ram[QUEUE_COUNT] = (ram[QUEUE_COUNT] - 1) & 7;
       ram[QUEUE_READ] = (i + 1) & 7;
+      set16(0x26, 3 * i); // (the record's offset, as the runtime's multiply leaves it)
       cpu.p &= ~0x41; // C and V of the index's increment
       return;
     }

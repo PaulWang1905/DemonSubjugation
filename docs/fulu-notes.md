@@ -364,7 +364,36 @@ shadow run of the programs that call it:
 - files over 4 KB: they had one sector and ran into the next file's pages;
   now they take whole sectors just below the user area, in order.
 
-What the 24 others stop at is in the plan. Not Fulu's: 一中传奇 and 热血传奇
+Round 2 (see the report's §16.1 for the list) took the programs that play
+180 s to 128; 5 end on their own. Details worth keeping:
+
+- $E8C5 (x in A, y, sx, sy, w, h, bitmap {width, height, rows}): checks, in
+  order and as 8-bit sums, sx + w - 1 < width, sy + h - 1 < height, x + w -
+  1 < 160, y + h - 1 < 96 (A the sum that failed); $2F/$30 ends at the
+  source row after the window; its rows through $EAE6 (5:$8714) and $EAE9
+  (5:$65FB, the next row's address by $2082: up $20 above row $40, the
+  special rows $40 and $41, down below). Y, C and V come from those and are
+  left out of the comparison (ownState).
+- the circles (5:$7C1C, the disc 5:$8102) plot through 5:$853B, the disc's
+  rows through 7:$7E5A (OR).
+- the text cursor: $20BA/$20BB its size, $20BC/$20BD its place, $20BE its
+  phase (1 shown), $20BF on; $022E bit 4 runs CT. CT's handler (5:$510E)
+  blinks the icons when $20CD = 1, then the cursor when $20BF = 1 (5:$52D7,
+  inverting its rectangle as SysLcdReverse does; its scratch $20C0-$20CB).
+- the status icons: one routine (6:$6753) for $E800-$E84E, their rows at
+  6:$6D15 by index (entry 6:$66D6 + 5 × index); the bar graph's 38 rows at
+  6:$6CEE, $E8E3's thresholds at 6:$69A4.
+- GuiGetMsg's queue: records {type, word} at $2B0F, read index $2B09, write
+  index $2B0A, count $2B0B (at most 8); taking one leaves $26/$27 = 3 ×
+  index (the record's offset, from the runtime's multiply).
+- $E86B off the screen pulls A twice and returns into the stack (a crash on
+  the device); $E871's phase other than 0 or 1 would too.
+
+Open: in 宠物精灵's shadow run the firmware reads $2088 and $20C8 (declared
+temporaries) before writing them, inside one of the program's own far calls,
+with no difference in the result; not looked into yet.
+
+What the others stop at is in the plan. Not Fulu's: 一中传奇 and 热血传奇
 show 烫烫烫 (uninitialised memory) in places, on the firmware too.
 
 **三国霸业 is done too.** Its code reaches nothing Fulu lacks (gam-calls.mjs

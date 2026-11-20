@@ -603,9 +603,13 @@ again.
   through a program's own entries naming an OS segment (阶梯小子), and a
   fix: a file over 4 KB had one sector and ran into the next file's. 114
   play 180 s.
-- **Round 2:** `$E8C5` (4 programs), `$E788`, `$E8BC`, `$EA64` (2 each),
-  then the one-program ones: `$E863`, `$E8B9`, `$E8EF`, `$E92C`, `$E92F`,
-  `$E99E`, `$E9AD`, `$EA52`, `$D65B`, `$D6F5`; `$E94D` (3,943 with what it
-  calls, only 中国象棋) last.
+- **Round 2, done:** `$E8C5`, circles `$E788` / `$E8BC` / `$E78B`, `$E8B9`;
+  the text cursor `$E863`-`$E871` and its blink (CT); every status icon
+  function, the bar graph `$E80F` / `$E8E3`, `$E8EF` / `$E8F2`; the message
+  queue `$E92C` / `$E92F`; `$E7D3`, `$E7E5`, `$E8AD`, `$E8D4`; `$EA52` /
+  `$EA64` with the sound off; runtime `$D4C0`, `$D534`, `$D604`, `$D65B`,
+  `$D6F5`, `$D780`, `$DAC4`. 128 play 180 s, 5 end on their own.
+- **Round 3:** `$E9AD` (挖金子, 869), `$E99E` (幸运花, 1,764 with what it
+  calls), `$E94D` (中国象棋, 3,943), and input methods (宠物精灵, 电子宠物).
 - **Separately:** the OS's page allocation for new files (§16.2 of the
-  report), input methods.
+  report); `$EA52` / `$EA64` with the sound on (the shadow runs' state).

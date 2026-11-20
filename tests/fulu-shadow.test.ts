@@ -265,7 +265,9 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys: number[] |
   // that a declared temporary is never read before it is written in an entry, nor used by the program
   let entries = 1, judging = false;
   const written = new Uint32Array(0x8000), read = m.read.bind(m), write = m.write.bind(m);
-  const temporary = (a: number) => started && !judging && (a < 0x100 || (a >= 0x2000 && a < 0x5000)) && TEMPORARY[a];
+  // (while an interrupt is handled inside an entry, its reads are its own: the CT handler saves $38-$3B to put them back)
+  let handling = 0;
+  const temporary = (a: number) => started && !judging && !handling && (a < 0x100 || (a >= 0x2000 && a < 0x5000)) && TEMPORARY[a];
   m.read = (a: number) => {
     if (temporary(a) && written[a] !== entries) misuse.add(`$${hex(a, 4)} read ${at >= 0 ? `before it is written, in ${entryOf(at)[0]}` : "by the program"}`);
     return read(a);
@@ -280,6 +282,9 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys: number[] |
   const step = cpu.step.bind(cpu);
   cpu.step = () => {
     const pc = cpu.pc;
+    // an interrupt taken inside an entry: from its vector to its RTI
+    if (at >= 0 && !vector(at) && vector(pc) && !(pc & 3)) handling++;
+    else if (handling && read(pc) === 0x40) handling--;
     if (!started) started = pc === entry && m.page(5) === first;
     if (!started) return step();
     if (at >= 0) {
@@ -293,6 +298,7 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys: number[] |
     if (at < 0 && inOs(pc)) {
       entries++;
       at = pc;
+      handling = 0;
       before = snapshot(m);
       nested.length = 0;
       calls = 0;
@@ -448,6 +454,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xe7d3, () => [rand(256), rand(256), [0x80, 0x88, 0x20 + rand(0x20), 0xe0 + rand(4)][rand(4)], 0, rand(256), 0x30 + rand(8), rand(4) ? rand(64) : rand(256)]],
       [0xe7e5, () => [], () => rand(60)],
       [0xe8d4, () => []],
+      [0xe8ad, () => (m.ram.set([rand(256), rand(16)], 0x2029), [rand(256), 0x30 + rand(8)])],
       [0xe8e3, () => [], () => (rand(4) ? rand(101) : rand(256))],
       // a message posted to, or put back at the front of, GuiGetMsg's queue (indexes 0-7, 0-9 queued)
       ...[0xe92c, 0xe92f].map((e): [number, () => number[]] => [e, () => (m.ram.set([rand(8), rand(8), rand(10)], 0x2b09), [rand(256), 0x30 + rand(8)])]),
@@ -459,7 +466,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xea64, () => [rand(256), rand(256)], () => ((m.ram[0x2021] &= ~0x04), rand(256))],
       [0xe8b9, () => ((y0) => [y0, x(), near(y0)])(y())],
       // circles: mostly on the screen, now and then not; the centre's x in A
-      ...[0xe788, 0xe8bc].map((e): [number, () => number[], () => number] => [e, () => [rand(8) ? rand(96) : rand(256), rand(4) ? rand(48) : rand(256)], () => rand(8) ? rand(160) : rand(256)]),
+      ...[0xe788, 0xe8bc, 0xe78b].map((e): [number, () => number[], () => number] => [e, () => [rand(8) ? rand(96) : rand(256), rand(4) ? rand(48) : rand(256)], () => rand(8) ? rand(160) : rand(256)]),
       // a window of a bitmap at $3000 {width, height, rows}: mostly inside it and on the screen
       [0xe8c5, () => {
         const W = 1 + rand(rand(4) ? 64 : 255), H = 1 + rand(rand(4) ? 40 : 255), sx = rand(W), sy = rand(H);
@@ -468,7 +475,9 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
         const w = 1 + rand(rand(6) ? Math.min(W - sx, 48) : 255), h = 1 + rand(rand(6) ? Math.min(H - sy, 48) : 255);
         // (sums that wrap past 255 pass the OS's checks, and it draws into its own variables: Fulu does not)
         const y = rand(8) ? rand(96) : rand(256);
-        return [y, sx, sy, Math.min(w, 0x100 - sx), Math.min(h, 0x100 - sy, 0x100 - y), 0x00, 0x30];
+        // (and now and then 0 wide, as 宠物精灵 draws: nothing changes, the source pointer goes on)
+        const zero = rand(8) === 0;
+        return [y, sx, sy, zero ? 0 : Math.min(w, 0x100 - sx), zero ? rand(2) * Math.min(h, 0x100 - sy, 0x100 - y) : Math.min(h, 0x100 - sy, 0x100 - y), 0x00, 0x30];
       }, () => rand(160)],
       ...[0xe818, 0xe81b, 0xe81e, 0xe821].map((e): [number, () => number[], () => number] => [e, () => [], () => (rand(4) ? rand(17) : rand(256))]),
       // the clock and the key buffer
@@ -643,7 +652,7 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
           float(p);
           if (rand(6)) float(q);
           else for (let i = 0; i < 4; i++) m.write(q + i, m.read(p + i));
-        } else if ([0xd85a, 0xd85f, 0xdae6, 0xdb19, 0xdac1, 0xdac7, 0xdafc, 0xd7b4].includes(addr)) {
+        } else if ([0xd85a, 0xd85f, 0xdae6, 0xdb19, 0xdac1, 0xdac7, 0xdafc, 0xdac4, 0xd7b4, 0xd780].includes(addr)) {
           set16(0x20, ptr());
           set16(0x23, ptr());
         } else if (addr === 0xdb5c) {

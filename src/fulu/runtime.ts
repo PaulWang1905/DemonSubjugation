@@ -1103,6 +1103,13 @@ const table: Record<number, () => unknown> = {
   0xd435: sdiv32,
   0xd65b: smul8,
   0xd604: smod32,
+  // float negate: ($20) to scratch + 8 with its sign bit flipped ($20 pointing at it)
+  0xd780: () => {
+    const from = word(0x20), to = scratch() + 8;
+    for (let i = 0; i < 4; i++) wr(to + i, (cpu.a = rd(from + i) ^ (i === 3 ? 0x80 : 0)));
+    cpu.y = 0x0b;
+    point(0x20, 8);
+  },
   // signed int ($20/$21) to float, at scratch + $10 ($20 pointing at it)
   0xd4c0: () => (table[0xd4c6](), floatAt10()),
   // signed int ($23/$24) to float, at scratch + $20
@@ -1180,6 +1187,7 @@ const table: Record<number, () => unknown> = {
 };
 table[0xdac1] = table[0xdae6];
 table[0xdac7] = table[0xdb19];
+table[0xdac4] = table[0xdafc];
 
 function copy4(from: number, to: number): void {
   for (let i = 0; i < 4; i++) wr(to + i, (cpu.a = rd(from + i)));
