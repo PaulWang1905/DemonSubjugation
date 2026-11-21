@@ -5,6 +5,7 @@ import { gbkBytes, sysGbkDecode } from "../../engine/java";
 import type { LibArchive } from "../format/lib";
 import { problemSummary, type Problem } from "../format/validate";
 import { entryOf, entryTitle, findStart, GROUPS, groupCounts, type GroupId } from "./workspace";
+import { WorldMapCard } from "./WorldMap";
 
 interface Props {
   archive: LibArchive;
@@ -165,6 +166,8 @@ export function ProjectHome(p: Props) {
           )}
         </section>
       </div>
+
+      <WorldMapCard archive={archive} sources={p.sources} onOpen={(key) => p.onOpen(key)} />
 
       <section className="p-card">
         <h3>In this game</h3>

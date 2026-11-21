@@ -47,6 +47,7 @@ import { PixelEditor } from "./PixelEditor";
 import { ScriptEditor } from "./ScriptEditor";
 import { ScriptVisual } from "./ScriptVisual";
 import { LevelTableEditor, MagicChainEditor } from "./TableEditors";
+import { WorldView } from "./WorldView";
 
 /** How to open a resource (EditorServices.openResource). */
 export interface OpenOptions {
@@ -218,4 +219,5 @@ registerView({ id: "form", label: "Fields", title: "Every field, as stored", ord
 registerView({ id: "animation", label: "Animation", order: 50, match: (e) => e.resType === 5, component: AnimationView });
 registerView({ id: "pixels", label: "Pixels", title: "Draw the frames", order: 50, match: (e) => e.resType >= 7 && e.resType <= 11, component: PixelView });
 registerView({ id: "table", label: "Table", order: 50, match: (e) => e.resType === 12 && (e.type === 1 || e.type === 2), component: TableView });
+registerView({ id: "map.world", label: "World", title: "Who is on the map, exits and the start; place, move and paint", order: 10, match: (e) => e.resType === 2, component: WorldView });
 registerView({ id: "bytes", label: "Bytes", title: "The raw bytes as stored in the game file", order: 1000, match: () => true, component: BytesView });
