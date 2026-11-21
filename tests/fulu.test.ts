@@ -53,7 +53,7 @@ describe("Fulu", () => {
     const call = (entry: number) =>
       run(program([0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2, 0x60], [], [])).stopped;
     expect(call(0xe919)).toBe("Fulu has no OS function $E919 yet");
-    expect(call(0xe7be)).toBe("Fulu has no OS function $E7BE yet");
+    expect(call(0xe925)).toBe("Fulu has no OS function $E925 yet");
   });
 
   it("goes on past what it lacks, when asked: the call returns 0 and the program plays on", () => {
@@ -61,7 +61,7 @@ describe("Fulu", () => {
     const fulu = run(
       program(
         [
-          0xa9, 0x55, ...far(0xe7be), 0x8d, 0x00, 0x30, // a function Fulu lacks; [$3000] = what it returned
+          0xa9, 0x55, ...far(0xe925), 0x8d, 0x00, 0x30, // a function Fulu lacks; [$3000] = what it returned
           // $E96B(one of the OS's own help texts), which Fulu stops in: the word pushed, the call, the word dropped
           0xa9, 0x00, 0x85, 0x20, 0xa9, 0x01, 0x85, 0x21, 0x20, 0xca, 0xda, ...far(0xe96b),
           0x18, 0xa5, 0x28, 0x69, 2, 0x85, 0x28, 0xa5, 0x29, 0x69, 0, 0x85, 0x29,
@@ -74,7 +74,7 @@ describe("Fulu", () => {
       ),
     );
     const ram = fulu.machine.ram, sp = ram[0x28] | (ram[0x29] << 8);
-    expect(fulu.stopped).toBe("Fulu has no OS function $E7BE yet");
+    expect(fulu.stopped).toBe("Fulu has no OS function $E925 yet");
     expect(fulu.resumable).toBe(true);
     expect(fulu.goOn()).toBe(true);
     fulu.machine.run(200_000);

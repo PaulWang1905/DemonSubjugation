@@ -204,4 +204,28 @@ export const TEXT: Record<number, OsFunction> = {
     },
     SYS_ASCII_TEMPORARIES,
   ),
+
+  /**
+   * $E7BE (x in A, y, code): a 16 × 16 double-byte character at (x, y), x ≤
+   * 144 and y ≤ 80, the code a word (its low byte the trail byte, its high
+   * byte the lead: $B0A1 is 啊). The glyph is found as SysPrintString finds
+   * one (GB2312 and the GBK areas below trail byte $A1; anything else is
+   * A1A1, a space) and drawn as it draws one, replacing the pixels under it
+   * and keeping the icons' column at x = 144: SysPrintString's double-byte
+   * characters are this code (it calls 5:$5C6D, past the arguments' reading).
+   */
+  0xe7be: fn(
+    0x5c57,
+    () => {
+      const sp = word(0x28), x = cpu.a, y = rd(sp), lo = rd(sp + 1), hi = rd(sp + 2);
+      cpu.y = 2;
+      if ((cmp(x, 0x91), x >= 0x91)) return;
+      if ((cmp((cpu.a = y), 0x51), y >= 0x51)) return;
+      readGlyph(wideGlyph(hi, lo), 32);
+      set16(0x2f, GLYPH);
+      wide(x, y);
+      mark(x, y, 16, 2, gbk.decode(new Uint8Array([hi, lo])));
+    },
+    [[0x38, 0x3c], [0x2081, 0x208d], [0x20ad, 0x20b8], [0x20e5, 0x20e7]],
+  ),
 };

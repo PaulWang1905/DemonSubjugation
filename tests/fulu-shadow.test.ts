@@ -516,6 +516,12 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xe87d, () => [y(), x(), y()]],
       [0xe874, () => [y(), x(), y(), rand(256), 0x30 + rand(8)]],
       [0xe7bb, () => [rand(8) ? rand(81) : rand(100), rand(256)]],
+      // $E7BE(x in A, y, code): a code (trail byte, lead byte) of GB2312 (hanzi, symbols), the GBK areas below $A1, or anything; x now and then near 144
+      [0xe7be, () => {
+        const k = rand(4);
+        const [lo, hi] = [[0xa1 + rand(0x5e), 0xb0 + rand(0x48)], [0xa1 + rand(0x5e), 0xa1 + rand(15)], [0x40 + rand(0x61), 0x81 + rand(0x7f)], [rand(256), rand(256)]][k];
+        return [rand(8) ? rand(81) : rand(100), lo, hi];
+      }, () => (rand(6) ? x() : 136 + rand(16))],
       // $E791(p): a whole screen from p, with the boot page's redirect of $0400 to $1000 ($03F8-$03FC) on or off
       [0xe791, () => {
         m.ram.set([rand(2), 0x00, 0x04, 0x00, 0x10], 0x3f8);
