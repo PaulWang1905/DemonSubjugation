@@ -88,6 +88,25 @@ const en = {
 
   remote: {
     label: "Add from a link",
+    disclaimerTitle: "Files from other people's sites",
+    disclaimer:
+      "FMJ React does not host, own, check or endorse the files you load from a link. They come straight from third-party websites (such as GitHub) into this browser and stay there; nothing is uploaded. The games belong to their authors and publishers: load only what is publicly available and what you may use where you live.",
+    agree: "I understand these files come from third-party, publicly available sources that FMJ React does not control, and that using them is my own responsibility.",
+    needAgree: "Tick the box above to load games from a link.",
+    sourcesLabel: "A public collection",
+    sourceBy: (owner: string) => `By ${owner}, on GitHub`,
+    sourceWhat: {
+      "bbk-games": "Programs for BBK's Longman 4988 dictionary: its RPGs (.gam) and other games. Pick the ones you want; they open on Fulu.",
+    } as Record<string, string>,
+    browse: "Browse this collection",
+    viewSource: "View on GitHub",
+    ownLink: "Or your own link",
+    filter: "Filter by name",
+    selectAll: (n: number) => `Select all shown (${n})`,
+    clear: "Clear",
+    noMatch: "No file matches that name.",
+    kindGam: "4988 program",
+    kindLib: "RPG game",
     open: "Open",
     hint: "A GitHub folder or file, a direct link to a .lib or .gam file, or a web folder that lists them. The games are downloaded into this browser only.",
     downloading: "Downloading…",
@@ -207,6 +226,25 @@ const zh: GamesText = {
 
   remote: {
     label: "通过链接添加",
+    disclaimerTitle: "来自他人网站的文件",
+    disclaimer:
+      "FMJ React 不托管、不拥有、不检查也不认可你通过链接载入的文件。它们直接从第三方网站（例如 GitHub）下载到这个浏览器并保存在这里，不会上传任何内容。游戏的权利属于它们的作者和发行方：请只载入公开可得、并且在你所在地可以合法使用的文件。",
+    agree: "我明白这些文件来自 FMJ React 无法控制的第三方公开来源，使用它们的责任由我自己承担。",
+    needAgree: "勾选上面的方框后，才能通过链接载入游戏。",
+    sourcesLabel: "一个公开合集",
+    sourceBy: (owner: string) => `${owner} 在 GitHub 上整理`,
+    sourceWhat: {
+      "bbk-games": "步步高 4988 词典的程序：RPG 游戏（.gam）和其他游戏。挑选你想要的，它们在符箓上运行。",
+    } as Record<string, string>,
+    browse: "浏览这个合集",
+    viewSource: "在 GitHub 上查看",
+    ownLink: "或者你自己的链接",
+    filter: "按名称筛选",
+    selectAll: (n: number) => `全选显示的（${n} 个）`,
+    clear: "清除",
+    noMatch: "没有文件与这个名称相符。",
+    kindGam: "4988 程序",
+    kindLib: "RPG 游戏",
     open: "打开",
     hint: "可以是 GitHub 上的文件夹或文件、.lib 或 .gam 文件的直接链接，或者列出这些文件的网页目录。游戏只会下载到这个浏览器里。",
     downloading: "正在下载…",

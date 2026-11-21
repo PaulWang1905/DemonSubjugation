@@ -102,10 +102,15 @@ the right to use.
   it is open. It edits party stats, money, items, spells and story flags, and
   has switches for no random battles, walking through walls and an always-full
   party, plus "win this battle".
-- **Add from a link**: paste a GitHub folder (browse it and pick games), a
-  GitHub file page, a direct `.lib` or `.gam` link, or a web folder that lists
-  them. The games are downloaded into the browser; nothing is bundled with
-  the app. GitHub allows 60 folder listings an hour without signing in.
+- **Add from a link**: first tick that you understand the files come from
+  third-party, publicly available sources the site does not control (a
+  disclaimer; asked once per browser session). Then browse the suggested
+  public collection ([iuxt/bbk-games, `eebbk/roms`](https://github.com/iuxt/bbk-games/tree/main/eebbk/roms),
+  programs for the Longman 4988) or paste a GitHub folder (browse it, filter
+  by name, pick games), a GitHub file page, a direct `.lib` or `.gam` link,
+  or a web folder that lists them. The games are downloaded into the browser;
+  nothing is bundled with the app or uploaded. GitHub allows 60 folder
+  listings an hour without signing in.
 - Save slots are kept per game in `localStorage` and can be exported or imported
   as JSON.
 - Also imports the hex-encoded `*.lib.js` / `rom.js` bundles used by the fmj.kt web

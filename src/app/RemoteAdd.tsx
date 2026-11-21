@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { downloadFile, fileLink, listFolder, type RemoteFolder } from "./remote";
 import { GAMES_TEXT } from "./gamesText";
 import { useSiteLang } from "./siteLang";
@@ -9,47 +9,73 @@ interface Props {
 }
 
 const LAST = "fmj-react:remoteLink";
+/** The visitor's acknowledgement of the disclaimer, for this browser session only (asked again next time). */
+const AGREED = "fmj-react:remoteAgreed";
+
+/** Public collections on other people's sites, offered as starting points (FMJ React hosts none of their files). */
+export const SOURCES = [
+  {
+    id: "bbk-games",
+    url: "https://github.com/iuxt/bbk-games/tree/main/eebbk/roms",
+    title: "bbk-games · eebbk/roms",
+    owner: "iuxt",
+  },
+] as const;
 
 function size(n?: number): string {
   if (!n) return "";
   return n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 }
 
-function lastLink(): string {
+function read(store: () => Storage, key: string): string {
   try {
-    return localStorage.getItem(LAST) ?? "";
+    return store().getItem(key) ?? "";
   } catch {
     return "";
   }
 }
 
+function write(store: () => Storage, key: string, value: string | null): void {
+  try {
+    if (value === null) store().removeItem(key);
+    else store().setItem(key, value);
+  } catch {
+    /* (private windows and blocked storage: nothing is kept) */
+  }
+}
+
+const session = () => sessionStorage;
+const local = () => localStorage;
+
 /**
- * Add games from a link: a GitHub folder or file, a direct .lib link or a web
- * folder listing. Folders can be browsed and games picked one by one.
+ * Add games from a link: a GitHub folder or file, a direct .lib or .gam link
+ * or a web folder listing; folders can be browsed and games picked one by
+ * one. The files come from third parties: nothing loads until the visitor
+ * has ticked that they understand this.
  */
 export function RemoteAdd({ busy, onImport }: Props) {
-  const [link, setLink] = useState(lastLink);
+  const [link, setLink] = useState(() => read(local, LAST));
+  const [agreed, setAgreed] = useState(() => read(session, AGREED) === "1");
   const [folder, setFolder] = useState<RemoteFolder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [done, setDone] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState("");
   const t = GAMES_TEXT[useSiteLang()].remote;
+  const locked = !agreed || busy || !!loading;
 
-  const remember = (l: string) => {
-    try {
-      localStorage.setItem(LAST, l);
-    } catch {
-      /* ignore */
-    }
+  const agree = (on: boolean) => {
+    setAgreed(on);
+    write(session, AGREED, on ? "1" : null);
   };
 
   const open = async (l: string) => {
     const url = l.trim();
-    if (!url) return;
+    if (!url || !agreed) return;
     setError(null);
     setLink(url);
-    remember(url);
+    write(local, LAST, url);
     const direct = fileLink(url);
     try {
       if (direct) {
@@ -59,6 +85,7 @@ export function RemoteAdd({ busy, onImport }: Props) {
         setLoading(t.opening);
         setFolder(await listFolder(url));
         setPicked(new Set());
+        setFilter("");
       }
     } catch (e) {
       setError((e as Error).message);
@@ -68,7 +95,7 @@ export function RemoteAdd({ busy, onImport }: Props) {
   };
 
   const add = async (urls: string[]) => {
-    if (!folder || urls.length === 0) return;
+    if (!folder || urls.length === 0 || !agreed) return;
     setError(null);
     const files: File[] = [];
     try {
@@ -98,9 +125,48 @@ export function RemoteAdd({ busy, onImport }: Props) {
     });
 
   const files = folder?.entries.filter((e) => e.type === "file") ?? [];
+  const shown = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    return (folder?.entries ?? []).filter((e) => !q || e.name.toLowerCase().includes(q));
+  }, [folder, filter]);
+  const shownFiles = shown.filter((e) => e.type === "file" && !done.has(e.url));
 
   return (
-    <section className="remote">
+    <section className="remote" aria-labelledby="remote-h">
+      <h2 id="remote-h" className="remote-h">
+        {t.label}
+      </h2>
+
+      <div className={`remote-notice${agreed ? " agreed" : ""}`}>
+        <p className="remote-notice-title">{t.disclaimerTitle}</p>
+        <p>{t.disclaimer}</p>
+        <label className="remote-agree">
+          <input type="checkbox" checked={agreed} onChange={(e) => agree(e.target.checked)} />
+          <span>{t.agree}</span>
+        </label>
+      </div>
+
+      <div className="remote-sources" aria-label={t.sourcesLabel}>
+        <p className="remote-sub">{t.sourcesLabel}</p>
+        {SOURCES.map((s) => (
+          <div key={s.id} className="remote-source">
+            <div className="remote-source-text">
+              <strong>{s.title}</strong>
+              <span className="muted small">{t.sourceBy(s.owner)}</span>
+              <span className="small">{t.sourceWhat[s.id]}</span>
+            </div>
+            <div className="remote-source-actions">
+              <button type="button" onClick={() => void open(s.url)} disabled={locked}>
+                {t.browse}
+              </button>
+              <a className="remote-ext" href={s.url} target="_blank" rel="noopener noreferrer">
+                {t.viewSource} ↗
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <form
         className="remote-form"
         onSubmit={(e) => {
@@ -108,7 +174,9 @@ export function RemoteAdd({ busy, onImport }: Props) {
           void open(link);
         }}
       >
-        <label htmlFor="remote-link">{t.label}</label>
+        <label htmlFor="remote-link" className="remote-sub">
+          {t.ownLink}
+        </label>
         <div className="row">
           <input
             id="remote-link"
@@ -117,15 +185,20 @@ export function RemoteAdd({ busy, onImport }: Props) {
             placeholder="https://github.com/owner/repo/tree/main/folder"
             value={link}
             onChange={(e) => setLink(e.target.value)}
+            disabled={!agreed}
           />
-          <button type="submit" disabled={busy || !!loading || !link.trim()}>
+          <button type="submit" disabled={locked || !link.trim()}>
             {t.open}
           </button>
         </div>
-        <p className="muted small">{t.hint}</p>
+        <p className="muted small">{agreed ? t.hint : t.needAgree}</p>
       </form>
 
-      {loading && <p className="muted">{loading}</p>}
+      {loading && (
+        <p className="remote-status" role="status">
+          {loading}
+        </p>
+      )}
       {error && (
         <p className="remote-error" role="alert">
           {error}
@@ -136,7 +209,7 @@ export function RemoteAdd({ busy, onImport }: Props) {
         <div className="remote-folder">
           <div className="remote-head">
             {folder.parent && (
-              <button className="ghost small" onClick={() => void open(folder.parent!)} disabled={!!loading} aria-label={t.up}>
+              <button className="ghost small" onClick={() => void open(folder.parent!)} disabled={locked} aria-label={t.up}>
                 ↑
               </button>
             )}
@@ -148,26 +221,53 @@ export function RemoteAdd({ busy, onImport }: Props) {
               ✕
             </button>
           </div>
+          {folder.entries.length > 8 && (
+            <div className="remote-tools">
+              <input
+                type="search"
+                className="remote-filter"
+                placeholder={t.filter}
+                aria-label={t.filter}
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+              <button
+                type="button"
+                className="ghost small"
+                onClick={() => setPicked(new Set(shownFiles.map((e) => e.url)))}
+                disabled={locked || shownFiles.length === 0}
+              >
+                {t.selectAll(shownFiles.length)}
+              </button>
+              {picked.size > 0 && (
+                <button type="button" className="ghost small" onClick={() => setPicked(new Set())}>
+                  {t.clear}
+                </button>
+              )}
+            </div>
+          )}
           {folder.entries.length === 0 && <p className="muted">{t.empty}</p>}
+          {folder.entries.length > 0 && shown.length === 0 && <p className="muted">{t.noMatch}</p>}
           <ul className="remote-list">
-            {folder.entries.map((e) =>
+            {shown.map((e) =>
               e.type === "dir" ? (
                 <li key={e.url}>
-                  <button className="remote-dir" onClick={() => void open(e.url)} disabled={!!loading}>
+                  <button className="remote-dir" onClick={() => void open(e.url)} disabled={locked}>
                     📁 {e.name}
                   </button>
                 </li>
               ) : (
                 <li key={e.url}>
                   <label className="remote-file">
-                    <input type="checkbox" checked={picked.has(e.url)} onChange={() => toggle(e.url)} disabled={!!loading} />
-                    <span className="name">{e.name.replace(/\.lib$/i, "")}</span>
-                    <span className="muted small">{size(e.size)}</span>
+                    <input type="checkbox" checked={picked.has(e.url)} onChange={() => toggle(e.url)} disabled={locked || done.has(e.url)} />
+                    <span className="name">{e.name.replace(/\.(lib|gam)$/i, "")}</span>
+                    <span className="remote-kind">{/\.gam$/i.test(e.name) ? t.kindGam : t.kindLib}</span>
+                    <span className="muted small remote-size">{size(e.size)}</span>
                   </label>
                   {done.has(e.url) ? (
-                    <span className="muted small">{t.added}</span>
+                    <span className="remote-added small">{t.added}</span>
                   ) : (
-                    <button className="ghost small" onClick={() => void add([e.url])} disabled={!!loading || busy}>
+                    <button className="ghost small" onClick={() => void add([e.url])} disabled={locked}>
                       {t.add}
                     </button>
                   )}
@@ -177,7 +277,7 @@ export function RemoteAdd({ busy, onImport }: Props) {
           </ul>
           {picked.size > 0 && (
             <div className="remote-actions">
-              <button onClick={() => void add([...picked])} disabled={!!loading || busy}>
+              <button onClick={() => void add([...picked])} disabled={locked}>
                 {t.addSelected(picked.size)}
               </button>
             </div>
