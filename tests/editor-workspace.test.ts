@@ -238,20 +238,21 @@ describe("view registry", () => {
         expect(views.length, keyOf(e)).toBeGreaterThan(0);
         expect(views[views.length - 1].id).toBe("bytes");
       }
-    expect(pickView({ resType: 1, type: 1, index: 1 })!.id).toBe("script.text");
+    expect(pickView({ resType: 1, type: 1, index: 1 })!.id).toBe("script.visual");
+    expect(pickView({ resType: 1, type: 1, index: 1 }, "script.text")!.id).toBe("script.text");
     expect(pickView({ resType: 2, type: 1, index: 1 })!.id).toBe("map.tiles");
     expect(pickView({ resType: 1, type: 1, index: 1 }, "bytes")!.id).toBe("bytes");
-    expect(pickView({ resType: 1, type: 1, index: 1 }, "no-such-view")!.id).toBe("script.text");
+    expect(pickView({ resType: 1, type: 1, index: 1 }, "no-such-view")!.id).toBe("script.visual");
   });
 
   it("a registered view joins in its order and can be the default", () => {
-    const visual = { id: "test.visual", label: "Visual", order: 10, match: (e: { resType: number }) => e.resType === 1, component: () => null };
+    const visual = { id: "test.visual", label: "Visual", order: 5, match: (e: { resType: number }) => e.resType === 1, component: () => null };
     registerView(visual);
-    expect(viewsFor({ resType: 1, type: 1, index: 1 }).map((v) => v.id)).toEqual(["test.visual", "script.text", "bytes"]);
+    expect(viewsFor({ resType: 1, type: 1, index: 1 }).map((v) => v.id)).toEqual(["test.visual", "script.visual", "script.text", "bytes"]);
     expect(pickView({ resType: 1, type: 1, index: 1 })!.id).toBe("test.visual");
     expect(viewsFor({ resType: 2, type: 1, index: 1 }).map((v) => v.id)).toEqual(["map.tiles", "bytes"]);
     // the same id replaces it
     registerView({ ...visual, order: 60 });
-    expect(viewsFor({ resType: 1, type: 1, index: 1 }).map((v) => v.id)).toEqual(["script.text", "test.visual", "bytes"]);
+    expect(viewsFor({ resType: 1, type: 1, index: 1 }).map((v) => v.id)).toEqual(["script.visual", "script.text", "test.visual", "bytes"]);
   });
 });

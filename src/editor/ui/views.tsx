@@ -45,6 +45,7 @@ import { FieldForm } from "./FieldForm";
 import { MapEditor } from "./MapEditor";
 import { PixelEditor } from "./PixelEditor";
 import { ScriptEditor } from "./ScriptEditor";
+import { ScriptVisual } from "./ScriptVisual";
 import { LevelTableEditor, MagicChainEditor } from "./TableEditors";
 
 /** How to open a resource (EditorServices.openResource). */
@@ -208,6 +209,7 @@ function BytesView({ entry }: ViewProps) {
 // One line per view. Phase 2 adds e.g. "script.visual" (order 10, before
 // "script.text"), "map.world", "character.card" here.
 
+registerView({ id: "script.visual", label: "Visual", title: "The script's events as steps in plain words", order: 10, match: (e) => e.resType === 1, component: ScriptVisual });
 registerView({ id: "script.text", label: "Text", title: "The script as text", order: 50, match: (e) => e.resType === 1, component: ScriptTextView });
 registerView({ id: "map.tiles", label: "Tiles", title: "Paint tiles, walkable cells and map events", order: 50, match: (e) => e.resType === 2, component: MapTilesView });
 registerView({ id: "record.card", label: "Card", title: "The record as a card: picture, key numbers, pickers, where it is used", order: 10, match: hasCard, component: CardView });
