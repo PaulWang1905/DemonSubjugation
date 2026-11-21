@@ -975,7 +975,7 @@ games draw as pictures (the title, the big 穿 / 戴) stays pixels.
 | Games verified against the firmware, playing and saving | 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0; 英雄坛说; 三国霸业 |
 | Programs of the collection running 180 s of every key on Fulu without stopping | 138 of 138 (105 play the whole time, 33 end as on the device) |
 | Programs of the collection calling nothing Fulu lacks (both code scans) | 138 of 138 |
-| Programs the firmware log saw enter something Fulu lacks | 0 of 138 (102 API entries and 70 resident routines entered in all) |
+| Programs the firmware log saw enter something Fulu lacks | 0 of 138 (in 180 s each: 102 of the 106 API entries and 69 of the 75 resident routines in their code, the far call besides; nothing outside their code) |
 | API entries answered | 135: all 106 the collection calls, 17 only Fulu's own functions call, and 12 status-bar icon functions written with their set that nothing calls |
 | Resident routines answered | 77: all 75 the collection calls (and the far call $D2F6, Fulu's core), and 2 only Fulu's own functions use |
 | OS code those stand for | about 48,400 instructions of the firmware's (none left that a program calls, §16; the OS's own input method not written, §16.2) |
@@ -1266,8 +1266,9 @@ at `$F9AF` forever on the first send).
 Now both scans find nothing Fulu lacks in any of the 138 (the code flow's
 only hit, `$F1BB` in 宠物精灵, is text taken for code); the every-key play
 test finds no stop in any of the 138; and the firmware log found nothing a
-program entered that Fulu lacks (102 API entries and 70 resident routines
-entered in all), which also covers the calls through pointers the scans
+program entered that Fulu lacks (102 of the 106 API entries and 69 of the 75
+resident routines in their code, besides the far call, and nothing outside it),
+which also covers the calls through pointers the scans
 cannot follow, as far as play reaches them. What the scans cannot prove and
 play cannot reach (the long RPGs' later chapters and endings, say) is
 covered only by the owner's hand tests (what to try:

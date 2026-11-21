@@ -706,8 +706,9 @@ finds no stop in any.
 3. The owner's hand tests of the long RPGs, with a list of what to try
    (saving, shops, battles, the endings).
 
-Status: 1 done (180 s each with every key: 102 API entries and 70
-resident routines entered in all, none that Fulu lacks now; the calls
+Status: 1 done (180 s each with every key: 102 of the 106 API entries and
+69 of the 75 resident routines in the programs' code entered, besides the far
+call, and nothing outside it, none that Fulu lacks now; the calls
 through pointers are covered as far as play reaches them); 2 done (the 12
 programs that changed, 30 minutes of each of the two key scripts: 华容道,
 滑雪, 体闲麻将, 智多星, 搬运工 and 幸运花 match the firmware throughout; in

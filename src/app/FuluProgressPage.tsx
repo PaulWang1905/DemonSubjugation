@@ -157,7 +157,7 @@ const TEXT = {
       [
         "Firmware log",
         "Each program played for 180 seconds with every key on BBK's original OS, logging every OS function and routine it enters.",
-        "Sees calls made through pointers, which the scans cannot follow (93 far calls in 48 programs, 40 jump tables in 33). Only what play reaches.",
+        "Sees calls made through pointers, which the scans cannot follow (93 far calls in 48 programs, 40 jump tables in 33). Only what play reaches: in 180 s each, 102 of the 106 OS functions and 69 of the 75 runtime routines in the programs' code, and nothing outside it.",
       ],
       [
         "Hand tests",
@@ -278,7 +278,7 @@ const TEXT = {
       [
         "固件记录",
         "每个程序在步步高原版系统上按每个键玩 180 秒，记录它进入的每个系统函数和例程。",
-        "能看到扫描跟踪不了的、通过指针的调用（48 个程序中的 93 个远调用，33 个程序中的 40 个跳转表）；只限试玩走到的地方。",
+        "能看到扫描跟踪不了的、通过指针的调用（48 个程序中的 93 个远调用，33 个程序中的 40 个跳转表）；只限试玩走到的地方：每个程序 180 秒，进入了程序代码中 106 个系统函数里的 102 个、75 个运行库例程里的 69 个，没有进入代码之外的地方。",
       ],
       ["人工测试", "本站作者亲手玩游戏并报告发现。", "扫描无法证明、随机试玩又走不到的地方（比如长篇 RPG 的结局），以及游戏的手感，只能这样检查。"],
     ],
