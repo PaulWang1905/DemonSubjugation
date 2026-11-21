@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { buildGam, donorProblem, type GamEngine } from "../../bbk/gamBuild";
 import { gamInfo } from "../../bbk/gam";
+import { ExportSaved } from "./ExportSaved";
 
 interface Props {
   name: string;
@@ -33,6 +34,8 @@ export function ExportDialog({ name, lib, onClose }: Props) {
   const [engine, setEngine] = useState<GamEngine>("react");
   const [english, setEnglish] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** What was saved, shown once the file is downloaded. */
+  const [saved, setSaved] = useState<{ file: string; size: number; format: Format; kit: boolean } | null>(null);
   const file = (name.replace(/[^\w一-鿿-]+/g, "_") || "game") + (format === "lib" ? ".lib" : ".gam");
 
   useEffect(() => {
@@ -54,15 +57,21 @@ export function ExportDialog({ name, lib, onClose }: Props) {
   const run = () => {
     try {
       const bytes = lib();
-      if (format === "lib") download(bytes, file);
-      else download(buildGam(bytes, name, engine, kit ? donor?.data : undefined, kit && english), file);
-      onClose();
+      const out = format === "lib" ? bytes : buildGam(bytes, name, engine, kit ? donor?.data : undefined, kit && english);
+      download(out, file);
+      setSaved({ file, size: out.length, format, kit: format === "gam" && kit });
     } catch (e) {
       setError((e as Error).message);
     }
   };
 
   const ready = format === "lib" || !kit || !!donor;
+  if (saved)
+    return (
+      <dialog ref={dialog} className="export-dialog" onClose={onClose} onCancel={onClose} aria-labelledby="export-saved-title">
+        <ExportSaved {...saved} onAgain={() => setSaved(null)} onClose={onClose} />
+      </dialog>
+    );
   return (
     <dialog ref={dialog} className="export-dialog" onClose={onClose} onCancel={onClose}>
       <form method="dialog" onSubmit={(e) => (e.preventDefault(), run())}>

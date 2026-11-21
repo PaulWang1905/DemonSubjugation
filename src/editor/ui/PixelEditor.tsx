@@ -281,8 +281,9 @@ export function PixelEditor({ entry, onChange, hint, shortcuts = true }: Props) 
                 setCur(Math.max(0, cur - 1));
               }}
               disabled={frames.length <= 1}
+              title={`Delete frame ${cur + 1} only (Undo brings it back); the whole sprite is deleted at the top`}
             >
-              Delete
+              Delete frame
             </button>
           </div>
           <div className="row">

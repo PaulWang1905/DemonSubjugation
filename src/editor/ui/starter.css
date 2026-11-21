@@ -498,3 +498,11 @@ fieldset.wz-field > .wz-choice {
   font-size: 12px;
   padding: 2px 8px;
 }
+
+/* room under the sidebar's last items for the guide (fixed at the bottom left) */
+body:has(.guide:not(.folded)) .e-side {
+  padding-bottom: 300px;
+}
+body:has(.guide.folded) .e-side {
+  padding-bottom: 56px;
+}

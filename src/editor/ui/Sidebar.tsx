@@ -8,6 +8,7 @@ import type { LibArchive } from "../format/lib";
 import { CREATE_OPTIONS } from "./create";
 import { hasThumb, Thumb } from "./Thumb";
 import { WIZARDS } from "./Wizards";
+import { AddMenu } from "./AddMenu";
 import { entryTitle, groupEntries, groupOf, keyOf, kindLabel, parseKey, type GroupId } from "./workspace";
 import type { LibEntry } from "../format/lib";
 
@@ -100,31 +101,7 @@ export function Sidebar({ archive, active, onOpen, onCreate, dirty, marks, label
                   +
                 </button>
               ) : (
-                <select
-                  className="group-add"
-                  value=""
-                  aria-label={`New in ${g.label}`}
-                  title={`New in ${g.label}…`}
-                  onChange={(e) => e.target.value && onCreate(e.target.value)}
-                >
-                  <option value="">+</option>
-                  {guided.length > 0 && (
-                    <optgroup label="Guided">
-                      {guided.map((w) => (
-                        <option key={w.what} value={w.what}>
-                          {w.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  <optgroup label={guided.length ? "Blank" : "New"}>
-                    {make.map((o) => (
-                      <option key={o.what} value={o.what}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
+                <AddMenu group={g.label} guided={guided} blank={make} onPick={onCreate} />
               )}
             </div>
             {isOpen && g.count === 0 && (

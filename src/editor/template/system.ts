@@ -54,9 +54,20 @@ export function gameLogo(name: string, subtitle?: string): LibEntry {
   }).join("").trim() || "MY GAME";
   const p = new Pix(160, 96, W);
   p.rect(4, 4, 152, 88).rect(6, 6, 148, 84);
-  // the big letters take 12 px each: smaller for a long name
-  const t = bigText(title, textWidth(title) * 2 <= 140 ? 2 : 1);
-  p.blit(t, 80 - Math.floor(t.width / 2), 34);
+  // the big letters take 12 px each: smaller for a long name, on two lines
+  // when even the small letters do not fit
+  if (textWidth(title) <= 140 || !title.includes(" ")) {
+    const t = bigText(title, textWidth(title) * 2 <= 140 ? 2 : 1);
+    p.blit(t, 80 - Math.floor(t.width / 2), 34);
+  } else {
+    const words = title.split(/\s+/);
+    let cut = 1;
+    while (cut < words.length - 1 && textWidth(words.slice(0, cut + 1).join(" ")) <= 140) cut++;
+    for (const [k, line] of [words.slice(0, cut).join(" "), words.slice(cut).join(" ")].entries()) {
+      const t = bigText(line, 1);
+      p.blit(t, Math.max(8, 80 - Math.floor(t.width / 2)), 30 + k * 8);
+    }
+  }
   if (subtitle) p.text(subtitle, 80 - Math.floor(textWidth(subtitle) / 2), 54);
   p.text("PRESS ENTER", 80 - Math.floor(textWidth("PRESS ENTER") / 2), 76);
   return stillSrs(1, 248, p, 0, 0, 160);

@@ -1,0 +1,32 @@
+/* The World view's labels placed by labelLayout.ts, and the "?" marks. */
+.w-name.short,
+.w-chip.short {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the full name on hover, on focus and when selected, above the others */
+.w-thing:hover,
+.w-thing:focus-visible {
+  z-index: 6;
+}
+.w-thing:hover .short,
+.w-thing:focus-visible .short,
+.w-thing.sel .short {
+  max-width: none !important;
+  z-index: 6;
+}
+.w-maybe {
+  font-weight: 700;
+}
+.w-maybe-legend {
+  margin: 2px 2px 0;
+}
+.w-maybe-legend strong {
+  display: inline-block;
+  min-width: 1.4em;
+  text-align: center;
+  border-radius: 4px;
+  background: rgba(20, 24, 22, 0.72);
+  color: #fff;
+  margin-right: 4px;
+}

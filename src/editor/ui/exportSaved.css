@@ -1,0 +1,19 @@
+/* The export dialog once the file is saved (ExportSaved.tsx). */
+.export-dialog form.export-saved {
+  gap: 12px;
+}
+.export-saved p {
+  margin: 0;
+}
+.export-saved h3 {
+  margin: 0 0 4px;
+  font: 600 12px/1.4 var(--h-mono, ui-monospace, monospace);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.export-steps {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.5;
+}

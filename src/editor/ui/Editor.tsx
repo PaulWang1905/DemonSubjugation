@@ -12,6 +12,9 @@ import { HelpDialog, ProblemsDialog } from "./EditorDialogs";
 import { typing } from "./undoKeys";
 import { findEntry, putEntry, readLib, removeEntry, writeLib, type LibArchive, type LibEntry } from "../format/lib";
 import { blankProject, blankSources } from "../template/blank";
+import { fileTitle, logoAfterRename, logoEntry, LOGO_KEY } from "../template/titleLogo";
+import { TitleScreenCard } from "./TitleScreenCard";
+import { gbkBytes, sysGbkDecode } from "../../engine/java";
 import { lanternPath, lanternPathSources } from "../template/demo";
 import { silentBell, silentBellSources } from "../template/silentBell";
 import { ResourceView } from "./ResourceView";
@@ -224,7 +227,8 @@ export function Editor({ onPlaytest }: Props) {
     if (kind === "demo") openArchive("Lantern Path", lanternPath(), lanternPathSources());
     else if (kind === "bell") openArchive("The Silent Bell", silentBell(), silentBellSources());
     // (a new blank game starts the guided first game)
-    else if (name) openArchive(name, blankProject(name.toUpperCase().slice(0, 9)), blankSources(), setFlagNote(startGuide(emptyNotes()), 1, { name: "welcomed" }));
+    // (the project keeps the full name; the game file's title is cut to 9 bytes; the title screen shows the full name)
+    else if (name) openArchive(name, blankProject(fileTitle(name, (t) => gbkBytes(t).length), name), blankSources(), setFlagNote(startGuide(emptyNotes()), 1, { name: "welcomed" }));
   };
 
   const openFile = async (f: File | undefined) => {
@@ -890,15 +894,31 @@ export function Editor({ onPlaytest }: Props) {
                         sources={cur.sources}
                         name={cur.name}
                         onName={(name) => {
+                          // (the title screen's picture follows the name it shows, while it is the editor's)
+                          const title = sysGbkDecode(cur.archive.titleBytes);
+                          const logo = logoAfterRename(cur.archive, { title, name: cur.name }, { title, name });
                           const next = { ...cur, name };
                           setCur(next);
                           persist(next);
+                          if (logo) write(LOGO_KEY, logo.data, undefined, false);
                         }}
                         onTitle={(titleBytes) => {
+                          const before = sysGbkDecode(cur.archive.titleBytes);
+                          const logo = logoAfterRename(cur.archive, { title: before, name: cur.name }, { title: sysGbkDecode(titleBytes), name: cur.name });
                           const next = { ...cur, archive: { ...cur.archive, titleBytes } };
                           setCur(next);
                           persist(next);
+                          if (logo) write(LOGO_KEY, logo.data, undefined, false);
                         }}
+                        titleScreen={
+                          <TitleScreenCard
+                            archive={cur.archive}
+                            name={cur.name}
+                            title={sysGbkDecode(cur.archive.titleBytes)}
+                            onLogo={(text) => write(LOGO_KEY, logoEntry(text).data, undefined, false)}
+                            onOpen={(key) => openResource(key, {})}
+                          />
+                        }
                         problems={problems}
                         onOpen={(key, line) => openResource(key, { line })}
                         onGroup={showGroup}

@@ -1,0 +1,19 @@
+/* The step palette's note for what the engine lacks (PaletteNote.tsx). */
+.sv-p-note {
+  margin: 6px 8px 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+  line-height: 1.45;
+}
+.sv-p-note-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.sv-p-note-steps button {
+  padding: 2px 8px;
+}

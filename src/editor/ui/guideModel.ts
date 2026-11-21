@@ -7,7 +7,12 @@
 // against the project as it was when the step began (`base`): the first
 // map's tiles change, one more person stands on it, a person's first line
 // changes, a playtest runs, one more chest stands there, there is one more
-// map and one more exit from the first map to another.
+// map and one more exit from a map to another.
+//
+// Things made before their step (a second map made while painting the
+// first) count too: the "made something" steps also compare with the
+// project as it was when the guide began (`first`), unless the author went
+// back to the step by hand.
 import { findEntry, type LibArchive } from "../format/lib";
 import type { ProjectNotes } from "../format/notes";
 import type { WorldIndex } from "../format/world";
@@ -19,15 +24,17 @@ export const GUIDE_KEY = "guide.first";
 export interface Signals {
   /** The map the game starts on. */
   map: string | null;
-  /** A hash of its tiles. */
+  /** A hash of its tiles (and where one can walk). */
   tiles: number;
+  /** How `tiles` is counted (2: without the event numbers); a guide saved with another starts counting again. */
+  tv?: number;
   /** People and objects (chests) on it. */
   people: number;
   chests: number;
   /** The first lines its people say, joined. */
   lines: string;
   maps: number;
-  /** Exits from the start map to another map. */
+  /** Exits from a map to another (on any map: "New map joined here" joins any two). */
   exits: number;
   playtests: number;
 }
@@ -44,7 +51,16 @@ export interface GuideState {
   closed: boolean;
   /** Playtests run since the guide began. */
   playtests: number;
+  /** The project when the guide began (null in guides saved before it was kept). */
+  first?: Signals | null;
+  /** The panel is folded to a pill (kept across reloads). */
+  folded?: boolean;
+  /** The author went back to this step by hand: only what changes from now on counts. */
+  back?: boolean;
 }
+
+/** Steps that ask to make something: done also when it was made before the step began. */
+const MADE: ReadonlySet<StepId> = new Set(["paint", "person", "chest", "map"]);
 
 export type StepId = "paint" | "person" | "line" | "play" | "chest" | "map" | "play2";
 
@@ -105,9 +121,10 @@ export const STEPS: GuideStep[] = [
   },
 ];
 
+/** A hash of a map's tiles and where one can walk (not its event numbers: an exit joined to it is not painting). */
 const hash = (b: Uint8Array, from: number) => {
   let h = 2166136261;
-  for (let i = from; i < b.length; i++) h = Math.imul(h ^ b[i], 16777619);
+  for (let i = from; i < b.length; i += 2) h = Math.imul(h ^ b[i], 16777619);
   return h >>> 0;
 };
 
@@ -128,11 +145,12 @@ export function guideSignals(world: WorldIndex | null, archive: LibArchive, play
   return {
     map,
     tiles: e ? hash(e.data, 0x12) : 0,
+    tv: 2,
     people: people.length,
     chests: info?.people.filter((p) => p.kind === "object").length ?? 0,
     lines,
     maps: archive.entries.filter((x) => x.resType === 2).length,
-    exits: info?.exits.filter((x) => x.targets.some((tg) => tg.map !== map)).length ?? 0,
+    exits: world ? [...world.maps.values()].reduce((n, m) => n + m.exits.filter((x) => x.targets.some((tg) => tg.map !== m.key)).length, 0) : 0,
     playtests,
   };
 }
@@ -148,6 +166,9 @@ export function readGuide(notes: ProjectNotes): GuideState | null {
     base: g.base && typeof g.base === "object" ? (g.base as Signals) : null,
     closed: !!g.closed,
     playtests: Number(g.playtests) || 0,
+    first: g.first && typeof g.first === "object" ? (g.first as Signals) : null,
+    folded: !!g.folded,
+    back: !!g.back,
   };
 }
 
@@ -158,8 +179,9 @@ export function writeGuide(notes: ProjectNotes, g: GuideState): ProjectNotes {
 /** A guide at its first step (or its progress, shown again). */
 export function startGuide(notes: ProjectNotes): ProjectNotes {
   const g = readGuide(notes);
-  if (g) return writeGuide(notes, { ...g, closed: false, step: g.step >= STEPS.length ? 0 : g.step, done: g.step >= STEPS.length ? [] : g.done, base: g.step >= STEPS.length ? null : g.base });
-  return writeGuide(notes, { v: 1, step: 0, done: [], base: null, closed: false, playtests: 0 });
+  if (g && g.step >= STEPS.length) return writeGuide(notes, { ...g, closed: false, folded: false, step: 0, done: [], base: null, first: null, back: false });
+  if (g) return writeGuide(notes, { ...g, closed: false, folded: false });
+  return writeGuide(notes, { v: 1, step: 0, done: [], base: null, closed: false, playtests: 0, first: null, folded: false, back: false });
 }
 
 /** Count a playtest (the playtest steps wait for one). */
@@ -171,7 +193,7 @@ export function notePlaytest(notes: ProjectNotes): ProjectNotes {
 /** Go to a step (by the author: Back, Skip, Done); it begins now. */
 export function goTo(g: GuideState, step: number, now: Signals, markDone = false): GuideState {
   const done = markDone && !g.done.includes(g.step) ? [...g.done, g.step] : g.done;
-  return { ...g, done, step: Math.max(0, Math.min(STEPS.length, step)), base: now };
+  return { ...g, done, step: Math.max(0, Math.min(STEPS.length, step)), base: now, back: step < g.step };
 }
 
 /**
@@ -181,10 +203,23 @@ export function goTo(g: GuideState, step: number, now: Signals, markDone = false
 export function advance(g: GuideState, now: Signals): GuideState {
   if (g.step >= STEPS.length) return g;
   // (a guide just begun, or read from an old version: the current step starts now)
-  if (!g.base) return { ...g, base: now };
+  if (!g.base) return { ...g, base: now, first: g.first ?? now };
+  if (g.base.tv !== now.tv) return { ...g, base: { ...g.base, tiles: now.tiles, tv: now.tv }, first: g.first && { ...g.first, tiles: now.tiles, tv: now.tv } };
   const step = STEPS[g.step];
   const base = { ...g.base, playtests: g.base.playtests ?? 0 };
-  if (!step.check(base, { ...now })) return g;
+  const made = MADE.has(step.id) && !g.back && step.check(firstOf(g), { ...now });
+  if (!made && !step.check(base, { ...now })) return g;
   const done = g.done.includes(g.step) ? g.done : [...g.done, g.step];
-  return { ...g, done, step: g.step + 1, base: now };
+  return { ...g, done, step: g.step + 1, base: now, back: false };
+}
+
+/**
+ * The project when the guide began; for a guide saved before that was kept,
+ * a blank game's start (one map, nobody on it, no exits) with the current
+ * step's tiles.
+ */
+function firstOf(g: GuideState): Signals {
+  if (g.first) return g.first;
+  const b = g.base!;
+  return { ...b, people: 0, chests: 0, maps: 1, exits: 0 };
 }

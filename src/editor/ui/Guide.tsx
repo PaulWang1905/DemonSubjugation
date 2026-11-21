@@ -5,9 +5,9 @@
 // points at the real control (outlined and scrolled into view), and moves on
 // by itself when the project shows the step done (guideModel.ts); Done, Skip
 // and Back move by hand. It never blocks the editor: it can be folded or
-// closed, and the project home resumes it. Progress is kept in the project's
-// notes.
-import { useEffect, useMemo, useRef, useState } from "react";
+// closed, and the project home resumes it. Progress, and whether it is
+// folded or closed, are kept in the project's notes (so a reload keeps them).
+import { useEffect, useMemo, useRef } from "react";
 import type { LibArchive } from "../format/lib";
 import type { ProjectNotes } from "../format/notes";
 import { firstLine, type Texts } from "../format/worldEdit";
@@ -80,7 +80,12 @@ function findTarget(list: Target[], root: HTMLElement | null): HTMLElement | nul
 
 export function GuidePanel({ archive, texts, version, notes, setNotes, onOpen, onArm, onPlaytest, onWizard }: Props) {
   const g = readGuide(notes);
-  const [folded, setFolded] = useState(false);
+  const folded = !!g?.folded;
+  const setFolded = (f: boolean) =>
+    setNotes((n) => {
+      const cur = readGuide(n);
+      return cur ? writeGuide(n, { ...cur, folded: f }) : n;
+    });
   const panel = useRef<HTMLElement>(null);
   const world: WorldIndex | null = useMemo(() => {
     try {
@@ -170,8 +175,14 @@ export function GuidePanel({ archive, texts, version, notes, setNotes, onOpen, o
   if (folded)
     return (
       <aside className="guide folded" aria-label="Guide" ref={panel}>
-        <button type="button" className="ghost guide-pill" onClick={() => setFolded(false)} aria-expanded="false">
-          {step ? `Guide: step ${g.step + 1} of ${STEPS.length} · ${step.title}` : "Guide: done!"}
+        <button
+          type="button"
+          className="ghost guide-pill"
+          onClick={() => setFolded(false)}
+          aria-expanded="false"
+          title={step ? `Your first game, step ${g.step + 1} of ${STEPS.length}: ${step.title}. Click to open the guide.` : "Your first game: done! Click to open the guide."}
+        >
+          {step ? `Guide ${g.step + 1}/${STEPS.length}` : "Guide: done!"}
         </button>
       </aside>
     );

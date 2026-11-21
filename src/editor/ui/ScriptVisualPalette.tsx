@@ -1,6 +1,7 @@
 // "Add a step": the instructions by plain name, searchable, by category.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, commandsIn, searchCommands, type Category, type CommandInfo } from "../format/commands";
+import { PaletteNoteBox } from "./PaletteNote";
 
 interface Props {
   /** Where the step goes, in words ("after “Give Herb”"). */
@@ -68,6 +69,7 @@ export function StepPalette({ where, onPick, onClose }: Props) {
           ))}
         </div>
       )}
+      <PaletteNoteBox query={q} onPick={onPick} />
       <ul className="sv-palette-list" role="listbox" aria-label="Steps">
         {list.length === 0 && <li className="muted">Nothing matches “{q}”.</li>}
         {list.map((c, i) => (

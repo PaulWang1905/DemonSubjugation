@@ -5,6 +5,8 @@ import type { StoredProject } from "../../storage/db";
 import { Link } from "../../app/router";
 import { useSiteLang } from "../../app/siteLang";
 import { Arrow } from "../../app/Tile";
+import { fileTitle } from "../template/titleLogo";
+import { gbkBytes } from "../../engine/java";
 import "./authoring.css";
 
 const HOME = {
@@ -27,9 +29,9 @@ const HOME = {
     remove: "Delete",
     edited: "Edited",
     help: "How to play your game",
-    newName: "Name of the new game (letters, up to 9):",
+    newName: "Name of the new game",
     nameTitle: "Name your game",
-    nameHint: "Up to 9 letters or digits. The device shows it in capitals; you can change it later at the top of the editor.",
+    nameHint: (title: string) => `Any length: the project and its title screen keep the full name. The game file stores a title of 9 letters at most, for a device's game list: “${title}” (change it on the project home).`,
     create: "Create the game",
     cancel: "Cancel",
     confirmDelete: (n: string) => `Delete project “${n}”?`,
@@ -53,9 +55,9 @@ const HOME = {
     remove: "删除",
     edited: "修改于",
     help: "怎么玩你的游戏",
-    newName: "新游戏的名字（字母，最多 9 个）：",
+    newName: "新游戏的名字",
     nameTitle: "给游戏起个名字",
-    nameHint: "最多 9 个字母或数字。设备上以大写显示；以后可以在编辑器顶部修改。",
+    nameHint: (title: string) => `长度不限：项目和标题画面都保留完整的名字。游戏文件里存的标题最多 9 个字母（4 个汉字），用于设备的游戏列表：“${title}”（可在项目首页修改）。`,
     create: "创建游戏",
     cancel: "取消",
     confirmDelete: (n: string) => `删除项目“${n}”？`,
@@ -173,10 +175,10 @@ function NameDialog({ h, onCreate, onCancel }: { h: (typeof HOME)["en"]; onCreat
         <input
           className="name-input"
           aria-label={h.newName}
-          autoFocus value={name} maxLength={9} onChange={(e) => setName(e.target.value)} onFocus={(e) => e.target.select()} aria-describedby="name-dialog-hint"
+          autoFocus value={name} maxLength={60} onChange={(e) => setName(e.target.value)} onFocus={(e) => e.target.select()} aria-describedby="name-dialog-hint"
         />
         <p id="name-dialog-hint" className="muted small">
-          {h.nameHint}
+          {h.nameHint(fileTitle(clean || "MY GAME", (t) => gbkBytes(t).length))}
         </p>
         <div className="row">
           <button type="submit" disabled={!clean}>

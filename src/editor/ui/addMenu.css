@@ -1,0 +1,51 @@
+/* The sidebar's "+" menu (AddMenu.tsx). */
+.add-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 220px;
+  max-width: 300px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.18);
+}
+.add-head {
+  padding: 6px 10px 2px;
+  color: var(--muted);
+  font: 600 10px/1.4 var(--h-mono, ui-monospace, monospace);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.add-menu .add-item {
+  display: grid;
+  gap: 1px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.add-menu .add-item:hover,
+.add-menu .add-item:focus-visible {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.add-menu .add-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.add-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+.add-blurb {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}

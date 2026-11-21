@@ -35,7 +35,8 @@ export function blankSources(): Record<string, string> {
   return { "1-1-1": START };
 }
 
-export function blankProject(title = "MY GAME"): LibArchive {
+/** A blank project; its title screen shows `logo` (the full name), else the title. */
+export function blankProject(title = "MY GAME", logo?: string): LibArchive {
   const a = lanternPath();
   const titleBytes = Uint8Array.from(gbkBytes(title).slice(0, 9), (b) => b & 0xff);
   // drop the demo's story: second map/script, NPCs and scene objects
@@ -55,6 +56,6 @@ export function blankProject(title = "MY GAME"): LibArchive {
   putEntry(a, { resType: 2, type: 1, index: 1, data: encodeMap({ type: 1, index: 1, tileset: 1, name: "START", width: w, height: h, cells }) });
   putEntry(a, { resType: 1, type: 1, index: 1, data: assemble(START) });
   // the title screen shows the game's own name, not the demo's
-  putEntry(a, gameLogo(title));
+  putEntry(a, gameLogo(logo?.trim() || title));
   return { titleBytes, entries: a.entries };
 }

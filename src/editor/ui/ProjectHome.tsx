@@ -31,6 +31,8 @@ interface Props {
   after?: React.ReactNode;
   /** Start or resume the guided first game. */
   onGuide?: () => void;
+  /** The title screen's picture (beside the names). */
+  titleScreen?: React.ReactNode;
 }
 
 /** The title as bytes: GBK, at most 9 (a Chinese character takes 2). */
@@ -78,21 +80,26 @@ export function ProjectHome(p: Props) {
           </label>
           <label className="p-field">
             <span>Title in the game file</span>
-            <input
-              className="p-title"
-              defaultValue={title}
-              maxLength={9}
-              aria-describedby="p-name-help"
-              onChange={(e) => {
-                const b = titleBytes(e.target.value);
-                e.target.setCustomValidity(b ? "" : "At most 9 letters (4 Chinese characters).");
-                if (b) p.onTitle(b);
-              }}
-            />
+            <span className="p-title-row">
+              <input
+                className="p-title"
+                defaultValue={title}
+                maxLength={9}
+                aria-describedby="p-name-help"
+                onChange={(e) => {
+                  const b = titleBytes(e.target.value);
+                  e.target.setCustomValidity(b ? "" : "At most 9 letters (4 Chinese characters).");
+                  if (b) p.onTitle(b);
+                }}
+              />
+              <small className="muted">9 letters at most</small>
+            </span>
           </label>
+          {p.titleScreen}
         </div>
         <p id="p-name-help" className="muted small">
-          The project name is what this browser lists; the title (9 letters at most) is stored in the game and shown by a device's game list.
+          The project name can be as long as you like: this browser lists it. Only the title in the game file is limited, to 9 letters (4 Chinese characters): a
+          device's game list shows it.
         </p>
       </section>
 

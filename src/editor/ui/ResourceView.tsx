@@ -88,8 +88,8 @@ export function ResourceView({ archive, entry, mode, onMode, onChange, services,
             <button className="ghost" onClick={actions.duplicate}>
               Duplicate
             </button>
-            <button className="ghost danger" onClick={actions.remove}>
-              Delete
+            <button className="ghost danger" onClick={actions.remove} title={`Delete this ${kind} from the project (it asks first)`}>
+              Delete {kind.length <= 13 ? kind : kind.split(" ").pop()}…
             </button>
           </div>
         )}

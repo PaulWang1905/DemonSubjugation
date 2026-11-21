@@ -59,9 +59,11 @@ import { useToolKeys, useUndoKeys } from "./undoKeys";
 import type { ViewProps } from "./views";
 import { MiniMap } from "./WorldMap";
 import { framesOf, mapCanvas, spriteFrame } from "./worldArt";
+import { labelWidth, placeLabels, type LabelPlace, type LabelRequest } from "./labelLayout";
 import { noteWorldSelection, requestWorld, useWorldIntent } from "./intents";
 import { canStand, canTouch, mapEntries, mapReach, nearestTile, nearestTouchable, reachArea, standProblem, touchProblem, type Point } from "../format/reach";
 import "./world.css";
+import "./worldLabels.css";
 import "./authoring.css";
 
 type Tool = "select" | "person" | "chest" | "exit" | "start" | "tile" | "fill" | "walk" | "block" | "event" | "pick" | "here";
@@ -816,10 +818,52 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
 
   const side = (x: number) => (x > map.width / 2 ? "left" : "right");
 
+  // the labels (names, the start, exits and events), placed so none covers another
+  const labels = useMemo(() => {
+    const sprite = (sp: { sprite: string; frame: number } | null, x: number, y: number) => {
+      const f = sp ? spriteFrame(archive, sp.sprite, sp.frame) : null;
+      const w = Math.max(s, (f?.width ?? 16) * zoom);
+      const h = Math.max(s, (f?.height ?? 16) * zoom);
+      return { x: x * s + Math.min(0, s - w) / 2, y: (y + 1) * s - h, w, h };
+    };
+    const reqs: LabelRequest[] = [];
+    const avoid: { id: string; x: number; y: number; w: number; h: number }[] = [];
+    const start = overlay.start;
+    if (start) {
+      const a = sprite(startLeader, start.x, start.y);
+      avoid.push({ id: "start", ...a });
+      reqs.push({ id: "start", anchor: a, w: labelWidth("▶ Start") + 8, h: 15, sides: ["below", "above", "below2", "above2"] });
+    }
+    if (showEvents)
+      for (const c of overlay.cells) {
+        const p = c.cells[0];
+        if (!p) continue;
+        const near = side(p.x);
+        reqs.push({ id: `c-${c.mapEvent}`, anchor: { x: p.x * s, y: p.y * s, w: s, h: s }, w: labelWidth(c.phrase) + 10, h: 17, sides: [near, near === "left" ? "right" : "left", "below", "above"] });
+      }
+    for (const op of overlay.people) {
+      const p = op.placement;
+      const a = sprite(op.sprite, p.x, p.y);
+      const id = `p-${p.script}-${p.stepId}`;
+      avoid.push({ id, ...a });
+      if (showNames) reqs.push({ id, anchor: a, w: labelWidth(`${who(p)}${p.conditional ? " ?" : ""}`) + 8, h: 15, sides: ["below", "above", "below2", "above2"] });
+    }
+    const out = new Map<string, LabelPlace>();
+    for (const l of placeLabels(reqs, { stage: { w: map.width * s, h: map.height * s }, avoid, shortW: (r) => Math.max(44, r.anchor.w * 1.6) })) out.set(l.id, l);
+    return out;
+  }, [overlay, archive, s, zoom, showNames, showEvents, startLeader, map.width, map.height]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** A label's place, relative to its thing at (x, y). */
+  const labelAt = (id: string, x: number, y: number): { style?: React.CSSProperties; short: boolean } => {
+    const l = labels.get(id);
+    if (!l) return { short: false };
+    return { style: { left: l.x - x * s, top: l.y - y * s, right: "auto", bottom: "auto", transform: "none", margin: 0, maxWidth: l.short ? l.w : undefined }, short: l.short };
+  };
+
   const people = overlay.people.map((op) => {
     const p = op.placement;
     const what: Sel = { kind: "person", script: p.script, id: p.id, group: p.group };
     const cond = p.conditional ? placementCondition(modelOf(p.script)!, p, names) : null;
+    const lab = labelAt(`p-${p.script}-${p.stepId}`, p.x, p.y);
     return thing(
       `p-${p.script}-${p.stepId}`,
       p.x,
@@ -827,15 +871,15 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       <>
         {spriteImg(op.sprite, who(p))}
         {showNames && (
-          <span className="w-name">
+          <span className={`w-name${lab.short ? " short" : ""}`} style={lab.style}>
             {who(p)}
-            {cond ? " ?" : ""}
+            {cond ? <span className="w-maybe"> ?</span> : ""}
           </span>
         )}
       </>,
       {
         label: `${who(p)}, ${p.kind} #${p.id} at ${at(p.x, p.y)}${cond ? " (only sometimes)" : ""}`,
-        title: `${who(p)} (#${p.id})${cond ? ` — only sometimes: ${cond}` : ""}. Drag to move.`,
+        title: `${who(p)} (#${p.id})${cond ? `. “?”: only on some paths, ${cond}` : ""}. Drag to move.`,
         className: `w-person${cond ? " maybe" : ""}${canTouch(reach, p.x, p.y) ? "" : " unreached"}`,
         what,
         draggable: true,
@@ -845,7 +889,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
 
   const start = overlay.start;
   const startMark = start
-    ? thing("start", start.x, start.y, <>{spriteImg(startLeader, "S")}<span className="w-flag">▶ Start</span></>, {
+    ? thing("start", start.x, start.y, <>{spriteImg(startLeader, "S")}<span className="w-flag" style={labelAt("start", start.x, start.y).style}>▶ Start</span></>, {
         label: `The player's start, at ${at(start.x, start.y)}`,
         title: "A new game starts here. Drag to move the start.",
         className: "w-start",
@@ -875,11 +919,15 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
             p.y,
             <>
               <span className={`w-num${c.label ? "" : " none"}`}>{c.mapEvent}</span>
-              {i === 0 && <span className={`w-chip ${c.exit ? "exit" : c.label ? "" : "none"} ${side(p.x)}`}>{c.phrase}</span>}
+              {i === 0 && (
+                <span className={`w-chip ${c.exit ? "exit" : c.label ? "" : "none"} ${side(p.x)}${labelAt(`c-${c.mapEvent}`, p.x, p.y).short ? " short" : ""}`} style={labelAt(`c-${c.mapEvent}`, p.x, p.y).style}>
+                  {c.phrase}
+                </span>
+              )}
             </>,
             {
               label: `Event ${c.mapEvent} at ${at(p.x, p.y)}: ${c.phrase}`,
-              title: `${c.exit ? `Exit ${c.phrase}` : `Event ${c.mapEvent}: ${c.phrase}`}${canTouch(reach, p.x, p.y) ? "" : " — the player can never get here"}. Drag to move it.`,
+              title: `${c.exit ? `Exit ${c.phrase}` : `Event ${c.mapEvent}: ${c.phrase}`}${c.exit && c.phrase.endsWith("?") ? ". “?”: only on some paths, a flag or a choice decides where it leads" : ""}${canTouch(reach, p.x, p.y) ? "" : " — the player can never get here"}. Drag to move it.`,
               className: `w-cell${c.exit ? " exit" : ""}${canTouch(reach, p.x, p.y) ? "" : " unreached"}`,
               what: { kind: "cell", x: p.x, y: p.y },
               draggable: true,
@@ -929,7 +977,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
         {!canTouch(reach, p.x, p.y) && (
           <ReachNote text={`The player can never get next to ${who(p)}: ${touchProblem(map, reach, p.x, p.y)}.`} near={nearestTouchable(reach, p.x, p.y)} onMove={(t) => moveTo({ kind: "person", script: p.script, id: p.id, group: p.group }, t.x, t.y)} />
         )}
-        {cond && <p className="w-note small">Only sometimes: {cond}.</p>}
+        {cond && <p className="w-note small">Only on some paths (the “?” on the map): {cond}.</p>}
         <h5>{p.kind === "person" ? "Talking to them" : "Facing it and pressing OK"}</h5>
         {label ? (
           <>
@@ -1171,7 +1219,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
                 </button>{" "}
                 <span className="muted small">
                   at {at(op.placement.x, op.placement.y)}
-                  {op.placement.conditional ? " · sometimes" : ""}
+                  {op.placement.conditional ? " · only on some paths (?)" : ""}
                 </span>
               </li>
             ))}
@@ -1601,6 +1649,12 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
             </div>
           </div>
           <p className="map-status small w-status">{status()}</p>
+          {(overlay.people.some((op) => op.placement.conditional) || overlay.cells.some((c) => c.exit && c.phrase.endsWith("?"))) && (
+            <p className="w-maybe-legend small muted">
+              <strong aria-hidden="true">?</strong> after a name or an exit: only on some paths. A story flag or a choice decides whether they are there, or where the
+              exit leads; click it to see which.
+            </p>
+          )}
           {showReach && (
             <p className="w-reach-legend small muted">
               <span className="w-reach-swatch" aria-hidden="true" /> Shaded: where the player can never stand. The player keeps 4 tiles from the left and right edges, 3 from the top and 2 from
