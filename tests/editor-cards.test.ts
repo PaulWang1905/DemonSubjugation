@@ -120,8 +120,14 @@ describe("what a stored value may be", () => {
           const issue = checkValue(a, e, f, fieldsFor(e.resType, e.type)!, e.data);
           if (issue) found.push(`${e.resType}-${e.type}-${e.index} ${f.key}: ${issue.text}`);
         }
-    // (the Silent Bell's last boss asks for more HP than the game keeps)
-    expect(found).toEqual(["3-3-12 maxHP: Stored 1100; allowed 0-999 (the game treats more as 999).", "3-3-12 hp: Stored 1100; allowed 0-999 (the game treats more as 999)."]);
+    expect(found).toEqual([]);
+  });
+  it("says when a stored number is more than the game keeps", () => {
+    const boss = rec(BELL, 3, 3, 12), f = field(boss, "maxHP");
+    const data = boss.data.slice(); // (what an older project may store: writeField refuses it)
+    data[f.at] = 1100 & 0xff;
+    data[f.at + 1] = 1100 >> 8;
+    expect(checkValue(BELL, boss, f, fieldsFor(3, 3)!, data)?.text).toBe("Stored 1100; allowed 0-999 (the game treats more as 999).");
   });
   it("says what is allowed, in place, for a wrong number, choice, bit or reference", () => {
     const d = wolf.data.slice();

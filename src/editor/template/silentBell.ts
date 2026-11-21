@@ -854,7 +854,7 @@ export function silentBell(): LibArchive {
     { index: 9, name: "Bog Toad", sprite: 9, level: 7, maxHP: 130, attack: 90, defend: 8, speed: 9, money: 16, exp: 22, drop: tonic },
     { index: 10, name: "Mire Wisp", sprite: 10, level: 7, maxHP: 90, maxMP: 50, attack: 72, defend: 6, speed: 12, lingli: 14, money: 14, exp: 20, iq: 50, magicChain: 4, magicsKnown: 1 },
     { index: 11, name: "Mire Witch", sprite: 11, level: 11, maxHP: 800, maxMP: 200, attack: 88, defend: 16, speed: 13, lingli: 20, money: 200, exp: 220, iq: 50, magicChain: 5, magicsKnown: 2 },
-    { index: 12, name: "Fog Warden", sprite: 12, level: 14, maxHP: 1100, maxMP: 300, attack: 120, defend: 20, speed: 13, lingli: 24, money: 0, exp: 0, iq: 35, magicChain: 6, magicsKnown: 1 },
+    { index: 12, name: "Fog Warden", sprite: 12, level: 14, maxHP: 999, maxMP: 300, attack: 120, defend: 20, speed: 13, lingli: 24, money: 0, exp: 0, iq: 35, magicChain: 6, magicsKnown: 1 },
   ];
   for (const m of monsters) add(R.ARS, 3, m.index, encodeMonster(m));
 
