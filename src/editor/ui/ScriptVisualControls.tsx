@@ -298,16 +298,16 @@ function LabelField({ step, k, label }: { step: InstructionStep; k: number; labe
           else sv.setOperands(step.id, [[k, e.target.value]]);
         }}
       >
-        {!sv.model.labels.has(value) && <option value={value}>@{value} (missing)</option>}
+        {!sv.model.labels.has(value) && <option value={value}>◆ {value} (missing)</option>}
         {labels.map((l) => (
           <option key={l} value={l}>
-            @{l}
+            ◆ {l}
           </option>
         ))}
         <option value={"\u0000new"}>New label…</option>
       </select>
       {sv.model.labels.has(value) && (
-        <button type="button" className="link sv-go" onClick={() => sv.goLabel(value)} title={`Show @${value}`}>
+        <button type="button" className="link sv-go" onClick={() => sv.goLabel(value)} title={`Show the label ${value}`}>
           show
         </button>
       )}

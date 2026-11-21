@@ -1,8 +1,14 @@
 // The open tabs: the project home first, then resources. A preview tab
 // (opened with a single click) is shown in italics and is replaced by the
-// next preview; a dot marks a script with text not applied yet.
-import { useEffect, useRef, useState } from "react";
+// next preview; a dot marks a script with text not applied yet. Each tab
+// shows its kind as an icon and its name in full while there is room; when
+// there is not, the long ones shrink to the same width (the full name and
+// kind are in the tooltip), and past that the strip scrolls.
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import "./authoring.css";
+import "./leftovers.css";
+import { KindIcon } from "./KindIcon";
+import { tabCap } from "./tabFit";
 import type { LibArchive } from "../format/lib";
 import { entryOf, entryTitle, HOME_TAB, kindLabel, type Tab } from "./workspace";
 
@@ -13,6 +19,8 @@ interface Props {
   active: string;
   dirty: ReadonlySet<string>;
   marks: ReadonlyMap<string, "error" | "warning">;
+  /** Names for resources the game stores without one (format/naming.ts). */
+  labels?: ReadonlyMap<string, string>;
   onActivate: (key: string) => void;
   onPin: (key: string) => void;
   onClose: (key: string) => void;
@@ -21,13 +29,47 @@ interface Props {
 export const tabId = (key: string) => `tab-${key}`;
 export const panelId = (key: string) => `panel-${key}`;
 
-export function TabStrip({ archive, projectName, tabs, active, dirty, marks, onActivate, onPin, onClose }: Props) {
+export function TabStrip({ archive, projectName, tabs, active, dirty, marks, labels, onActivate, onPin, onClose }: Props) {
   const strip = useRef<HTMLDivElement>(null);
   useEffect(() => {
     strip.current?.querySelector(`[aria-selected="true"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [active, tabs.length]);
   // arrows at the ends when the tabs do not fit (they also shrink first)
   const [ends, setEnds] = useState({ left: false, right: false });
+  const showEnds = () => {
+    const el = strip.current;
+    if (el) setEnds({ left: el.scrollLeft > 1, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 });
+  };
+  // tabs as wide as their names while they fit; past that the widest shrink to one width (tabFit.ts)
+  // (when they do not all fit, the project home shows only its icon first)
+  const [{ cap, tight }, setFit] = useState<{ cap: number | null; tight: boolean }>({ cap: null, tight: false });
+  const shown = tabs.map((t) => `${t.key}:${labels?.get(t.key) ?? ""}:${marks.get(t.key) ?? ""}:${dirty.has(t.key)}`).join("|");
+  useLayoutEffect(() => {
+    const el = strip.current;
+    if (!el) return;
+    const fit = () => {
+      const items = [...el.querySelectorAll<HTMLElement>(".e-tab:not(.home)")];
+      const home = el.querySelector<HTMLElement>(".e-tab.home");
+      const natural = items.map((t) => {
+        const l = t.querySelector<HTMLElement>(".e-tab-label");
+        return t.offsetWidth + (l ? l.scrollWidth - l.clientWidth : 0);
+      });
+      const homeLabel = home?.querySelector<HTMLElement>(".e-tab-label");
+      const labelW = homeLabel ? homeLabel.scrollWidth + 5 : 0;
+      const compact = (home?.offsetWidth ?? 0) - (el.classList.contains("tight") ? 0 : labelW);
+      const sum = natural.reduce((s, w) => s + w, 0);
+      if (sum <= el.clientWidth - compact - labelW) setFit((f) => (f.cap === null && !f.tight ? f : { cap: null, tight: false }));
+      else {
+        const c = tabCap(natural, el.clientWidth - compact - 1);
+        setFit((f) => (f.cap === c && f.tight ? f : { cap: c, tight: true }));
+      }
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [shown, archive, active]);
+  useLayoutEffect(showEnds, [cap, tight]);
   useEffect(() => {
     const el = strip.current;
     if (!el) return;
@@ -56,11 +98,11 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, onA
           ‹
         </button>
       )}
-    <div className="e-tabs" role="tablist" aria-label="Open resources" ref={strip}>
+    <div className={`e-tabs${tight ? " tight" : ""}`} role="tablist" aria-label="Open resources" ref={strip} style={cap ? { ["--e-tab-cap" as string]: `${cap}px` } : undefined}>
       {tabs.map((t, i) => {
         const home = t.key === HOME_TAB;
         const e = home ? undefined : entryOf(archive, t.key);
-        const label = home ? "Project" : e ? entryTitle(e) : t.key;
+        const label = home ? "Project" : e ? (labels?.get(t.key) ?? entryTitle(e)) : t.key;
         const kind = home ? "home" : e ? kindLabel(e) : "";
         const selected = t.key === active;
         const isDirty = dirty.has(t.key);
@@ -76,6 +118,7 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, onA
               tabIndex={selected ? 0 : -1}
               className="e-tab-main"
               title={home ? `${projectName}: the project home` : `${label} (${kind} ${t.key.split("-").slice(1).join("-")})${t.pinned ? "" : " · preview: double-click to keep it open"}${isDirty ? " · not applied yet" : ""}`}
+              aria-label={home ? "Project home" : `${label}, ${kind}${mark ? (mark === "error" ? ", has an error" : ", has a warning") : ""}${isDirty ? ", not applied yet" : ""}`}
               onClick={() => onActivate(t.key)}
               onDoubleClick={() => onPin(t.key)}
               onKeyDown={(ev) => {
@@ -93,7 +136,7 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, onA
                   ⌂
                 </span>
               ) : (
-                !label.toLowerCase().startsWith(kind) && <span className="e-tab-kind">{kind}</span>
+                e && <KindIcon of={e} className="e-tab-icon" />
               )}
               <span className="e-tab-label">{label}</span>
               {mark && (

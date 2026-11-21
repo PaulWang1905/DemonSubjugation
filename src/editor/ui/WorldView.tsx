@@ -59,7 +59,7 @@ import { useToolKeys, useUndoKeys } from "./undoKeys";
 import type { ViewProps } from "./views";
 import { MiniMap } from "./WorldMap";
 import { framesOf, mapCanvas, spriteFrame } from "./worldArt";
-import { requestWorld, useWorldIntent } from "./intents";
+import { noteWorldSelection, requestWorld, useWorldIntent } from "./intents";
 import { canStand, canTouch, mapEntries, mapReach, nearestTile, nearestTouchable, reachArea, standProblem, touchProblem, type Point } from "../format/reach";
 import "./world.css";
 import "./authoring.css";
@@ -186,6 +186,12 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
   const fit = room > 0 ? Math.max(1, Math.min(4, Math.floor((room / (map.width * 16)) * 4) / 4)) : 2;
   const zoom = zoomPick || fit;
   const s = 16 * zoom;
+
+  // who is selected, for the wizards opened from a menu (the shop keeper, the one to fight)
+  useEffect(() => {
+    noteWorldSelection(mapKey, sel?.kind === "person" ? { script: sel.script, id: sel.id } : null);
+  }, [mapKey, sel]);
+  useEffect(() => () => noteWorldSelection(mapKey, null), [mapKey]);
 
   // requests from outside (the guide, the New person wizard): arm a tool, pick who
   useWorldIntent(mapKey, (i) => {
@@ -956,7 +962,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
               {uses.event && !uses.keepEvent ? (
                 <>
                   <p className="small">
-                    Also delete what happens when you talk to {who(p)} (@{uses.event.label}, lines {uses.event.lines[0]}-{uses.event.lines[1]})?
+                    Also delete what happens when you talk to {who(p)} (lines {uses.event.lines[0]}-{uses.event.lines[1]} of the script)?
                   </p>
                   <div className="row">
                     <button className="danger-solid" onClick={() => deleteSelected(true)}>
@@ -1055,8 +1061,8 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
         ) : c?.label && m ? (
           <>
             <p className="small">
-              Event {n} (script event {n + 40}): walking into this tile, or facing it and pressing OK, runs{" "}
-              {scriptLink(setup!.script, labelLine(modelOf(setup!.script)!, c.label), `@${c.label}`)} in {scriptLabel(setup!.script)}.
+              Event {n}: walking into this tile, or facing it and pressing OK, runs{" "}
+              {scriptLink(setup!.script, labelLine(modelOf(setup!.script)!, c.label), `its steps`)} in {scriptLabel(setup!.script)}.
             </p>
             {c.exit && <ul className="w-steps small">{exitTargets(c)}</ul>}
             <ol className="w-steps small">
@@ -1123,7 +1129,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       <div className="w-panel-body">
         <h4>Arriving from {mapName(ar.from)}</h4>
         <p className="small">
-          The exit {ar.exit.label ? `@${ar.exit.label}` : `event ${ar.exit.event}`} of {mapName(ar.from)} brings the party to {at(ar.x, ar.y)}
+          An exit of {mapName(ar.from)} brings the party to {at(ar.x, ar.y)}
           {ar.certain ? "." : " (on some paths)."}
         </p>
         <div className="row">
@@ -1275,7 +1281,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
           <div className="w-panel-body">
             <h4>Start the game here</h4>
             {overlay.start ? (
-              <p className="small">Click a tile inside the dashed box: a new game starts there. The start script's loadmap{overlay.start.actor ? " and createactor lines change" : " line changes"}.</p>
+              <p className="small">Click a tile inside the dashed box: a new game starts there. The start script's first steps change (the map shown{overlay.start.actor ? " and where the hero joins" : ""}).</p>
             ) : (
               <p className="w-note small">
                 {world.start ? (
@@ -1669,7 +1675,7 @@ function MapNameField({ name, onSave }: { name: string; onSave: (n: string) => v
     else setV(name);
   };
   return (
-    <label className="field small w-mapname" title="The map's name: shown when the player arrives (setscenename) and in the editor; 12 letters at most">
+    <label className="field small w-mapname" title="The map's name: shown when the player arrives and in the editor; 12 letters at most">
       Name
       <input value={v} aria-invalid={!ok} onChange={(e) => setV(e.target.value)} onBlur={save} onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()} />
     </label>

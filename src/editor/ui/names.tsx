@@ -9,10 +9,17 @@ import "./authoring.css";
 /** The project notes, for components deep in a view (the resource pickers). */
 export const NotesContext = createContext<ProjectNotes | null>(null);
 
-/** The author's name for a resource, if any. */
+/**
+ * Names for resources the game stores without one: the author's, else one
+ * from what uses them ("Old Woman (walk)"; format/naming.ts resourceLabels).
+ */
+export const LabelsContext = createContext<ReadonlyMap<string, string> | null>(null);
+
+/** The author's name for a resource, else one from what uses it, if any. */
 export function useNotedName(): (key: string) => string | undefined {
   const notes = useContext(NotesContext);
-  return (key) => resourceNote(notes ?? undefined, key)?.name;
+  const labels = useContext(LabelsContext);
+  return (key) => resourceNote(notes ?? undefined, key)?.name || labels?.get(key);
 }
 
 /** "Name: [ ]" for a resource the game stores without a name (sprites, pictures, icons). */

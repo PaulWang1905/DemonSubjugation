@@ -344,7 +344,7 @@ describe("moving, duplicating, deleting", () => {
     const exit = m.groups.find((x) => x.events.includes(41))!;
     const done = m.steps.find((s) => s.label === "done")!;
     const refused = deleteNode(m, exit, done.id);
-    expect(refused).toMatchObject({ error: expect.stringContaining("@done") });
+    expect(refused).toMatchObject({ error: expect.stringContaining("the label done") });
     // and the event's own label
     const label = m.steps.find((s) => s.label === "exit_east")!;
     expect(deleteNode(m, exit, label.id)).toMatchObject({ error: expect.stringContaining("starts this event") });

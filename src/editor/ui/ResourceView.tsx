@@ -1,12 +1,13 @@
 // One resource in a tab: its header (kind, number, name, the switch between
 // its views, number / duplicate / delete) and the view picked from the
 // registry (views.tsx).
-import { Component, type ReactNode } from "react";
+import { Component, useContext, type ReactNode } from "react";
 import { subTypeName } from "../format/decode";
 import type { LibArchive, LibEntry } from "../format/lib";
 import { useRenumber, type RenumberActions } from "./RenumberControl";
 import { pickView, viewsFor, type EditorServices } from "./views";
-import { entryTitle, kindLabel } from "./workspace";
+import { entryTitle, keyOf, kindLabel } from "./workspace";
+import { LabelsContext } from "./names";
 
 interface Props {
   archive: LibArchive;
@@ -36,7 +37,8 @@ class Guard extends Component<{ children: ReactNode }, { error: Error | null }> 
 export function ResourceView({ archive, entry, mode, onMode, onChange, services, actions }: Props) {
   const views = viewsFor(entry);
   const view = pickView(entry, mode);
-  const name = entryTitle(entry);
+  // (art has no name in the game: the author's, else one from what uses it)
+  const name = useContext(LabelsContext)?.get(keyOf(entry)) ?? entryTitle(entry);
   const kind = kindLabel(entry);
   const renumber = useRenumber(entry, actions, kind);
   const idBase = `view-${services.key}`;

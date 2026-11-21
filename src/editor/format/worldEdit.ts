@@ -112,7 +112,7 @@ export interface MapSetup {
   script: string;
   /** "Bellhaven (script 1-1)" */
   label: string;
-  /** "when it starts", "in @door" */
+  /** "when it starts", "in ◆ door" */
   where: string;
   /** The loadmap lines of this script that show the map. */
   loads: Where[];
@@ -129,7 +129,7 @@ export function mapSetups(world: WorldIndex, mapKey: string): MapSetup[] {
     const info = world.scripts.get(script);
     const name = info?.model.header.desc?.trim() || "";
     const [, type, index] = script.split("-");
-    const groups = [...new Set(loads.map((l) => (l.start ? "when it starts" : l.group ? `in @${l.group}` : "")))].filter(Boolean);
+    const groups = [...new Set(loads.map((l) => (l.start ? "when it starts" : l.group ? `in ◆ ${l.group}` : "")))].filter(Boolean);
     return { script, label: `${name || "Script"} (script ${type}-${index})`, where: groups.join(", ") || "when it runs", loads };
   });
   const rank = (s: MapSetup) => (world.start?.load.script === s.script && world.start.map === mapKey ? 0 : s.loads.some((l) => l.start) ? 1 : 2);
@@ -316,7 +316,7 @@ export function moveStart(texts: Texts, start: PlayerStart, x: number, y: number
   const p = startPosition(start, x, y, w, h);
   let out = edit(texts, start.load.script, (m) => setOperand(setOperand(m, start.load.stepId, 2, p.cameraX), start.load.stepId, 3, p.cameraY));
   if (start.actor) out = edit(out, start.actor.script, (m) => setOperand(setOperand(m, start.actor!.stepId, 1, p.actorX), start.actor!.stepId, 2, p.actorY));
-  else if (p.actorX !== 4 || p.actorY !== 3) throw new Error("there is no createactor to put the leader on the screen");
+  else if (p.actorX !== 4 || p.actorY !== 3) throw new Error("the start script adds no party member to put on the screen");
   return out;
 }
 
@@ -738,7 +738,7 @@ export function placementUses(model: ScriptModel, stepId: number): PlacementUses
   if (placements.length > 1) keep = `another line also places #${id} (line ${placements.find((t) => t.id !== stepId)!.line})`;
   else if (!eg || eg.start) keep = "its code is part of the start";
   else if (eg.events.length > 1) keep = `the same code also runs for event ${eg.events.filter((n) => n !== id).join(", ")}`;
-  else if (eg.sharedLabels.length) keep = `other code jumps into it (@${eg.sharedLabels[0]})`;
+  else if (eg.sharedLabels.length) keep = `other code jumps into it (at the label ${eg.sharedLabels[0]})`;
   else if (model.groups.some((x) => x.fallsInto === eg.label)) keep = "the code above it runs on into it";
   else if (model.steps.some((t) => t.kind === "instruction" && (t.op.name === "event" || t.op.name === "seteventtimer") && t.values[0] === id)) keep = "another line runs it";
   const steps = eg && !keep ? model.steps.slice(eg.from, eg.to).map((t) => t.id) : [];

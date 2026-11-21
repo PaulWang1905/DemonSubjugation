@@ -3,12 +3,13 @@
 // Advanced), each group collapsible with its count and a "+" that makes the
 // right new thing. A single click opens a preview tab, a double click keeps it.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { filterLabel } from "../format/decode";
+import { filterLabel, resourceName } from "../format/decode";
 import type { LibArchive } from "../format/lib";
 import { CREATE_OPTIONS } from "./create";
 import { hasThumb, Thumb } from "./Thumb";
 import { WIZARDS } from "./Wizards";
-import { entryTitle, groupEntries, groupOf, keyOf, parseKey, type GroupId } from "./workspace";
+import { entryTitle, groupEntries, groupOf, keyOf, kindLabel, parseKey, type GroupId } from "./workspace";
+import type { LibEntry } from "../format/lib";
 
 interface Props {
   archive: LibArchive;
@@ -21,17 +22,33 @@ interface Props {
   dirty?: ReadonlySet<string>;
   /** The worst problem of each resource. */
   marks?: ReadonlyMap<string, "error" | "warning">;
+  /** Names for resources the game stores without one (the author's, else from what uses them; format/naming.ts). */
+  labels?: ReadonlyMap<string, string>;
   /** The groups shown open. */
   open: ReadonlySet<GroupId>;
   onToggle: (g: GroupId, open: boolean) => void;
 }
 
-export function Sidebar({ archive, active, onOpen, onCreate, dirty, marks, open, onToggle }: Props) {
+/**
+ * A resource's name in the list: the author's or one from what uses it
+ * ("Old Woman (walk)"), else its own; a resource without any shows its kind
+ * (its number is shown beside it anyway).
+ */
+export function sideLabel(e: LibEntry, labels?: ReadonlyMap<string, string>): string {
+  const named = labels?.get(keyOf(e));
+  if (named) return named;
+  if (e.resType !== 1 && e.resType !== 5 && resourceName(e.resType, e.type, e.data).trim()) return entryTitle(e);
+  if (e.resType === 1) return entryTitle(e);
+  const k = kindLabel(e);
+  return `${k[0].toUpperCase()}${k.slice(1)}`;
+}
+
+export function Sidebar({ archive, active, onOpen, onCreate, dirty, marks, labels, open, onToggle }: Props) {
   const [q, setQ] = useState("");
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
   const groups = useMemo(
-    () => groupEntries(archive.entries, words.length ? (e) => words.every((w) => `${filterLabel(e)} ${entryTitle(e).toLowerCase()}`.includes(w)) : undefined),
-    [archive, archive.entries, q],
+    () => groupEntries(archive.entries, words.length ? (e) => words.every((w) => `${filterLabel(e)} ${entryTitle(e).toLowerCase()} ${sideLabel(e, labels).toLowerCase()}`.includes(w)) : undefined),
+    [archive, archive.entries, q, labels],
   );
   const list = useRef<HTMLElement>(null);
 
@@ -145,7 +162,9 @@ export function Sidebar({ archive, active, onOpen, onCreate, dirty, marks, open,
                                 <Thumb archive={archive} entry={e} />
                               </span>
                             )}
-                            <span className="label">{entryTitle(e)}</span>
+                            <span className="label" title={`${sideLabel(e, labels)} (${kindLabel(e)} ${e.type}-${e.index})`}>
+                              {sideLabel(e, labels)}
+                            </span>
                             {start && (
                               <span className="badge" title="The game starts with this script">
                                 start

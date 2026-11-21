@@ -128,7 +128,7 @@ export function eventEntries(model: ScriptModel, ctx: EventContext): EventEntry[
         group: null,
         kind: "raw",
         title: t.title,
-        detail: e.label ? `@${e.label} does not exist` : "jumps to a raw address: edit it in the Text view",
+        detail: e.label ? `the label ${e.label} does not exist` : "jumps to a raw address: edit it in the Text view",
         events: [e.number],
         steps: 0,
         problems: 1,
@@ -143,7 +143,7 @@ export function eventEntries(model: ScriptModel, ctx: EventContext): EventEntry[
   // code no event runs (cannot happen with the model's groups, but kept visible)
   for (const g of model.groups) {
     if (seen.has(g)) continue;
-    out.push({ key: `group-${g.label ?? g.from}`, group: g, kind: "start", title: g.label ? `@${g.label}` : "Code", events: g.events, ...count(g) });
+    out.push({ key: `group-${g.label ?? g.from}`, group: g, kind: "start", title: g.label ? `◆ ${g.label}` : "Code", events: g.events, ...count(g) });
   }
   return out;
 }
@@ -565,7 +565,7 @@ export function deleteNode(model: ScriptModel, group: EventGroup, id: number): {
   // blank lines stay (they belong to the layout of the text around)
   if (steps.length > 1) steps = steps.filter((s) => s.kind !== "blank");
   if (!steps.length) return { error: "Nothing to delete." };
-  if (found && isEntryNode(group, found.list, found.node) && found.node.step.label === group.label) return { error: `@${group.label} starts this event; remove the event in the Text view.` };
+  if (found && isEntryNode(group, found.list, found.node) && found.node.step.label === group.label) return { error: `The label ${group.label} starts this event; remove the event in the Text view.` };
   const ids = new Set(steps.map((s) => s.id));
   const refs = labelRefCounts(model);
   // jumps from lines that stay
@@ -577,7 +577,7 @@ export function deleteNode(model: ScriptModel, group: EventGroup, id: number): {
     });
   }
   for (const l of definedLabels(steps)) {
-    if ((refs.get(l) ?? 0) > (inside.get(l) ?? 0)) return { error: `Other steps go to @${l}; change them first (or delete in the Text view).` };
+    if ((refs.get(l) ?? 0) > (inside.get(l) ?? 0)) return { error: `Other steps go to the label ${l}; change them first (or delete in the Text view).` };
   }
   return { model: keepArms(model, deleteSteps(model, [...ids]), group) };
 }

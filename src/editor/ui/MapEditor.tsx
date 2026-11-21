@@ -352,8 +352,8 @@ export function MapEditor({ archive, entry, onChange, notes, setNotes }: Props) 
             </button>
           </div>
           <p className="muted small">
-            The dashed box is where the player can stand. Map event N runs script event N+40 (<code>.event N+40</code> in the script
-            that loaded the map) when the player steps toward that tile or faces it and presses OK. Keys: B G W X E I pick a tool,
+            The dashed box is where the player can stand. A tile with a map event runs what the map's script says for that event
+            when the player steps toward it or faces it and presses OK (the World view shows and changes it). Keys: B G W X E I pick a tool,
             [ ] the tile, Ctrl+Z / Ctrl+Shift+Z undo and redo.
           </p>
         </div>
@@ -375,7 +375,7 @@ function MapStatus({ map, at, name }: { map: DecodedMap; at: { x: number; y: num
       <span>{name(cell.tile)}</span>
       <span className={cell.walkable ? "" : "error"}>{cell.walkable ? "walkable" : "blocked"}</span>
       {!band && <span className="muted">too close to the edge for the player to stand on</span>}
-      {!!cell.event && <span>map event {cell.event}: walking into it runs the map's script event {cell.event + 40}</span>}
+      {!!cell.event && <span>map event {cell.event}: walking into it runs what the map's script says for it</span>}
       <span className="muted">People, chests, exits and the start are placed in the World view.</span>
     </p>
   );

@@ -61,7 +61,10 @@ import {
   type Texts,
 } from "./worldEdit";
 import { flagName, setFlagNote, setVariableNote, variableName, type ProjectNotes } from "./notes";
-import { cells as textCells } from "./text";
+import { cells as textCells, wrapMessage } from "./text";
+import { scaledMonster, startingParty, type MonsterStats } from "./difficulty";
+
+const collapse = (s: string) => s.replace(/\s+/g, " ").trim();
 
 /** A resource to store: bytes and, for a script, its text. */
 export interface Change {
@@ -271,7 +274,7 @@ export function newMap(p: Project, o: NewMapOptions): WizardResult {
       for (const f of r.onceFlags ?? []) if (!flagName(out, f)) out = setFlagNote(out, f, { name: "new game's welcome played" });
       return out;
     },
-    message: `Made map 1-${index} ${name}: walking ${o.connect.side} off ${fm.name} at ${there.out.x}, ${there.out.y} leads there, and its ${OPPOSITE[o.connect.side]} edge leads back. Script 1-${toScript.split("-")[2]} sets it up.`,
+    message: `Made map 1-${index} ${name}: walking ${o.connect.side} off ${fm.name} at ${there.out.x}, ${there.out.y} leads there, and its ${OPPOSITE[o.connect.side]} edge leads back. Its script is 1-${toScript.split("-")[2]}.`,
   };
 }
 
@@ -321,7 +324,7 @@ export function newPerson(p: Project, o: NewPersonOptions): WizardResult & { npc
   }
   const source = toSource(m);
   changes.push({ key: script, data: assemble(source), source });
-  return { changes, npc, open: { key: o.map, mode: "map.world" }, message: `Put ${name} on ${map.name} at ${o.tile.x}, ${o.tile.y}: talking to them runs @${r.label} in script ${script.split("-").slice(1).join("-")}.` };
+  return { changes, npc, open: { key: o.map, mode: "map.world" }, message: `Put ${name} on ${map.name} at ${o.tile.x}, ${o.tile.y}. Click them in the World view to change what they say.` };
 }
 
 // ---------------------------------------------------------------------------
@@ -337,7 +340,7 @@ export function buyPrice(a: LibArchive, type: number, index: number): number | n
 /** Where an event's main way ends: the first instruction from its entry that ends it, jumps or fights (insert before it). */
 function mainEnd(model: ScriptModel, label: string): number {
   const at = labelTarget(model, label);
-  if (at < 0) throw new Error(`@${label} is not in the script`);
+  if (at < 0) throw new Error(`the label ${label} is not in the script`);
   for (let i = at; i < model.steps.length; i++) {
     const s = model.steps[i];
     if (i > at && s.label) return i;
@@ -412,21 +415,33 @@ export function addShop(p: Project, o: ShopOptions): WizardResult {
 // ---------------------------------------------------------------------------
 // Monsters and battles
 
-/** Monster templates: numbers that suit a starter party (a level-1 hero has about 60 HP and 10 attack). */
+/**
+ * Monster templates: what each is for. Their numbers come from the party the
+ * player has (difficulty.ts scaledMonster); these are the numbers for a
+ * level-1 hero with about 60 HP and 12 attack, for when there is no party.
+ */
 export const MONSTER_TEMPLATES = [
-  { id: "weak", label: "Weak (first fights)", level: 1, maxHP: 20, attack: 8, defend: 2, speed: 6, money: 5, exp: 4 },
-  { id: "normal", label: "Normal", level: 3, maxHP: 45, attack: 12, defend: 5, speed: 8, money: 12, exp: 10 },
-  { id: "strong", label: "Strong", level: 6, maxHP: 110, attack: 18, defend: 9, speed: 10, money: 40, exp: 30 },
-  { id: "boss", label: "Boss", level: 10, maxHP: 400, attack: 26, defend: 14, speed: 12, money: 200, exp: 150 },
+  { id: "weak", label: "Weak (first fights)", level: 1, maxHP: 20, attack: 5, defend: 2, speed: 7, money: 5, exp: 4 },
+  { id: "normal", label: "Normal", level: 2, maxHP: 30, attack: 7, defend: 4, speed: 9, money: 12, exp: 6 },
+  { id: "strong", label: "Strong", level: 3, maxHP: 40, attack: 9, defend: 7, speed: 11, money: 40, exp: 12 },
+  { id: "boss", label: "Boss", level: 4, maxHP: 50, attack: 11, defend: 10, speed: 12, money: 200, exp: 24 },
 ] as const;
 
-/** A new monster from a template. */
-export function newMonster(p: Project, o: { name: string; sprite: number; template: string }): { change: Change; index: number } {
+/** A new monster from a template scaled to the starting party (difficulty.ts), or with its own numbers (`stats`). */
+export function newMonster(p: Project, o: { name: string; sprite: number; template: string; stats?: Partial<MonsterStats> }): { change: Change; index: number } {
   const t = MONSTER_TEMPLATES.find((x) => x.id === o.template) ?? MONSTER_TEMPLATES[0];
   const name = o.name.trim() || "Monster";
   if (textCells(name) > 12) throw new Error("a monster's name holds 12 letters (6 Chinese characters)");
   const index = freeIndex(p.archive, 3, 3);
-  const { id: _id, label: _label, ...stats } = t;
+  const { id: _id, label: _label, ...fixed } = t;
+  // the template's numbers for the party a new game starts with
+  const party = startingParty(p.archive, p.texts["1-1-1"]);
+  const base = party.length ? scaledMonster(t.id, party, p.archive) : fixed;
+  const stats = { ...base, ...o.stats };
+  for (const [k, v] of Object.entries(stats)) {
+    const max = k === "level" || k === "speed" ? 99 : k === "maxHP" || k === "attack" || k === "defend" ? 999 : 65535;
+    if (!Number.isInteger(v) || v < (k === "maxHP" || k === "level" ? 1 : 0) || v > max) throw new Error(`the monster's ${({ maxHP: "HP", defend: "defence" } as Record<string, string>)[k] ?? k} must be a whole number from ${k === "maxHP" || k === "level" ? 1 : 0} to ${max}`);
+  }
   return { index, change: { key: resKey(3, 3, index), data: encodeMonster({ index, name, sprite: o.sprite, ...stats }) } };
 }
 
@@ -486,12 +501,25 @@ export interface BattleOptions {
   /** Up to 3 monsters. */
   monsters: number[];
   background: number;
-  /** Said after a win (empty: nothing). */
+  /** Shown after a win (empty: nothing). */
   winLine: string;
+  /**
+   * Who says the win line: null shows it as a plain message; a name puts it
+   * in the dialogue box as "Name: …" (portrait 0), a portrait shows it with
+   * that portrait (picture 1-n) and no name.
+   */
+  speaker?: { name: string; portrait: number } | null;
   /** Losing ends the game (else the event just ends). */
   loseEnds: boolean;
   /** Fight only once: a story flag remembers the win. */
   onceFlag: number | null;
+}
+
+/** The win line: a message, or said by someone (their name, or their portrait). */
+function winStep(text: string, speaker: { name: string; portrait: number } | null): string {
+  if (!speaker) return instructionLine("message", [wrapMessage(collapse(text))]);
+  if (speaker.portrait) return instructionLine("say", [speaker.portrait, sayText(text, speaker.portrait)]);
+  return instructionLine("say", [0, sayText(speaker.name.trim() ? `${speaker.name.trim()}: ${text}` : text, 0)]);
 }
 
 /** Talking to a person starts a battle: `enterfight` where their event ends, then the win line; losing ends the game. */
@@ -515,7 +543,7 @@ export function addBattle(p: Project, o: BattleOptions): WizardResult {
     instructionLine("enterfight", [0, ...mons, o.background, 0, 0, 0, 0, 0, 0, 0, 0, lose, win]),
     `@${win}:`,
     ...(done ? [instructionLine("setevent", [o.onceFlag!])] : []),
-    ...(o.winLine.trim() ? [instructionLine("say", [0, sayText(`${o.name}: ${o.winLine.trim()}`, 0)])] : []),
+    ...(o.winLine.trim() ? [winStep(o.winLine.trim(), o.speaker ?? null)] : []),
     ...(done ? [`@${done}:`] : []),
   ]);
   // the lose arm after the event's code

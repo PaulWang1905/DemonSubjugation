@@ -230,7 +230,7 @@ describe("the New battle wizard", () => {
     expect(m.index).toBe(4);
     const q = apply(p, { changes: [m.change] });
     expect(buildWorld(q.archive).scripts.size).toBe(1);
-    expect(findEntry(q.archive, 3, 3, 4)!.data[0x12]).toBe(3); // level
+    expect(findEntry(q.archive, 3, 3, 4)!.data[0x12]).toBe(2); // level: the party (level 1) + 1
   });
 
   it("turns random battles on for a map (and off on the others); walking there meets monsters", () => {

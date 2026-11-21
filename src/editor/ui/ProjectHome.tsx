@@ -6,6 +6,7 @@ import type { LibArchive } from "../format/lib";
 import { problemSummary, type Problem } from "../format/validate";
 import { entryOf, entryTitle, findStart, GROUPS, groupCounts, type GroupId } from "./workspace";
 import { WorldMapCard } from "./WorldMap";
+import { plainProblem } from "./plainWords";
 
 interface Props {
   archive: LibArchive;
@@ -164,7 +165,7 @@ export function ProjectHome(p: Props) {
                 <li key={i}>
                   <button className={`link problem-link ${x.level}`} onClick={() => p.onProblem(x)} disabled={!x.key}>
                     <span className="lvl">{x.level === "error" ? "Error" : "Warning"}</span> {x.where}
-                    {x.line ? ` · line ${x.line}` : ""}: <span className="muted">{x.message}</span>
+                    {x.line ? ` · line ${x.line}` : ""}: <span className="muted">{plainProblem(x.message)}</span>
                   </button>
                 </li>
               ))}

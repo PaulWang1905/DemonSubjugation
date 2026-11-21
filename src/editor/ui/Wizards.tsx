@@ -8,15 +8,14 @@ import { useMemo, useRef, useEffect, useState } from "react";
 import { decodeMap } from "../format/decode";
 import { findEntry, type LibArchive } from "../format/lib";
 import type { ProjectNotes } from "../format/notes";
-import { cells as textCells } from "../format/text";
-import { freeFlag, type Texts } from "../format/worldEdit";
+import { cells as textCells, wrapMessage } from "../format/text";
+import { freeFlag, sayText, type Texts } from "../format/worldEdit";
 import {
   addBattle,
   addShop,
   buyPrice,
   MAP_SIZES,
   MIN_MAP,
-  MONSTER_TEMPLATES,
   newMap,
   newMonster,
   newPerson,
@@ -28,6 +27,7 @@ import {
   type WizardResult,
 } from "../format/wizards";
 import { DialoguePreview } from "./DialoguePreview";
+import { atLevel, estimateFight, fightWords, maxLevel, monsterStatsOf, scaledMonster, startingParty, TEMPLATE_AIMS, type FightEstimate, type Fighter, type MonsterStats, type TemplateId } from "../format/difficulty";
 import { FrameCanvas } from "./FrameStrip";
 import { ResourcePicker, entryLabel, type ResValue } from "./ResourcePicker";
 import { Thumb } from "./Thumb";
@@ -35,6 +35,7 @@ import { MiniMap } from "./WorldMap";
 import { framesOf } from "./worldArt";
 import type { WorldIntent } from "./intents";
 import "./starter.css";
+import "./leftovers.css";
 
 export type WizardKind = "map" | "person" | "shop" | "battle";
 
@@ -46,9 +47,11 @@ export const WIZARDS: { kind: WizardKind; what: string; label: string; group: "s
   { kind: "battle", what: "wizard:battle", label: "Monster or battle…", group: "characters", blurb: "random battles on a map, or a fight with someone" },
 ];
 
-/** Where a wizard starts (the map shown, the side to join). */
+/** Where a wizard starts (the map shown, the side to join, who is selected). */
 export interface WizardInit {
   map?: string;
+  /** The person selected in the World view ("script#id"): the shop keeper, the one to fight. */
+  person?: string;
   side?: Side;
   /** Tick "join it to" (New map). */
   join?: boolean;
@@ -106,7 +109,7 @@ export function WizardDialog({ kind, init, archive, texts, notes, onApply, onClo
   const body =
     kind === "map" ? <MapWizard archive={archive} texts={texts} init={init} run={run} project={project} />
     : kind === "person" ? <PersonWizard archive={archive} texts={texts} init={init} run={run} project={project} />
-    : kind === "shop" ? <ShopWizard archive={archive} texts={texts} run={run} project={project} />
+    : kind === "shop" ? <ShopWizard archive={archive} texts={texts} init={init} run={run} project={project} />
     : <BattleWizard archive={archive} texts={texts} init={init} notes={notes} run={run} project={project} />;
   return (
     <dialog ref={dialog} className="export-dialog wz" onClose={onClose} onCancel={onClose} aria-labelledby="wz-title">
@@ -363,7 +366,7 @@ function PersonWizard({ archive, texts, init, run, project }: Part) {
         <textarea rows={2} value={line} onChange={(e) => setLine(e.target.value)} maxLength={200} />
       </label>
       <div className="wz-preview">
-        <DialoguePreview archive={archive} name="say" values={[0, line.replace(/\s+/g, " ").trim()]} onWrap={null} />
+        <DialoguePreview archive={archive} name="say" values={[0, sayText(line, 0)]} onWrap={null} />
       </div>
       <Buttons
         label={tile ? "Make them and put them there" : "Make them, then pick a tile"}
@@ -382,37 +385,45 @@ function PersonWizard({ archive, texts, init, run, project }: Part) {
 
 // --- a shop -------------------------------------------------------------------------------------
 
-/** People the scripts place, for the shop and battle wizards. */
-function usePeople(project: { archive: LibArchive; texts: Texts }) {
+/** People the scripts place, for the shop and battle wizards: those on `first` (the map in view) first. */
+function usePeople(project: { archive: LibArchive; texts: Texts }, first?: string) {
   return useMemo(() => {
     try {
       const w = projectWorld(project);
-      return w.placements
+      const all = w.placements
         .filter((p) => p.kind === "person")
         .map((p) => ({ key: `${p.script}#${p.id}`, script: p.script, id: p.id, name: p.name || `Person #${p.id}`, map: p.map ? (w.maps.get(p.map)?.name ?? p.map) : "no map", map_key: p.map }))
         .filter((p, i, all) => all.findIndex((q) => q.key === p.key) === i);
+      return first ? [...all.filter((p) => p.map_key === first), ...all.filter((p) => p.map_key !== first)] : all;
     } catch {
       return [];
     }
-  }, [project.archive, project.texts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [project.archive, project.texts, first]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
+/** Who: nobody chosen at first unless someone is selected on the map (then the wizard asks). */
 function PersonSelect({ people, value, onChange }: { people: ReturnType<typeof usePeople>; value: string; onChange: (v: string) => void }) {
   if (!people.length) return <p className="wz-note small">Nobody is placed on a map yet: make a person first (New person).</p>;
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="Person">
+    <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="Person" aria-invalid={!value} className={value ? "" : "wz-ask"}>
+      {!value && (
+        <option value="" disabled>
+          Choose who…
+        </option>
+      )}
       {people.map((p) => (
         <option key={p.key} value={p.key}>
-          {p.name} — on {p.map} (#{p.id}, script {p.script.split("-").slice(1).join("-")})
+          {p.name} — on {p.map}
+          {people.some((q) => q !== p && q.name === p.name && q.map === p.map) ? ` (#${p.id})` : ""}
         </option>
       ))}
     </select>
   );
 }
 
-function ShopWizard({ archive, run, project }: Part) {
-  const people = usePeople(project);
-  const [who, setWho] = useState(people[0]?.key ?? "");
+function ShopWizard({ archive, init, run, project }: Part) {
+  const people = usePeople(project, init?.map);
+  const [who, setWho] = useState(init?.person && people.some((p) => p.key === init.person) ? init.person : "");
   const items = archive.entries.filter((e) => e.resType === 6).sort((a, b) => a.type - b.type || a.index - b.index);
   const [chosen, setChosen] = useState<Set<string>>(() => new Set(items.filter((e) => e.type !== 14 && (buyPrice(archive, e.type, e.index) ?? 0) > 0).slice(0, 4).map((e) => `${e.type}-${e.index}`)));
   const [greeting, setGreeting] = useState("Take a look at my wares!");
@@ -461,22 +472,55 @@ function ShopWizard({ archive, run, project }: Part) {
 
 // --- monsters and battles --------------------------------------------------------------------
 
+/** The numbers a new monster is made with (editable in the wizard). */
+const STAT_FIELDS: { key: keyof MonsterStats; label: string; min: number; max: number }[] = [
+  { key: "level", label: "Level", min: 1, max: 99 },
+  { key: "maxHP", label: "HP", min: 1, max: 999 },
+  { key: "attack", label: "Attack", min: 0, max: 999 },
+  { key: "defend", label: "Defence", min: 0, max: 999 },
+  { key: "speed", label: "Speed", min: 0, max: 99 },
+  { key: "exp", label: "Experience", min: 0, max: 65535 },
+  { key: "money", label: "Money", min: 0, max: 65535 },
+];
+
+/** The party a new game starts with, at a level (for how hard a fight is). */
+function useParty(archive: LibArchive, texts: Texts) {
+  const start = useMemo(() => startingParty(archive, texts["1-1-1"]), [archive, texts]);
+  const base = start.length ? Math.max(...start.map((f) => f.level)) : 1;
+  const top = Math.max(base, ...start.map((f) => maxLevel(archive, f.index)));
+  const [level, setLevel] = useState(base);
+  const party = useMemo(() => start.map((f) => atLevel(archive, f, level)), [archive, start, level]);
+  return { start, party, level, setLevel, base, top };
+}
+
 function BattleWizard({ archive, texts, init, run, project, notes }: Part & { notes: ProjectNotes }) {
   const monsters = archive.entries.filter((e) => e.resType === 3 && e.type === 3);
-  const people = usePeople(project);
-  const [chosen, setChosen] = useState<number[]>(monsters.slice(0, 2).map((m) => m.index));
+  const people = usePeople(project, init?.map);
+  const picked = init?.person && people.some((p) => p.key === init.person) ? init.person : "";
+  // a fight with someone: one monster to start with; random battles: two
+  const [chosen, setChosen] = useState<number[]>(monsters.slice(0, picked ? 1 : 2).map((m) => m.index));
+  const [touched, setTouched] = useState(false);
   const [making, setMaking] = useState(monsters.length === 0);
   const [mName, setMName] = useState("Slime");
   const [mSprite, setMSprite] = useState<ResValue | null>(() => {
     const s = archive.entries.find((e) => e.resType === 8 && e.type === 3);
     return s ? { type: 3, index: s.index } : null;
   });
-  const [template, setTemplate] = useState<string>("weak");
-  const [where, setWhere] = useState<"map" | "person" | "none">("map");
+  const [template, setTemplate] = useState<TemplateId>("weak");
+  const party = useParty(archive, texts);
+  const scaled = useMemo(
+    () => Object.fromEntries((Object.keys(TEMPLATE_AIMS) as TemplateId[]).map((id) => [id, scaledMonster(id, party.party, archive)])) as Record<TemplateId, MonsterStats>,
+    [party.party, archive],
+  );
+  const [stats, setStats] = useState<MonsterStats>(() => scaled[template]);
+  // a new template or party level gives the template's numbers again
+  useEffect(() => setStats(scaled[template]), [scaled, template]);
+  const [where, setWhere] = useState<"map" | "person" | "none">(picked ? "person" : "map");
   const [map, setMap] = useState<ResValue | null>(toValue(init?.map ?? firstMap(archive, texts)));
   const [othersOff, setOthersOff] = useState(true);
-  const [who, setWho] = useState(people[0]?.key ?? "");
+  const [who, setWho] = useState(picked);
   const [winLine, setWinLine] = useState("You're stronger than you look!");
+  const [speaker, setSpeaker] = useState("");
   const [once, setOnce] = useState(true);
   const [loseEnds, setLoseEnds] = useState(true);
   const [bg, setBg] = useState<ResValue | null>(() => {
@@ -486,6 +530,15 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
   const limit = where === "person" ? 3 : 8;
   const count = chosen.length + (making ? 1 : 0);
   const person = people.find((p) => p.key === who);
+  // who may say the win line: the one fought, or a party member with a portrait
+  const portraits = party.start.filter((f) => findEntry(archive, 11, 1, f.index));
+  const speakerOf = (v: string): { name: string; portrait: number } | null =>
+    v === "person" && person ? { name: person.name, portrait: 0 } : v.startsWith("member:") ? { name: "", portrait: Number(v.slice(7)) } : null;
+  const said = speakerOf(speaker);
+  const statsOk = STAT_FIELDS.every((f) => Number.isInteger(stats[f.key]) && stats[f.key] >= f.min && stats[f.key] <= f.max);
+  const statsOf = (i: number) => monsterStatsOf(findEntry(archive, 3, 3, i)!.data);
+  const fightList = [...chosen.map(statsOf), ...(making && statsOk ? [stats] : [])];
+  const battle = where === "person" && fightList.length ? estimateFight(party.party, fightList.slice(0, 3)) : null;
   const go = () =>
     run(() => {
       const extra: Change[] = [];
@@ -493,10 +546,10 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
       let made = "";
       if (making) {
         if (!mSprite) throw new Error("pick the new monster's battle sprite");
-        const m = newMonster(project, { name: mName, sprite: mSprite.index, template });
+        const m = newMonster(project, { name: mName, sprite: mSprite.index, template, stats });
         extra.push(m.change);
         list = [...list, m.index];
-        made = `Made monster 3-${m.index} ${mName.trim() || "Monster"}. `;
+        made = `Made monster ${mName.trim() || "Monster"}. `;
       }
       if (where === "none") return { changes: extra, open: extra[0] ? { key: extra[0].key } : undefined, message: made || "Nothing to make." };
       const background = bg?.index ?? 0;
@@ -510,6 +563,7 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
               monsters: list,
               background,
               winLine,
+              speaker: said,
               loseEnds,
               onceFlag: once ? freeFlag(projectWorld(project), Object.keys(notes.flags)) : null,
             });
@@ -521,6 +575,7 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
         notes: flag ? (n) => ({ ...n, flags: { ...n.flags, [String(flag)]: n.flags[String(flag)] ?? { name: `beat ${person!.name}` } } }) : r.notes,
       };
     });
+  const partyNames = party.start.map((f) => f.name).join(", ");
   return (
     <>
       <p className="muted small">Monsters to fight: met at random while walking on a map, or when talking to someone.</p>
@@ -529,32 +584,47 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
           Monsters <span className="muted small">(up to {limit})</span>
         </legend>
         <ul className="wz-items wz-monsters">
-          {monsters.map((m) => (
-            <li key={m.index}>
-              <label className={`wz-item${chosen.includes(m.index) ? " on" : ""}`}>
-                <input type="checkbox" checked={chosen.includes(m.index)} onChange={(e) => setChosen((c) => (e.target.checked ? [...c, m.index] : c.filter((x) => x !== m.index)))} />
-                <Thumb archive={archive} entry={m} />
-                <span className="wz-item-name">{entryLabel(m)}</span>
-                <span className="small muted">level {m.data[0x12]}, {m.data[0x18] | (m.data[0x19] << 8)} HP</span>
-              </label>
-            </li>
-          ))}
+          {monsters.map((m) => {
+            const st = statsOf(m.index);
+            const est = estimateFight(party.party, [st]);
+            return (
+              <li key={m.index}>
+                <label className={`wz-item${chosen.includes(m.index) ? " on" : ""}`} title={fightWords(est, party.party)}>
+                  <input type="checkbox" checked={chosen.includes(m.index)} onChange={(e) => (setTouched(true), setChosen((c) => (e.target.checked ? [...c, m.index] : c.filter((x) => x !== m.index))))} />
+                  <Thumb archive={archive} entry={m} />
+                  <span className="wz-item-name">{entryLabel(m)}</span>
+                  <span className="small muted">
+                    level {st.level}, {st.maxHP} HP{est && <span className={`wz-diff ${est.level.replace(" ", "-")}`}> · {est.level}</span>}
+                  </span>
+                </label>
+              </li>
+            );
+          })}
         </ul>
         <label className="check small">
-          <input type="checkbox" checked={making} onChange={(e) => setMaking(e.target.checked)} /> And a new monster
+          <input
+            type="checkbox"
+            checked={making}
+            onChange={(e) => {
+              setMaking(e.target.checked);
+              // a new monster for a fight with someone: alone, unless the author picked others
+              if (e.target.checked && !touched && where === "person") setChosen([]);
+            }}
+          />{" "}
+          And a new monster
         </label>
         {making && (
-          <div className="wz-new">
+          <div className="wz-new wz-new-monster">
             <label className="wz-field">
               <span>Name</span>
               <input value={mName} onChange={(e) => setMName(e.target.value)} maxLength={12} />
             </label>
             <label className="wz-field">
               <span>How strong</span>
-              <select value={template} onChange={(e) => setTemplate(e.target.value)}>
-                {MONSTER_TEMPLATES.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}: level {t.level}, {t.maxHP} HP, attack {t.attack}
+              <select value={template} onChange={(e) => setTemplate(e.target.value as TemplateId)}>
+                {(Object.keys(TEMPLATE_AIMS) as TemplateId[]).map((id) => (
+                  <option key={id} value={id}>
+                    {TEMPLATE_AIMS[id].label}: level {scaled[id].level}, {scaled[id].maxHP} HP, attack {scaled[id].attack}
                   </option>
                 ))}
               </select>
@@ -563,6 +633,44 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
               <span>Battle sprite</span>
               <ResourcePicker archive={archive} resType={8} types={[3]} value={mSprite} onChange={setMSprite} label="Monster battle sprite" />
             </label>
+            <div className="wz-field wz-stats">
+              <span>
+                Its numbers{" "}
+                <span className="muted small wz-for">
+                  for {partyNames || "the party"} at level{" "}
+                  <input
+                    className="wz-num"
+                    type="number"
+                    min={1}
+                    max={party.top}
+                    value={party.level}
+                    onChange={(e) => party.setLevel(Math.max(1, Math.min(party.top, Number(e.target.value) || 1)))}
+                    aria-label="The party's level when it meets the monster"
+                    title={`The level the party has when it meets this monster (a new game starts at level ${party.base})`}
+                  />
+                  {party.level !== party.base ? ` (a new game starts at ${party.base})` : ""}
+                </span>
+              </span>
+              <div className="wz-stat-row">
+                {STAT_FIELDS.map((f) => (
+                  <label key={f.key} className="wz-stat">
+                    <span className="small muted">{f.label}</span>
+                    <input
+                      type="number"
+                      min={f.min}
+                      max={f.max}
+                      value={Number.isFinite(stats[f.key]) ? stats[f.key] : ""}
+                      aria-invalid={!(stats[f.key] >= f.min && stats[f.key] <= f.max)}
+                      onChange={(e) => {
+                        const v = e.target.value === "" ? NaN : Math.trunc(Number(e.target.value));
+                        setStats((s) => ({ ...s, [f.key]: v }));
+                      }}
+                    />
+                  </label>
+                ))}
+              </div>
+              {statsOk ? <Difficulty est={estimateFight(party.party, [stats])} party={party.party} what="Alone" /> : <p className="error small">Each number must be a whole number in its range.</p>}
+            </div>
           </div>
         )}
       </fieldset>
@@ -585,10 +693,34 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
         </label>
         {where === "person" && (
           <div className="wz-sub">
-            <label className="wz-field">
-              <span>After a win they say</span>
-              <input value={winLine} onChange={(e) => setWinLine(e.target.value)} maxLength={120} />
-            </label>
+            {battle && (fightList.length > 1 || !making) && <Difficulty est={battle} party={party.party} what="The battle" />}
+            <div className="wz-two">
+              <label className="wz-field">
+                <span>After a win</span>
+                <input value={winLine} onChange={(e) => setWinLine(e.target.value)} maxLength={120} placeholder="(nothing)" />
+              </label>
+              <label className="wz-field wz-speaker">
+                <span>Shown as</span>
+                <select value={speaker} onChange={(e) => setSpeaker(e.target.value)} aria-label="Who says the line after a win">
+                  <option value="">A message (no one speaks)</option>
+                  {person && <option value="person">Said by {person.name}</option>}
+                  {portraits.map((f) => (
+                    <option key={f.index} value={`member:${f.index}`}>
+                      Said by {f.name} (with portrait)
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {winLine.trim() && (
+              <div className="wz-preview">
+                {said ? (
+                  <DialoguePreview archive={archive} name="say" values={[said.portrait, sayText(said.portrait ? winLine : `${said.name}: ${winLine}`, said.portrait)]} onWrap={null} />
+                ) : (
+                  <DialoguePreview archive={archive} name="message" values={[wrapMessage(winLine.replace(/\s+/g, " ").trim())]} onWrap={null} />
+                )}
+              </div>
+            )}
             <label className="check small">
               <input type="checkbox" checked={once} onChange={(e) => setOnce(e.target.checked)} /> Fight only once (a story flag remembers the win)
             </label>
@@ -611,8 +743,22 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
         </label>
       )}
       {count > limit && <p className="error small">Pick at most {limit} monsters for {where === "person" ? "a battle" : "random battles"}.</p>}
-      <Buttons label={where === "none" ? "Make the monster" : "Make it"} disabled={count === 0 || count > limit || (where === "map" && !map) || (where === "person" && !person)} ok={go} />
+      <Buttons
+        label={where === "none" ? "Make the monster" : "Make it"}
+        disabled={count === 0 || count > limit || (making && !statsOk) || (where === "map" && !map) || (where === "person" && !person)}
+        ok={go}
+      />
     </>
+  );
+}
+
+/** "Alone: about 5 rounds for your party; it hits for ~9 of your 60 HP. Hard: bring a few potions." */
+function Difficulty({ est, party, what }: { est: FightEstimate | null; party: Fighter[]; what: string }) {
+  if (!est) return null;
+  return (
+    <p className={`wz-difficulty ${est.level.replace(" ", "-")}`} role="status">
+      <strong>{what}:</strong> {fightWords(est, party)}
+    </p>
   );
 }
 

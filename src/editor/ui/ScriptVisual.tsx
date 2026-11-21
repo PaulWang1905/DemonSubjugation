@@ -58,6 +58,7 @@ import {
 import { typing, useUndoKeys } from "./undoKeys";
 import type { ViewProps } from "./views";
 import "./scriptVisual.css";
+import { plainProblem } from "./plainWords";
 
 /** The world index of a project version (an archive object and its version count). */
 const worldCache = new WeakMap<object, { version: number; world: WorldIndex | undefined; text: Map<string, string> }>();
@@ -140,12 +141,12 @@ export function ScriptVisual({ archive, entry, onChange, services }: ViewProps) 
       if (!list.some((x) => x.message === p.message)) list.push(p);
       m.set(id, list);
     };
-    for (const p of modelProblems(model)) add(p.stepId, { level: "error", message: p.message });
+    for (const p of modelProblems(model)) add(p.stepId, { level: "error", message: plainProblem(p.message) });
     // the project check's (on the stored text: the same text, once an edit is stored)
     if (stored === text) {
       for (const p of services.problems) {
         const s = p.line ? model.steps[p.line - 1] : undefined;
-        if (s) add(s.id, { level: p.level, message: p.message });
+        if (s) add(s.id, { level: p.level, message: plainProblem(p.message) });
       }
     }
     return m;
@@ -292,7 +293,7 @@ export function ScriptVisual({ archive, entry, onChange, services }: ViewProps) 
   // --- adding ---------------------------------------------------------------------------------
   const titleOf = (id: number | null) => {
     const s = id !== null ? model.steps.find((x) => x.id === id) : undefined;
-    return s?.kind === "instruction" ? s.command.title : s?.label ? `@${s.label}` : "the step";
+    return s?.kind === "instruction" ? s.command.title : s?.label ? `◆ ${s.label}` : "the step";
   };
   const openPalette = (pos?: Position, where?: string) => {
     if (!group || pendingDraft !== null) return;

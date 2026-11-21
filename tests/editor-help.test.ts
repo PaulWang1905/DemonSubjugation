@@ -191,7 +191,7 @@ describe("project check", () => {
     expect(at(11)).toEqual(["warning: say: picture 1-9 does not exist (a blank stand-in is shown)"]);
     expect(at(12)).toEqual(["error: startchapter: script 1-3 does not exist"]);
     // the map is not loaded by any script now
-    expect(p.find((x) => x.key === "2-1-1")?.message).toContain("no script loads this map");
+    expect(p.find((x) => x.key === "2-1-1")?.message).toContain("no script shows this map");
     expect(problemSummary(p)).toMatch(/^\d+ errors, 3 warnings$/);
   });
 
@@ -200,7 +200,7 @@ describe("project check", () => {
     const cells = Array.from({ length: 20 * 14 }, (_, i) => ({ tile: i === 0 ? 120 : 0, walkable: true, event: i === 30 ? 2 : 0 }));
     putEntry(a, { resType: 2, type: 1, index: 1, data: encodeMap({ type: 1, index: 1, tileset: 1, name: "START", width: 20, height: 14, cells }) });
     let p = checkProject(a).map((x) => x.message);
-    expect(p).toContain('map event 2 does nothing: no script that loads this map has ".event 42"');
+    expect(p).toContain("map event 2 does nothing: no script that shows this map says what happens there");
     const tiles = decodeImage(findEntry(a, 7, 1, 1)!.data).frames.length;
     expect(p).toContain(`uses tile 120, but tileset 1 has tiles 0-${tiles - 1}`);
     withScript(a, ".gut 1 1\n.events 42\n.event 42 @door\n@start:\n  loadmap 1, 1, 4, 4\n  callback\n@door:\n  callback\n");

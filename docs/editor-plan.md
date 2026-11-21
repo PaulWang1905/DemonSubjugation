@@ -124,8 +124,17 @@ All three phases are done and shipped.
   clipped, test tools in the playtest...). Repeated after the fixes: the
   same game in under 9 minutes.
 
-Left, from the repeat run: the battle wizard opened from the sidebar
-starts on the start map and the first person; a wizard-made boss is too
-strong for a level-1 party without the test tools; the wizard's win line
-starts with the speaker's name; tab labels clipped at 1280; sprites in the
-sidebar still listed by kind and number.
+Fixed after the repeat run (`tests/editor-leftovers.test.ts`): wizards
+opened from the sidebar, the palette or the home start where the author is
+(the map in the current tab or the last one viewed, the person selected on
+it; otherwise they ask who); monster templates scale to the starting party
+(`format/difficulty.ts`: its records and level tables, the engine's battle
+rules) and say how hard a fight is ("about 5 rounds for your party; it hits
+for ~9 of your 60 HP"), with the numbers editable, and a wizard-made boss
+is beaten by a level-1 party that only attacks (played in the engine); the
+win line is a plain message unless a speaker is picked; tabs show their
+kind as an icon and their names in full while they fit, then the widest
+shrink evenly; art is listed by the author's names or by what uses it
+("Tam (walk)", "Dusk Moth (battle)", `format/naming.ts`); and the
+author-facing views, wizards, help and project check no longer show script
+syntax (instruction names, `@labels`, `.event`).

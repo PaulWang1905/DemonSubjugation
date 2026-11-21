@@ -3,6 +3,7 @@
 // (getting started and the keyboard shortcuts).
 import { useEffect, useRef } from "react";
 import { problemSummary, type Problem } from "../format/validate";
+import { plainProblem } from "./plainWords";
 
 /** A modal <dialog> that opens when mounted. */
 function Modal({ className, onClose, children }: { className: string; onClose: () => void; children: React.ReactNode }) {
@@ -51,7 +52,7 @@ export function ProblemsDialog({ problems, action, onGo, onProceed, onClose }: P
                     {p.where}
                     {p.line ? ` · line ${p.line}` : ""}
                   </span>
-                  <span className="msg">{p.message}</span>
+                  <span className="msg">{plainProblem(p.message)}</span>
                 </button>
               </li>
             ))}
@@ -129,22 +130,27 @@ export function GettingStarted() {
   return (
     <ol className="getting-started">
       <li>
-        <strong>Script 1-1 starts the game.</strong> Its first lines <code>loadmap</code> a map (and where the camera is) and{" "}
-        <code>createactor</code> the hero. The reference beside the script lists every instruction; <em>Insert…</em> adds a dialogue, a
-        choice, a battle, a shop or a chest.
+        <strong>Start on the project home.</strong> It shows where the game starts and what to do next; <em>Guide me</em> makes a
+        first game step by step. The <em>+</em> beside each group of the sidebar, and <em>Ctrl+P</em>, have wizards for a new map, a
+        person who talks, a shop, and a monster or a battle.
       </li>
       <li>
-        <strong>Maps</strong>: paint tiles, mark tiles walkable or blocked, and put <em>map events</em> on tiles. Map event N runs{" "}
-        <code>.event N+40</code> of the script that loaded the map. Pointing at a tile shows its position and the lines to start the
-        player or put an NPC there.
+        <strong>Maps</strong> open in their <em>World</em> view: paint tiles (painting also sets where the party can walk), and add
+        people, chests, exits to other maps and tiles where something happens. Click anything to see what it does, drag it to move
+        it; <em>Play from here</em> starts the game on a tile.
       </li>
       <li>
-        <strong>Characters</strong>: party members, NPCs (placed with <code>createnpc id, …</code>; talking to one runs{" "}
-        <code>.event id</code>), monsters (fought with <code>enterfight</code> or <code>initfight</code>) and objects such as chests (
-        <code>createbox</code>).
+        <strong>What happens</strong> when the game starts, when the party talks to someone or steps on a tile is a list of steps in
+        plain words, in the <em>Visual</em> view of the map's script: someone says a line, the player gets an item, if a story flag
+        is set…, a battle. The <em>Text</em> view shows the same script as the engine reads it, for those who want it.
       </li>
       <li>
-        <strong>Items, Magic and Tables</strong> are forms. Number fields that point at another resource show it, or “missing”.
+        <strong>Characters, monsters, items and spells</strong> are cards with their pictures and key numbers; <em>Used by</em>{" "}
+        shows what refers to each one.
+      </li>
+      <li>
+        <strong>Tables</strong> (spell lists, level tables) and every record's <em>Fields</em> show the numbers as stored; a number that
+        points at another resource shows it, or “missing”.
       </li>
       <li>
         <strong>Art</strong>: tilesets, sprites, icons and pictures open in the pixel editor; <strong>animations</strong> are the

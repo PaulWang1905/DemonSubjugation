@@ -32,8 +32,11 @@ import type { EditorServices, OpenOptions } from "./views";
 import { fullTexts, playFromHere, type WizardResult } from "../format/wizards";
 import { GuidePanel } from "./Guide";
 import { notePlaytest, readGuide, startGuide } from "./guideModel";
-import { requestWorld, type WorldIntent } from "./intents";
-import { NotesContext } from "./names";
+import { requestWorld, wizardContext, type WorldIntent } from "./intents";
+// (the last known issues: wizards start from what is in view; names for art in the lists)
+import { buildWorld } from "../format/world";
+import { resourceLabels } from "../format/naming";
+import { LabelsContext, NotesContext } from "./names";
 import { HomeQuickActions } from "./HomeStarter";
 import { StoryFlags } from "./StoryFlags";
 import { WIZARDS, WizardDialog, WizardToast, type WizardInit, type WizardKind } from "./Wizards";
@@ -148,6 +151,11 @@ export function Editor({ onPlaytest }: Props) {
   const [help, setHelp] = useState(false);
   // the workspace
   const [ws, setWs] = useState<TabState>(initialTabs);
+  // the last map shown in a tab (where wizards opened from a menu start)
+  const lastMap = useRef<string | null>(null);
+  useEffect(() => {
+    if (ws.active.startsWith("2-")) lastMap.current = ws.active;
+  }, [ws.active]);
   const [recents, setRecents] = useState<string[]>([]);
   const [groups, setGroups] = useState<ReadonlySet<GroupId>>(new Set(DEFAULT_GROUPS));
   const [palette, setPalette] = useState<string | null>(null);
@@ -378,6 +386,16 @@ export function Editor({ onPlaytest }: Props) {
 
   // (re-checked after every change; `version` counts them)
   const problems = useMemo(() => (cur ? checkProject(cur.archive, cur.sources) : []), [cur, version]);
+  // the world as saved (names for art in the lists, the map a script shows)
+  const world = useMemo(() => {
+    if (!cur) return null;
+    try {
+      return buildWorld(cur.archive, cur.sources);
+    } catch {
+      return null;
+    }
+  }, [cur, version]);
+  const labels = useMemo(() => (cur ? resourceLabels(cur.archive, world, cur.notes) : new Map<string, string>()), [cur, world]);
   // every script's text as the author sees it (for the guide, the wizards, the flags card)
   const allTexts = useMemo(() => (cur ? fullTexts(cur.archive, drafts.current, cur.sources) : {}), [cur, version, dirty]);
   const marks = useMemo(() => {
@@ -390,7 +408,7 @@ export function Editor({ onPlaytest }: Props) {
   const create = (what: string) => {
     if (!cur) return;
     if (what.startsWith("wizard:")) {
-      setWizard({ kind: what.slice(7) as WizardKind });
+      openWizard(what.slice(7) as WizardKind);
       return;
     }
     try {
@@ -522,7 +540,18 @@ export function Editor({ onPlaytest }: Props) {
     setToast(r.message);
   };
 
-  const openWizard = (kind: WizardKind, init?: WizardInit) => setWizard({ kind, init });
+  /** Open a wizard where the author is: the map in view (or the last one viewed), who is selected on it. */
+  const openWizard = (kind: WizardKind, init?: WizardInit) => {
+    const here = cur
+      ? wizardContext({
+          active: ws.active === HOME_TAB ? null : ws.active,
+          lastMap: lastMap.current,
+          mapsOf: (k) => world?.scripts.get(k)?.maps,
+          exists: (k) => !!entryOf(cur.archive, k),
+        })
+      : {};
+    setWizard({ kind, init: { ...here, ...init } });
+  };
   const resumeGuide = () => setNotes(startGuide);
 
   /**
@@ -618,7 +647,17 @@ export function Editor({ onPlaytest }: Props) {
         { id: "projects", label: "Back to projects", detail: "all your projects", keywords: "close project", run: backToProjects },
       ]
     : [];
-  const resourceItems = useMemo(() => (cur ? cur.archive.entries.map(resourceItem) : []), [cur?.archive]);
+  const resourceItems = useMemo(
+    () =>
+      cur
+        ? cur.archive.entries.map((e) => {
+            const item = resourceItem(e);
+            const named = labels.get(keyOf(e));
+            return named ? { ...item, label: named, keywords: `${item.keywords} ${item.label}` } : item;
+          })
+        : [],
+    [cur?.archive, labels],
+  );
 
   // --- keyboard shortcuts for the whole editor ------------------------------------------
 
@@ -722,6 +761,7 @@ export function Editor({ onPlaytest }: Props) {
   return (
     // (the notes reach the pickers deep in the views: names for sprites and pictures)
     <NotesContext.Provider value={cur.notes}>
+    <LabelsContext.Provider value={labels}>
     <div className="editor" ref={root}>
       <div className="editor-bar">
         <button className="ghost" onClick={backToProjects}>
@@ -817,6 +857,7 @@ export function Editor({ onPlaytest }: Props) {
       <div className="editor-main">
         <Sidebar
           archive={cur.archive}
+          labels={labels}
           active={activeKey}
           onOpen={(key, pinIt) => openResource(key, { preview: !pinIt })}
           onCreate={create}
@@ -828,6 +869,7 @@ export function Editor({ onPlaytest }: Props) {
         <div className="e-work">
           <TabStrip
             archive={cur.archive}
+            labels={labels}
             projectName={cur.name}
             tabs={ws.tabs}
             active={ws.active}
@@ -894,6 +936,7 @@ export function Editor({ onPlaytest }: Props) {
         </div>
       </div>
     </div>
+    </LabelsContext.Provider>
     </NotesContext.Provider>
   );
 }

@@ -609,7 +609,7 @@ function describeRef(world: WorldIndex, archive: LibArchive, r: Reference, cache
     const info = world.scripts.get(w.script);
     const { type, index } = parseKey(w.script);
     const scriptName = (project.resource?.(1, type, index) || "").trim() || `Script ${type}-${index}`;
-    const when = w.events.length ? w.events.map((n) => names!.event?.(n) ?? `event ${n}`).join(" / ") : w.start ? "at the start" : w.group ? `@${w.group}` : "";
+    const when = w.events.length ? w.events.map((n) => names!.event?.(n) ?? `event ${n}`).join(" / ") : w.start ? "at the start" : w.group ? `◆ ${w.group}` : "";
     const step = info?.model.steps.find((s) => s.id === w.stepId);
     const detail = step && step.kind === "instruction" ? sentence(step.op.name, step.values, names).text : step?.text.trim() ?? "";
     return { ...base, title: when ? `${scriptName}, ${when}` : scriptName, detail, open: { key: w.script, line: w.line } };

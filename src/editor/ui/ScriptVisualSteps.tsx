@@ -198,7 +198,7 @@ function Card({ step, api, kind, children }: { step: Step; api: StepsApi; kind: 
   const sv = useSv();
   const [over, setOver] = useState<"before" | "after" | null>(null);
   const selected = api.selected === step.id;
-  const title = step.kind === "instruction" ? step.command.title : step.kind === "label" ? `Label @${step.label}` : step.kind === "raw" ? "Script line" : "Note";
+  const title = step.kind === "instruction" ? step.command.title : step.kind === "label" ? `Label ${step.label}` : step.kind === "raw" ? "Script line" : "Note";
   const onDrag = (e: DragEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setOver(e.clientY < r.top + r.height / 2 ? "before" : "after");
@@ -279,7 +279,7 @@ function InstructionCard({ step, api, header }: { step: InstructionStep; api: St
         <div className="sv-head">
           {step.label && (
             <span className="sv-tag" title="This line has a label">
-              @{step.label}
+              ◆ {step.label}
             </span>
           )}
           {step.command.noEffect && <span className="sv-tag">no effect in this engine</span>}
@@ -330,7 +330,7 @@ function LabelMarker({ step, api }: { step: Step; api: StepsApi }) {
             className="sv-name-input"
             autoFocus
             value={v}
-            aria-label={`New name for @${step.label}`}
+            aria-label={`New name for the label ${step.label}`}
             onChange={(e) => setV(e.target.value)}
             onBlur={() => {
               setNaming(false);
@@ -343,7 +343,7 @@ function LabelMarker({ step, api }: { step: Step; api: StepsApi }) {
           />
         ) : (
           <button type="button" className="link" disabled={sv.disabled} onClick={() => (setV(step.label ?? ""), setNaming(true))} title="Rename this label everywhere">
-            @{step.label}
+            {step.label}
           </button>
         )}
         {n > 0 && <span className="muted small">{`${n} place${n === 1 ? "" : "s"} go${n === 1 ? "es" : ""} here`}</span>}
@@ -399,8 +399,8 @@ function GoTo({ label, prefix = "go to" }: { label: string; prefix?: string }) {
   return (
     <p className="sv-goto small">
       {prefix}{" "}
-      <button type="button" className="link" onClick={() => sv.goLabel(label)} title={`Show @${label}`}>
-        @{label} →
+      <button type="button" className="link" onClick={() => sv.goLabel(label)} title={`Show the label ${label}`}>
+        ◆ {label} →
       </button>
     </p>
   );
@@ -434,7 +434,7 @@ function Block({ node, api }: { node: Extract<OutlineNode, { kind: "block" }>; a
           <div key={a.key + (a.label ?? "")} className="sv-arm" role="group" aria-label={armTitle(node.block, a)}>
             <div className="sv-arm-head">
               <span>{armTitle(node.block, a)}</span>
-              {a.label && a.nodes && <span className="muted small">@{a.label}</span>}
+              {a.label && a.nodes && <span className="muted small">◆ {a.label}</span>}
             </div>
             {a.nodes ? (
               <>
@@ -450,7 +450,7 @@ function Block({ node, api }: { node: Extract<OutlineNode, { kind: "block" }>; a
         {node.block === "ifThen" && node.joinLabel && (
           <div className="sv-arm sv-otherwise">
             <div className="sv-arm-head">Otherwise</div>
-            <p className="muted small">skips to @{node.joinLabel}, where both ways go on</p>
+            <p className="muted small">skips to ◆ {node.joinLabel}, where both ways go on</p>
           </div>
         )}
         {node.block === "branch" && node.arms.some((a) => a.nodes) && (

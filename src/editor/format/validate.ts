@@ -161,13 +161,13 @@ export function checkProject(a: LibArchive, sources: Record<string, string> = {}
     }
     const by = loads.get(k);
     if (!by) {
-      out.push({ level: "warning", key: k, where, message: "no script loads this map (loadmap)" });
+      out.push({ level: "warning", key: k, where, message: "no script shows this map: no exit or start leads here" });
       continue;
     }
     const events = [...new Set(m.cells.map((c) => c.event ?? 0).filter((v) => v > 0))].sort((x, y) => x - y);
     for (const ev of events) {
       if (![...by].some((s) => handled.get(s)?.has(ev + 40))) {
-        out.push({ level: "warning", key: k, where, message: `map event ${ev} does nothing: no script that loads this map has ".event ${ev + 40}"` });
+        out.push({ level: "warning", key: k, where, message: `map event ${ev} does nothing: no script that shows this map says what happens there` });
       }
     }
   }

@@ -1,0 +1,145 @@
+/* The battle wizard's numbers and difficulty, the tabs' kind icons, art
+   names in the lists (the editor's last known issues, docs/editor-plan.md). */
+
+/* -- the battle wizard (Wizards.tsx) -- */
+.wz-new-monster .wz-stats {
+  grid-column: 1 / -1;
+}
+.wz-stats .wz-for {
+  font-weight: 400;
+}
+.wz-stats .wz-for .wz-num {
+  margin: 0 2px;
+  padding: 1px 4px;
+}
+.wz-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wz-stat {
+  display: grid;
+  gap: 2px;
+}
+.wz-stat input {
+  width: 9ch;
+  box-sizing: border-box;
+}
+.wz-stat input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+.wz-difficulty {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 3px solid var(--wz-diff, var(--line));
+  background: color-mix(in srgb, var(--wz-diff, var(--line)) 10%, transparent);
+  font-size: 13px;
+}
+.wz-difficulty,
+.wz-diff {
+  --wz-diff: #2f8f4e;
+}
+.wz-difficulty.fair,
+.wz-diff.fair {
+  --wz-diff: #2b6fb3;
+}
+.wz-difficulty.hard,
+.wz-diff.hard {
+  --wz-diff: #b7791f;
+}
+.wz-difficulty.too-hard,
+.wz-diff.too-hard {
+  --wz-diff: var(--danger, #c0392b);
+}
+.wz-diff {
+  color: var(--wz-diff);
+  font-weight: 600;
+}
+@media (prefers-color-scheme: dark) {
+  .wz-difficulty,
+  .wz-diff {
+    --wz-diff: #5cc47f;
+  }
+  .wz-difficulty.fair,
+  .wz-diff.fair {
+    --wz-diff: #6aa8e8;
+  }
+  .wz-difficulty.hard,
+  .wz-diff.hard {
+    --wz-diff: #e0a84a;
+  }
+}
+.wz select.wz-ask {
+  color: var(--muted);
+  border-color: var(--accent);
+}
+.wz-items.wz-monsters {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+.wz-speaker {
+  flex: 0 1 230px !important;
+}
+.wz-speaker select {
+  width: 100%;
+}
+
+/* -- the tabs (TabStrip.tsx): an icon for the kind; each as wide as its
+   name while they fit, then the widest shrink to one width (--e-tab-cap,
+   tabFit.ts); past their smallest, the strip scrolls -- */
+.e-tabs-wrap .e-tab:not(.home) {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: var(--e-tab-cap, 320px);
+}
+.e-tab-icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  opacity: 0.65;
+}
+.e-tab.on .e-tab-icon {
+  opacity: 0.9;
+}
+/* short of room, the project home shows its icon only (its name stays for
+   screen readers and in the tooltip) */
+.e-tabs.tight .e-tab.home .e-tab-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.e-tabs.tight .e-tab.home .e-tab-main {
+  padding-right: 10px;
+}
+/* room for names: an inactive tab's close button sits over the end of its
+   name and shows on hover (a tab with unapplied text keeps its dot) */
+.e-tabs-wrap .e-tab-main {
+  padding-left: 9px;
+  gap: 5px;
+  font-size: 13.5px;
+}
+.e-tabs-wrap .e-tab:not(.on):not(.home) .e-tab-main {
+  padding-right: 9px;
+}
+.e-tabs-wrap .e-tab-close {
+  width: 24px;
+  margin-right: 3px;
+}
+.e-tabs-wrap .e-tab:not(.on) .e-tab-close:not(.dirty) {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  width: 30px;
+  padding-left: 6px;
+  opacity: 0;
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--bg) 70%, var(--panel)) 35%);
+}
+.e-tabs-wrap .e-tab:not(.on):hover .e-tab-close:not(.dirty),
+.e-tabs-wrap .e-tab:not(.on) .e-tab-close:not(.dirty):focus-visible {
+  opacity: 1;
+}
