@@ -2672,7 +2672,7 @@ button.small {
   margin: 0 auto 10px;
   color: var(--accent);
 }
-.small-screen h2 {
+.small-screen h1 {
   margin: 0 0 10px;
   font-size: 20px;
 }
@@ -5075,6 +5075,24 @@ p.f-prose {
   border-radius: 6px;
   background: var(--panel);
   font: 500 13px/1.2 var(--h-mono);
+  white-space: nowrap;
+}
+/* the 4988's own keys, under the RPG keys */
+.i-keys-title {
+  margin: 48px 0 8px;
+  font-size: 22px;
+  font-weight: 620;
+  letter-spacing: -0.03em;
+}
+.i-keys-text {
+  margin: 0;
+  max-width: 44em;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.i-keys-device tbody th {
+  font-size: 16px;
 }
 /* the look options: a grid of cells with rules */
 .i-cards {
@@ -5112,9 +5130,20 @@ p.f-prose {
     padding-left: 0;
     border-left: 0;
   }
-  .i-keys td:last-child,
-  .i-keys th:last-child {
-    display: none;
+}
+/* on a phone the table keeps its phone keypad column, tighter */
+@media (max-width: 560px) {
+  .i-keys th,
+  .i-keys td {
+    padding: 12px 8px 12px 0;
+  }
+  .i-keys tbody th {
+    font-size: 15px;
+  }
+  .i-keys kbd {
+    margin-right: 4px;
+    padding: 3px 6px;
+    font-size: 12px;
   }
 }
 

@@ -58,9 +58,10 @@ export function App() {
   const page = usePage();
   const lang = useSiteLang();
   const t = SITE_TEXT[lang];
-  // each page has its own title in the browser tab
+  // each page has its own title in the browser tab, and its own description
   useEffect(() => {
     document.title = SITE_TEXT[lang].titles[page];
+    document.querySelector('meta[name="description"]')?.setAttribute("content", SITE_TEXT[lang].descriptions[page]);
   }, [page, lang]);
   const [playtestFrom, setPlaytestFrom] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -198,7 +199,7 @@ export function App() {
             <img src="/favicon.svg" alt="" width={28} height={28} />
             <span>FMJ React</span>
           </Link>
-          <nav className={menuOpen ? "site-nav open" : "site-nav"} id="site-nav" aria-label="Site">
+          <nav className={menuOpen ? "site-nav open" : "site-nav"} id="site-nav" aria-label={t.navLabel}>
             {PAGES.filter((p) => p.page !== "home" && !p.parent).map((p) => (
               <Link key={p.page} to={p.page} onClick={closeMenu}>
                 {t.nav[p.page]}
@@ -235,16 +236,13 @@ export function App() {
             <rect x="9" y="9" width="30" height="14" fill="#a7ba82" />
             <path d="M18 37h12M24 30v7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
           </svg>
-          <h2>The editor needs a bigger screen</h2>
-          <p>
-            Making a game means painting maps, editing scripts and drawing sprites, which needs more room than a phone has. Open this
-            site on a computer or a tablet to use the editor.
-          </p>
-          <p className="muted small">Your phone is great for playing: games, saves and the built-in demos all work here.</p>
+          <h1>{t.smallScreen.title}</h1>
+          <p>{t.smallScreen.text}</p>
+          <p className="muted small">{t.smallScreen.note}</p>
           <div className="row">
-            <button onClick={() => navigate("games")}>Back to the games</button>
+            <button onClick={() => navigate("games")}>{t.smallScreen.back}</button>
             <button className="ghost" onClick={() => setEditorAnyway(true)}>
-              Continue anyway
+              {t.smallScreen.anyway}
             </button>
           </div>
         </section>

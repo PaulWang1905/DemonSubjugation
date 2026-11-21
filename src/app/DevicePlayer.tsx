@@ -596,7 +596,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
           {slotTimesNow.map((t, i) => (
             <div key={i} className="row">
               <span className="small">
-                {dt.saves.slot(i + 1)}: {t ? new Date(t).toLocaleString(lang === "zh" ? "zh-CN" : undefined) : <span className="muted">{dt.saves.empty}</span>}
+                {dt.saves.slot(i + 1)}{lang === "zh" ? "：" : ": "}{t ? new Date(t).toLocaleString(lang === "zh" ? "zh-CN" : undefined) : <span className="muted">{dt.saves.empty}</span>}
               </span>
               <div className="spacer" />
               <button className="ghost" onClick={() => void saveState(i + 1)} disabled={status.kind !== "running"}>

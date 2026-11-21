@@ -1,8 +1,15 @@
 // The site's text in English and Simplified Chinese: the top bar, the front
-// page, the footer and the browser tab titles. (The Guide and About pages have
+// page, the footer, the browser tab titles and page descriptions, the
+// page-not-found page and the editor's small-screen note. (The Guide and About pages have
 // theirs in InfoPages.tsx, the Games page in gamesText.ts, the Fulu pages in
 // FuluPage.tsx and FuluProgressPage.tsx; the editor is still English only.)
 import type { SiteLang } from "./siteLang";
+import { fuluSummary } from "./fuluGames";
+
+// How many of the 4988 game collection's programs run on Fulu (from its progress list).
+const FULU = fuluSummary();
+const FULU_RUN = FULU.plays + FULU.ends;
+const FULU_ALL = FULU_RUN === FULU.total;
 
 /** The site's pages (as in router.tsx). */
 type Page = "home" | "games" | "guide" | "fulu" | "fulu-progress" | "about" | "editor" | "notfound";
@@ -11,6 +18,7 @@ const en = {
   nav: { home: "Home", games: "Games", guide: "Guide", fulu: "Fulu", "fulu-progress": "Progress", about: "About", editor: "Editor", notfound: "" } as Record<Page, string>,
   navPlay: "▶ Play",
   menu: "Menu",
+  navLabel: "Site",
   switchTo: "中文",
   switchTitle: "切换到简体中文",
   titles: {
@@ -22,6 +30,17 @@ const en = {
     about: "About · FMJ React",
     editor: "Editor · FMJ React",
     notfound: "Page not found · FMJ React",
+  } as Record<Page, string>,
+  /** Each page's description, for search engines and link previews. */
+  descriptions: {
+    home: "Play and make pocket RPGs in your browser: the BBK electronic-dictionary RPG engine behind 伏魔记, rebuilt for the web, with two free games, a game editor, and the Longman 4988's own games, no firmware needed.",
+    games: "Your games: the two free demos and the .lib and .gam games you add, each played on the engine you choose. Nothing leaves your browser.",
+    guide: "How to play: add a game, pick an engine, play with a keyboard or a phone, type Chinese, and keep your saves.",
+    fulu: `Fulu (符箓) is a new operating system for the Longman 4988 pocket dictionary, so its games play in your browser without BBK's firmware: ${FULU_ALL ? "all" : `${FULU_RUN} of the`} ${FULU.total} programs of its game collection.`,
+    "fulu-progress": "Fulu's progress report: every program of the 4988 game collection, how it was checked, what is left and every known problem.",
+    about: "About FMJ React: an open-source web port of the BBK pocket RPG engine, with an emulated Longman 4988 and Fulu, a new OS for it.",
+    editor: "Make your own pocket RPG in the browser: maps, story scripts, sprites and spells, then export a .lib or a .gam.",
+    notfound: "This page does not exist.",
   } as Record<Page, string>,
 
   heroTitle: "Pocket RPGs, in your browser.",
@@ -36,10 +55,10 @@ const en = {
   tryBell: "Try The Silent Bell",
   upload: {
     title: "Bring your own game.",
-    text: ["Drop ", "伏魔记", " or any BBK RPG here, as a .lib file. It never leaves your browser."],
-    button: "Choose a .lib file",
+    text: ["Drop ", "伏魔记", " or any BBK RPG here (a .lib file), or a program for the Longman 4988 (a .gam). It never leaves your browser."],
+    button: "Choose a game file",
     drop: "Or drop it anywhere here",
-    hint: "DAT.LIB or any *.lib · HZK16 and ASC16 fonts too, if you have them",
+    hint: "*.lib or *.gam · HZK16 and ASC16 fonts too, if you have them",
     busy: "Opening…",
   },
   playBell: "▶ Play The Silent Bell",
@@ -68,8 +87,29 @@ const en = {
   doTitle: "Yours to play. And to make.",
   doSub: "",
   doPlay: { title: "Play", text: "Your games. Three save slots each. Up to 4× speed.", link: "Your games →" },
-  doMake: { title: "Make", text: ["Maps, scripts, sprites, spells. Export a ", ".lib", "."], link: "Open the editor →" },
+  doMake: { title: "Make", text: ["Maps, scripts, sprites, spells. Export a ", ".lib", " or a .gam."], link: "Open the editor →" },
+  do4988: {
+    title: "4988 games",
+    text: `${FULU_ALL ? "All" : `${FULU_RUN} of the`} ${FULU.total} programs of the Longman 4988's game collection, on Fulu. No firmware needed.`,
+    link: "About Fulu →",
+  },
   doPrivate: { title: "Private", text: "Nothing leaves your browser.", link: "About →" },
+
+  notFound: {
+    eyebrow: "Page not found",
+    title: "This road leads nowhere",
+    text: ["There is no page at ", ". It may have moved, or the link may be mistyped."],
+    home: "Go to the home page",
+    games: "Your games",
+    play: "Or play The Silent Bell →",
+  },
+  smallScreen: {
+    title: "The editor needs a bigger screen",
+    text: "Making a game means painting maps, editing scripts and drawing sprites, which needs more room than a phone has. Open this site on a computer or a tablet to use the editor.",
+    note: "Your phone is great for playing: games, saves and the built-in demos all work here.",
+    back: "Back to the games",
+    anyway: "Continue anyway",
+  },
 
   footerTagline: "Play and make pocket RPGs in your browser.",
   footerLabel: "Footer",
@@ -100,6 +140,7 @@ const zh: SiteText = {
   nav: { home: "首页", games: "游戏", guide: "指南", fulu: "符箓", "fulu-progress": "进展", about: "关于", editor: "编辑器", notfound: "" },
   navPlay: "▶ 开始玩",
   menu: "菜单",
+  navLabel: "网站",
   switchTo: "EN",
   switchTitle: "Switch to English",
   titles: {
@@ -111,6 +152,16 @@ const zh: SiteText = {
     about: "关于 · FMJ React",
     editor: "编辑器 · FMJ React",
     notfound: "找不到页面 · FMJ React",
+  },
+  descriptions: {
+    home: "在浏览器里畅玩和制作掌上 RPG：步步高电子词典《伏魔记》RPG 引擎的网页版，附带两款免费游戏和游戏编辑器，还能玩朗文 4988 自己的游戏，不需要固件。",
+    games: "你的游戏：两款免费演示，以及你添加的 .lib 和 .gam 游戏，每款都用你选择的引擎来玩。文件不会离开你的浏览器。",
+    guide: "怎么玩：添加游戏、选择引擎、用键盘或手机游玩、输入中文、保存进度。",
+    fulu: `符箓是为朗文 4988 电子词典重新编写的操作系统，让它的游戏不需要步步高的固件就能在浏览器里运行：游戏合集的 ${FULU.total} 个程序${FULU_ALL ? "全部" : `中有 ${FULU_RUN} 个`}能玩。`,
+    "fulu-progress": "符箓进展报告：4988 游戏合集的每个程序、它们是怎么检查的、还剩什么，以及所有已知问题。",
+    about: "关于 FMJ React：步步高掌上 RPG 引擎的开源网页版，附带模拟的朗文 4988 和为它编写的新操作系统符箓。",
+    editor: "在浏览器里制作你自己的掌上 RPG：地图、剧情脚本、角色和法术，然后导出 .lib 或 .gam。",
+    notfound: "这个页面不存在。",
   },
 
   heroTitle: "掌上 RPG，就在浏览器里。",
@@ -124,10 +175,10 @@ const zh: SiteText = {
   tryBell: "试玩 The Silent Bell",
   upload: {
     title: "带上你的游戏。",
-    text: ["把", "《伏魔记》", "或任何步步高 RPG 的 .lib 文件放到这里。文件不会离开你的浏览器。"],
-    button: "选择 .lib 文件",
+    text: ["把", "《伏魔记》", "或任何步步高 RPG（.lib 文件），或朗文 4988 的程序（.gam 文件）放到这里。文件不会离开你的浏览器。"],
+    button: "选择游戏文件",
     drop: "或者直接拖到这里",
-    hint: "DAT.LIB 或任何 *.lib · 如果有 HZK16 和 ASC16 字库，也可以一起添加",
+    hint: "*.lib 或 *.gam · 如果有 HZK16 和 ASC16 字库，也可以一起添加",
     busy: "正在打开…",
   },
   playBell: "▶ 开始玩 The Silent Bell",
@@ -156,8 +207,29 @@ const zh: SiteText = {
   doTitle: "可以玩，也可以做。",
   doSub: "",
   doPlay: { title: "游玩", text: "你的游戏。每款三个存档位。最高 4 倍速。", link: "你的游戏 →" },
-  doMake: { title: "制作", text: ["地图、脚本、精灵图、法术。导出 ", ".lib", " 文件。"], link: "打开编辑器 →" },
+  doMake: { title: "制作", text: ["地图、脚本、精灵图、法术。导出 ", ".lib", " 或 .gam 文件。"], link: "打开编辑器 →" },
+  do4988: {
+    title: "4988 游戏",
+    text: `朗文 4988 游戏合集的 ${FULU.total} 个程序${FULU_ALL ? "全部" : `中有 ${FULU_RUN} 个`}能在符箓上玩。不需要固件。`,
+    link: "了解符箓 →",
+  },
   doPrivate: { title: "隐私", text: "什么都不会离开你的浏览器。", link: "关于 →" },
+
+  notFound: {
+    eyebrow: "找不到页面",
+    title: "此路不通",
+    text: ["本站没有 ", " 这个页面。它可能已经移走，或者链接拼错了。"],
+    home: "回到首页",
+    games: "你的游戏",
+    play: "或者玩 The Silent Bell →",
+  },
+  smallScreen: {
+    title: "编辑器需要更大的屏幕",
+    text: "制作游戏要画地图、编辑脚本、绘制角色，手机屏幕放不下。请在电脑或平板上打开本站来使用编辑器。",
+    note: "手机很适合玩：游戏、存档和内置演示在这里都能用。",
+    back: "返回游戏",
+    anyway: "仍然继续",
+  },
 
   footerTagline: "在浏览器里畅玩和制作掌上 RPG。",
   footerLabel: "页脚",

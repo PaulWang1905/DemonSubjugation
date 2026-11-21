@@ -56,7 +56,7 @@ const en = {
       name: "Fulu",
       what: `Our stand-in for the 4988's operating system: .gam programs run as written, without BBK's firmware. ${FULU_ALL ? "All" : `${FULU_RUN} of the`} ${FULU.total} programs of the 4988 game collection run on it; ${FULU.full} games (the 伏魔记 series, 英雄坛说, 三国霸业) are checked against the original call by call. Chinese is typed with your own input method.`,
       short: "The 4988, on our stand-in OS",
-      state: `Built in · ${FULU_RUN} of ${FULU.total} programs run`,
+      state: `Built in · ${FULU_ALL ? `all ${FULU.total}` : `${FULU_RUN} of ${FULU.total}`} programs run`,
     },
     original: {
       name: "Original OS",
@@ -175,10 +175,10 @@ const zh: GamesText = {
       name: "符箓",
       what: `本站代替 4988 操作系统的程序：.gam 程序按原样运行，不需要步步高的固件。4988 游戏合集的 ${FULU.total} 个程序${FULU_ALL ? "全部" : `中有 ${FULU_RUN} 个`}能在上面运行；${FULU.full} 款游戏（伏魔记系列、英雄坛说、三国霸业）已与原版逐个调用对比。中文用你自己的输入法输入。`,
       short: "4988，运行在本站的代替系统上",
-      state: `内置 · ${FULU.total} 个程序中 ${FULU_RUN} 个能运行`,
+      state: `内置 · ${FULU_ALL ? `${FULU.total} 个程序全部能运行` : `${FULU.total} 个程序中 ${FULU_RUN} 个能运行`}`,
     },
     original: {
-      name: "原机系统",
+      name: "原版系统",
       what: "步步高自己的固件，模拟运行：和当年的 4988 一模一样。固件不能由本站提供：请把它的文件（至少 0E00.DAT 和 4988.font）拖到这个页面来添加。",
       short: "4988，运行在步步高的固件上",
       ready: (n: number) => `可用 · 已添加 ${n}/13 个文件`,

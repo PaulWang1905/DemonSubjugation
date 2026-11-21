@@ -145,6 +145,7 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
       ),
       link: t.doMake.link,
     },
+    { to: "fulu" as const, title: t.do4988.title, text: <>{t.do4988.text}</>, link: t.do4988.link },
     { to: "about" as const, title: t.doPrivate.title, text: <>{t.doPrivate.text}</>, link: t.doPrivate.link },
   ];
   const noArrow = (s: string) => s.replace(/^▶\s*/, "").replace(/\s*→$/, "");
@@ -338,6 +339,7 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
 
 /** Shown for an address the site does not have. */
 export function NotFoundPage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
+  const t = SITE_TEXT[useSiteLang()].notFound;
   return (
     <div className="library page">
       <section className="not-found">
@@ -345,22 +347,24 @@ export function NotFoundPage({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
           <span className="nf-code">404</span>
           <span className="nf-line">THE PATH ENDS HERE</span>
         </div>
-        <p className="eyebrow">Page not found</p>
-        <h1>This road leads nowhere</h1>
+        <p className="eyebrow">{t.eyebrow}</p>
+        <h1>{t.title}</h1>
         <p className="lead">
-          There is no page at <code>{location.pathname}</code>. It may have moved, or the link may be mistyped.
+          {t.text[0]}
+          <code>{location.pathname}</code>
+          {t.text[1]}
         </p>
         <div className="cta">
           <Link to="home" className="button big">
-            Go to the home page
+            {t.home}
           </Link>
           <Link to="games" className="button big ghost">
-            Your games
+            {t.games}
           </Link>
         </div>
         <p className="fine">
           <button className="link" onClick={() => onPlayDemo("bell")}>
-            Or play The Silent Bell →
+            {t.play}
           </button>
         </p>
       </section>

@@ -13,8 +13,9 @@ bbk-games collection run on it, and seven games (the 伏魔记 series, 英雄坛
 三国霸业) are checked against the original OS call by call. See
 [Device emulator](#device-emulator-longman-4988).
 
-**No game content is included.** The engine plays resource archives that you
-import yourself in the browser: a game archive (`DAT.LIB` or any `*.lib`).
+**No game content is included.** The site plays the files you import yourself
+in the browser: a game archive (`DAT.LIB` or any `*.lib`) or a program for the
+4988 (`*.gam`).
 The original bitmap fonts `HZK16` and `ASC16` are optional: without them, text
 is drawn with the fonts installed on the player's device (each character is
 rendered once to a 1-bit 16x16 glyph and cached). Imported files are stored in the
@@ -28,7 +29,8 @@ the right to use.
   Five areas, two party members, a lever puzzle, a shop, an inn, a ferry,
   four bosses and an ending. It can also be opened in the editor.
 - The launch page plays the original *Lantern Path* demo live, starts it in one
-  click, and takes `.lib` files dropped anywhere on the page.
+  click, and takes `.lib` and `.gam` files dropped on it (one game starts
+  right away).
 - Interprets the original `DAT.LIB` resource format: maps, tiles, sprites,
   characters, items, magic, special effects and the GUT story-script bytecode
   (80 opcodes).
@@ -81,7 +83,7 @@ the right to use.
   switched while playing. Built by
   `scripts/fonts/build_fonts.py`; credits and licences (SIL OFL 1.1) are in
   [public/fonts/LICENSES.md](public/fonts/LICENSES.md).
-- **Site language**: the front page, Games, Guide, About, the Fulu pages, the
+- **Site language**: the front page, Games, Guide, About, the Fulu pages, the page-not-found page, the
   top bar and the footer are in Simplified Chinese or English, following the browser's
   languages, with a 中文 / EN switch in the top bar (the player's toolbar,
   options and keypad too; the debug menu and the editor are still English).
@@ -101,8 +103,8 @@ the right to use.
   has switches for no random battles, walking through walls and an always-full
   party, plus "win this battle".
 - **Add from a link**: paste a GitHub folder (browse it and pick games), a
-  GitHub file page, a direct `.lib` link, or a web folder that lists `.lib`
-  files. The games are downloaded into the browser; nothing is bundled with
+  GitHub file page, a direct `.lib` or `.gam` link, or a web folder that lists
+  them. The games are downloaded into the browser; nothing is bundled with
   the app. GitHub allows 60 folder listings an hour without signing in.
 - Save slots are kept per game in `localStorage` and can be exported or imported
   as JSON.
@@ -178,8 +180,10 @@ the technical report, the plan and what is known of the OS.
 In the player, a device program installs, boots and opens in about a second.
 The device is kept as it was left (memory and flash, so the game's own saves
 too) and resumes there next time; **Restart the device** starts afresh.
-Programs built on the fmj engine also offer **Remastered**: the same game in
-this site's engine, with HD text, the wider map views and English menus.
+Each game's tile on the Games page offers the engines it can run on and
+remembers the choice: **Original OS** (once the firmware's files are added),
+**Fulu**, and, for programs built on the fmj engine, **FMJ React**: the same
+game in this site's engine, with HD text, the wider map views and English menus.
 **Longman 4988** on the Games page turns on the dictionary itself.
 
 On a 138-program collection (RPGs, card and board games, puzzles, action
@@ -253,6 +257,22 @@ game title by default and can be changed in the player's options.
 | Confirm        | Enter, J, Z                  |
 | Back / menu    | Esc, Space, K, X             |
 | Page up / down | `[` `]`, Q E, PgUp PgDn      |
+
+A 4988 program (on Fulu or the original OS) gets the device's own keys:
+
+| Device key                  | Keys                      |
+| --------------------------- | ------------------------- |
+| Move / choose               | Arrow keys                |
+| 输入 Enter · 跳出 Exit       | Enter, Esc                |
+| Letters, digits, space      | A–Z, 0–9, Space           |
+| 上页 / 下页                  | PgUp, PgDn                |
+| 目录 Home · 删除 Delete      | Home, Backspace           |
+| 帮助 · 查找 · 修改 · 发音    | F1, F2, F3, F4            |
+| 输入法 · 中英                | Tab, Shift                |
+| 开关 Power                   | F12                       |
+
+On a phone the on-screen keypad gives the arrows, the page keys, Enter (A) and
+Exit (B).
 
 ## Development
 

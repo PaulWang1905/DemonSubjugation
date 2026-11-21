@@ -32,16 +32,10 @@ let lang: SiteLang =
   saved() ?? (typeof navigator !== "undefined" ? browserLang(navigator.languages?.length ? navigator.languages : [navigator.language ?? "en"]) : "en");
 const listeners = new Set<() => void>();
 
-const META: Record<SiteLang, string> = {
-  en: "Play and make pocket RPGs in your browser: a web port of the BBK electronic-dictionary RPG engine behind 伏魔记, with two free demos and a game editor.",
-  zh: "在浏览器里畅玩和制作掌上 RPG：步步高电子词典《伏魔记》RPG 引擎的网页版，附带两款免费演示游戏和游戏编辑器。",
-};
-
-/** The page's language attribute and description, for browsers, screen readers and search engines. */
+/** The page's language attribute, for browsers, screen readers and search engines (App sets each page's title and description). */
 function apply(): void {
   if (typeof document === "undefined") return;
   document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
-  document.querySelector('meta[name="description"]')?.setAttribute("content", META[lang]);
 }
 apply();
 

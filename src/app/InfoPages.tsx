@@ -3,6 +3,7 @@
 import { fuluSummary } from "./fuluGames";
 import { REPO_URL } from "./links";
 import { Link } from "./router";
+import { PLAYER_TEXT } from "./playerText";
 import { useSiteLang } from "./siteLang";
 import { SITE_TEXT } from "./siteText";
 import { Arrow } from "./Tile";
@@ -30,7 +31,7 @@ const GUIDE = {
     ],
     startTitle: "Start in three steps",
     start: [
-      ["Add a game", "The two demos are already there. Add your own on the Games page: a .lib (an fmj game archive) or a .gam (a program for the Longman 4988), from a file, by dropping it, or from a link."],
+      ["Add a game", "The two demos are already there. Add your own on the Games page: a .lib (a game for BBK's RPG engine, like 伏魔记's DAT.LIB) or a .gam (a program for the Longman 4988), from a file, by dropping it, or from a link."],
       ["Pick an engine", "Each game shows the engines it can run on. Choose once; the game remembers it."],
       ["Play, and save", "Save in the game's own menu whenever you like. For 4988 games you can also keep save states and export everything to a file."],
     ] as Row[],
@@ -51,6 +52,9 @@ const GUIDE = {
     ] as Row[],
     controlsTitle: "Controls",
     controlsText: "On a phone the keypad appears by itself: slide your thumb on the d-pad to turn, and hold a direction with A.",
+    deviceKeysTitle: "4988 games",
+    deviceKeysText: "On Fulu or the original OS, the device's own keys are on your keyboard. On a phone, the keypad gives the arrows, the page keys, 输入 Enter (A) and 跳出 Exit (B).",
+    deviceKeysHead: ["Device key", "Keyboard"],
     savesTitle: "Keeping your progress",
     saves: [
       ["In-game saves", "Open the game's menu with Back and choose save (系统 → 存储进度 in Chinese games). They are kept with the game, also when you restart it or it ends."],
@@ -80,13 +84,13 @@ const GUIDE = {
       ["3", "种引擎可选"],
       ["2", "款内置演示游戏"],
       ["0", "个文件被上传"],
-      ["3", "个存档位，另有快照"],
+      ["3", "个存档位，另有即时存档"],
     ],
     startTitle: "三步开始",
     start: [
-      ["添加游戏", "两款演示游戏已经在了。在“游戏”页添加你自己的：.lib（fmj 游戏资源包）或 .gam（朗文 4988 的程序），可以选择文件、拖放，或通过链接添加。"],
+      ["添加游戏", "两款演示游戏已经在了。在“游戏”页添加你自己的：.lib（步步高 RPG 引擎的游戏，例如伏魔记的 DAT.LIB）或 .gam（朗文 4988 的程序），可以选择文件、拖放，或通过链接添加。"],
       ["选择引擎", "每个游戏会列出它能运行的引擎。选一次即可，游戏会记住。"],
-      ["游玩并存档", "随时在游戏自己的菜单里存档。4988 游戏还可以保存快照，并把一切导出到文件。"],
+      ["游玩并存档", "随时在游戏自己的菜单里存档。4988 游戏还可以使用即时存档，并把一切导出到文件。"],
     ] as Row[],
     enginesTitle: "三种引擎",
     enginesText: "用 RPG 工具制作的游戏（伏魔记系列、英雄坛说）可以在任何一种上运行；其他 .gam 程序可在符箓或原版系统上运行。",
@@ -105,10 +109,13 @@ const GUIDE = {
     ] as Row[],
     controlsTitle: "操作",
     controlsText: "在手机上按键会自动出现：用拇指在方向键上滑动来转向，按住 A 可以持续走。",
+    deviceKeysTitle: "4988 游戏",
+    deviceKeysText: "在符箓或原版系统上，掌机自己的按键都在键盘上。在手机上，屏幕按键提供方向键、翻页键、输入（A）和跳出（B）。",
+    deviceKeysHead: ["掌机按键", "键盘"],
     savesTitle: "保存进度",
     saves: [
       ["游戏内存档", "按“返回”打开游戏菜单并选择存档（中文游戏为 系统 → 存储进度）。存档跟着游戏保存，重新开机或游戏结束后也不会丢。"],
-      ["快照", "4988 游戏：选项 → 存档，可在三个位置保存整台掌机的某一刻，随时读回。"],
+      ["即时存档", "4988 游戏：选项 → 存档，可在三个位置保存整台掌机的某一刻，随时读回。"],
       ["导出与导入", "把一个游戏的存档（和它的状态）写成文件，留作备份，或转移到另一个浏览器或电脑。"],
     ] as Row[],
     lookTitle: "按你的喜好显示",
@@ -174,7 +181,7 @@ const ABOUT = {
     ],
     storyTitle: "这是什么",
     story: [
-      "FMJ React 自己的引擎移植自开源重实现 fmj.kt（TypeScript），并与原版引擎的还原代码逐项对照，让战斗、脚本和物品的表现和掌机上一样。在此之上，它增加了高清文字、液晶效果、更宽的地图、每页更多文字、手机布局和完整的游戏编辑器。",
+      "FMJ React 自己的引擎是开源重实现 fmj.kt 的 TypeScript 移植，并与原版引擎的还原代码逐项对照，让战斗、脚本和物品的表现和掌机上一样。在此之上，它增加了高清文字、液晶效果、更宽的地图、每页更多文字、手机布局和完整的游戏编辑器。",
       "为了原汁原味地玩，它还模拟了朗文 4988 掌机，可以使用步步高自己的固件，或使用符箓：一个为本站编写的操作系统，让游戏不需要固件也能运行。",
     ],
     enginesTitle: "三种引擎",
@@ -202,6 +209,7 @@ const ABOUT = {
 const LINKS: Record<string, string> = {
   "fmj.kt": "https://gitee.com/bgwp/fmj.kt",
   "fmj-engine": "https://gitee.com/BA4988/fmj-engine",
+  "baye-fmj-app": "https://github.com/erduoniba/baye-fmj-app",
 };
 
 /** Numbered rows: a title and its text. */
@@ -316,6 +324,31 @@ export function GuidePage({ onPlayDemo }: { onPlayDemo: () => void }) {
                 </td>
                 <td>
                   <kbd>{pad}</kbd>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <h3 className="i-keys-title">{t.deviceKeysTitle}</h3>
+        <p className="i-keys-text">{t.deviceKeysText}</p>
+        <table className="i-keys i-keys-device">
+          <thead>
+            <tr>
+              {t.deviceKeysHead.map((h) => (
+                <th key={h} scope="col">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {PLAYER_TEXT[lang].device.keys.map(([what, kb]) => (
+              <tr key={what}>
+                <th scope="row">{what}</th>
+                <td>
+                  {kb.split(" · ").map((k) => (
+                    <kbd key={k}>{k}</kbd>
+                  ))}
                 </td>
               </tr>
             ))}
