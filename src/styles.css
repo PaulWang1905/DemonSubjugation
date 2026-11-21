@@ -5448,6 +5448,18 @@ p.f-prose {
 .fp-dim {
   color: var(--muted);
 }
+/* "What is left" when nothing is */
+.fp-none {
+  max-width: 46em;
+  margin: 24px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 15px;
+  line-height: 1.6;
+}
 
 /* bars split into parts */
 .fp-splits {

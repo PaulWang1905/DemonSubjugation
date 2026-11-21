@@ -622,10 +622,13 @@ again.
   method through a box in the player; the mode changes, their icon and
   messages as the OS's; `$E929`, `$D7F1`. 132 play 180 s, 6 end on their
   own: every program.
-- **Next:** §16. A check of all 138 with every key and a code-flow scan
-  found what random play with Enter, the arrows and space had missed: the
-  Shift key stops 7 programs, Exit stops 2 at `$E8E0`, and the serial
-  port's routines `$E90D` / `$E910` were not in the byte scan's list.
+- **Then §16 (F9), phases 1 and 2 done:** a check of all 138 with every
+  key and a code-flow scan found what random play with Enter, the arrows
+  and space had missed: the Shift key stopped 7 programs, Exit stopped 2 at
+  `$E8E0`, and the serial port's routines `$E90D` / `$E910` were not in the
+  byte scan's list. All written; both scans find nothing Fulu lacks, and
+  the every-key play test no stop (105 play 180 s, 33 end as on the
+  device).
 - **Separately:** the OS's page allocation for new files (§16.2 of the
   report). Sound stays off (the owner's decision): `$EA52` / `$EA64` act
   as with the sound off, and the shadow runs leave out their calls made
@@ -659,7 +662,7 @@ Also different, without a stop: the year is 0 (the launcher leaves 2004:
 幸运花's calendar), the clock always starts at 12:00:29; sound off (the
 owner's decision; the device starts with it on).
 
-**Phase 1: what needs no new OS function.**
+**Phase 1: what needs no new OS function.** Done.
 1. The Shift key, as GuiTranslateMsg has it; compared with the firmware
    on random modes, keyboard states and keys.
 2. The launcher's state: measure the RAM the firmware's launcher leaves at
@@ -672,10 +675,26 @@ owner's decision; the device starts with it on).
 4. The progress data and the site say what is true: the programs above
    stop where they do until it is written.
 
+Done: Shift as GuiTranslateMsg has it (8:`$67CC`, compared with the
+firmware on 20,000 random input modes, `$2B28` values, latch states and
+keys); the launcher's state (`src/fulu/launcher.ts`, measured on nine
+launches; the player sets the clock to the computer's date and time);
+`scripts/bbk/fulu-play.mts` and `scripts/bbk/fulu-flow.mts` in the round
+(`docs/fulu-workflow.md`).
+
 **Phase 2: the missing functions** (the owner says when): `$E8E0`, then
 `$E706`; the link (the owner decides how: as the device with no cable
 plugged in, so each program shows its own "could not connect"; or more);
 `$E7BE` last, or not at all.
+
+Done: `$E8E0`, `$E706` (atol), `$E7BE`, each compared with the firmware on
+random arguments; the link as the device with no cable plugged in (the
+owner's decision: `$E8D1`, `$E90D`, `$E910`, `src/fulu/link.ts`; 宠物精灵's
+建立连接失败 matches the firmware's screens once its emulator is given the
+device's transmitter, without which it hangs on the first send). Both scans
+now find nothing Fulu lacks in any of the 138 (the code flow's only hit,
+`$F1BB` in 宠物精灵, is text taken for code), and the every-key play test
+finds no stop in any.
 
 **Phase 3: further than random play reaches.**
 1. Every program on the firmware with every key, logging every OS function
@@ -686,6 +705,14 @@ plugged in, so each program shows its own "could not connect"; or more);
    keys, compared (the shadow run) for the programs that changed.
 3. The owner's hand tests of the long RPGs, with a list of what to try
    (saving, shops, battles, the endings).
+
+Status: 1 done (180 s each with every key: 102 API entries and 70
+resident routines entered in all, none that Fulu lacks now; the calls
+through pointers are covered as far as play reaches them); 2 in progress
+(the lead); 3 to come, with what to try in `docs/fulu-hand-tests.md`. The OS's own input method stays unwritten (the
+owner's decision: the computer's is used), and the shadow runs' remaining
+mismatches in 宠物精灵, 电子宠物 and 对对碰 are its bar's own memory only.
+Sound stays off.
 
 **Done when** both scans find nothing Fulu lacks, the every-key run and
 the firmware log find no stop, and the shadow runs match.

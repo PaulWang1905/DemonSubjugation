@@ -26,6 +26,7 @@ const DOCS = {
   games: `${REPO_URL}/blob/main/docs/fulu-games.md`,
   report: `${REPO_URL}/blob/main/docs/fulu-report.md#16-limitations-and-future-work`,
   plan: `${REPO_URL}/blob/main/docs/fulu-plan.md`,
+  hand: `${REPO_URL}/blob/main/docs/fulu-hand-tests.md`,
 };
 
 type Filter = "all" | "plays" | "ends" | "stops" | "kit" | "own" | "checked" | "missing" | "hand";
@@ -55,9 +56,9 @@ const TEXT = {
       [String(n.open), "problems open"],
     ],
     bars: {
-      play: "On Fulu alone, 180 seconds of random keys",
+      play: "On Fulu alone, 180 seconds of random keys from every key",
       plays: "play the whole time",
-      ends: "end on their own, as on the device",
+      ends: "end as on the device (a game over, its menu's quit, Exit)",
       stops: "stop at something Fulu lacks",
       check: "Checked against the original OS",
       full: "in full: code traced; play, saves and typing compared",
@@ -70,7 +71,7 @@ const TEXT = {
     glanceNote:
       "A program that is not compared with the original OS yet can still play well: the comparison is how we know it plays exactly as on the device. The 86 programs made with BBK's RPG kit share one engine, so the six of them checked in full already exercise much of what the others run.",
     osText: [
-      "Fulu does not copy the whole firmware. About half of it serves the dictionary's own applications (the dictionaries, the organiser), which no game calls. What counts is what the games call: across the 138 programs, 107 OS functions and 61 routines of the C runtime the games were compiled with.",
+      `Fulu does not copy the whole firmware. About half of it serves the dictionary's own applications (the dictionaries, the organiser), which no game calls. What counts is what the games call: across the 138 programs, ${COVERAGE.apiUsed} OS functions and ${COVERAGE.residentUsed} routines of the C runtime the games were compiled with.`,
       `Fulu answers ${FULU_COUNTS.functions} OS functions and ${FULU_COUNTS.routines} runtime routines in all, some of them only for other OS functions.`,
     ],
     meters: (apiDone: number) => [
@@ -79,10 +80,14 @@ const TEXT = {
       ["OS code, in instructions", COVERAGE.written, COVERAGE.written + COVERAGE.left, `about ${fmt(COVERAGE.written)} written, ${fmt(COVERAGE.left)} left`],
     ] as [string, number, number, string][],
     osNote: "Not counted: the OS's own input method for typing Chinese. Fulu does not copy it: when a game asks for Chinese, the player takes it from the computer's or phone's own input method.",
-    historyText: "Each round: play all 138 programs, see where they stop, write what they stop at, check it against the firmware, play them all again.",
-    historyBars: "Programs that play 180 s (dark) or end on their own (light), out of 138",
+    historyText: "Each round: scan and play all 138 programs, see where they stop, write what they stop at, check it against the firmware, play them all again.",
+    historyBars: "Programs that play the whole 180 s (dark) or end as on the device (light), out of 138",
+    historyNote:
+      "Until the last row the play test pressed Enter, the arrows and space. The last row presses every key a player can, Shift and Exit included: more programs end there (quit with Exit or a menu), and each is started again for the rest of its 180 s. None of the 138 stops.",
     leftText:
       "The OS functions the programs' code can call that Fulu still lacks. For each: the programs that stop at it in play, and those whose code can call it. “Next round” is the work planned next; “later”, what no program has reached in play yet. A program that does reach one stops and names it, and Continue goes on past it.",
+    leftNone:
+      "Nothing that the checks can find. Both code scans find nothing Fulu lacks in any of the 138 programs, the play test with every key finds no stop, and the log of all 138 played on the original OS found nothing a program entered that Fulu lacks. What no scan can prove and random play does not reach, such as the endings of the long RPGs, is checked only by playing by hand. The OS's own input method for Chinese is not written (the computer's is used instead), and sound stays off.",
     leftCols: ["What", "Instructions", "Stops in play", "Code can call it", "When"],
     when: { next: "next round", later: "later" },
     notMeasured: "not measured",
@@ -95,6 +100,7 @@ const TEXT = {
     notFulu: "not Fulu's",
     games: "Programs",
     handText: "Games the site's author played by hand, as they reported them. Reports are added as they come.",
+    handTry: "What to try by hand: the long way through the games, which no scan or random play reaches",
     handCols: ["Game", "On", "What was tried", "Result", "Notes"],
     where: { fulu: "Fulu", firmware: "original OS", react: "FMJ React" },
     result: { works: "works", problems: "problems" },
@@ -103,7 +109,7 @@ const TEXT = {
     filters: {
       all: "All",
       plays: "Play",
-      ends: "End on their own",
+      ends: "End as on the device",
       stops: "Stop",
       kit: "RPG kit",
       own: "Own code",
@@ -116,7 +122,7 @@ const TEXT = {
     cols: ["Program", "Made with", "On Fulu", "Compared with the OS", "Code scan", "By hand", "Problems"],
     kit: "RPG kit",
     own: "own code",
-    onFulu: { plays: "plays", ends: "ends on its own", stops: "stops" } as Record<FuluGame["onFulu"], string>,
+    onFulu: { plays: "plays", ends: "ends", stops: "stops" } as Record<FuluGame["onFulu"], string>,
     firmware: { full: "in full", play: "a minute of play", none: "—" } as Record<FuluGame["firmware"], string>,
     at: "at",
     clean: "nothing missing",
@@ -124,8 +130,8 @@ const TEXT = {
     methods: [
       [
         "Play test",
-        "Each program runs on Fulu alone for 180 seconds while Enter, the arrows and space are pressed at random. Fulu stops a program only when it really calls something not written, and names it.",
-        "Finds what a program needs in play. Misses screens random keys never reach.",
+        "Each program runs on Fulu alone for 180 seconds while every key a player can press is pressed at random, Shift and Exit included (not the four keys that leave a game on the device). Fulu stops a program only when it really calls something not written, and names it; the test goes on past each stop, and starts a program that ends again.",
+        "Finds what a program needs in play. Misses screens random keys never reach. (Earlier rounds pressed only Enter, the arrows and space, and missed what Shift and Exit do in 8 programs.)",
       ],
       [
         "Shadow run",
@@ -138,14 +144,28 @@ const TEXT = {
         "Reaches the cases play does not.",
       ],
       [
-        "Code scan",
-        "A search of each program's code for every OS call in it.",
-        "Finds calls on paths play never takes. Misses calls made through pointers.",
+        "Code scan: byte search",
+        "A search of each program's bytes for every OS call and runtime routine call in it.",
+        "Finds calls on paths play never takes. Misses calls made through pointers, and routines missing from its list.",
       ],
-      ["Hand tests", "The site's author plays games and reports what they find.", "The only check of how a game feels."],
+      [
+        "Code scan: code flow",
+        "Follows each program's code from its start and from every compiled C function, and reports what it reaches that Fulu lacks, how much of the code it followed, and what it cannot follow.",
+        "Finds calls the byte search misses (it found the link cable's routines). Cannot follow calls through pointers or jump tables.",
+      ],
+      [
+        "Firmware log",
+        "Each program played for 180 seconds with every key on BBK's original OS, logging every OS function and routine it enters.",
+        "Sees calls made through pointers, which the scans cannot follow (93 far calls in 48 programs, 40 jump tables in 33). Only what play reaches.",
+      ],
+      [
+        "Hand tests",
+        "The site's author plays games and reports what they find.",
+        "The only check of what no scan proves and random play does not reach, such as the long RPGs' endings, and of how a game feels.",
+      ],
     ],
     sources: "Sources",
-    sourceLinks: ["This list as Markdown", "The technical report, §16", "The plan"],
+    sourceLinks: ["This list as Markdown", "The technical report, §16", "The plan", "What to try by hand"],
   },
   zh: {
     tabs: ["概览", "进展报告"],
@@ -170,9 +190,9 @@ const TEXT = {
       [String(n.open), "个问题待解决"],
     ],
     bars: {
-      play: "仅在符箓上，随机按键 180 秒",
+      play: "仅在符箓上，从所有按键中随机按 180 秒",
       plays: "全程运行",
-      ends: "自行结束，与设备上一样",
+      ends: "像在设备上一样结束（游戏结束、菜单的退出、跳出）",
       stops: "停在符箓尚缺的功能上",
       check: "与原版系统的对比",
       full: "完整：追踪代码，对比试玩、存档和输入",
@@ -185,7 +205,7 @@ const TEXT = {
     glanceNote:
       "尚未与原版系统对比的程序也可能运行良好：对比是为了确认它和在设备上完全一样。86 个用步步高 RPG 工具制作的程序共用同一个引擎，所以其中完整对比过的六款，已经覆盖了其他程序运行的大部分代码。",
     osText: [
-      "符箓并不照搬整个固件。大约一半的固件是为词典自己的应用（词典、记事本等）服务的，游戏不会调用。重要的是游戏调用什么：138 个程序共调用 107 个系统函数，以及编译它们的 C 运行库中的 61 个例程。",
+      `符箓并不照搬整个固件。大约一半的固件是为词典自己的应用（词典、记事本等）服务的，游戏不会调用。重要的是游戏调用什么：138 个程序共调用 ${COVERAGE.apiUsed} 个系统函数，以及编译它们的 C 运行库中的 ${COVERAGE.residentUsed} 个例程。`,
       `符箓一共实现了 ${FULU_COUNTS.functions} 个系统函数和 ${FULU_COUNTS.routines} 个运行库例程，其中一些只供其他系统函数使用。`,
     ],
     meters: (apiDone: number) => [
@@ -194,9 +214,13 @@ const TEXT = {
       ["系统代码（指令数）", COVERAGE.written, COVERAGE.written + COVERAGE.left, `已写约 ${fmt(COVERAGE.written)} 条，剩余约 ${fmt(COVERAGE.left)} 条`],
     ] as [string, number, number, string][],
     osNote: "不计入：系统自带的中文输入法。符箓不照搬它：游戏需要中文时，播放器从电脑或手机自己的输入法取得文字。",
-    historyText: "每一轮：试玩全部 138 个程序，看它们停在哪里，写出缺少的部分，与固件对比，再全部试玩一遍。",
-    historyBars: "全程运行 180 秒（深色）或自行结束（浅色）的程序，共 138 个",
+    historyText: "每一轮：扫描并试玩全部 138 个程序，看它们停在哪里，写出缺少的部分，与固件对比，再全部试玩一遍。",
+    historyBars: "全程运行 180 秒（深色）或像在设备上一样结束（浅色）的程序，共 138 个",
+    historyNote:
+      "最后一行之前，试玩测试只按确认键、方向键和空格。最后一行按玩家能按的每个键，包括 Shift 和“跳出”：结束的程序更多（用“跳出”或菜单退出），每个结束后都重新启动，玩满 180 秒。138 个程序都没有停下。",
     leftText: "程序代码可能调用、符箓仍缺少的系统函数。每一项列出试玩时停在它上面的程序，以及代码中可能调用它的程序。“下一轮”是接下来要做的；“以后”是试玩中还没有程序走到的。程序一旦走到，就会停下并说出函数名，选择“继续”即可跳过。",
+    leftNone:
+      "检查能找到的都没有了。两种代码扫描在 138 个程序里都找不到符箓缺少的功能，按每个键的试玩测试没有程序停下，在原版系统上运行全部 138 个程序的记录中，也没有程序进入符箓缺少的功能。扫描无法证明、随机试玩也走不到的地方，比如长篇 RPG 的结局，只能靠亲手玩来检查。系统自带的中文输入法没有实现（改用电脑自己的输入法），声音保持关闭。",
     leftCols: ["内容", "指令数", "试玩时停止", "代码可能调用", "计划"],
     when: { next: "下一轮", later: "以后" },
     notMeasured: "未测量",
@@ -209,6 +233,7 @@ const TEXT = {
     notFulu: "不是符箓的问题",
     games: "程序",
     handText: "本站作者亲手玩过的游戏，按其报告记录。收到新的报告就会加进来。",
+    handTry: "人工测试要试什么：扫描和随机试玩都走不到的、游戏的长路",
     handCols: ["游戏", "运行于", "测试内容", "结果", "说明"],
     where: { fulu: "符箓", firmware: "原版系统", react: "FMJ React" },
     result: { works: "正常", problems: "有问题" },
@@ -217,7 +242,7 @@ const TEXT = {
     filters: {
       all: "全部",
       plays: "全程运行",
-      ends: "自行结束",
+      ends: "像设备上一样结束",
       stops: "停止",
       kit: "RPG 工具",
       own: "独立编写",
@@ -230,20 +255,34 @@ const TEXT = {
     cols: ["程序", "制作方式", "在符箓上", "与系统对比", "代码扫描", "人工测试", "问题"],
     kit: "RPG 工具",
     own: "独立编写",
-    onFulu: { plays: "全程运行", ends: "自行结束", stops: "停止" } as Record<FuluGame["onFulu"], string>,
+    onFulu: { plays: "全程运行", ends: "结束", stops: "停止" } as Record<FuluGame["onFulu"], string>,
     firmware: { full: "完整", play: "一分钟试玩", none: "—" } as Record<FuluGame["firmware"], string>,
     at: "于",
     clean: "不缺",
     yes: "是",
     methods: [
-      ["试玩测试", "每个程序单独在符箓上运行 180 秒，随机按确认键、方向键和空格。只有程序真的调用了尚未实现的功能，符箓才会让它停下，并说出函数名。", "能发现程序在试玩中需要什么；随机按键到不了的画面发现不了。"],
+      [
+        "试玩测试",
+        "每个程序单独在符箓上运行 180 秒，随机按玩家能按的每个键，包括 Shift 和“跳出”（不包括在设备上会离开游戏的四个系统键）。只有程序真的调用了尚未实现的功能，符箓才会让它停下，并说出函数名；测试越过每次停止继续进行，程序结束后重新启动。",
+        "能发现程序在试玩中需要什么；随机按键到不了的画面发现不了。（之前几轮只按确认键、方向键和空格，漏掉了 Shift 和“跳出”在 8 个程序中的作用。）",
+      ],
       ["影子运行", "从同一机器状态出发，先让步步高固件回答一次系统调用，再让符箓回答，然后比较寄存器、内存分页和全部内存。每个对比的程序玩一分钟；那七款游戏还包括存档和输入。", "能发现程序可以察觉到的任何差异。"],
       ["随机参数", "每个函数还会在两边用数千组随机参数调用。", "覆盖试玩走不到的情况。"],
-      ["代码扫描", "在每个程序的代码中搜索其中的每个系统调用。", "能发现试玩从未走到的路径上的调用；发现不了通过指针的调用。"],
-      ["人工测试", "本站作者亲手玩游戏并报告发现。", "唯一能检查游戏手感的方式。"],
+      ["代码扫描：字节搜索", "在每个程序的字节中搜索其中的每个系统调用和运行库例程调用。", "能发现试玩从未走到的路径上的调用；发现不了通过指针的调用，以及不在其清单里的例程。"],
+      [
+        "代码扫描：代码流",
+        "从每个程序的入口和每个编译出的 C 函数开始跟踪它的代码，报告走到了哪些符箓缺少的功能、跟踪了多少代码，以及哪些跟踪不了。",
+        "能发现字节搜索漏掉的调用（联机线的例程就是它找到的）；跟踪不了通过指针或跳转表的调用。",
+      ],
+      [
+        "固件记录",
+        "每个程序在步步高原版系统上按每个键玩 180 秒，记录它进入的每个系统函数和例程。",
+        "能看到扫描跟踪不了的、通过指针的调用（48 个程序中的 93 个远调用，33 个程序中的 40 个跳转表）；只限试玩走到的地方。",
+      ],
+      ["人工测试", "本站作者亲手玩游戏并报告发现。", "扫描无法证明、随机试玩又走不到的地方（比如长篇 RPG 的结局），以及游戏的手感，只能这样检查。"],
     ],
     sources: "来源",
-    sourceLinks: ["这份清单（Markdown）", "技术报告第 16 节", "计划"],
+    sourceLinks: ["这份清单（Markdown）", "技术报告第 16 节", "计划", "人工测试要试什么"],
   },
 };
 
@@ -442,6 +481,7 @@ export function FuluProgressPage() {
               </span>
             </div>
           ))}
+          <p className="fp-note">{t.historyNote}</p>
         </figure>
         <ol className="fp-timeline">
           {MILESTONES.map((m) => (
@@ -456,44 +496,48 @@ export function FuluProgressPage() {
         </ol>
       </Section>
 
-      <Section id="left" title={t.sections.left} lead={t.leftText}>
-        <div className="fp-table-wrap">
-          <table className="fp-table">
-            <thead>
-              <tr>
-                {t.leftCols.map((c) => (
-                  <th key={c}>{c}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {REMAINING.map((r) => {
-                const { stop, canCall } = remainingGames(r.what);
-                return (
-                  <tr key={r.what}>
-                    <td>
-                      <code className="fp-code">{r.what === "input methods" ? problemTitle("input-methods") : r.what}</code>
-                      {r.about && r.what !== "input methods" && <div className="fp-dim">{r.about[lang]}</div>}
-                      {r.calls && (
-                        <div className="fp-dim">
-                          {t.also} {r.calls.join(" ")}
-                        </div>
-                      )}
-                    </td>
-                    <td className="fp-num">{r.size ? fmt(r.size) : <span className="fp-dim">{t.notMeasured}</span>}</td>
-                    <td>{stop.length ? stop.join("、") : <span className="fp-dim">{t.none}</span>}</td>
-                    <td>
-                      <Names names={canCall} t={t} />
-                    </td>
-                    <td>
-                      <span className={`fp-badge ${r.plan === "next" ? "fixed" : "decided"}`}>{t.when[r.plan]}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      <Section id="left" title={t.sections.left} lead={REMAINING.length ? t.leftText : undefined}>
+        {!REMAINING.length ? (
+          <p className="fp-none">{t.leftNone}</p>
+        ) : (
+          <div className="fp-table-wrap">
+            <table className="fp-table">
+              <thead>
+                <tr>
+                  {t.leftCols.map((c) => (
+                    <th key={c}>{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {REMAINING.map((r) => {
+                  const { stop, canCall } = remainingGames(r.what);
+                  return (
+                    <tr key={r.what}>
+                      <td>
+                        <code className="fp-code">{r.what === "input methods" ? problemTitle("input-methods") : r.what}</code>
+                        {r.about && r.what !== "input methods" && <div className="fp-dim">{r.about[lang]}</div>}
+                        {r.calls && (
+                          <div className="fp-dim">
+                            {t.also} {r.calls.join(" ")}
+                          </div>
+                        )}
+                      </td>
+                      <td className="fp-num">{r.size ? fmt(r.size) : <span className="fp-dim">{t.notMeasured}</span>}</td>
+                      <td>{stop.length ? stop.join("、") : <span className="fp-dim">{t.none}</span>}</td>
+                      <td>
+                        <Names names={canCall} t={t} />
+                      </td>
+                      <td>
+                        <span className={`fp-badge ${r.plan === "next" ? "fixed" : "decided"}`}>{t.when[r.plan]}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Section>
 
       <Section id="problems" title={t.sections.problems}>
@@ -557,6 +601,11 @@ export function FuluProgressPage() {
             </tbody>
           </table>
         </div>
+        <p className="fp-note">
+          <a href={DOCS.hand} target="_blank" rel="noreferrer">
+            {t.handTry} ↗
+          </a>
+        </p>
       </Section>
 
       <Section id="programs" title={t.sections.programs} lead={t.programsText(n)}>
@@ -620,7 +669,7 @@ export function FuluProgressPage() {
         </div>
         <p className="fp-sources">
           <span className="h-meta">{t.sources}</span>
-          {[DOCS.games, DOCS.report, DOCS.plan].map((href, i) => (
+          {[DOCS.games, DOCS.report, DOCS.plan, DOCS.hand].map((href, i) => (
             <a key={href} href={href} target="_blank" rel="noreferrer">
               {t.sourceLinks[i]} ↗
             </a>

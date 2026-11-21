@@ -2,7 +2,7 @@
 // scripts/bbk/fulu-games-doc.mts; tests/fulu-games.test.ts checks the file).
 import { COVERAGE, fuluSummary, GAMES, HAND_TESTS, MILESTONES, PLAY_HISTORY, PROBLEMS, REMAINING, remainingGames, UPDATED, type FuluGame } from "./fuluGames";
 
-const ON_FULU: Record<FuluGame["onFulu"], string> = { plays: "plays", ends: "ends on its own", stops: "stops" };
+const ON_FULU: Record<FuluGame["onFulu"], string> = { plays: "plays", ends: "ends", stops: "stops" };
 const FIRMWARE: Record<FuluGame["firmware"], string> = { full: "full", play: "a minute of play", none: "—" };
 const cell = (s: string) => s.replace(/\|/g, "\\|");
 
@@ -24,7 +24,7 @@ export function fuluGamesMarkdown(): string {
     "",
     `Updated ${UPDATED}.`,
     "",
-    `- **On Fulu alone** (180 s of random keys each, docs/fulu-report.md §16): ${n.plays} play the whole time, ${n.ends} end on their own (their \`main\` returns, as on the device), ${n.stops} stop at something Fulu lacks.`,
+    `- **On Fulu alone** (180 s each of random keys from every key a player can press, \`scripts/bbk/fulu-play.mts\`, docs/fulu-report.md §16): ${n.plays} play the whole time, ${n.ends} end as on the device (their \`main\` returns: a game-over box, a menu's quit, Exit; the test starts them again), ${n.stops} stop at something Fulu lacks.`,
     `- **Compared with BBK's firmware** (the shadow run): ${n.full} in full (their code traced, play, typing and saves compared), ${n.play} for a minute of play.`,
     `- **Tested by hand**: ${HAND_TESTS.length} report${HAND_TESTS.length === 1 ? "" : "s"} (below).`,
     `- **Problems**: ${n.open} open, ${PROBLEMS.length - n.open} decided or fixed.`,
@@ -32,7 +32,9 @@ export function fuluGamesMarkdown(): string {
     "",
     "## How it got here",
     "",
-    "| Step | Play 180 s | End on their own |",
+    "Up to Chinese input the play test pressed Enter, the arrows and space; from F9, every key (Shift and Exit included), so more programs end.",
+    "",
+    "| Step | Play 180 s | End as on the device |",
     "|---|---|---|",
     ...PLAY_HISTORY.map((h) => `| ${h.step.en} | ${h.plays} | ${h.ends} |`),
     "",
@@ -42,8 +44,11 @@ export function fuluGamesMarkdown(): string {
     "",
     "## What is left",
     "",
-    "| What | Instructions | Stops in play | Code can call it | When |",
-    "|---|---|---|---|---|",
+    ...(REMAINING.length
+      ? ["| What | Instructions | Stops in play | Code can call it | When |", "|---|---|---|---|---|"]
+      : [
+          "Nothing the checks find: both code scans find nothing Fulu lacks in any program, the every-key play test no stop, and the firmware log nothing a program entered that Fulu lacks. What they cannot reach (the long RPGs' endings, say) is covered only by hand tests. Not counted: the OS's own input method (not written: the computer's is used) and sound (kept off).",
+        ]),
     ...REMAINING.map((r) => {
       const { stop, canCall } = remainingGames(r.what);
       const what = `${r.what === "input methods" ? "input methods" : `\`${r.what}\``}${r.about ? (r.what === "input methods" ? `: ${cell(r.about.en)}` : ` (${cell(r.about.en)})`) : ""}${r.calls ? `, with ${r.calls.map((c) => `\`${c}\``).join(" ")}` : ""}`;
@@ -69,7 +74,7 @@ export function fuluGamesMarkdown(): string {
     "",
     "## Every program",
     "",
-    "Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: plays (the whole 180 s), ends on its own, or stops (at what). Code scan: what its code can call that Fulu lacks.",
+    "Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: plays (the whole 180 s), ends (as on the device), or stops (at what). Code scan: what its code can call that Fulu lacks.",
     "",
     "| # | Game | Kit | On Fulu | Firmware comparison | Code scan | By hand | Problems |",
     "|---|---|---|---|---|---|---|---|",

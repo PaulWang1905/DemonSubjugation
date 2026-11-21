@@ -42,8 +42,8 @@ answered by TypeScript that leaves the machine exactly as the firmware
 would: the same registers, flags, banks and RAM, including the OS's own
 variables.
 
-Fulu answers 131 API-table entries, 75 resident C-runtime routines and the
-keyboard, ST1 and CT interrupts, in about 6,000 lines (`src/fulu`). It
+Fulu answers 135 API-table entries, 77 resident C-runtime routines and the
+keyboard, ST1 and CT interrupts, in about 9,700 lines (`src/fulu`). It
 plays and saves 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0, 英雄坛说
 and 三国霸业.
 It was verified by a **shadow run**: the firmware and Fulu answer each entry
@@ -57,12 +57,15 @@ every key, it also provides what the original OS could not: HD text,
 dropping keys pressed while a game is busy, and a debug menu. It runs about
 16 times faster than emulating the firmware.
 
-Beyond the seven games: of the 138 programs of the bbk-games collection,
-132 play 180 s of random keys on Fulu without stopping and the 6 others end
-on their own, as on the device; 132 call nothing Fulu lacks at all (all 86
-made with the RPG kit). Chinese is typed with the computer's own input
-method (§16.2). §16 sizes what is left: about 1,450 instructions of OS code, most of
-it needed by one small game each, and the input methods.
+Beyond the seven games: all 138 programs of the bbk-games collection run
+on Fulu. Played 180 s each with every key a player can press, 105 play the
+whole time and the 33 others end as on the device (a game over, a menu's
+quit, Exit); none stops. Two code scans (a byte search and a code flow)
+find nothing in any program's code that Fulu lacks, and a log of all 138
+played on the firmware found nothing a program entered that Fulu lacks,
+calls through pointers included. Chinese is typed with the computer's own
+input method and sound is kept off (§16.2). §16 says how this was measured,
+and what only hand tests cover.
 
 ```mermaid
 flowchart TB
@@ -969,14 +972,15 @@ games draw as pictures (the title, the big 穿 / 戴) stays pixels.
 | | |
 |---|---|
 | Games verified against the firmware, playing and saving | 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0; 英雄坛说; 三国霸业 |
-| Programs of the collection playing 180 s on Fulu without stopping | 132 of 138 (and the 6 others end on their own) |
-| Programs of the collection calling nothing Fulu lacks (static) | 92 of 138 |
-| API entries answered | 131: 103 of the 107 the collection calls, and 28 the OS calls itself |
-| Resident routines answered | 74: all 61 the collection calls, and 13 more the floats and multiplies use |
-| OS code those stand for | about 46,800 instructions of the firmware's (about 1,450 left, §16; the OS's own input method not written, §16.2) |
+| Programs of the collection running 180 s of every key on Fulu without stopping | 138 of 138 (105 play the whole time, 33 end as on the device) |
+| Programs of the collection calling nothing Fulu lacks (both code scans) | 138 of 138 |
+| Programs the firmware log saw enter something Fulu lacks | 0 of 138 (102 API entries and 70 resident routines entered in all) |
+| API entries answered | 135: all 107 the collection calls, and 28 the OS calls itself |
+| Resident routines answered | 77: all 63 the collection calls, and 14 more that other routines and OS functions use |
+| OS code those stand for | about 48,400 instructions of the firmware's (none left that a program calls, §16; the OS's own input method not written, §16.2) |
 | Interrupt handlers | keyboard, ST1, CT |
 | Shadow-run mismatches | 0 (seven games, every entry, play, typing and save scripts) |
-| Code | about 6,000 lines in `src/fulu` (runtime 1,207, GUI 850, screen 562, files 452, OS table 450, core 438, More text 346) |
+| Code | about 9,700 lines in `src/fulu` (menu 1,273, runtime 1,219, GUI 1,191, screen 683, help screen 663, core 561, OS table 454, files 452) |
 
 ### 14.2 Speed
 
@@ -1052,29 +1056,44 @@ Findings about the games:
 Fulu is not meant to translate the whole firmware. About half of it serves
 the device's own applications (the dictionaries, the organiser), which no
 game calls. What matters is what the collection's programs call: 107 API
-entries and 61 resident routines over 138 programs.
+entries and 63 resident routines over 138 programs.
 
-Two measures, which differ a lot:
+Four measures, which differ a lot:
 
-- **What a program can call** (`npx tsx scripts/bbk/fulu-coverage.mts
-  <folder> [0E00.DAT]`): a byte search of each program for far calls into
-  the API table and JSRs to the resident routines, against Fulu's own
-  tables. A call on a path rarely taken (a help screen) counts; calls
-  through pointers are not seen.
-- **What it does call when played**: each program on Fulu alone, 180 s of
-  random keys (Enter, the arrows, space), until it stops at something Fulu
-  lacks. Fulu stops a program only when it makes the call, so a program
-  plays until then.
+- **What a program can call, by bytes** (`npx tsx scripts/bbk/fulu-coverage.mts
+  <folder> [0E00.DAT] [--programs]`): a byte search of each program for far
+  calls into the API table and JSRs to the resident routines, against
+  Fulu's own tables. A call on a path rarely taken (a help screen) counts;
+  calls through pointers are not seen, nor routines missing from its list.
+- **What a program can call, by code flow** (`npx tsx scripts/bbk/fulu-flow.mts
+  <folder>`): each program's code followed from its entry and every
+  compiled C function, with what it reaches that Fulu lacks, how much code
+  it followed, what it cannot follow, and code it missed. It found the
+  serial port's resident `$E90D` / `$E910`, which the byte search's list
+  had taken for data. It cannot follow calls through pointers: 93 far calls
+  in 48 programs and 40 jump tables in 33.
+- **What it does call when played** (`npx tsx scripts/bbk/fulu-play.mts
+  <folder> <shard> <shards> 180`): each program on Fulu alone, 180 s of
+  random keys, going on past each stop (Continue) and starting a program
+  that ends again, each distinct stop recorded. Fulu stops a program only
+  when it makes the call. Through Chinese input the keys were Enter, the
+  arrows and space; since F9 (below), every key a player can press but the
+  four system keys, Shift and Exit included.
+- **What it calls on the firmware**: each program played 180 s with every
+  key on BBK's firmware, logging every API entry and resident routine it
+  enters. It sees calls through pointers, as far as play reaches them.
 
 ```mermaid
-pie showData title 138 programs played on Fulu for 180 s
-  "run the whole time" : 132
-  "end on their own" : 6
+pie showData title 138 programs played on Fulu for 180 s with every key
+  "run the whole time" : 105
+  "end as on the device" : 33
 ```
 
-The five that end do so as on the device, their `main` returning: 坦克大战
-and 钓鲨鱼 after a game-over box, 跳蛋 and 恶龙传说 from their menus' 退出,
-潜艇大战 after two and a half minutes. Of
+With Enter, the arrows and space, six ended, as on the device, their
+`main` returning: 坦克大战 and 钓鲨鱼 after a game-over box, 跳蛋 and 恶龙传说
+from their menus' 退出, 潜艇大战 after two and a half minutes, and 电子宠物
+(§16.2). With every key, 27 more end the same way (a game over, a menu's
+quit, Exit), and the test starts each again. Of
 what the scan lists, most is never reached in play. `$E980`, in 43
 programs' code, was the biggest item, a help screen of 2,429 instructions
 (`$F262`) built on 13 more functions; only 幸运花 has been seen to open it,
@@ -1083,9 +1102,10 @@ programs' code, was the biggest item, a help screen of 2,429 instructions
 Before the rounds below, 114 played the whole time. What the 21 that
 stopped needed was mostly small; the big functions are each needed by one
 to seven small arcade, board and pet games, never by the RPG kit's games.
-What is left after round 3 and Chinese input (§16.2): nothing a program
-stops at in play. The scan still finds four functions in one or two
-programs' code each, on paths play never took:
+After round 3 and Chinese input (§16.2) nothing stopped a program in that
+play, and the byte search still found four functions in one or two
+programs' code each, on paths play never took (all written since, in F9
+below):
 
 | Function | Size (with what it calls) | Programs whose code calls it |
 |---|---|---|
@@ -1204,6 +1224,53 @@ typing (11 calls, each waiting): no mismatches. 中国象棋 plays: 131 of
 one of the OS's own help texts (a word below `$8000`) stops: those texts
 are the OS's.
 
+**F9: every key, and every path the scans find** (docs/fulu-plan.md §16).
+A check of all 138 with both scans, every key played for 180 s and the
+firmware log found what random play with Enter, the arrows and space had
+missed:
+
+- **The Shift key** (中英) stopped 7 programs (平面魔方, 碰碰车, 对对碰,
+  搬运工, 滑雪, 宠物精灵, 电子宠物): Fulu's GuiTranslateMsg had only some of
+  Shift's cases, and programs started with the OS's variables at 0 (input
+  mode 0 among them). Shift is now written as GuiTranslateMsg has it
+  (8:`$67CC`, a switch on the input mode, with `$E93B`'s changes and
+  8:`$5D60`'s posting of the message `$0A` 1 or 2), compared with the
+  firmware on random input modes, `$2B28` values, latch states and keys
+  (20,000 trials).
+- **The state the launcher leaves.** Programs now start with the OS's
+  variables at `$2000`-`$2FFF` as BBK's launcher leaves them, measured on
+  nine launches (`src/fulu/launcher.ts`: input mode 2, the keyboard state,
+  the help word, the year, and the rest; not what differs per program, the
+  launcher's own key presses, the key events, or the sound switches, which
+  stay off). The player sets the device's clock to the computer's date and
+  time (`Fulu.start(file, clock)`), so 幸运花's calendar shows today.
+- **Exit** stopped 华容道 and 滑雪 at `$E8E0` (the status bar's number and
+  four icons blanked).
+- **Deeper paths:** `$E706`, atol (宠物精灵's cheat box, 体闲麻将's high
+  scores: compiled C over the runtime's 32-bit helpers); `$E7BE`, one
+  16 × 16 double-byte character drawn as SysPrintString draws its own
+  (智多星's answer field); and the link cable's serial port, `$E8D1` (open)
+  and the resident `$E90D` (send) and `$E910` (receive), from 宠物精灵's and
+  恶龙传说's two-player menus.
+
+Each function was compared with the firmware on random arguments. The
+link is the device's with no cable plugged in (the owner's decision): sends go out,
+nothing comes back, and each game shows its own "could not connect";
+宠物精灵's 建立连接失败 matches the firmware's screens exactly once the
+firmware emulator is given the device's transmitter (without one it waits
+at `$F9AF` forever on the first send).
+
+Now both scans find nothing Fulu lacks in any of the 138 (the code flow's
+only hit, `$F1BB` in 宠物精灵, is text taken for code); the every-key play
+test finds no stop in any of the 138; and the firmware log found nothing a
+program entered that Fulu lacks (102 API entries and 70 resident routines
+entered in all), which also covers the calls through pointers the scans
+cannot follow, as far as play reaches them. What the scans cannot prove and
+play cannot reach (the long RPGs' later chapters and endings, say) is
+covered only by the owner's hand tests (what to try:
+`docs/fulu-hand-tests.md`). Longer shadow runs of the programs
+that changed are in progress (plan §16, phase 3).
+
 The programs Fulu should run, how far each has got, those the owner has
 tested by hand and the problems still open are kept in one list,
 `src/app/fuluGames.ts`, shown on the site's Fulu progress report
@@ -1227,8 +1294,10 @@ fails when the document is out of date).
   the input method (A 0), as on the device. In the firmware comparison
   those calls (`$E93B`, `$E93E` in Chinese input) differ in the input
   method's own scratch only (the zero page it leaves); what the program
-  reads is the same. 宠物精灵 plays; 电子宠物 plays until it ends, as on the
-  firmware.
+  reads is the same, and the shadow runs' remaining mismatches in 宠物精灵,
+  电子宠物 and 对对碰 are the bar's own memory only. 宠物精灵 plays; 电子宠物
+  plays until it ends, as on the firmware. The Shift key's changes of mode
+  are GuiTranslateMsg's (§16.1, F9).
 
 - **Going on past a stop.** A program that meets something Fulu lacks (an
   OS function, a routine, an interrupt, a case of a function not written)
@@ -1256,10 +1325,14 @@ fails when the document is out of date).
   open the file again, but the shadow run counts it (电子宠物's save). Doing
   it as the OS does means reading its file system's code (some 2,600
   instructions).
-- **Not written:** input methods (`$E919`, `$E925`…, for typing Chinese:
-  their size, and whether they need the OS's own data, is not measured
-  yet; 恶龙传说, 电子宠物, 对对碰 and 碰碰车 switch to them), GuiGetMsg's
-  other events, and the input mode changes other than between 2 and 1.
+- **The link cable** is the device's with no cable plugged in: the
+  serial port opens and sends, and nothing arrives (no receive interrupt,
+  no type-7 message), so each game shows its own "could not connect".
+  Two devices linked are not emulated.
+- **Not written:** the OS's own input method (its pinyin bar, `$E913`,
+  `$E919`, `$E925`…, and its tables; the computer's is used instead),
+  GuiGetMsg's other events (which nothing in Fulu raises), and the sound's
+  "on" paths.
 - **Timing** is a model of the firmware's cost, within a few percent on the
   games measured, not cycle-exact. A program's own pacing can still differ
   slightly: 三国霸业's intro runs a second longer on Fulu.

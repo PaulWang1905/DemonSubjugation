@@ -45,7 +45,7 @@ const GUIDE = {
     fuluMore: "More about Fulu",
     fulu: [
       ["Typing Chinese", "When a game asks for Chinese, a box appears under the screen. Type in it with your computer's or phone's own input method (pinyin, handwriting, any) and press Enter: the game gets the characters. BBK's own input bar is not shown."],
-      ["If a game stops", "If a game reaches something Fulu does not have yet, it stops and says what. Choose Continue to skip it and play on; if the same thing comes up again, Fulu skips it by itself."],
+      ["If a game stops", "Our checks find nothing Fulu lacks in the collection's programs, but if a game still reaches something Fulu does not have, it stops and says what. Choose Continue to skip it and play on; if the same thing comes up again, Fulu skips it by itself."],
       ["Sound", "Fulu keeps the sound off. The games play the same without it."],
       ["Keys that do nothing", "The power, 目录 and dictionary keys open the device's own menus and dictionaries, which Fulu does not have."],
     ] as Row[],
@@ -99,7 +99,7 @@ const GUIDE = {
     fuluMore: "进一步了解符箓",
     fulu: [
       ["输入中文", "游戏需要中文时，屏幕下方会出现一个输入框。用电脑或手机自己的输入法（拼音、手写都可以）在框里输入，按回车，文字就交给游戏。不显示步步高自带的输入栏。"],
-      ["游戏停下时", "游戏遇到符箓还没有的功能时，会停下并说明缺少什么。选择“继续”即可跳过它接着玩；同样的情况再出现时，符箓会自动跳过。"],
+      ["游戏停下时", "我们的检查在合集的程序里找不到符箓缺少的功能；如果游戏仍然遇到符箓没有的功能，会停下并说明缺少什么。选择“继续”即可跳过它接着玩；同样的情况再出现时，符箓会自动跳过。"],
       ["声音", "符箓保持声音关闭。没有声音，游戏玩起来也一样。"],
       ["不起作用的键", "开关、目录和词典键会打开设备自己的菜单和词典，符箓没有这些。"],
     ] as Row[],

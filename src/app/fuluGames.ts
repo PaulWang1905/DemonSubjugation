@@ -6,8 +6,9 @@
 // that the document is up to date). Kept by hand:
 //
 // - GAMES: each program's status. onFulu is from the latest play of all 138
-//   on Fulu alone (180 s of random keys each: scripts and numbers in
-//   docs/fulu-report.md §16); firmware is how far it has been compared with
+//   on Fulu alone (scripts/bbk/fulu-play.mts: 180 s each of random keys from
+//   every key a player can press but the four system keys, a program that
+//   ends started again; numbers in docs/fulu-report.md §16); firmware is how far it has been compared with
 //   BBK's firmware (the shadow run, tests/fulu-shadow.test.ts).
 // - HAND_TESTS: what the owner played by hand and reported, as reported.
 // - PROBLEMS: what is known not to work, or not to work as on the device,
@@ -22,7 +23,7 @@ export interface FuluGame {
   name: string;
   /** Made with BBK's RPG kit (its library in its data area): the FMJ React engine plays it too. */
   kit: boolean;
-  /** plays: ran the whole 180 s; ends: its main returned (a game-over box, its menu's quit), as on the device; stops: at something Fulu lacks. */
+  /** plays: ran the whole 180 s; ends: its main returned (a game-over box, its menu's quit, Exit), as on the device; stops: at something Fulu lacks. */
   onFulu: OnFulu;
   /** What it stops at: an OS function or routine Fulu lacks, or input methods. */
   stopsAt?: string;
@@ -34,17 +35,17 @@ export interface FuluGame {
 }
 
 export const GAMES: FuluGame[] = [
-  { name: "Eros方块", kit: false, onFulu: "plays", firmware: "play", problems: ["sound"] },
+  { name: "Eros方块", kit: false, onFulu: "ends", firmware: "play", problems: ["sound"] },
   { name: "一中传奇", kit: true, onFulu: "plays", firmware: "none", problems: ["game-bugs"] },
   { name: "一中传奇2", kit: true, onFulu: "plays", firmware: "none" },
   { name: "七剑", kit: true, onFulu: "plays", firmware: "none" },
   { name: "三国霸业", kit: false, onFulu: "plays", firmware: "full" },
   { name: "中国象棋", kit: false, onFulu: "plays", firmware: "play" },
-  { name: "丰收", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "丰收", kit: false, onFulu: "ends", firmware: "play" },
   { name: "乒乓球", kit: false, onFulu: "plays", firmware: "none" },
-  { name: "二十一点", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "二十一点", kit: false, onFulu: "ends", firmware: "none" },
   { name: "二十四点", kit: false, onFulu: "plays", firmware: "play", problems: ["sound"] },
-  { name: "五子棋", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "五子棋", kit: false, onFulu: "ends", firmware: "play" },
   { name: "仙三外传", kit: true, onFulu: "plays", firmware: "none" },
   { name: "仙剑三", kit: true, onFulu: "plays", firmware: "none" },
   { name: "仙剑奇侠传二之虎啸飞剑", kit: true, onFulu: "plays", firmware: "none" },
@@ -58,12 +59,12 @@ export const GAMES: FuluGame[] = [
   { name: "体闲麻将", kit: false, onFulu: "plays", firmware: "play" },
   { name: "侠客行", kit: true, onFulu: "plays", firmware: "none" },
   { name: "侠客行4988(终曲版)", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "公路快车", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "公路快车", kit: false, onFulu: "ends", firmware: "none" },
   { name: "冒险岛", kit: true, onFulu: "plays", firmware: "none" },
   { name: "剑缘-第一部", kit: true, onFulu: "plays", firmware: "none" },
   { name: "十字之门", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "升级", kit: false, onFulu: "plays", firmware: "play" },
-  { name: "华容道", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "升级", kit: false, onFulu: "ends", firmware: "play" },
+  { name: "华容道", kit: false, onFulu: "ends", firmware: "play" },
   { name: "同福奇缘", kit: true, onFulu: "plays", firmware: "none" },
   { name: "地牢围攻", kit: true, onFulu: "plays", firmware: "none" },
   { name: "坦克大战", kit: false, onFulu: "ends", firmware: "play" },
@@ -75,8 +76,8 @@ export const GAMES: FuluGame[] = [
   { name: "妖 传说", kit: true, onFulu: "plays", firmware: "none" },
   { name: "妖·传说终曲版", kit: true, onFulu: "plays", firmware: "none" },
   { name: "娱乐无极限之无影奸细", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "宠物精灵", kit: false, onFulu: "plays", firmware: "play", problems: ["input-methods", "unexplained-reads"] },
-  { name: "对对碰", kit: false, onFulu: "plays", firmware: "play", problems: ["input-methods"] },
+  { name: "宠物精灵", kit: false, onFulu: "ends", firmware: "play", problems: ["input-methods", "unexplained-reads"] },
+  { name: "对对碰", kit: false, onFulu: "ends", firmware: "play", problems: ["input-methods"] },
   { name: "封魔录", kit: true, onFulu: "plays", firmware: "none" },
   { name: "将门风云", kit: true, onFulu: "plays", firmware: "none" },
   { name: "少年行", kit: true, onFulu: "plays", firmware: "none" },
@@ -90,13 +91,13 @@ export const GAMES: FuluGame[] = [
   { name: "恶龙传说", kit: false, onFulu: "ends", firmware: "play", problems: ["input-methods"] },
   { name: "我的世界", kit: true, onFulu: "plays", firmware: "none" },
   { name: "战国争霸", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "扫雷", kit: false, onFulu: "plays", firmware: "none" },
-  { name: "投篮游戏", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "扫雷", kit: false, onFulu: "ends", firmware: "none" },
+  { name: "投篮游戏", kit: false, onFulu: "ends", firmware: "play" },
   { name: "抗日小兵", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "拱猪", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "拱猪", kit: false, onFulu: "ends", firmware: "play" },
   { name: "挖金子", kit: false, onFulu: "plays", firmware: "play" },
-  { name: "接龙", kit: false, onFulu: "plays", firmware: "none" },
-  { name: "搬运工", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "接龙", kit: false, onFulu: "ends", firmware: "none" },
+  { name: "搬运工", kit: false, onFulu: "ends", firmware: "play" },
   { name: "新仙剑奇侠传", kit: true, onFulu: "plays", firmware: "none" },
   { name: "新仙剑奇侠传终曲版", kit: true, onFulu: "plays", firmware: "none" },
   { name: "新能源危机", kit: true, onFulu: "plays", firmware: "none" },
@@ -108,27 +109,27 @@ export const GAMES: FuluGame[] = [
   { name: "梦幻西游", kit: true, onFulu: "plays", firmware: "none" },
   { name: "步步高网友俱乐部", kit: true, onFulu: "plays", firmware: "none" },
   { name: "武林新传", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "比大小", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "比大小", kit: false, onFulu: "ends", firmware: "none" },
   { name: "泡泡侠", kit: false, onFulu: "plays", firmware: "play" },
   { name: "泡泡侠 加速版", kit: false, onFulu: "plays", firmware: "none" },
   { name: "洛克人", kit: true, onFulu: "plays", firmware: "none" },
   { name: "洛特传奇", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "海盗船", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "海盗船", kit: false, onFulu: "ends", firmware: "none" },
   { name: "混战三国", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "滑雪", kit: false, onFulu: "plays", firmware: "play", problems: ["sound"] },
+  { name: "滑雪", kit: false, onFulu: "ends", firmware: "play", problems: ["sound"] },
   { name: "潜艇大战", kit: false, onFulu: "ends", firmware: "play" },
   { name: "炸弹小子", kit: false, onFulu: "plays", firmware: "none" },
   { name: "烈中轶事", kit: true, onFulu: "plays", firmware: "none" },
   { name: "热血传奇", kit: true, onFulu: "plays", firmware: "none", problems: ["game-bugs"] },
   { name: "牛妞历险记", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "猪小弟", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "猪小弟", kit: false, onFulu: "ends", firmware: "play" },
   { name: "猫狗大战", kit: false, onFulu: "plays", firmware: "play" },
   { name: "王氏传", kit: true, onFulu: "plays", firmware: "none" },
   { name: "生命女神之暗之诅咒", kit: true, onFulu: "plays", firmware: "none" },
   { name: "电子宠物", kit: false, onFulu: "ends", firmware: "play", problems: ["input-methods", "file-place"] },
   { name: "疯狂校园", kit: true, onFulu: "plays", firmware: "none" },
   { name: "疯狂盗墓人", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "白中传奇", kit: true, onFulu: "plays", firmware: "none" },
+  { name: "白中传奇", kit: true, onFulu: "ends", firmware: "none" },
   { name: "碰碰车", kit: false, onFulu: "plays", firmware: "play", problems: ["input-methods"] },
   { name: "秘密潜入", kit: false, onFulu: "plays", firmware: "none" },
   { name: "紫璇刀", kit: true, onFulu: "plays", firmware: "none" },
@@ -144,12 +145,12 @@ export const GAMES: FuluGame[] = [
   { name: "蜘蛛侠三", kit: true, onFulu: "plays", firmware: "none" },
   { name: "螃蟹回家", kit: false, onFulu: "plays", firmware: "play" },
   { name: "诸神黄昏", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "豪斯", kit: false, onFulu: "plays", firmware: "play", problems: ["sound"] },
+  { name: "豪斯", kit: false, onFulu: "ends", firmware: "play", problems: ["sound"] },
   { name: "贪食蛇", kit: false, onFulu: "plays", firmware: "none" },
   { name: "赛马", kit: false, onFulu: "plays", firmware: "play" },
   { name: "赤壁之战 乱世枭雄", kit: true, onFulu: "plays", firmware: "none" },
   { name: "赤壁之战乱世枭雄终曲版", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "跟花", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "跟花", kit: false, onFulu: "ends", firmware: "play" },
   { name: "跳蛋", kit: false, onFulu: "ends", firmware: "play" },
   { name: "过关斩将", kit: true, onFulu: "plays", firmware: "none" },
   { name: "过关斩将4988(终曲版)", kit: true, onFulu: "plays", firmware: "none" },
@@ -161,17 +162,17 @@ export const GAMES: FuluGame[] = [
   { name: "金庸群侠传", kit: true, onFulu: "plays", firmware: "none" },
   { name: "金庸群侠传终曲版", kit: true, onFulu: "plays", firmware: "none" },
   { name: "金庸群侠黑暗时代终曲版", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "钓鱼", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "钓鱼", kit: false, onFulu: "ends", firmware: "none" },
   { name: "钓鲨鱼", kit: false, onFulu: "ends", firmware: "play" },
   { name: "问道", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "阶梯小子", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "阶梯小子", kit: false, onFulu: "ends", firmware: "play" },
   { name: "飞行特训", kit: false, onFulu: "plays", firmware: "play" },
-  { name: "魔塔", kit: false, onFulu: "plays", firmware: "none" },
-  { name: "魔塔BT版", kit: false, onFulu: "plays", firmware: "none" },
-  { name: "魔塔超级版", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "魔塔", kit: false, onFulu: "ends", firmware: "none" },
+  { name: "魔塔BT版", kit: false, onFulu: "ends", firmware: "none" },
+  { name: "魔塔超级版", kit: false, onFulu: "ends", firmware: "none" },
   { name: "魔法学院", kit: true, onFulu: "plays", firmware: "none" },
   { name: "黑暗之心", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "黑白子", kit: false, onFulu: "plays", firmware: "none" },
+  { name: "黑白子", kit: false, onFulu: "ends", firmware: "none" },
 ];
 
 /** A game the owner played by hand, and what they found. */
@@ -283,6 +284,15 @@ export const PROBLEMS: Problem[] = [
     status: "fixed",
   },
   {
+    id: "shift-launcher",
+    title: { en: "The Shift key, and the state the launcher leaves", zh: "Shift 键，以及启动器留下的状态" },
+    detail: {
+      en: "The play test pressed Enter, the arrows and space at random, and never Shift (中英) or Exit. Played with every key, Shift stopped 7 programs (平面魔方, 碰碰车, 对对碰, 搬运工, 滑雪, 宠物精灵, 电子宠物): Fulu's GuiTranslateMsg had only some of Shift's cases, and programs started with the OS's variables at 0, where BBK's launcher leaves input mode 2, the keyboard state, the help word and the year. Now Shift is written as GuiTranslateMsg has it (compared with the firmware on random input modes, keyboard states and keys), programs start in the state the launcher leaves (measured on nine launches), and the player sets the device's clock to the computer's date and time, so 幸运花's calendar shows today. The play test now presses every key a player can, Shift and Exit included, and none of the 138 stops.",
+      zh: "原来的试玩测试只随机按确认键、方向键和空格，从没按过 Shift（中英）或“跳出”。按所有键试玩时，Shift 让 7 个程序停下（平面魔方、碰碰车、对对碰、搬运工、滑雪、宠物精灵、电子宠物）：符箓的 GuiTranslateMsg 只有 Shift 的部分分支，而且程序启动时系统变量都是 0，而步步高的启动器会留下输入模式 2、键盘状态、帮助字和年份。现在 Shift 按 GuiTranslateMsg 原样实现（已用随机输入模式、键盘状态和按键与固件对比），程序启动时的状态与启动器留下的一致（在九次启动上测得），播放器把设备的时钟设为电脑的日期和时间，所以幸运花的日历显示今天。试玩测试现在会按玩家能按的每个键，包括 Shift 和“跳出”，138 个程序都没有停下。",
+    },
+    status: "fixed",
+  },
+  {
     id: "unreached",
     title: { en: "Functions a program can call but none did in random play", zh: "程序可能调用、随机试玩中没有调用的函数" },
     detail: {
@@ -356,7 +366,7 @@ export const PROBLEMS: Problem[] = [
 ];
 
 /** When this file was last brought up to date. */
-export const UPDATED = "2026-11-20";
+export const UPDATED = "2026-11-21";
 
 /** What Fulu answers (tests/fulu-games.test.ts checks these against src/fulu). */
 export const FULU_COUNTS = { functions: 135, routines: 77 };
@@ -370,7 +380,13 @@ export const FULU_COUNTS = { functions: 135, routines: 77 };
  */
 export const COVERAGE = { apiUsed: 107, residentUsed: 63, written: 48400, left: 0 };
 
-/** The programs that played 180 s of random keys after each step (and those that ended on their own). */
+/**
+ * The programs that played 180 s of random keys after each step (and those
+ * that ended, as on the device). Up to Chinese input the keys were Enter, the
+ * arrows and space; from F9 every key a player can press (scripts/bbk/fulu-play.mts),
+ * Exit and the menus' quit among them, so more programs end (each is started
+ * again for the rest of its 180 s).
+ */
 export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; ends: number }[] = [
   { step: { en: "First play of all 138", zh: "首次试玩全部 138 个" }, plays: 103, ends: 0 },
   { step: { en: "Round 1", zh: "第 1 轮" }, plays: 114, ends: 3 },
@@ -379,6 +395,7 @@ export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; en
   { step: { en: "Round 3, the help screen", zh: "第 3 轮，帮助画面" }, plays: 130, ends: 5 },
   { step: { en: "Round 3, the menu", zh: "第 3 轮，菜单" }, plays: 131, ends: 5 },
   { step: { en: "Chinese typed with the computer's input method", zh: "用电脑的输入法输入中文" }, plays: 132, ends: 6 },
+  { step: { en: "Every key, Shift and Exit included", zh: "按每个键，包括 Shift 和“跳出”" }, plays: 105, ends: 33 },
 ];
 
 export interface Milestone {
@@ -507,6 +524,15 @@ export const MILESTONES: Milestone[] = [
     detail: {
       en: "The games list, the owner's hand tests and the problems in one place. The owner decided to keep the sound off for now.",
       zh: "游戏清单、作者的人工测试和问题集中在一处。作者决定暂时保持声音关闭。",
+    },
+  },
+  {
+    date: "2026-11-21",
+    step: "F9",
+    title: { en: "Every key, and every path the scans find", zh: "每一个键，扫描找到的每一条路径" },
+    detail: {
+      en: "A check of all 138 with two code scans (the byte search and a new code-flow scan), a play test pressing every key and a log of all 138 played on BBK's firmware found what random play with Enter, the arrows and space had missed. Done: the Shift key as GuiTranslateMsg has it; programs start in the state BBK's launcher leaves, with the device's clock set to the computer's date and time; $E8E0 (Exit in 华容道 and 滑雪), $E706 (atol: 宠物精灵's cheat box, 体闲麻将's high scores), $E7BE (智多星's answer field), and the link cable as the device with no cable plugged in, each compared with the firmware. Now both scans find nothing Fulu lacks in any program, the every-key play test finds no stop in any, and the firmware log found nothing a program entered that Fulu lacks (102 OS functions and 70 routines entered in all, calls through pointers included).",
+      zh: "用两种代码扫描（字节搜索和新的代码流扫描）、按每个键的试玩测试，以及在步步高固件上运行全部 138 个程序的记录，检查了全部程序，找到了只随机按确认键、方向键和空格时漏掉的东西。已完成：Shift 键按 GuiTranslateMsg 原样实现；程序启动时的状态与步步高启动器留下的一致，设备时钟设为电脑的日期和时间；$E8E0（华容道和滑雪的“跳出”）、$E706（atol：宠物精灵的作弊框、体闲麻将的排行榜）、$E7BE（智多星的答案输入框），以及按设备未插线处理的联机线，每个都与固件对比过。现在两种扫描在任何程序里都找不到符箓缺少的功能，按每个键的试玩测试没有程序停下，固件记录中也没有程序进入符箓缺少的功能（共进入 102 个系统函数和 70 个例程，包括通过指针的调用）。",
     },
   },
 ];

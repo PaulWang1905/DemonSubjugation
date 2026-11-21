@@ -140,10 +140,15 @@ the dictionary complete. With a blank flash the OS formats it itself.
 **Fulu** (`src/fulu`): without the firmware, a program runs on Fulu instead,
 which answers every call into the OS in TypeScript (the far calls through the
 API table, the C compiler's helpers, the interrupts), keeping the OS's state
-where the OS does. It draws text with the site's Unifont. It answers 131 OS
-functions and 75 C runtime routines, and all 138 programs of the bbk-games
-collection run on it: 132 play the whole 180-second play test, and the other 6
-end on their own, as they do on the device. Seven games (the 伏魔记 series,
+where the OS does. It draws text with the site's Unifont. It answers 135 OS functions and 77 C runtime routines, and
+all 138 programs of the bbk-games collection run on it: in the 180-second play
+test, which presses every key a player can at random, 105 play the whole time
+and the other 33 end as they do on the device (a game over, a menu's quit,
+Exit); none stops. Both code scans (`scripts/bbk/fulu-coverage.mts`,
+`scripts/bbk/fulu-flow.mts`) find nothing Fulu lacks in any program's code,
+and a log of all 138 played on the firmware found nothing they enter that
+Fulu lacks. What none of these reaches (the long way through the RPGs) is
+left to hand tests (`docs/fulu-hand-tests.md`). Seven games (the 伏魔记 series,
 英雄坛说, 三国霸业) are checked against the firmware call by call by a shadow
 run that compares registers, banks and all of RAM after every entry into the
 OS (`tests/fulu-shadow.test.ts`, with `BBK_FIRMWARE` and `BBK_GAMES`).
@@ -151,8 +156,13 @@ OS (`tests/fulu-shadow.test.ts`, with `BBK_FIRMWARE` and `BBK_GAMES`).
 - **A stop, and Continue**: a program that meets something Fulu lacks stops
   and names it; the player offers **Continue**, which skips it (the call
   returns as if done) so the game plays on, and the same stop again is
-  skipped by itself. Four rarely reached OS functions are still missing: they
-  are in the code of a few programs, never reached in play.
+  skipped by itself. The checks above find nothing missing, so this is for
+  what they cannot reach.
+- **Shift and the clock**: the Shift (中英) key changes input mode as the OS
+  does, programs start in the state BBK's launcher leaves, and the device's
+  clock is set to the computer's date and time.
+- **The link cable** acts as on a device with no cable plugged in: each game
+  shows its own "could not connect".
 - **Typing Chinese**: when a program asks for Chinese input, the player shows
   a box under the screen; what is typed there with the computer's or phone's
   own input method (pinyin, handwriting, any) goes to the program when Enter
