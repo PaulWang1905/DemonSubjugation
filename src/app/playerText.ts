@@ -1,6 +1,7 @@
 // The game player's own text (toolbar, options, keypad, messages) in English
 // and Simplified Chinese. (The game's menus have their own language setting,
 // Menu language; the hidden debug menu is English only.)
+import { mapTiles } from "./playerOptions";
 import { currentSiteLang, type SiteLang } from "./siteLang";
 
 const en = {
@@ -21,7 +22,7 @@ const en = {
   usualSize: "Back to the usual size",
   map: "Map",
   mapTitle: "Show more of the map around the screen. The game plays the same; dialogue, menus and battles stay in the middle at their original size",
-  mapViews: { normal: "Original (9×6)", wide: "Wider (13×8)", widest: "Widest (17×10)" },
+  mapViews: { normal: `Original (${mapTiles("normal", "×")})`, wide: `Wider (${mapTiles("wide", "×")})`, widest: `Widest (${mapTiles("widest", "×")})` },
   text: "Text",
   textTitle: "Pixel: the handheld's bitmap fonts, enlarged with hard edges. HD: fonts drawn at your screen's full resolution",
   looks: { pixel: "Pixel", hd: "HD" },
@@ -138,7 +139,7 @@ const zh: PlayerText = {
   usualSize: "恢复默认大小",
   map: "地图",
   mapTitle: "在画面周围显示更多地图。游戏玩法不变；对话、菜单和战斗仍以原大小显示在中间",
-  mapViews: { normal: "原版（9×6）", wide: "更宽（13×8）", widest: "最宽（17×10）" },
+  mapViews: { normal: `原版（${mapTiles("normal", "×")}）`, wide: `更宽（${mapTiles("wide", "×")}）`, widest: `最宽（${mapTiles("widest", "×")}）` },
   text: "文字",
   textTitle: "像素：掌机的点阵字体，按硬边放大。高清：按屏幕的实际分辨率绘制字体",
   looks: { pixel: "像素", hd: "高清" },

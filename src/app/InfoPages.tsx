@@ -2,6 +2,9 @@
 // buttons, the Fulu page's head, figures and numbered rows).
 import { fuluSummary } from "./fuluGames";
 import { REPO_URL } from "./links";
+import { LOCKED_GAMES } from "./lockedGame";
+import { SLOTS } from "./deviceStore";
+import { mapTiles } from "./playerOptions";
 import { Link } from "./router";
 import { PLAYER_TEXT } from "./playerText";
 import { useSiteLang } from "./siteLang";
@@ -58,14 +61,14 @@ const GUIDE = {
     savesTitle: "Keeping your progress",
     saves: [
       ["In-game saves", "Open the game's menu with Back and choose save (系统 → 存储进度 in Chinese games). They are kept with the game, also when you restart it or it ends."],
-      ["Save states", "For 4988 games: Options → Saves keeps the whole device at a moment, in three slots, to load back any time."],
+      ["Save states", `For 4988 games: Options → Saves keeps the whole device at a moment, in ${SLOTS} slots, to load back any time.`],
       ["Export and import", "Write a game's saves (and its state) to a file, to keep or to move to another browser or computer."],
     ] as Row[],
     lookTitle: "Make it look your way",
     look: [
       ["Pixel or HD text", "The handheld's 16-pixel bitmap text, or the same characters redrawn sharp in a real font."],
       ["Screen and effect", "Colour themes, an LCD look with or without a shadow, or smoothed pixels."],
-      ["Wider map", "More of the map around the screen, 13 × 8 or 17 × 10 tiles. Dialogues and menus stay where the game draws them."],
+      ["Wider map", `More of the map around the screen, ${mapTiles("wide")} or ${mapTiles("widest")} tiles. Dialogues and menus stay where the game draws them.`],
       ["More text", "Smaller 12 or 10-pixel text in dialogues and message boxes, so a page holds more."],
       ["Size and full screen", "Zoom in whole-pixel steps; ⛶ shows only the game. On an iPhone, add the site to the home screen to play without the browser bars."],
       ["Debug menu", "Hold the screen to open it: the party's stats, money, items, story flags and random battles, changed in the running game."],
@@ -115,14 +118,14 @@ const GUIDE = {
     savesTitle: "保存进度",
     saves: [
       ["游戏内存档", "按“返回”打开游戏菜单并选择存档（中文游戏为 系统 → 存储进度）。存档跟着游戏保存，重新开机或游戏结束后也不会丢。"],
-      ["即时存档", "4988 游戏：选项 → 存档，可在三个位置保存整台掌机的某一刻，随时读回。"],
+      ["即时存档", `4988 游戏：选项 → 存档，可在 ${SLOTS} 个位置保存整台掌机的某一刻，随时读回。`],
       ["导出与导入", "把一个游戏的存档（和它的状态）写成文件，留作备份，或转移到另一个浏览器或电脑。"],
     ] as Row[],
     lookTitle: "按你的喜好显示",
     look: [
       ["像素或高清文字", "掌机的 16 像素点阵文字，或用真实字体清晰重绘的同样文字。"],
       ["画面与效果", "配色主题、带或不带阴影的液晶效果，或平滑像素。"],
-      ["更宽的地图", "在画面周围显示更多地图，13 × 8 或 17 × 10 格。对话和菜单仍在游戏绘制的位置。"],
+      ["更宽的地图", `在画面周围显示更多地图，${mapTiles("wide")} 或 ${mapTiles("widest")} 格。对话和菜单仍在游戏绘制的位置。`],
       ["更多文字", "对话和消息框使用 12 或 10 像素的小字，一页能放下更多内容。"],
       ["大小与全屏", "按整像素缩放；⛶ 只显示游戏。在 iPhone 上把本站添加到主屏幕，可以去掉浏览器栏。"],
       ["调试菜单", "按住画面打开：在运行中的游戏里修改队伍属性、金钱、物品、剧情标志和随机战斗。"],
@@ -141,7 +144,7 @@ const ABOUT = {
     facts: [
       ["TS", "TypeScript and React, no plugins"],
       ["GPL-2.0", "the licence, like fmj.kt"],
-      ["0", "games bundled besides the demos"],
+      [String(LOCKED_GAMES.length), `game${LOCKED_GAMES.length === 1 ? "" : "s"} bundled besides the demos, locked with a password`],
       ["3", "engines, one site"],
     ],
     storyTitle: "What it is",
@@ -176,7 +179,7 @@ const ABOUT = {
     facts: [
       ["TS", "TypeScript 和 React，无需插件"],
       ["GPL-2.0", "许可证，与 fmj.kt 相同"],
-      ["0", "除演示外不附带任何游戏"],
+      [String(LOCKED_GAMES.length), "款除演示外附带的游戏，需密码解锁"],
       ["3", "种引擎，一个网站"],
     ],
     storyTitle: "这是什么",

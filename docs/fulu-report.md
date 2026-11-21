@@ -42,8 +42,9 @@ answered by TypeScript that leaves the machine exactly as the firmware
 would: the same registers, flags, banks and RAM, including the OS's own
 variables.
 
-Fulu answers 135 API-table entries, 77 resident C-runtime routines and the
-keyboard, ST1 and CT interrupts, in about 9,700 lines (`src/fulu`). It
+Fulu answers 135 OS entries (128 in the API table, `$E700`-`$EAFF`, and 7
+outside it: `$EBEF`, `$EBF2`, `$EBF5`, `$EBF8`, `$EC67`, `$EC6A`, `$F262`),
+77 resident C-runtime routines and the keyboard, ST1 and CT interrupts, in about 9,700 lines (`src/fulu`). It
 plays and saves 伏魔记 1.0, 1.2, 1.3, 完美版 1.0, 怀旧终曲 v1.0, 英雄坛说
 and 三国霸业.
 It was verified by a **shadow run**: the firmware and Fulu answer each entry
@@ -54,8 +55,9 @@ nothing else the seven games' code can reach is missing.
 A cost model charges the firmware's measured time for each entry, so the
 games keep the device's pace. Because Fulu draws every character and sees
 every key, it also provides what the original OS could not: HD text,
-dropping keys pressed while a game is busy, and a debug menu. It runs about
-16 times faster than emulating the firmware.
+dropping keys pressed while a game is busy, and a debug menu. It takes from
+about the same to 6.6 times less computer time than emulating the firmware,
+by game and screen (§14.2).
 
 Beyond the seven games: all 138 programs of the bbk-games collection run
 on Fulu. Played 180 s each with every key a player can press, 105 play the
@@ -978,23 +980,46 @@ games draw as pictures (the title, the big 穿 / 戴) stays pixels.
 | Programs the firmware log saw enter something Fulu lacks | 0 of 138 (in 180 s each: 102 of the 106 API entries and 69 of the 75 resident routines in their code, the far call besides; nothing outside their code) |
 | API entries answered | 135: all 106 the collection calls, 17 only Fulu's own functions call, and 12 status-bar icon functions written with their set that nothing calls |
 | Resident routines answered | 77: all 75 the collection calls (and the far call $D2F6, Fulu's core), and 2 only Fulu's own functions use |
-| OS code those stand for | about 48,400 instructions of the firmware's (none left that a program calls, §16; the OS's own input method not written, §16.2) |
+| OS code those stand for | about 35,600 instructions of the firmware's, each counted once: the 135 entries' code with their switches' cases, and the runtime routines (`npx tsx scripts/bbk/fulu-size.mts <0E00.DAT>`: 35,587). None is left that a program calls (§16); the OS's own input method is not written (§16.2) |
 | Interrupt handlers | keyboard, ST1, CT |
 | Shadow-run mismatches | 0 (seven games, every entry, play, typing and save scripts) |
 | Code | about 9,700 lines in `src/fulu` (menu 1,273, runtime 1,219, GUI 1,191, screen 683, help screen 663, core 561, OS table 454, files 452) |
 
 ### 14.2 Speed
 
-Twenty seconds of emulated play, in Node:
+CPU time per emulated second, in Node (`process.cpuUsage`), each engine in
+a process of its own, from the program's start with the same random keys
+(Enter, the arrows and space, one every 0.5 s); the first 30 s (start-up,
+and the JIT warming up, which costs Fulu more) left out, then 90 s measured:
 
-| Engine | Time |
-|---|---|
-| Fulu | 74 ms |
-| Firmware | 1,207 ms |
+| Program | Firmware | Fulu | Fulu takes |
+|---|---|---|---|
+| 伏魔记 1.0 | 3.3 ms | 1.0 ms | 3.5 times less |
+| 英雄坛说 | 30.1 ms | 8.5 ms | 3.5 times less |
+| 中国象棋 | 9.3 ms | 1.5 ms | 6.1 times less |
+| 华容道 | 10.9 ms | 2.2 ms | 5.1 times less |
+| 五子棋 | 19.3 ms | 12.8 ms | 1.5 times less |
+| 贪食蛇 | 7.8 ms | 2.6 ms | 2.9 times less |
+| 跳蛋 | 37.7 ms | 7.1 ms | 5.3 times less |
+| 体闲麻将 | 1.1 ms | 0.8 ms | 1.4 times less |
+| 幸运花 | 19.1 ms | 2.9 ms | 6.6 times less |
+| 搬运工 | 9.6 ms | 2.8 ms | 3.4 times less |
+| Eros方块 | 45.9 ms | 7.2 ms | 6.4 times less |
 
-Fulu is about 16 times faster, because the OS's work runs as TypeScript
-instead of emulated 65C02 code. Its emulated pace is still the firmware's,
-through the cost model.
+The two did not always show the same screens (the keys land at slightly
+different moments), and 三国霸业 on the firmware stayed on its title screen
+while on Fulu it went on into the game, so its run is not compared. With no
+keys, on the same title screens (50 s measured after 10 s): 三国霸业 15.1 ms
+against 3.8 ms (4.0 times less), 伏魔记 1.0 88.0 against 22.2 (4.0), 英雄坛说
+81.4 against 80.5 (the same: its title's animation is the game's own code).
+
+So Fulu takes from about the same computer time as the firmware to 6.6
+times less, by game and screen: the OS's work runs as TypeScript instead of
+emulated 65C02 code, and a game that spends its time in its own code gains
+little. Its emulated pace is still the firmware's, through the cost model.
+(The site's Fulu page shows the range as `FULU_SPEED` in
+`src/app/fuluGames.ts`. An earlier measurement here, twenty seconds of play
+at 74 ms against 1,207 ms, could not be repeated.)
 
 ### 14.3 What Fulu made possible
 
@@ -1073,8 +1098,12 @@ Four measures, which differ a lot:
   compiled C function, with what it reaches that Fulu lacks, how much code
   it followed, what it cannot follow, and code it missed. It found the
   serial port's resident `$E90D` / `$E910`, which the byte search's list
-  had taken for data. It cannot follow calls through pointers: 93 far calls
-  in 48 programs and 40 jump tables in 33.
+  had taken for data. It cannot follow what is worked out while running:
+  its last lines count those places by kind, 142 in 106 programs (38 jump
+  tables `JMP (a,X)` in 31; 84 JSRs and JMPs into RAM in 76; 4 far calls
+  whose target is not known before, in 4; 3 `JMP (a)` and 2 calls through
+  `$D572` with a pointer not known, in 2; and 11 places in 4 programs where
+  the code followed leaves the program).
 - **What it does call when played** (`npx tsx scripts/bbk/fulu-play.mts
   <folder> <shard> <shards> 180`): each program on Fulu alone, 180 s of
   random keys, going on past each stop (Continue) and starting a program
@@ -1120,9 +1149,10 @@ below):
 `$E94D`'s first count (3,943) missed its nine key cases, reached only
 through a switch's table: the disassembler follows branches and calls, not
 tables (`$F262`'s first count, 1,969, missed its six). The OS's own input
-method (its pinyin bar, `$E913`, `$E919`, `$E925`, `$E91F`, `$E916`,
-`$E922`, about 3,800 instructions, and its tables of pinyin and hanzi,
-which Fulu cannot copy) is not written: the owner chose the computer's own
+method (its pinyin bar, `$E913`, `$E916`, `$E919`, `$E91C`, `$E91F`,
+`$E922`, `$E925` and `$E8F5`, which only they call: about 2,000
+instructions, each counted once by `fulu-size.mts`, and its tables of
+pinyin and hanzi, which Fulu cannot copy) is not written: the owner chose the computer's own
 input method instead (§16.2).
 
 **The plan** is therefore by play, in rounds: write what programs stop at,
@@ -1273,7 +1303,7 @@ cannot follow, as far as play reaches them. What the scans cannot prove and
 play cannot reach (the long RPGs' later chapters and endings, say) is
 covered only by the owner's hand tests (what to try:
 `docs/fulu-hand-tests.md`). Longer shadow runs of the programs
-that changed are in progress (plan §16, phase 3).
+that changed are done (plan §16, phase 3, says what they found).
 
 The programs Fulu should run, how far each has got, those the owner has
 tested by hand and the problems still open are kept in one list,
@@ -1295,11 +1325,12 @@ fails when the document is out of date).
   program as those type-3 messages, through GuiGetMsg's queue (ASCII as
   characters, type 2; `Fulu.type`, `src/fulu/gb2312.ts` for the codes, made
   from the platform's own decoder). Letters pressed on the device go to
-  the input method (A 0), as on the device. In the firmware comparison
-  those calls (`$E93B`, `$E93E` in Chinese input) differ in the input
-  method's own scratch only (the zero page it leaves); what the program
-  reads is the same, and the shadow runs' remaining mismatches in 宠物精灵,
-  电子宠物 and 对对碰 are the bar's own memory only. 宠物精灵 plays; 电子宠物
+  the input method (A 0), as on the device. In the firmware comparison,
+  once a program is in Chinese input, what differs is the bar's own
+  memory and the screen it draws (in 宠物精灵, 电子宠物, 对对碰, 碰碰车,
+  平面魔方 and 恶龙传说); and 宠物精灵's save is named with a character
+  typed through the input method, so its file differs too. In the play test
+  with every key, 宠物精灵 ends (once in 180 s: it was quit) and 电子宠物
   plays until it ends, as on the firmware. The Shift key's changes of mode
   are GuiTranslateMsg's (§16.1, F9).
 

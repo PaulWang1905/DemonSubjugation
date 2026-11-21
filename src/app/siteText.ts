@@ -5,6 +5,9 @@
 // FuluPage.tsx and FuluProgressPage.tsx; the editor is still English only.)
 import type { SiteLang } from "./siteLang";
 import { fuluSummary } from "./fuluGames";
+import { mapTiles, SPEEDS } from "./playerOptions";
+
+const TOP_SPEED = Math.max(...SPEEDS);
 
 // How many of the 4988 game collection's programs run on Fulu (from its progress list).
 const FULU = fuluSummary();
@@ -79,14 +82,14 @@ const en = {
   better: [
     { img: "/home/hd.webp", title: "Sharp as print.", text: "Text redrawn at your screen's full resolution. 黑体, 宋体 or 楷体.", alt: "The Silent Bell with HD text" },
     { img: "/home/lcd.webp", title: "Every pixel, a real LCD cell.", text: "Fine gaps. A soft shadow. The screen you remember.", alt: "The Silent Bell with the LCD effect" },
-    { img: "/home/wide.webp", title: "See more of the world.", text: "Up to 17 × 10 tiles, not 9 × 6.", alt: "The Silent Bell in the widest map view" },
-    { img: "/home/more.webp", title: "More words. Fewer pages.", text: "Fonts drawn for 12 and 10 pixels. Four lines where there were two.", alt: "Four lines of dialogue in one box" },
+    { img: "/home/wide.webp", title: "See more of the world.", text: `Up to ${mapTiles("widest")} tiles, not ${mapTiles("normal")}.`, alt: "The Silent Bell in the widest map view" },
+    { img: "/home/more.webp", title: "More words. Fewer pages.", text: "Fonts drawn for 12 and 10 pixels. Four or five lines where there were two.", alt: "Four lines of dialogue in one box" },
     { img: "/home/faithful.webp", title: "True to the original.", text: "Battles, items and scripts, checked against the device's own engine.", alt: "The game menu" },
   ],
 
   doTitle: "Yours to play. And to make.",
   doSub: "",
-  doPlay: { title: "Play", text: "Your games. Three save slots each. Up to 4× speed.", link: "Your games →" },
+  doPlay: { title: "Play", text: `Your games. Three save slots each. Up to ${TOP_SPEED}× speed.`, link: "Your games →" },
   doMake: { title: "Make", text: ["Maps, scripts, sprites, spells. Export a ", ".lib", " or a .gam."], link: "Open the editor →" },
   do4988: {
     title: "4988 games",
@@ -199,14 +202,14 @@ const zh: SiteText = {
   better: [
     { img: "/home/hd.webp", title: "清晰如印刷。", text: "文字按屏幕的实际分辨率重新绘制。黑体、宋体、楷体任选。", alt: "使用高清文字的 The Silent Bell" },
     { img: "/home/lcd.webp", title: "每个像素，都是液晶的一格。", text: "细腻的格线，柔和的阴影。就是记忆里的那块屏幕。", alt: "使用液晶屏效果的 The Silent Bell" },
-    { img: "/home/wide.webp", title: "看见更大的世界。", text: "最多 17 × 10 格，而不是 9 × 6。", alt: "最宽地图视野下的 The Silent Bell" },
-    { img: "/home/more.webp", title: "字更多，页更少。", text: "专为 12 和 10 像素绘制的字体。原来两行，现在四行。", alt: "一个对话框里放下四行对话" },
+    { img: "/home/wide.webp", title: "看见更大的世界。", text: `最多 ${mapTiles("widest")} 格，而不是 ${mapTiles("normal")}。`, alt: "最宽地图视野下的 The Silent Bell" },
+    { img: "/home/more.webp", title: "字更多，页更少。", text: "专为 12 和 10 像素绘制的字体。原来两行，现在四到五行。", alt: "一个对话框里放下四行对话" },
     { img: "/home/faithful.webp", title: "忠于原版。", text: "战斗、道具和脚本，都对照原版引擎校验。", alt: "游戏菜单" },
   ],
 
   doTitle: "可以玩，也可以做。",
   doSub: "",
-  doPlay: { title: "游玩", text: "你的游戏。每款三个存档位。最高 4 倍速。", link: "你的游戏 →" },
+  doPlay: { title: "游玩", text: `你的游戏。每款三个存档位。最高 ${TOP_SPEED} 倍速。`, link: "你的游戏 →" },
   doMake: { title: "制作", text: ["地图、脚本、精灵图、法术。导出 ", ".lib", " 或 .gam 文件。"], link: "打开编辑器 →" },
   do4988: {
     title: "4988 游戏",

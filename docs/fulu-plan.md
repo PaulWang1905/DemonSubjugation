@@ -699,8 +699,10 @@ finds no stop in any.
 **Phase 3: further than random play reaches.**
 1. Every program on the firmware with every key, logging every OS function
    and resident routine it enters: what a program calls through a pointer
-   (93 far calls in 48 programs and 40 jump tables in 33 the scans cannot
-   follow) shows here, whether or not Fulu would stop.
+   (142 places in 106 programs the code-flow scan cannot follow: jump
+   tables, JSRs and JMPs into RAM, far calls whose target is worked out
+   while running; `fulu-flow.mts` counts them by kind) shows here,
+   whether or not Fulu would stop.
 2. Longer runs (30 minutes each) on Fulu and on the firmware with the same
    keys, compared (the shadow run) for the programs that changed.
 3. The owner's hand tests of the long RPGs, with a list of what to try

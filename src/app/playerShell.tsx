@@ -5,6 +5,9 @@ import { useEffect, useState, type RefObject } from "react";
 import type { ScreenEffect } from "./hiresText";
 import { PALETTES } from "./palettes";
 import type { PlayerText } from "./playerText";
+import { SPEEDS } from "./playerOptions";
+
+export { MAP_VIEWS, mapViewOf, SPEEDS, type MapView } from "./playerOptions";
 
 export function pref<T extends string>(key: string, fallback: T): T {
   try {
@@ -24,7 +27,6 @@ export function setPref(key: string, v: string): void {
 
 export const effectOf = (v: string): ScreenEffect => (v === "lcd" || v === "lcd-shadow" || v === "smooth" ? v : "none");
 
-export const SPEEDS = [1, 2, 4];
 /** Where the keypad goes beside the screen instead of under it. */
 export const SIDE_PAD_QUERY = "(orientation: landscape) and (max-height: 560px)";
 /** Phones and small tablets: the full-screen play layout. */
@@ -99,15 +101,6 @@ export function useZoom(): [number, (z: number) => void] {
  * room the controls leave: the full width when upright, the full height
  * between the controls when sideways.
  */
-/** The map view: the device's 9 × 6 tiles, or `mx` more tile columns on each side and `my` rows above and below. */
-export type MapView = "normal" | "wide" | "widest";
-export const MAP_VIEWS: Record<MapView, { mx: number; my: number }> = {
-  normal: { mx: 0, my: 0 },
-  wide: { mx: 2, my: 1 },
-  widest: { mx: 4, my: 2 },
-};
-export const mapViewOf = (v: string): MapView => (v === "wide" || v === "widest" ? v : "normal");
-
 export function useScreenFit(
   stageRef: RefObject<HTMLDivElement | null>,
   canvasRef: RefObject<HTMLCanvasElement | null>,

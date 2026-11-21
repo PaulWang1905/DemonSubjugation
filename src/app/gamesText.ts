@@ -3,6 +3,7 @@
 // files.
 import { currentSiteLang, type SiteLang } from "./siteLang";
 import { fuluSummary } from "./fuluGames";
+import { ALL_REGIONS } from "../bbk/firmware";
 
 // Fulu's numbers, from its progress list: the programs of the collection that run on it.
 const FULU = fuluSummary();
@@ -62,7 +63,7 @@ const en = {
       name: "Original OS",
       what: "BBK's own firmware, emulated: the 4988 exactly as it was. It is not ours to share: add its files (0E00.DAT and 4988.font at least) by dropping them on this page.",
       short: "The 4988, on BBK's firmware",
-      ready: (n: number) => `Ready · ${n} of 13 files`,
+      ready: (n: number) => `Ready · ${n} of ${ALL_REGIONS.length} files`,
       missing: "Needs its files",
       needs: "Add the 4988's firmware files first (below)",
     },
@@ -181,7 +182,7 @@ const zh: GamesText = {
       name: "原版系统",
       what: "步步高自己的固件，模拟运行：和当年的 4988 一模一样。固件不能由本站提供：请把它的文件（至少 0E00.DAT 和 4988.font）拖到这个页面来添加。",
       short: "4988，运行在步步高的固件上",
-      ready: (n: number) => `可用 · 已添加 ${n}/13 个文件`,
+      ready: (n: number) => `可用 · 已添加 ${n}/${ALL_REGIONS.length} 个文件`,
       missing: "需要固件文件",
       needs: "请先添加 4988 的固件文件（见下方）",
     },

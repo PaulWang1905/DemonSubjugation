@@ -82,7 +82,7 @@ export const GAMES: FuluGame[] = [
   { name: "将门风云", kit: true, onFulu: "plays", firmware: "none" },
   { name: "少年行", kit: true, onFulu: "plays", firmware: "none" },
   { name: "屠魔", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "平面魔方", kit: false, onFulu: "plays", firmware: "play" },
+  { name: "平面魔方", kit: false, onFulu: "plays", firmware: "play", problems: ["input-methods"] },
   { name: "幸运花", kit: false, onFulu: "plays", firmware: "play" },
   { name: "异世大陆", kit: true, onFulu: "plays", firmware: "none" },
   { name: "异时空游记", kit: true, onFulu: "plays", firmware: "none" },
@@ -207,6 +207,20 @@ export const HAND_TESTS: HandTest[] = [
   },
 ];
 
+/**
+ * The OS's own input bar for Chinese, in instructions: its entries ($E913,
+ * $E916, $E919, $E91C, $E91F, $E922, $E925) with $E8F5, which only they call,
+ * each instruction once (scripts/bbk/fulu-size.mts <0E00.DAT> e913 e916 e919
+ * e91c e91f e922 e925: 2,035, of which 1,931 are not in what Fulu answers).
+ */
+export const INPUT_BAR_SIZE = 2000;
+
+/** The programs the Shift key stopped before it was written as GuiTranslateMsg has it, and those whose Exit reached $E8E0. */
+const SHIFT_STOPPED = ["平面魔方", "碰碰车", "对对碰", "搬运工", "滑雪", "宠物精灵", "电子宠物"];
+const EXIT_E8E0 = ["华容道", "滑雪"];
+/** How many programs the play test missed something in while it pressed only Enter, the arrows and space. */
+export const MISSED_BY_FEW_KEYS = new Set([...SHIFT_STOPPED, ...EXIT_E8E0]).size;
+
 export type ProblemStatus = "open" | "decided" | "fixed";
 
 export interface Problem {
@@ -238,8 +252,8 @@ export const PROBLEMS: Problem[] = [
     id: "input-methods",
     title: { en: "Chinese input: the computer's own input method", zh: "中文输入：用电脑自己的输入法" },
     detail: {
-      en: "The OS's own input method (its pinyin bar, about 3,800 instructions, and its tables of pinyin and hanzi, which Fulu cannot copy) is not written. Instead, when a program switches to Chinese input (modes 4 and 8), the player shows a box under the screen: what is typed there with the computer's or phone's own input method (pinyin, handwriting, any) goes to the program as the OS's input method gives a chosen character (a message of type 3 with its GB2312 code). The mode changes, their icon and messages are the OS's; BBK's bar is not drawn, and letters pressed on the device go to the box's place (not to the program, as on the device while typing). In the firmware comparison those calls differ in the input method's own scratch only. 宠物精灵 plays; 电子宠物 plays until it ends, as on the device.",
-      zh: "系统自带的输入法（拼音输入栏约 3,800 条指令，以及符箓不能照搬的拼音与汉字表）没有实现。改为：程序切换到中文输入（模式 4 和 8）时，播放器在屏幕下方显示一个输入框，用电脑或手机自己的输入法（拼音、手写都可以）在框里输入的文字，按系统输入法交出选定汉字的方式交给程序（类型 3 的消息，内容为 GB2312 码）。模式切换、相应图标和消息与系统一致；不绘制步步高的输入栏；在掌机上按下的字母不交给程序（和掌机输入时一样）。与固件对比时，这些调用只在输入法自己的暂存数据上不同。宠物精灵可以运行；电子宠物运行到它自行结束，与设备上一样。",
+      en: `The OS's own input method (its pinyin bar, about ${INPUT_BAR_SIZE.toLocaleString("en-US")} instructions, and its tables of pinyin and hanzi, which Fulu cannot copy) is not written. Instead, when a program switches to Chinese input (modes 4 and 8), the player shows a box under the screen: what is typed there with the computer's or phone's own input method (pinyin, handwriting, any) goes to the program as the OS's input method gives a chosen character (a message of type 3 with its GB2312 code). The mode changes, their icon and messages are the OS's; BBK's bar is not drawn, and letters pressed on the device go to the box's place (not to the program, as on the device while typing). In the firmware comparison, once a program is in Chinese input, what differs is the bar's own memory and the screen it draws; and 宠物精灵's save is named with a character typed through the input method, so its file differs too. In the play test with every key, 宠物精灵 ends (once in 180 s: it was quit) and 电子宠物 plays until it ends, as on the device.`,
+      zh: `系统自带的输入法（拼音输入栏约 ${INPUT_BAR_SIZE.toLocaleString("en-US")} 条指令，以及符箓不能照搬的拼音与汉字表）没有实现。改为：程序切换到中文输入（模式 4 和 8）时，播放器在屏幕下方显示一个输入框，用电脑或手机自己的输入法（拼音、手写都可以）在框里输入的文字，按系统输入法交出选定汉字的方式交给程序（类型 3 的消息，内容为 GB2312 码）。模式切换、相应图标和消息与系统一致；不绘制步步高的输入栏；在掌机上按下的字母不交给程序（和掌机输入时一样）。与固件对比时，程序进入中文输入后，不同的是输入栏自己的内存和它绘制的画面；另外宠物精灵的存档用通过输入法输入的汉字命名，所以存档文件也不同。在按每个键的试玩测试中，宠物精灵会结束（180 秒内一次：被退出），电子宠物运行到它自行结束，与设备上一样。`,
     },
     status: "decided",
     decision: {
@@ -287,8 +301,8 @@ export const PROBLEMS: Problem[] = [
     id: "shift-launcher",
     title: { en: "The Shift key, and the state the launcher leaves", zh: "Shift 键，以及启动器留下的状态" },
     detail: {
-      en: "The play test pressed Enter, the arrows and space at random, and never Shift (中英) or Exit. Played with every key, Shift stopped 7 programs (平面魔方, 碰碰车, 对对碰, 搬运工, 滑雪, 宠物精灵, 电子宠物): Fulu's GuiTranslateMsg had only some of Shift's cases, and programs started with the OS's variables at 0, where BBK's launcher leaves input mode 2, the keyboard state, the help word and the year. Now Shift is written as GuiTranslateMsg has it (compared with the firmware on random input modes, keyboard states and keys), programs start in the state the launcher leaves (measured on nine launches), and the player sets the device's clock to the computer's date and time, so 幸运花's calendar shows today. The play test now presses every key a player can, Shift and Exit included, and none of the 138 stops.",
-      zh: "原来的试玩测试只随机按确认键、方向键和空格，从没按过 Shift（中英）或“跳出”。按所有键试玩时，Shift 让 7 个程序停下（平面魔方、碰碰车、对对碰、搬运工、滑雪、宠物精灵、电子宠物）：符箓的 GuiTranslateMsg 只有 Shift 的部分分支，而且程序启动时系统变量都是 0，而步步高的启动器会留下输入模式 2、键盘状态、帮助字和年份。现在 Shift 按 GuiTranslateMsg 原样实现（已用随机输入模式、键盘状态和按键与固件对比），程序启动时的状态与启动器留下的一致（在九次启动上测得），播放器把设备的时钟设为电脑的日期和时间，所以幸运花的日历显示今天。试玩测试现在会按玩家能按的每个键，包括 Shift 和“跳出”，138 个程序都没有停下。",
+      en: `The play test pressed Enter, the arrows and space at random, and never Shift (中英) or Exit. Played with every key, Shift stopped ${SHIFT_STOPPED.length} programs (${SHIFT_STOPPED.join(", ")}): Fulu's GuiTranslateMsg had only some of Shift's cases, and programs started with the OS's variables at 0, where BBK's launcher leaves input mode 2, the keyboard state, the help word and the year. Now Shift is written as GuiTranslateMsg has it (compared with the firmware on random input modes, keyboard states and keys), programs start in the state the launcher leaves (measured on nine launches), and the player sets the device's clock to the computer's date and time, so 幸运花's calendar shows today. The play test now presses every key a player can, Shift and Exit included, and none of the ${GAMES.length} stops.`,
+      zh: `原来的试玩测试只随机按确认键、方向键和空格，从没按过 Shift（中英）或“跳出”。按所有键试玩时，Shift 让 ${SHIFT_STOPPED.length} 个程序停下（${SHIFT_STOPPED.join("、")}）：符箓的 GuiTranslateMsg 只有 Shift 的部分分支，而且程序启动时系统变量都是 0，而步步高的启动器会留下输入模式 2、键盘状态、帮助字和年份。现在 Shift 按 GuiTranslateMsg 原样实现（已用随机输入模式、键盘状态和按键与固件对比），程序启动时的状态与启动器留下的一致（在九次启动上测得），播放器把设备的时钟设为电脑的日期和时间，所以幸运花的日历显示今天。试玩测试现在会按玩家能按的每个键，包括 Shift 和“跳出”，${GAMES.length} 个程序都没有停下。`,
     },
     status: "fixed",
   },
@@ -375,10 +389,47 @@ export const FULU_COUNTS = { functions: 135, routines: 77 };
  * How much of the OS the collection needs, by the code scan
  * (scripts/bbk/fulu-coverage.mts): the API entries and resident routines its
  * 138 programs can call, and the OS code's size in instructions, written and
- * left (left: what the missing entries take with what they call; input
- * methods not measured).
+ * left. written: the firmware code Fulu answers, each instruction counted
+ * once (its 135 OS entries with the switches' cases, and its runtime
+ * routines), from scripts/bbk/fulu-size.mts (35,587), rounded; left: what the
+ * missing entries take with what they call (the input method not counted).
  */
-export const COVERAGE = { apiUsed: 106, residentUsed: 76, written: 48400, left: 0 };
+export const COVERAGE = { apiUsed: 106, residentUsed: 76, written: 35600, left: 0 };
+
+/**
+ * Fulu's speed against emulating BBK's firmware: CPU time per emulated
+ * second, the same random keys on both, after a warm-up, in Node. Measured
+ * on 伏魔记-1.0, 英雄坛说, 三国霸业, 中国象棋, 华容道, 五子棋, 贪食蛇, 跳蛋,
+ * 体闲麻将, 幸运花, 搬运工 and Eros方块 (docs/fulu-report.md §14.2): from
+ * about the same (英雄坛说's title screen, 1.0×) to 6.6× (幸运花), shown as
+ * whole numbers.
+ */
+export const FULU_SPEED = { from: 1, to: 6 };
+
+/**
+ * What the code-flow scan (scripts/bbk/fulu-flow.mts, its last lines) cannot
+ * follow in the 138 programs: places, and programs with any.
+ */
+export const FLOW_UNFOLLOWED = {
+  all: { places: 142, programs: 106 },
+  /** far calls whose target is worked out while running (3), or through a record naming an OS segment (1) */
+  farCalls: { places: 4, programs: 4 },
+  /** JMP (a,X) */
+  jumpTables: { places: 38, programs: 31 },
+  /** JMP (a) (3) and calls through $D572 with a pointer not known (2) */
+  pointers: { places: 5, programs: 2 },
+  /** JSR or JMP into RAM */
+  ram: { places: 84, programs: 76 },
+  /** places where the followed code leaves the program (an address outside it) */
+  outside: { places: 11, programs: 4 },
+};
+
+/**
+ * The firmware log: all 138 played 180 s each with every key on BBK's
+ * firmware; of the OS functions (COVERAGE.apiUsed) and runtime routines
+ * (COVERAGE.residentUsed less the far call) in their code, how many they entered.
+ */
+export const FIRMWARE_LOG = { api: 102, routines: 69 };
 
 /**
  * What else Fulu answers (tests/fulu-games.test.ts checks the sums against
@@ -399,7 +450,7 @@ export const FULU_OTHERS = { forFulu: 17, iconSet: 12, routinesForFulu: 2 };
  * again for the rest of its 180 s).
  */
 export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; ends: number }[] = [
-  { step: { en: "First play of all 138", zh: "首次试玩全部 138 个" }, plays: 103, ends: 0 },
+  { step: { en: "First play of all 138", zh: "首次试玩全部 138 个" }, plays: 103, ends: 1 },
   { step: { en: "Round 1", zh: "第 1 轮" }, plays: 114, ends: 3 },
   { step: { en: "Round 2", zh: "第 2 轮" }, plays: 128, ends: 5 },
   { step: { en: "Round 3, first part", zh: "第 3 轮（前半）" }, plays: 129, ends: 5 },
@@ -431,10 +482,10 @@ export const MILESTONES: Milestone[] = [
   {
     date: "2026-11-08",
     step: "F2",
-    title: { en: "The seven games' OS functions", zh: "七款游戏用到的系统函数" },
+    title: { en: "The six games' OS functions", zh: "六款游戏用到的系统函数" },
     detail: {
-      en: "The 55 functions the 伏魔记 series and 英雄坛说 call: screen, text, keys and messages, the heap, the GUI's start-up, the message box. A minute of play of each: 0 differences.",
-      zh: "伏魔记系列和英雄坛说调用的 55 个函数：屏幕、文字、按键与消息、堆、GUI 启动、消息框。每款玩一分钟：0 处差异。",
+      en: "The functions the 伏魔记 series and 英雄坛说 call (51 in all; the file functions and the Yes/No dialog came next): screen, text, keys and messages, the heap, the GUI's start-up, the message box. A minute of play of each: 0 differences.",
+      zh: "伏魔记系列和英雄坛说调用的函数（共 51 个；文件函数和是/否对话框随后完成）：屏幕、文字、按键与消息、堆、GUI 启动、消息框。每款玩一分钟：0 处差异。",
     },
   },
   {
@@ -461,7 +512,7 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-18",
+    date: "2026-11-19",
     step: "F5, F6",
     title: { en: "Wider map view and More text", zh: "更宽的地图视野和更多文字" },
     detail: {
@@ -473,8 +524,8 @@ export const MILESTONES: Milestone[] = [
     date: "2026-11-20",
     title: { en: "三国霸业, the seventh game", zh: "三国霸业，第七款游戏" },
     detail: {
-      en: "Three more OS functions and eight floating-point routines; checked against the firmware in full.",
-      zh: "又三个系统函数和八个浮点例程；已与固件完整对比。",
+      en: "三国霸业 calls 4 OS functions and 14 runtime routines that the other six games do not. Written here: the last 3 of those functions ($E7FA, $E8BF, $E9E3) and 10 runtime routines (floating point, and calls through a pointer, $D572); checked against the firmware in full.",
+      zh: "三国霸业调用的系统函数中有 4 个、运行库例程中有 14 个是其他六款游戏不用的。这里完成了其中最后 3 个函数（$E7FA、$E8BF、$E9E3）和 10 个运行库例程（浮点运算，以及通过指针的调用 $D572）；已与固件完整对比。",
     },
   },
   {
@@ -542,8 +593,8 @@ export const MILESTONES: Milestone[] = [
     step: "F9",
     title: { en: "Every key, and every path the scans find", zh: "每一个键，扫描找到的每一条路径" },
     detail: {
-      en: "A check of all 138 with two code scans (the byte search and a new code-flow scan), a play test pressing every key and a log of all 138 played on BBK's firmware found what random play with Enter, the arrows and space had missed. Done: the Shift key as GuiTranslateMsg has it; programs start in the state BBK's launcher leaves, with the device's clock set to the computer's date and time; $E8E0 (Exit in 华容道 and 滑雪), $E706 (atol: 宠物精灵's cheat box, 体闲麻将's high scores), $E7BE (智多星's answer field), and the link cable as the device with no cable plugged in, each compared with the firmware. Now both scans find nothing Fulu lacks in any program, the every-key play test finds no stop in any, and the firmware log found nothing a program entered that Fulu lacks: in 180 s of play each they entered 102 of the 106 OS functions in their code and 69 of the 75 runtime routines (the rest, such as $E706 and $E7BE, are on paths random keys did not reach), and nothing outside their code, so no call through a pointer leads anywhere the scans had not found.",
-      zh: "用两种代码扫描（字节搜索和新的代码流扫描）、按每个键的试玩测试，以及在步步高固件上运行全部 138 个程序的记录，检查了全部程序，找到了只随机按确认键、方向键和空格时漏掉的东西。已完成：Shift 键按 GuiTranslateMsg 原样实现；程序启动时的状态与步步高启动器留下的一致，设备时钟设为电脑的日期和时间；$E8E0（华容道和滑雪的“跳出”）、$E706（atol：宠物精灵的作弊框、体闲麻将的排行榜）、$E7BE（智多星的答案输入框），以及按设备未插线处理的联机线，每个都与固件对比过。现在两种扫描在任何程序里都找不到符箓缺少的功能，按每个键的试玩测试没有程序停下，固件记录中也没有程序进入符箓缺少的功能：每个程序玩 180 秒，共进入了它们代码中 106 个系统函数里的 102 个、75 个运行库例程里的 69 个（其余的，如 $E706 和 $E7BE，在随机按键走不到的路径上），而且没有进入代码之外的任何地方，所以通过指针的调用也没有通向扫描没找到的地方。",
+      en: `A check of all 138 with two code scans (the byte search and a new code-flow scan), a play test pressing every key and a log of all 138 played on BBK's firmware found what random play with Enter, the arrows and space had missed. Done: the Shift key as GuiTranslateMsg has it; programs start in the state BBK's launcher leaves, with the device's clock set to the computer's date and time; $E8E0 (Exit in 华容道 and 滑雪), $E706 (atol: 宠物精灵's cheat box, 体闲麻将's high scores), $E7BE (智多星's answer field), and the link cable as the device with no cable plugged in, each compared with the firmware. Now both scans find nothing Fulu lacks in any program, the every-key play test finds no stop in any, and the firmware log found nothing a program entered that Fulu lacks: in 180 s of play each they entered ${FIRMWARE_LOG.api} of the ${COVERAGE.apiUsed} OS functions in their code and ${FIRMWARE_LOG.routines} of the ${COVERAGE.residentUsed - 1} runtime routines (the rest, such as $E706 and $E7BE, are on paths random keys did not reach), and nothing outside their code, so no call through a pointer leads anywhere the scans had not found.`,
+      zh: `用两种代码扫描（字节搜索和新的代码流扫描）、按每个键的试玩测试，以及在步步高固件上运行全部 138 个程序的记录，检查了全部程序，找到了只随机按确认键、方向键和空格时漏掉的东西。已完成：Shift 键按 GuiTranslateMsg 原样实现；程序启动时的状态与步步高启动器留下的一致，设备时钟设为电脑的日期和时间；$E8E0（华容道和滑雪的“跳出”）、$E706（atol：宠物精灵的作弊框、体闲麻将的排行榜）、$E7BE（智多星的答案输入框），以及按设备未插线处理的联机线，每个都与固件对比过。现在两种扫描在任何程序里都找不到符箓缺少的功能，按每个键的试玩测试没有程序停下，固件记录中也没有程序进入符箓缺少的功能：每个程序玩 180 秒，共进入了它们代码中 ${COVERAGE.apiUsed} 个系统函数里的 ${FIRMWARE_LOG.api} 个、${COVERAGE.residentUsed - 1} 个运行库例程里的 ${FIRMWARE_LOG.routines} 个（其余的，如 $E706 和 $E7BE，在随机按键走不到的路径上），而且没有进入代码之外的任何地方，所以通过指针的调用也没有通向扫描没找到的地方。`,
     },
   },
 ];

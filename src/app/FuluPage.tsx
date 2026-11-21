@@ -6,7 +6,7 @@ import { Link } from "./router";
 import { REPO_URL } from "./links";
 import { useSiteLang, type SiteLang } from "./siteLang";
 import { Arrow } from "./Tile";
-import { FULU_COUNTS, fuluSummary, GAMES, REMAINING } from "./fuluGames";
+import { FULU_COUNTS, FULU_SPEED, fuluSummary, GAMES, REMAINING } from "./fuluGames";
 import { FuluTabs } from "./FuluProgressPage";
 
 const SUMMARY = fuluSummary();
@@ -15,6 +15,7 @@ const KIT = { all: SUMMARY.kit, run: runs((g) => g.kit) };
 const OWN = { all: SUMMARY.total - SUMMARY.kit, run: runs((g) => !g.kit) };
 const RUN = SUMMARY.plays + SUMMARY.ends;
 const ALL_RUN = RUN === SUMMARY.total;
+const SPEED = `${FULU_SPEED.from}–${FULU_SPEED.to}×`;
 
 const TEXT = {
   en: {
@@ -27,7 +28,7 @@ const TEXT = {
       [`${RUN}/${SUMMARY.total}`, "4988 programs run on Fulu"],
       [String(SUMMARY.full), "games checked call by call against the original"],
       ["0", "firmware files needed"],
-      ["16×", "faster than emulating the original OS"],
+      [SPEED, "as fast as emulating the original OS, by game"],
     ],
     whyTitle: "Old games, a new operating system",
     why: [
@@ -63,8 +64,8 @@ const TEXT = {
       ["At the device's pace", "Each answer takes as long as it did on the real device, so games keep their original speed."],
     ],
     checkTitle: "How we know it is right",
-    checkText: "We ran BBK's original system and Fulu side by side. From the same moment of a game, the original answers a call, then Fulu answers it, and the two machines are compared, down to every byte of memory. Over hundreds of thousands of calls: no differences.",
-    check: ["Same moment of a game", "The original answers", "Fulu answers", "Compare everything", "0 differences"],
+    checkText: `We ran BBK's original system and Fulu side by side. From the same moment of a game, the original answers a call, then Fulu answers it, and the two machines are compared, down to every byte of memory. In the ${SUMMARY.full} games compared in full, over hundreds of thousands of calls: no differences. In the other programs compared, the only differences are the original's own input bar for Chinese, which Fulu does not draw (the owner's choice), and two details of save files, listed in the progress report.`,
+    check: ["Same moment of a game", "The original answers", "Fulu answers", "Compare everything", "byte by byte"],
     faqTitle: "Good to know",
     faq: [
       ["Do I need anything from BBK?", "No firmware. You need only the game itself, a .gam file, added on the Games page."],
@@ -90,7 +91,7 @@ const TEXT = {
       [`${RUN}/${SUMMARY.total}`, "个 4988 程序能在符箓上运行"],
       [String(SUMMARY.full), "款游戏已与原版逐个调用对比"],
       ["0", "个固件文件"],
-      ["16×", "比模拟原版系统快"],
+      [SPEED, "倍速：与模拟原版系统相比，视游戏而定"],
     ],
     whyTitle: "老游戏，新系统",
     why: [
@@ -126,8 +127,8 @@ const TEXT = {
       ["真机的节奏", "每次回答花的时间和真机一样，游戏保持原来的速度。"],
     ],
     checkTitle: "怎么知道它是对的",
-    checkText: "我们让步步高的原版系统和符箓并排运行。从游戏的同一时刻出发，先让原版回答一次调用，再让符箓回答，然后比较两台机器，直到内存的每一个字节。数十万次调用：没有任何差异。",
-    check: ["游戏的同一时刻", "原版回答", "符箓回答", "全部比较", "0 处差异"],
+    checkText: `我们让步步高的原版系统和符箓并排运行。从游戏的同一时刻出发，先让原版回答一次调用，再让符箓回答，然后比较两台机器，直到内存的每一个字节。完整对比的 ${SUMMARY.full} 款游戏，数十万次调用：没有任何差异。在对比过的其他程序中，唯一的差异是原版系统自带的中文输入栏（符箓不绘制，这是作者的选择）和存档文件的两处细节，都列在进展报告里。`,
+    check: ["游戏的同一时刻", "原版回答", "符箓回答", "全部比较", "逐字节"],
     faqTitle: "须知",
     faq: [
       ["需要步步高的什么东西吗？", "不需要固件。只需要游戏本身，一个 .gam 文件，在游戏库页面添加。"],

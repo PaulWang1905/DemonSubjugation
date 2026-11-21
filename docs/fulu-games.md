@@ -13,7 +13,7 @@ Updated 2026-11-21.
 - **Compared with BBK's firmware** (the shadow run): 7 in full (their code traced, play, typing and saves compared), 34 for a minute of play.
 - **Tested by hand**: 2 reports (below).
 - **Problems**: 4 open, 10 decided or fixed.
-- **Code scan** (`scripts/bbk/fulu-coverage.mts --programs`): 138 programs call nothing Fulu lacks. The programs call 106 OS functions (Fulu answers 106) and 76 runtime routines (all answered); about 48,400 instructions of OS code are written and 0 left, not counting the OS's own input method (Fulu takes Chinese from the computer's own instead).
+- **Code scan** (`scripts/bbk/fulu-coverage.mts --programs`): 138 programs call nothing Fulu lacks. The programs call 106 OS functions (Fulu answers 106) and 76 runtime routines (all answered); about 35,600 instructions of OS code are written and 0 left, not counting the OS's own input method (Fulu takes Chinese from the computer's own instead).
 
 ## How it got here
 
@@ -21,7 +21,7 @@ Up to Chinese input the play test pressed Enter, the arrows and space; from F9, 
 
 | Step | Play 180 s | End as on the device |
 |---|---|---|
-| First play of all 138 | 103 | 0 |
+| First play of all 138 | 103 | 1 |
 | Round 1 | 114 | 3 |
 | Round 2 | 128 | 5 |
 | Round 3, first part | 129 | 5 |
@@ -33,12 +33,12 @@ Up to Chinese input the play test pressed Enter, the arrows and space; from F9, 
 | Date | Step | What |
 |---|---|---|
 | 2026-11-08 | F1 | **The foundation**: The OS's memory filled with one trapping byte; the far call, the C runtime and the interrupts reach TypeScript. The shadow run compares Fulu with BBK's firmware from the same machine state. |
-| 2026-11-08 | F2 | **The seven games' OS functions**: The 55 functions the 伏魔记 series and 英雄坛说 call: screen, text, keys and messages, the heap, the GUI's start-up, the message box. A minute of play of each: 0 differences. |
+| 2026-11-08 | F2 | **The six games' OS functions**: The functions the 伏魔记 series and 英雄坛说 call (51 in all; the file functions and the Yes/No dialog came next): screen, text, keys and messages, the heap, the GUI's start-up, the message box. A minute of play of each: 0 differences. |
 | 2026-11-08 | F3 | **Play without firmware, on the site**: Fulu becomes an engine on the Games page. |
 | 2026-11-09 |  | **Saving, the Yes/No dialog, the device's pace**: The file functions (saves stay in the browser), the dialog, and a cost model that charges each call the firmware's measured time. |
 | 2026-11-09 | F4, F7 | **HD text and the debug menu**: Every character Fulu draws can be redrawn in a real font; a menu reads and changes party, items and story flags. |
-| 2026-11-18 | F5, F6 | **Wider map view and More text**: For the RPG kit's games: more of the map around the device's screen, and dialogues and message boxes in smaller type, more per page. Both checked by hand by the owner. |
-| 2026-11-20 |  | **三国霸业, the seventh game**: Three more OS functions and eight floating-point routines; checked against the firmware in full. |
+| 2026-11-19 | F5, F6 | **Wider map view and More text**: For the RPG kit's games: more of the map around the device's screen, and dialogues and message boxes in smaller type, more per page. Both checked by hand by the owner. |
+| 2026-11-20 |  | **三国霸业, the seventh game**: 三国霸业 calls 4 OS functions and 14 runtime routines that the other six games do not. Written here: the last 3 of those functions ($E7FA, $E8BF, $E9E3) and 10 runtime routines (floating point, and calls through a pointer, $D572); checked against the firmware in full. |
 | 2026-11-20 | F8 | **The whole collection, in rounds**: All 138 programs played on Fulu: 103 ran the whole time. Round 1 (small OS functions, the runtime's divides) took it to 114; round 2 (bitmaps, circles, the text cursor, the status bar, the message queue) to 128, and 5 more end on their own. |
 | 2026-11-20 | F8 | **Round 3, first part**: A number drawn in a radix ($E9AD: 挖金子 plays), today's date and the calendar under it ($E99E and seven more), a whole screen from memory ($E791) and taking a message from the queue ($EA25), each compared with the firmware on random arguments. 幸运花 now gets past its date to the help screen ($E980). Measured on the way: $E94D is 5,278 instructions with its key cases, and the input methods need the OS's pinyin tables. |
 | 2026-11-20 | F8 | **Round 3: the help screen**: $E980, a text shown a page at a time and scrolled by the keys, with the screen saved and put back ($E8CB, $E8CE) and the cursor's state ($E8E9): compared with the firmware on 200 random texts and key sequences, and in 幸运花's play. 幸运花 plays; the 43 programs that can call it no longer stop there. |
@@ -57,7 +57,7 @@ Nothing the checks find: both code scans find nothing Fulu lacks in any program,
 | | Problem | Status | Decision | Games |
 |---|---|---|---|---|
 | `sound` | **Sound**: Fulu plays no sound, and keeps the sound off. Programs that switch the sound on ($EA52, $EA64: Eros方块, 二十四点, 滑雪, 豪斯 on the original OS) run as if it were off; their sound-on paths are not written, and the firmware comparison leaves those calls out. | decided | Keep the sound off; ignore sound-on for games that ask for it. The owner will decide later whether to do more. | Eros方块, 二十四点, 滑雪, 豪斯 |
-| `input-methods` | **Chinese input: the computer's own input method**: The OS's own input method (its pinyin bar, about 3,800 instructions, and its tables of pinyin and hanzi, which Fulu cannot copy) is not written. Instead, when a program switches to Chinese input (modes 4 and 8), the player shows a box under the screen: what is typed there with the computer's or phone's own input method (pinyin, handwriting, any) goes to the program as the OS's input method gives a chosen character (a message of type 3 with its GB2312 code). The mode changes, their icon and messages are the OS's; BBK's bar is not drawn, and letters pressed on the device go to the box's place (not to the program, as on the device while typing). In the firmware comparison those calls differ in the input method's own scratch only. 宠物精灵 plays; 电子宠物 plays until it ends, as on the device. | decided | Use the computer's or phone's own input method (the owner's choice). | 宠物精灵, 对对碰, 恶龙传说, 电子宠物, 碰碰车 |
+| `input-methods` | **Chinese input: the computer's own input method**: The OS's own input method (its pinyin bar, about 2,000 instructions, and its tables of pinyin and hanzi, which Fulu cannot copy) is not written. Instead, when a program switches to Chinese input (modes 4 and 8), the player shows a box under the screen: what is typed there with the computer's or phone's own input method (pinyin, handwriting, any) goes to the program as the OS's input method gives a chosen character (a message of type 3 with its GB2312 code). The mode changes, their icon and messages are the OS's; BBK's bar is not drawn, and letters pressed on the device go to the box's place (not to the program, as on the device while typing). In the firmware comparison, once a program is in Chinese input, what differs is the bar's own memory and the screen it draws; and 宠物精灵's save is named with a character typed through the input method, so its file differs too. In the play test with every key, 宠物精灵 ends (once in 180 s: it was quit) and 电子宠物 plays until it ends, as on the device. | decided | Use the computer's or phone's own input method (the owner's choice). | 宠物精灵, 对对碰, 平面魔方, 恶龙传说, 电子宠物, 碰碰车 |
 | `e94d` | **$E94D (a menu)**: A menu of items in a grid with its own key loop (5,278 instructions with its nine key cases; the first count, 3,400, missed them). Done in round 3: compared with the firmware on 300 random menus and key sequences, and in 中国象棋's play; 中国象棋 plays. Its help key ($E96B) shows a text in memory through $E980; one of the OS's own help texts, which Fulu does not have, would stop it (not seen). | fixed | — | — |
 | `e99e` | **$E99E**: Today's date, from the clock's day counter, through seven more of the OS's calendar functions (about 1,750 instructions). Done in round 3 and compared with the firmware on random dates. | fixed | — | — |
 | `e9ad` | **$E9AD**: A number drawn in a radix (about 870 instructions). Done in round 3: 挖金子 plays, and its calls, and 跳蛋's, match the firmware. | fixed | — | — |
@@ -133,7 +133,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 45 | 将门风云 | yes | plays | — |  |  |  |
 | 46 | 少年行 | yes | plays | — |  |  |  |
 | 47 | 屠魔 | yes | plays | — |  |  |  |
-| 48 | 平面魔方 |  | plays | a minute of play |  |  |  |
+| 48 | 平面魔方 |  | plays | a minute of play |  |  | `input-methods` |
 | 49 | 幸运花 |  | plays | a minute of play |  |  |  |
 | 50 | 异世大陆 | yes | plays | — |  |  |  |
 | 51 | 异时空游记 | yes | plays | — |  |  |  |

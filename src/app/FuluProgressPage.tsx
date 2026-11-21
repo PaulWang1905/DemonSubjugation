@@ -18,6 +18,9 @@ import {
   type FuluGame,
   type ProblemStatus,
   FULU_OTHERS,
+  FIRMWARE_LOG,
+  FLOW_UNFOLLOWED,
+  MISSED_BY_FEW_KEYS,
 } from "./fuluGames";
 import { REPO_URL } from "./links";
 import { Link } from "./router";
@@ -29,6 +32,11 @@ const DOCS = {
   plan: `${REPO_URL}/blob/main/docs/fulu-plan.md`,
   hand: `${REPO_URL}/blob/main/docs/fulu-hand-tests.md`,
 };
+
+// numbers the text states, from the list
+const SUM = fuluSummary();
+const KIT_FULL = GAMES.filter((g) => g.kit && g.firmware === "full").length;
+const U = FLOW_UNFOLLOWED;
 
 type Filter = "all" | "plays" | "ends" | "stops" | "kit" | "own" | "checked" | "missing" | "hand";
 type ProblemFilter = "all" | ProblemStatus;
@@ -70,9 +78,9 @@ const TEXT = {
       missing: "something Fulu lacks, often on a path never taken",
     },
     glanceNote:
-      "A program that is not compared with the original OS yet can still play well: the comparison is how we know it plays exactly as on the device. The 86 programs made with BBK's RPG kit share one engine, so the six of them checked in full already exercise much of what the others run.",
+      `A program that is not compared with the original OS yet can still play well: the comparison is how we know it plays exactly as on the device. The ${SUM.kit} programs made with BBK's RPG kit share one engine, so the ${KIT_FULL} of them checked in full already exercise much of what the others run.`,
     osText: [
-      `Fulu does not copy the whole firmware. About half of it serves the dictionary's own applications (the dictionaries, the organiser), which no game calls. What counts is what the games call: across the 138 programs, ${COVERAGE.apiUsed} OS functions and ${COVERAGE.residentUsed} routines of the C runtime the games were compiled with.`,
+      `Fulu does not copy the whole firmware. About half of it serves the dictionary's own applications (the dictionaries, the organiser), which no game calls. What counts is what the games call: across the ${SUM.total} programs, ${COVERAGE.apiUsed} OS functions and ${COVERAGE.residentUsed} routines of the C runtime the games were compiled with.`,
       `Fulu answers ${FULU_COUNTS.functions} OS functions in all: the ${COVERAGE.apiUsed} the programs call, ${FULU_OTHERS.forFulu} that only Fulu's own functions call (parts of the help screen and the calendar, for instance), and ${FULU_OTHERS.iconSet} status-bar icon functions written with the rest of their set, which nothing calls. And ${FULU_COUNTS.routines} runtime routines: the ${COVERAGE.residentUsed - 1} the programs call (the ${COVERAGE.residentUsed}th, the far call, is Fulu's core) and ${FULU_OTHERS.routinesForFulu} only its own functions use.`,
     ],
     meters: (apiDone: number) => [
@@ -81,14 +89,12 @@ const TEXT = {
       ["OS code, in instructions", COVERAGE.written, COVERAGE.written + COVERAGE.left, `about ${fmt(COVERAGE.written)} written, ${fmt(COVERAGE.left)} left`],
     ] as [string, number, number, string][],
     osNote: "Not counted: the OS's own input method for typing Chinese. Fulu does not copy it: when a game asks for Chinese, the player takes it from the computer's or phone's own input method.",
-    historyText: "Each round: scan and play all 138 programs, see where they stop, write what they stop at, check it against the firmware, play them all again.",
-    historyBars: "Programs that play the whole 180 s (dark) or end as on the device (light), out of 138",
-    historyNote:
-      "Until the last row the play test pressed Enter, the arrows and space. The last row presses every key a player can, Shift and Exit included: more programs end there (quit with Exit or a menu), and each is started again for the rest of its 180 s. None of the 138 stops.",
+    historyText: `Each round: scan and play all ${SUM.total} programs, see where they stop, write what they stop at, check it against the firmware, play them all again.`,
+    historyBars: `Programs that play the whole 180 s (dark) or end as on the device (light), out of ${SUM.total}`,
+    historyNote: `Until the last row the play test pressed Enter, the arrows and space. The last row presses every key a player can, Shift and Exit included: more programs end there (quit with Exit or a menu), and each is started again for the rest of its 180 s. ${SUM.stops ? `${SUM.stops} of the ${SUM.total} stop.` : `None of the ${SUM.total} stops.`}`,
     leftText:
       "The OS functions the programs' code can call that Fulu still lacks. For each: the programs that stop at it in play, and those whose code can call it. “Next round” is the work planned next; “later”, what no program has reached in play yet. A program that does reach one stops and names it, and Continue goes on past it.",
-    leftNone:
-      "Nothing that the checks can find. Both code scans find nothing Fulu lacks in any of the 138 programs, the play test with every key finds no stop, and the log of all 138 played on the original OS found nothing a program entered that Fulu lacks. What no scan can prove and random play does not reach, such as the endings of the long RPGs, is checked only by playing by hand. The OS's own input method for Chinese is not written (the computer's is used instead), and sound stays off.",
+    leftNone: `Nothing that the checks can find. Both code scans find nothing Fulu lacks in any of the ${SUM.total} programs, the play test with every key finds no stop, and the log of all ${SUM.total} played on the original OS found nothing a program entered that Fulu lacks. What no scan can prove and random play does not reach, such as the endings of the long RPGs, is checked only by playing by hand. The OS's own input method for Chinese is not written (the computer's is used instead), and sound stays off.`,
     leftCols: ["What", "Instructions", "Stops in play", "Code can call it", "When"],
     when: { next: "next round", later: "later" },
     notMeasured: "not measured",
@@ -132,16 +138,16 @@ const TEXT = {
       [
         "Play test",
         "Each program runs on Fulu alone for 180 seconds while every key a player can press is pressed at random, Shift and Exit included (not the four keys that leave a game on the device). Fulu stops a program only when it really calls something not written, and names it; the test goes on past each stop, and starts a program that ends again.",
-        "Finds what a program needs in play. Misses screens random keys never reach. (Earlier rounds pressed only Enter, the arrows and space, and missed what Shift and Exit do in 8 programs.)",
+        `Finds what a program needs in play. Misses screens random keys never reach. (Earlier rounds pressed only Enter, the arrows and space, and missed what Shift and Exit do in ${MISSED_BY_FEW_KEYS} programs.)`,
       ],
       [
         "Shadow run",
-        "From the same machine state, BBK's firmware answers an OS call, then Fulu does, and the registers, memory banks and all of RAM are compared. Over a minute of play of each program compared; for the seven, saving and typing too.",
+        `From the same machine state, BBK's firmware answers an OS call, then Fulu does, and the registers, memory banks and all of RAM are compared. Over a minute of play of each program compared; for the ${SUM.full} compared in full, saving and typing too.`,
         "Finds any difference a program could see.",
       ],
       [
         "Random arguments",
-        "Each function is also called on both with thousands of random arguments.",
+        "Each function is also called on both with hundreds to thousands of random arguments (200 texts for the help screen, 300 menus for $E94D).",
         "Reaches the cases play does not.",
       ],
       [
@@ -157,7 +163,7 @@ const TEXT = {
       [
         "Firmware log",
         "Each program played for 180 seconds with every key on BBK's original OS, logging every OS function and routine it enters.",
-        "Sees calls made through pointers, which the scans cannot follow (93 far calls in 48 programs, 40 jump tables in 33). Only what play reaches: in 180 s each, 102 of the 106 OS functions and 69 of the 75 runtime routines in the programs' code, and nothing outside it.",
+        `Sees calls made through pointers and tables, which the code-flow scan cannot follow (${U.all.places} places in ${U.all.programs} programs: ${U.jumpTables.places} jump tables in ${U.jumpTables.programs}, ${U.ram.places} calls and jumps into RAM in ${U.ram.programs}, ${U.farCalls.places} far calls with a target worked out while running, ${U.pointers.places} other jumps through pointers, and ${U.outside.places} places where the followed code leaves the program). Only what play reaches: in 180 s each, ${FIRMWARE_LOG.api} of the ${COVERAGE.apiUsed} OS functions and ${FIRMWARE_LOG.routines} of the ${COVERAGE.residentUsed - 1} runtime routines in the programs' code, and nothing outside it.`,
       ],
       [
         "Hand tests",
@@ -204,9 +210,9 @@ const TEXT = {
       missing: "缺少某个功能（常在从未走到的路径上）",
     },
     glanceNote:
-      "尚未与原版系统对比的程序也可能运行良好：对比是为了确认它和在设备上完全一样。86 个用步步高 RPG 工具制作的程序共用同一个引擎，所以其中完整对比过的六款，已经覆盖了其他程序运行的大部分代码。",
+      `尚未与原版系统对比的程序也可能运行良好：对比是为了确认它和在设备上完全一样。${SUM.kit} 个用步步高 RPG 工具制作的程序共用同一个引擎，所以其中完整对比过的 ${KIT_FULL} 款，已经覆盖了其他程序运行的大部分代码。`,
     osText: [
-      `符箓并不照搬整个固件。大约一半的固件是为词典自己的应用（词典、记事本等）服务的，游戏不会调用。重要的是游戏调用什么：138 个程序共调用 ${COVERAGE.apiUsed} 个系统函数，以及编译它们的 C 运行库中的 ${COVERAGE.residentUsed} 个例程。`,
+      `符箓并不照搬整个固件。大约一半的固件是为词典自己的应用（词典、记事本等）服务的，游戏不会调用。重要的是游戏调用什么：${SUM.total} 个程序共调用 ${COVERAGE.apiUsed} 个系统函数，以及编译它们的 C 运行库中的 ${COVERAGE.residentUsed} 个例程。`,
       `符箓一共实现了 ${FULU_COUNTS.functions} 个系统函数：程序调用的 ${COVERAGE.apiUsed} 个；只有符箓自己的函数调用的 ${FULU_OTHERS.forFulu} 个（例如帮助画面和日历的组成部分）；以及 ${FULU_OTHERS.iconSet} 个状态栏图标函数，随同整组一起实现，目前没有任何调用。运行库例程共 ${FULU_COUNTS.routines} 个：程序调用的 ${COVERAGE.residentUsed - 1} 个（第 ${COVERAGE.residentUsed} 个是远调用本身，属于符箓的核心），另有 ${FULU_OTHERS.routinesForFulu} 个只供符箓自己的函数使用。`,
     ],
     meters: (apiDone: number) => [
@@ -215,13 +221,11 @@ const TEXT = {
       ["系统代码（指令数）", COVERAGE.written, COVERAGE.written + COVERAGE.left, `已写约 ${fmt(COVERAGE.written)} 条，剩余约 ${fmt(COVERAGE.left)} 条`],
     ] as [string, number, number, string][],
     osNote: "不计入：系统自带的中文输入法。符箓不照搬它：游戏需要中文时，播放器从电脑或手机自己的输入法取得文字。",
-    historyText: "每一轮：扫描并试玩全部 138 个程序，看它们停在哪里，写出缺少的部分，与固件对比，再全部试玩一遍。",
-    historyBars: "全程运行 180 秒（深色）或像在设备上一样结束（浅色）的程序，共 138 个",
-    historyNote:
-      "最后一行之前，试玩测试只按确认键、方向键和空格。最后一行按玩家能按的每个键，包括 Shift 和“跳出”：结束的程序更多（用“跳出”或菜单退出），每个结束后都重新启动，玩满 180 秒。138 个程序都没有停下。",
+    historyText: `每一轮：扫描并试玩全部 ${SUM.total} 个程序，看它们停在哪里，写出缺少的部分，与固件对比，再全部试玩一遍。`,
+    historyBars: `全程运行 180 秒（深色）或像在设备上一样结束（浅色）的程序，共 ${SUM.total} 个`,
+    historyNote: `最后一行之前，试玩测试只按确认键、方向键和空格。最后一行按玩家能按的每个键，包括 Shift 和“跳出”：结束的程序更多（用“跳出”或菜单退出），每个结束后都重新启动，玩满 180 秒。${SUM.stops ? `${SUM.total} 个程序中有 ${SUM.stops} 个停下。` : `${SUM.total} 个程序都没有停下。`}`,
     leftText: "程序代码可能调用、符箓仍缺少的系统函数。每一项列出试玩时停在它上面的程序，以及代码中可能调用它的程序。“下一轮”是接下来要做的；“以后”是试玩中还没有程序走到的。程序一旦走到，就会停下并说出函数名，选择“继续”即可跳过。",
-    leftNone:
-      "检查能找到的都没有了。两种代码扫描在 138 个程序里都找不到符箓缺少的功能，按每个键的试玩测试没有程序停下，在原版系统上运行全部 138 个程序的记录中，也没有程序进入符箓缺少的功能。扫描无法证明、随机试玩也走不到的地方，比如长篇 RPG 的结局，只能靠亲手玩来检查。系统自带的中文输入法没有实现（改用电脑自己的输入法），声音保持关闭。",
+    leftNone: `检查能找到的都没有了。两种代码扫描在 ${SUM.total} 个程序里都找不到符箓缺少的功能，按每个键的试玩测试没有程序停下，在原版系统上运行全部 ${SUM.total} 个程序的记录中，也没有程序进入符箓缺少的功能。扫描无法证明、随机试玩也走不到的地方，比如长篇 RPG 的结局，只能靠亲手玩来检查。系统自带的中文输入法没有实现（改用电脑自己的输入法），声音保持关闭。`,
     leftCols: ["内容", "指令数", "试玩时停止", "代码可能调用", "计划"],
     when: { next: "下一轮", later: "以后" },
     notMeasured: "未测量",
@@ -265,10 +269,10 @@ const TEXT = {
       [
         "试玩测试",
         "每个程序单独在符箓上运行 180 秒，随机按玩家能按的每个键，包括 Shift 和“跳出”（不包括在设备上会离开游戏的四个系统键）。只有程序真的调用了尚未实现的功能，符箓才会让它停下，并说出函数名；测试越过每次停止继续进行，程序结束后重新启动。",
-        "能发现程序在试玩中需要什么；随机按键到不了的画面发现不了。（之前几轮只按确认键、方向键和空格，漏掉了 Shift 和“跳出”在 8 个程序中的作用。）",
+        `能发现程序在试玩中需要什么；随机按键到不了的画面发现不了。（之前几轮只按确认键、方向键和空格，漏掉了 Shift 和“跳出”在 ${MISSED_BY_FEW_KEYS} 个程序中的作用。）`,
       ],
-      ["影子运行", "从同一机器状态出发，先让步步高固件回答一次系统调用，再让符箓回答，然后比较寄存器、内存分页和全部内存。每个对比的程序玩一分钟；那七款游戏还包括存档和输入。", "能发现程序可以察觉到的任何差异。"],
-      ["随机参数", "每个函数还会在两边用数千组随机参数调用。", "覆盖试玩走不到的情况。"],
+      ["影子运行", `从同一机器状态出发，先让步步高固件回答一次系统调用，再让符箓回答，然后比较寄存器、内存分页和全部内存。每个对比的程序玩一分钟；完整对比的 ${SUM.full} 款游戏还包括存档和输入。`, "能发现程序可以察觉到的任何差异。"],
+      ["随机参数", "每个函数还会在两边用数百到数千组随机参数调用（帮助画面 200 段文字，$E94D 300 个菜单）。", "覆盖试玩走不到的情况。"],
       ["代码扫描：字节搜索", "在每个程序的字节中搜索其中的每个系统调用和运行库例程调用。", "能发现试玩从未走到的路径上的调用；发现不了通过指针的调用，以及不在其清单里的例程。"],
       [
         "代码扫描：代码流",
@@ -278,7 +282,7 @@ const TEXT = {
       [
         "固件记录",
         "每个程序在步步高原版系统上按每个键玩 180 秒，记录它进入的每个系统函数和例程。",
-        "能看到扫描跟踪不了的、通过指针的调用（48 个程序中的 93 个远调用，33 个程序中的 40 个跳转表）；只限试玩走到的地方：每个程序 180 秒，进入了程序代码中 106 个系统函数里的 102 个、75 个运行库例程里的 69 个，没有进入代码之外的地方。",
+        `能看到代码流扫描跟踪不了的、通过指针和表的调用（${U.all.programs} 个程序中共 ${U.all.places} 处：${U.jumpTables.programs} 个程序中的 ${U.jumpTables.places} 个跳转表，${U.ram.programs} 个程序中的 ${U.ram.places} 处跳入内存的调用和跳转，${U.farCalls.places} 个运行时才算出目标的远调用，${U.pointers.places} 处其他通过指针的跳转，以及 ${U.outside.places} 处跟踪的代码离开了程序）；只限试玩走到的地方：每个程序 180 秒，进入了程序代码中 ${COVERAGE.apiUsed} 个系统函数里的 ${FIRMWARE_LOG.api} 个、${COVERAGE.residentUsed - 1} 个运行库例程里的 ${FIRMWARE_LOG.routines} 个，没有进入代码之外的地方。`,
       ],
       ["人工测试", "本站作者亲手玩游戏并报告发现。", "扫描无法证明、随机试玩又走不到的地方（比如长篇 RPG 的结局），以及游戏的手感，只能这样检查。"],
     ],
@@ -545,7 +549,7 @@ export function FuluProgressPage() {
 
       <Section id="problems" title={t.sections.problems}>
         <div className="fp-chips" role="group" aria-label={t.sections.problems}>
-          {(["all", "open", "decided"] as ProblemFilter[]).map((f) => (
+          {(["all", "open", "decided", "fixed"] as ProblemFilter[]).map((f) => (
             <button key={f} type="button" className="fp-chip" aria-pressed={problemFilter === f} onClick={() => setProblemFilter(f)}>
               {t.problemFilters[f]}
               <span className="fp-dim"> {f === "all" ? PROBLEMS.length : PROBLEMS.filter((p) => p.status === f).length}</span>

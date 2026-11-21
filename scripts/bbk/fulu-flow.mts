@@ -255,5 +255,30 @@ for (const file of readdirSync(folder).filter((x) => /\.gam$/i.test(x)).sort()) 
 console.log(rows.join("\n"));
 console.log("\nlacking, with the programs:");
 for (const [e, ps] of [...lacks].sort((a, b) => b[1].length - a[1].length)) console.log(`  ${hex(e)}\t${ps.length}\t${ps.join(" ")}`);
+// what it cannot follow, by kind: places, and programs with any (FLOW_UNFOLLOWED in src/app/fuluGames.ts)
+const KINDS: [string, RegExp][] = [
+  ["far calls with an unknown target", /far call, entry not known$/],
+  ["far calls through a record not in the program", /a record not in the program$/],
+  ["far calls through a record naming an OS segment", /naming OS segment \d+$/],
+  ["jump tables, JMP (a,X)", /JMP \(\$[0-9A-F]+,X\)$/],
+  ["jumps through a pointer, JMP (a)", /JMP \(\$[0-9A-F]+\)$/],
+  ["calls through $D572 with a pointer not known", /\(\$D572\)$/],
+  ["switches with a table or default not known", /switch with an unknown/],
+  ["JSR / JMP into RAM", /\(RAM\)$/],
+  ["flow running outside the program", /outside the program$/],
+];
+const byKind = new Map<string, { places: number; programs: Set<string> }>(KINDS.map(([k]) => [k, { places: 0, programs: new Set() }]));
+for (const [name, o] of Object.entries(out) as [string, { indirect: string[] }][])
+  for (const s of o.indirect) {
+    const k = KINDS.find(([, re]) => re.test(s))?.[0] ?? "other";
+    if (!byKind.has(k)) byKind.set(k, { places: 0, programs: new Set() });
+    const b = byKind.get(k)!;
+    b.places++;
+    b.programs.add(name);
+  }
+console.log("\nnot followed, by kind (places, programs):");
+for (const [k, b] of byKind) console.log(`  ${k}\t${b.places}\t${b.programs.size}`);
+const any = Object.values(out).filter((o) => (o as { indirect: string[] }).indirect.length).length;
+console.log(`  in all\t${[...byKind.values()].reduce((n, b) => n + b.places, 0)}\t${any}`);
 const j = args.indexOf("--json");
 if (j >= 0) writeFileSync(args[j + 1], JSON.stringify(out, null, 1));

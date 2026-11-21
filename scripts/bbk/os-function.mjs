@@ -13,7 +13,8 @@ a0:LDY:imm a1:LDA:izx a2:LDX:imm a4:LDY:zp a5:LDA:zp a6:LDX:zp a8:TAY a9:LDA:imm
 c0:CPY:imm c1:CMP:izx c4:CPY:zp c5:CMP:zp c6:DEC:zp c8:INY c9:CMP:imm ca:DEX cc:CPY:abs cd:CMP:abs ce:DEC:abs d0:BNE:rel d1:CMP:izy d5:CMP:zpx d6:DEC:zpx d8:CLD d9:CMP:aby da:PHX dd:CMP:abx de:DEC:abx
 e0:CPX:imm e4:CPX:zp e5:SBC:zp e6:INC:zp e8:INX e9:SBC:imm ea:NOP ec:CPX:abs ed:SBC:abs ee:INC:abs f0:BEQ:rel f1:SBC:izy f5:SBC:zpx f6:INC:zpx f8:SED f9:SBC:aby fa:PLX fd:SBC:abx fe:INC:abx`);
 const LEN = { imp: 1, imm: 2, zp: 2, zpx: 2, zpy: 2, izx: 2, izy: 2, izp: 2, rel: 2, abs: 3, abx: 3, aby: 3, ind: 3, iax: 3 };
-const args = process.argv.slice(2), file = args.shift(), size = args[0] === "--size" && args.shift();
+// (--size anywhere: before the file it was taken for the file's name)
+const argv = process.argv.slice(2), size = argv.includes("--size"), args = argv.filter((a) => a !== "--size"), file = args.shift();
 const g = fs.readFileSync(file);
 const resident = (pc) => 0x88000 + pc - 0xd000;
 const entryOf = (e) => { const o = resident(e); return [g[o] | (g[o + 1] << 8), g[o + 2]]; };

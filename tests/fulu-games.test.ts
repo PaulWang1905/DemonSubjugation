@@ -1,7 +1,7 @@
 // The games list (src/app/fuluGames.ts) and docs/fulu-games.md, written from it, agree.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { COVERAGE, FULU_COUNTS, GAMES, HAND_TESTS, MILESTONES, PROBLEMS, REMAINING, FULU_OTHERS } from "../src/app/fuluGames";
+import { COVERAGE, FIRMWARE_LOG, FULU_COUNTS, fuluSummary, GAMES, HAND_TESTS, MILESTONES, PROBLEMS, REMAINING, FULU_OTHERS } from "../src/app/fuluGames";
 import { FUNCTIONS } from "../src/fulu/os";
 import { HELPERS } from "../src/fulu/runtime";
 import { fuluGamesMarkdown } from "../src/app/fuluGamesDoc";
@@ -37,6 +37,29 @@ describe("the games Fulu should run", () => {
     // nothing listed as left is answered by Fulu
     for (const r of REMAINING) if (r.what.startsWith("$")) expect(FUNCTIONS[parseInt(r.what.slice(1), 16)]).toBeUndefined();
     expect(COVERAGE.apiUsed).toBeGreaterThan(left.size);
+  });
+
+  it("README.md and docs/fulu-report.md state the list's current numbers", () => {
+    const read = (f: string) => readFileSync(new URL(f, import.meta.url), "utf8").replace(/\s+/g, " ");
+    const readme = read("../README.md"), report = read("../docs/fulu-report.md");
+    const n = fuluSummary(), fmt = (x: number) => x.toLocaleString("en-US");
+    const { functions, routines } = FULU_COUNTS, { apiUsed, residentUsed } = COVERAGE;
+    for (const s of [
+      `It answers ${functions} OS functions and ${routines} C runtime routines`,
+      `all ${n.total} programs of the bbk-games collection run on it`,
+      `${n.plays} play the whole time and the other ${n.ends} end`,
+    ])
+      expect(readme).toContain(s);
+    for (const s of [
+      `Fulu answers ${functions} OS entries`,
+      `${routines} resident C-runtime routines`,
+      `| ${n.total} of ${n.total} (${n.plays} play the whole time, ${n.ends} end as on the device) |`,
+      `| API entries answered | ${functions}: all ${apiUsed} the collection calls, ${FULU_OTHERS.forFulu} only Fulu's own functions call, and ${FULU_OTHERS.iconSet} status-bar icon functions`,
+      `| Resident routines answered | ${routines}: all ${residentUsed - 1} the collection calls`,
+      `about ${fmt(COVERAGE.written)} instructions of the firmware's`,
+      `${FIRMWARE_LOG.api} of the ${apiUsed} API entries and ${FIRMWARE_LOG.routines} of the ${residentUsed - 1} resident routines`,
+    ])
+      expect(report).toContain(s);
   });
 
   it("dates the milestones in order", () => {
