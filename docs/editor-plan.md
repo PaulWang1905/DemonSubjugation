@@ -104,3 +104,28 @@ templates' scripts survive the visual editor unchanged.
 - Keep the site's look (src/styles.css, the home page's language).
 - Helper agents work in their own worktrees and never push; the lead
   merges, checks and deploys.
+
+## Status
+
+All three phases are done and shipped.
+
+- Phase 1: the model (`format/commands.ts`, `scriptModel.ts`, `world.ts`,
+  `notes.ts`) and the workspace (sidebar by topic, tabs, command palette,
+  project home, view registry), plus a shared resource picker.
+- Phase 2: events as sentences (`ScriptVisual*`), the world on the map
+  (`WorldView`, `WorldMap`, `format/worldEdit.ts`), cards, the gallery and
+  safe renumbering (`CardView`, `GalleryView`, `cardModel.ts`).
+- Phase 3: the guided first game, wizards (map, person, shop, monster or
+  battle), playtest from here, story flags and variables; then a new-author
+  test: the small game of "Done when" was made with the visual tools only
+  and played to the end (75 minutes), and its 23 findings fixed (where the
+  player can stand, the way back beside the exit, intros played once,
+  painting sets walkability, flags picked by name, pickers that are never
+  clipped, test tools in the playtest...). Repeated after the fixes: the
+  same game in under 9 minutes.
+
+Left, from the repeat run: the battle wizard opened from the sidebar
+starts on the start map and the first person; a wizard-made boss is too
+strong for a level-1 party without the test tools; the wizard's win line
+starts with the speaker's name; tab labels clipped at 1280; sprites in the
+sidebar still listed by kind and number.
