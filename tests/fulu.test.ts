@@ -103,6 +103,25 @@ describe("Fulu", () => {
     expect([1, 2, 3].map(record)).toEqual([[3, 0xc4e3], [3, 0xbac3], [2, 0x61]]);
   });
 
+  it("starts a program in the state BBK's launcher leaves, with the clock it is given", () => {
+    // $E99E date($3000): the day, month, year - 1900, weekday (1 Monday)
+    const far = (entry: number) => [0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2];
+    const g = program([0xa9, 0x00, 0x85, 0x20, 0xa9, 0x30, 0x85, 0x21, 0x20, 0xca, 0xda, ...far(0xe99e), 0x60], [], []);
+    const date = (clock?: Date) => {
+      const fulu = new Fulu(), file = fulu.install(g)!;
+      fulu.start(file, clock);
+      const ram = fulu.machine.ram;
+      // the launcher's: input mode 2, keyboard state $0F, no help word
+      expect([ram[0x2b27], ram[0x2b28], ram[0x2ba8], ram[0x2ba9]]).toEqual([2, 0x0f, 0xff, 0xff]);
+      fulu.machine.run(200_000);
+      expect(fulu.stopped).toBe("The program ended");
+      return [...ram.subarray(0x3000, 0x3004)];
+    };
+    expect(date()).toEqual([1, 10, 104, 5]); // the launcher's clock: Friday 1 October 2004
+    expect(date(new Date(2026, 10, 21, 9, 30, 5))).toEqual([21, 11, 126, 6]); // Saturday 21 November 2026
+    expect(date(new Date(2024, 1, 29, 23, 59, 0))).toEqual([29, 2, 124, 4]); // Thursday 29 February 2024
+  });
+
   it("drops typed text the program did not take before it left Chinese input", () => {
     const far = (entry: number) => [0xa2, entry & 0xff, 0x86, 0x26, 0xa2, entry >> 8, 0x86, 0x27, 0x20, 0xf6, 0xd2];
     const fulu = run(program([...far(0xe932), 0xa9, 4, ...far(0xe93b), 0x60], [], []));

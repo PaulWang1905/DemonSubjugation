@@ -26,5 +26,7 @@ export default defineConfig({
   plugins: [react(), notFoundPage()],
   test: {
     environment: "node",
+    // (helper agents' worktrees hold copies of the tests)
+    exclude: ["**/node_modules/**", "**/.claude/**"],
   },
 } as Parameters<typeof defineConfig>[0]);

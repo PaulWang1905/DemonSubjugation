@@ -33,7 +33,7 @@ export class FuluDevice {
 
   /** Start the program, as the OS's launcher leaves it. */
   launch(file: FlashFile): boolean {
-    this.fulu.start(file);
+    this.fulu.start(file, new Date()); // (the device's clock set to the computer's)
     return true;
   }
 

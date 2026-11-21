@@ -14,6 +14,7 @@
 import { gb2312 } from "./gb2312";
 import { post } from "./gui";
 import { use } from "./alu";
+import { launcherRam } from "./launcher";
 import { MoreText } from "./moreText";
 import { C, N, V, Z } from "../bbk/cpu";
 import { REGION_SIZE } from "../bbk/firmware";
@@ -112,6 +113,22 @@ const FORGET_AFTER = 0.3 * CPU_HZ;
 const RECENT_CALLS = 40;
 /** The OS's key buffer: its write and read indexes. */
 const KEY_WRITE = 0x2003, KEY_READ = 0x2004;
+
+/**
+ * The device's clock and year at `d`: the real-time clock's seconds, minutes,
+ * hours and day of the year (from 1, 9 bits; the alarm's day at $0232/$0233
+ * as $E7EE sets it), and the year at $2B04 ($E99E counts the date from them).
+ */
+export function setClock(ram: Uint8Array, d: Date): void {
+  const year = d.getFullYear(), day = Math.floor((Date.UTC(year, d.getMonth(), d.getDate()) - Date.UTC(year, 0, 1)) / 86_400_000) + 1;
+  ram[0x234] = d.getSeconds();
+  ram[0x235] = d.getMinutes();
+  ram[0x236] = d.getHours();
+  ram[0x237] = ram[0x232] = day & 0xff;
+  ram[0x238] = ram[0x233] = day >> 8;
+  ram[0x2b04] = year & 0xff;
+  ram[0x2b05] = year >> 8;
+}
 
 export class Fulu {
   readonly machine: Machine;
@@ -216,12 +233,17 @@ export class Fulu {
     return installFile(this.machine.flash.data, gam, FileType.game, gamInfo(gam).rawName);
   }
 
-  /** Start an installed program, in the state the OS's launcher leaves. */
-  start(file: FlashFile): void {
+  /**
+   * Start an installed program, in the state the OS's launcher leaves; with
+   * `clock`, the device's clock and year set to it (the player gives the
+   * computer's), else the launcher's (1 October 2004, 12:00:29).
+   */
+  start(file: FlashFile, clock?: Date): void {
     const m = this.machine, ram = m.ram, flash = m.flash.data, h = file.offset;
     m.reset();
     this.clearStop();
     this.textMarks.clear();
+    launcherRam(ram);
     const base = 0x200 + (h >> 12);
     const data = base + ((flash[h + 0x42] | (flash[h + 0x43] << 8) | (flash[h + 0x44] << 16)) >> 12);
     const entry = flash[h + 0x40] | (flash[h + 0x41] << 8);
@@ -232,6 +254,7 @@ export class Fulu {
     const pages = [1, 2, 3, 4, base, base + 1, base + 2, base + 3, data, data + 1, data + 2, data + 3, ...OS_PAGES];
     pages.forEach((page, i) => this.map(i + 1, page));
     for (const [a, v] of [...IO, ...ZERO_PAGE]) ram[a] = v;
+    if (clock) setClock(ram, clock);
     ram[0x26] = (entry - 1) & 0xff;
     ram[0x27] = (entry - 1) >> 8;
     ram.set(STACK, 0x101 + STACK_TOP);
