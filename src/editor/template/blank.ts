@@ -6,6 +6,8 @@ import { assemble } from "../format/gut";
 import { putEntry, removeEntry, type LibArchive } from "../format/lib";
 import { gbkBytes } from "../../engine/java";
 import { lanternPath } from "./demo";
+import { gameLogo } from "./system";
+import { SAY_WITH_PORTRAIT, wrapForBox } from "../format/text";
 
 export function blankProject(title = "MY GAME"): LibArchive {
   const a = lanternPath();
@@ -39,9 +41,11 @@ export function blankProject(title = "MY GAME"): LibArchive {
   createactor 1, 4, 3
   setscenename "START"
   showscenename
-  say 1, "Your adventure    starts here!"
+  say 1, "${wrapForBox("Your adventure starts here!", SAY_WITH_PORTRAIT)}"
   callback
 `),
   });
+  // the title screen shows the game's own name, not the demo's
+  putEntry(a, gameLogo(title));
   return { titleBytes, entries: a.entries };
 }

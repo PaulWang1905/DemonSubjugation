@@ -168,6 +168,11 @@ export const KIND_NAMES: Record<number, string> = {
   12: "Tables",
 };
 
+/** What the resource filter matches: number, name, kind and sub-kind ("monster", "npc", "tileset"…). */
+export function filterLabel(e: { resType: number; type: number; index: number; data: Uint8Array }): string {
+  return `${e.type}-${e.index} ${resourceName(e.resType, e.type, e.data)} ${KIND_NAMES[e.resType] ?? ""} ${subTypeName(e.resType, e.type)}`.toLowerCase();
+}
+
 export function subTypeName(resType: number, type: number): string {
   if (resType === 3) return ["", "Party", "NPC", "Monster", "Object"][type] ?? `type ${type}`;
   if (resType === 4) return ["", "Attack", "Enhance", "Restore", "Revive", "Special"][type] ?? `type ${type}`;

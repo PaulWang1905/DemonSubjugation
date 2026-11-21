@@ -22,6 +22,8 @@ interface Props {
   /** Uploaded font files; when missing, the device's own fonts are used. */
   fonts: { hzk16: ArrayBuffer | null; asc16: ArrayBuffer | null };
   onExit: () => void;
+  /** Where the back button goes: the game library, or the editor for a playtest. */
+  backTo?: "library" | "editor";
 }
 
 
@@ -36,7 +38,7 @@ function savesTelling(gameId: string, refused: () => void): SaveStorage {
     },
   };
 }
-export function Player({ game, fonts, onExit }: Props) {
+export function Player({ game, fonts, onExit, backTo = "library" }: Props) {
   // the player's own text follows the site language
   const lang = useSiteLang();
   const pt = PLAYER_TEXT[lang];
@@ -457,7 +459,7 @@ export function Player({ game, fonts, onExit }: Props) {
       )}
       {touch ? (
         <div className="tbar">
-          <button className="tb-btn" onClick={onExit} aria-label={pt.backToLibrary} title={pt.backToLibrary}>
+          <button className="tb-btn" onClick={onExit} aria-label={backTo === "editor" ? pt.backToEditor : pt.backToLibrary} title={backTo === "editor" ? pt.backToEditor : pt.backToLibrary}>
             ←
           </button>
           <span className="title">{game.name}</span>
@@ -472,8 +474,8 @@ export function Player({ game, fonts, onExit }: Props) {
         </div>
       ) : (
         <div className="toolbar">
-          <button className="ghost" onClick={onExit} title={pt.backToLibrary}>
-            {pt.library}
+          <button className="ghost" onClick={onExit} title={backTo === "editor" ? pt.backToEditor : pt.backToLibrary}>
+            {backTo === "editor" ? pt.editor : pt.library}
           </button>
           <span className="title" title={game.fileName}>
             {game.name}
@@ -509,7 +511,7 @@ export function Player({ game, fonts, onExit }: Props) {
                 <div className="row">
                   <button onClick={() => setGeneration((g) => g + 1)}>{pt.restart}</button>
                   <button className="ghost" onClick={onExit}>
-                    {pt.backToLibrary}
+                    {backTo === "editor" ? pt.backToEditor : pt.backToLibrary}
                   </button>
                 </div>
               </div>

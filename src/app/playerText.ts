@@ -7,6 +7,8 @@ import { currentSiteLang, type SiteLang } from "./siteLang";
 const en = {
   library: "← Library",
   backToLibrary: "Back to library",
+  editor: "← Editor",
+  backToEditor: "Back to the editor",
   fullscreen: "Fullscreen",
   exitFullscreen: "Exit fullscreen (Esc)",
   options: "Options",
@@ -124,6 +126,8 @@ export type PlayerText = typeof en;
 const zh: PlayerText = {
   library: "← 游戏库",
   backToLibrary: "返回游戏库",
+  editor: "← 编辑器",
+  backToEditor: "返回编辑器",
   fullscreen: "全屏",
   exitFullscreen: "退出全屏（Esc）",
   options: "选项",

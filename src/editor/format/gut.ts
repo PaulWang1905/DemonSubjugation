@@ -329,7 +329,7 @@ export class AsmError extends Error {
   }
 }
 
-type Tok = { kind: "num"; v: number } | { kind: "label"; v: string } | { kind: "raw"; v: number } | { kind: "str"; v: Uint8Array } | { kind: "pair"; v: [number, number] } | { kind: "hex"; v: Uint8Array };
+export type Tok = { kind: "num"; v: number } | { kind: "label"; v: string } | { kind: "raw"; v: number } | { kind: "str"; v: Uint8Array } | { kind: "pair"; v: [number, number] } | { kind: "hex"; v: Uint8Array };
 
 function parseString(src: string, line: number): Uint8Array {
   const out: number[] = [];
@@ -394,6 +394,8 @@ function tokenizeArgs(s: string, line: number): Tok[] {
       i += m[0].length;
     } else {
       const m = /^(-?(?:0x[0-9a-fA-F]+|\d+))(?::(\d+))?/.exec(s.slice(i));
+      if (!m && /[\u201c\u201d\u2018\u2019\u300c\u300d]/.test(c)) throw new AsmError('text must be in straight quotes "like this", not curly ones', line);
+      if (!m && /[A-Za-z_]/.test(c)) throw new AsmError(`unexpected "${s.slice(i, i + 10)}" (text needs "quotes", jump targets an @)`, line);
       if (!m) throw new AsmError(`unexpected "${s.slice(i, i + 10)}"`, line);
       const v = Number(m[1]);
       if (m[2] !== undefined) toks.push({ kind: "pair", v: [v, Number(m[2])] });
@@ -435,6 +437,7 @@ export function assemble(src: string): Uint8Array {
   let header: Uint8Array = new Uint8Array(22);
   let eventCount = -1;
   const eventLabels = new Map<number, Tok>();
+  const eventLines = new Map<number, number>();
   const labels = new Map<string, number>();
   const stmts: Stmt[] = [];
   let offset = 0;
@@ -487,6 +490,7 @@ export function assemble(src: string): Uint8Array {
           const n = num(0);
           if (!toks[1] || (toks[1].kind !== "label" && toks[1].kind !== "raw")) throw new AsmError(".event expects @label", line);
           eventLabels.set(n, toks[1]);
+          eventLines.set(n, line);
           break;
         }
         case ".raw": {
@@ -502,7 +506,10 @@ export function assemble(src: string): Uint8Array {
       return;
     }
     const op = BY_NAME.get(word);
-    if (!op) throw new AsmError(`unknown instruction "${word}"`, line);
+    if (!op) {
+      const near = closestOp(word);
+      throw new AsmError(`unknown instruction "${word}"${near ? ` (did you mean ${near}?)` : ""}`, line);
+    }
     let size = 1;
     if (op.args.length === 1 && op.args[0] === "buy") {
       if (toks.length === 1 && toks[0].kind === "hex") {
@@ -526,7 +533,7 @@ export function assemble(src: string): Uint8Array {
 
   if (eventCount < 0) eventCount = Math.max(0, ...eventLabels.keys());
   for (const n of eventLabels.keys()) {
-    if (n < 1 || n > eventCount) throw new AsmError(`event ${n} is outside 1..${eventCount}`, 0);
+    if (n < 1 || n > eventCount) throw new AsmError(`event ${n} is outside 1..${eventCount} (raise the .events count)`, eventLines.get(n) ?? 0);
   }
   const headerCnt = eventCount * 2 + 3;
   const resolve = (t: Tok, line: number): number => {
@@ -598,7 +605,7 @@ export function assemble(src: string): Uint8Array {
   out[0x1a] = eventCount;
   for (let i = 1; i <= eventCount; i++) {
     const t = eventLabels.get(i);
-    const addr = t ? resolve(t, 0) : 0;
+    const addr = t ? resolve(t, eventLines.get(i) ?? 0) : 0;
     out[0x1b + (i - 1) * 2] = addr & 0xff;
     out[0x1c + (i - 1) * 2] = addr >> 8;
   }
@@ -608,4 +615,81 @@ export function assemble(src: string): Uint8Array {
 
 export function opByName(name: string): OpSpec | undefined {
   return BY_NAME.get(name);
+}
+
+/** The instruction name closest to a misspelt one (at most two edits away). */
+export function closestOp(word: string): string | null {
+  let best: string | null = null;
+  let bestD = 3;
+  for (const o of OPS) {
+    const d = editDistance(word, o.name, bestD);
+    if (d < bestD) [best, bestD] = [o.name, d];
+  }
+  return best;
+}
+
+/** Edits (insert, delete, change, swap two neighbours) from a to b, up to cap. */
+function editDistance(a: string, b: string, cap: number): number {
+  if (Math.abs(a.length - b.length) >= cap) return cap;
+  let before: number[] = [];
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], before[j - 2] + 1);
+    }
+    before = prev;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+/** An instruction of a script's text, with its line (1-based) and operands. */
+export interface SourceStatement {
+  line: number;
+  op: OpSpec;
+  toks: Tok[];
+}
+
+/**
+ * The instructions of a script's text, for checks: lines that do not parse
+ * are skipped (assemble() reports them).
+ */
+export function statements(src: string): SourceStatement[] {
+  const out: SourceStatement[] = [];
+  src.split(/\r?\n/).forEach((rawLine, li) => {
+    let text = rawLine.trim();
+    const lm = /^@[A-Za-z_]\w*:\s*(.*)$/.exec(text);
+    if (lm) text = lm[1].trim();
+    const m = /^([A-Za-z_]\w*)\s*(.*)$/.exec(text);
+    const op = m && BY_NAME.get(m[1].toLowerCase());
+    if (!m || !op) return;
+    try {
+      out.push({ line: li + 1, op, toks: tokenizeArgs(m[2], li + 1) });
+    } catch {
+      /* reported by the assembler */
+    }
+  });
+  return out;
+}
+
+/**
+ * The text shown for a script: the author's own (labels, comments) while it
+ * still assembles to the stored bytes, else a disassembly.
+ */
+export function scriptSource(data: Uint8Array, source?: string): string {
+  if (source) {
+    try {
+      const bin = assemble(source);
+      if (bin.length === data.length && bin.every((v, i) => v === data[i])) return source;
+    } catch {
+      /* fall back to disassembly */
+    }
+  }
+  try {
+    return disassemble(data);
+  } catch (e) {
+    return `; could not disassemble: ${(e as Error).message}\n`;
+  }
 }

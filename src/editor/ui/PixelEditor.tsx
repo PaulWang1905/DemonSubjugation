@@ -3,7 +3,7 @@ import { decodeImage } from "../format/decode";
 import { encodeImage, type Frame } from "../format/encode";
 import type { LibEntry } from "../format/lib";
 import { FrameCanvas } from "./FrameStrip";
-import { useUndoKeys } from "./undoKeys";
+import { useToolKeys, useUndoKeys } from "./undoKeys";
 import { DARK, LIGHT, floodFill, frameToImageData, resizeFrame, rgbaToFrame, sliceSheet } from "./pixels";
 
 type Tool = "pen" | "fill" | "pick";
@@ -160,6 +160,14 @@ export function PixelEditor({ entry, onChange, hint, shortcuts = true }: Props) 
   };
 
   useUndoKeys(canvas, doUndo, doRedo, shortcuts);
+  useToolKeys(canvas, {
+    b: () => setTool("pen"),
+    g: () => setTool("fill"),
+    i: () => setTool("pick"),
+    x: () => setColor((c) => (c === 1 ? 0 : 1)),
+    "[": () => setCur((c) => Math.max(0, c - 1)),
+    "]": () => setCur((c) => Math.min(frames.length - 1, c + 1)),
+  });
 
   const importPng = async (file: File | undefined) => {
     if (!file) return;
@@ -210,7 +218,7 @@ export function PixelEditor({ entry, onChange, hint, shortcuts = true }: Props) 
       <div className="map-tools">
         <div className="seg">
           {COLORS.map(([v, l]) => (
-            <button key={v} className={`swatch ${color === v ? "sel" : ""}`} onClick={() => setColor(v)} title={l}>
+            <button key={v} className={`swatch ${color === v ? "sel" : ""}`} onClick={() => setColor(v)} title={v === 2 ? l : `${l} (X swaps black and white)`}>
               <span className={`chipc c${v}`} style={v === 2 ? undefined : { background: `rgb(${(v === 1 ? DARK : LIGHT).join(",")})` }} />
               {l}
             </button>
@@ -219,20 +227,20 @@ export function PixelEditor({ entry, onChange, hint, shortcuts = true }: Props) 
         <div className="seg">
           {(
             [
-              ["pen", "Pen"],
-              ["fill", "Fill"],
-              ["pick", "Pick"],
-            ] as [Tool, string][]
-          ).map(([t, l]) => (
-            <button key={t} className={tool === t ? "" : "ghost"} onClick={() => setTool(t)}>
-              {l}
+              ["pen", "Pen", "B"],
+              ["fill", "Fill", "G"],
+              ["pick", "Pick", "I"],
+            ] as [Tool, string, string][]
+          ).map(([t, l, k]) => (
+            <button key={t} className={tool === t ? "" : "ghost"} onClick={() => setTool(t)} title={`${l} (${k})`}>
+              {l} <kbd>{k}</kbd>
             </button>
           ))}
         </div>
-        <button className="ghost" onClick={doUndo} title="Ctrl+Z">
+        <button className="ghost" onClick={doUndo} title="Undo (Ctrl+Z)">
           Undo
         </button>
-        <button className="ghost" onClick={doRedo} title="Ctrl+Shift+Z">
+        <button className="ghost" onClick={doRedo} title="Redo (Ctrl+Y or Ctrl+Shift+Z)">
           Redo
         </button>
         <label className="field">
@@ -313,7 +321,7 @@ export function PixelEditor({ entry, onChange, hint, shortcuts = true }: Props) 
             <input ref={fileInput} type="file" accept="image/*" hidden onChange={(e) => { void importPng(e.target.files?.[0]); e.target.value = ""; }} />
           </fieldset>
           {error && <p className="error small">{error}</p>}
-          <p className="muted small">Left click paints, right click paints the opposite colour.</p>
+          <p className="muted small">Left click paints, right click paints the opposite colour. Keys: B pen, G fill, I pick, X swap colours, [ ] frames.</p>
         </div>
       </div>
       <div className="frames">

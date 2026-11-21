@@ -8,12 +8,18 @@ import { MapEditor } from "./MapEditor";
 import { PixelEditor } from "./PixelEditor";
 import { LevelTableEditor, MagicChainEditor } from "./TableEditors";
 import { ScriptEditor } from "./ScriptEditor";
+import { scriptSource } from "../format/gut";
 
 interface Props {
   archive: LibArchive;
   entry: LibEntry;
   source?: string;
   onChange: (data: Uint8Array, source?: string) => void;
+  /** Unapplied script text, kept across views. */
+  draft?: string;
+  onDraft?: (text: string | null) => void;
+  /** Show this line of a script. */
+  goto?: { line: number; n: number };
   actions?: {
     duplicate: () => void;
     /** Returns an error message, or null when done. */
@@ -26,7 +32,7 @@ function hex(b: Uint8Array, n = 64): string {
   return [...b.subarray(0, n)].map((x) => x.toString(16).padStart(2, "0")).join(" ") + (b.length > n ? " …" : "");
 }
 
-export function ResourceView({ archive, entry, source, onChange, actions }: Props) {
+export function ResourceView({ archive, entry, source, onChange, draft, onDraft, goto, actions }: Props) {
   const [numError, setNumError] = useState<string | null>(null);
   const title = `${KIND_NAMES[entry.resType] ?? "Resource"} · ${subTypeName(entry.resType, entry.type)} · #${entry.index}`;
   const name = resourceName(entry.resType, entry.type, entry.data);
@@ -34,7 +40,17 @@ export function ResourceView({ archive, entry, source, onChange, actions }: Prop
     try {
       switch (entry.resType) {
         case 1:
-          return <ScriptEditor entry={entry} source={source} onChange={onChange} />;
+          return (
+            <ScriptEditor
+              entry={entry}
+              source={source}
+              draft={draft}
+              onDraft={onDraft}
+              goto={goto}
+              onChange={onChange}
+              others={() => archive.entries.filter((e) => e.resType === 1 && e !== entry).map((e) => scriptSource(e.data))}
+            />
+          );
         case 2:
           return <MapEditor archive={archive} entry={entry} onChange={onChange} />;
         case 5:
@@ -77,7 +93,8 @@ export function ResourceView({ archive, entry, source, onChange, actions }: Prop
     } catch (e) {
       return <p className="error">Cannot show this resource: {(e as Error).message}</p>;
     }
-  }, [archive, entry, source, onChange]);
+    // (draft is only read when the script view is created)
+  }, [archive, entry, source, onChange, onDraft, goto]);
 
   return (
     <section className="res-view">

@@ -4,10 +4,21 @@ import { encodeMap, type Frame, type MapCell } from "../format/encode";
 import { findEntry, type LibArchive, type LibEntry } from "../format/lib";
 import { cells as textCells } from "../format/text";
 import { FrameCanvas } from "./FrameStrip";
-import { useUndoKeys } from "./undoKeys";
+import { useToolKeys, useUndoKeys } from "./undoKeys";
+import { playerStart } from "../format/scriptHelp";
 import { DARK, LIGHT, blitFrame } from "./pixels";
 
 type Tool = "tile" | "fill" | "walk" | "block" | "event" | "pick";
+
+/** The tools, their names and keys. */
+const TOOLS: [Tool, string, string][] = [
+  ["tile", "Paint tile", "B"],
+  ["fill", "Fill", "G"],
+  ["walk", "Walkable", "W"],
+  ["block", "Blocked", "X"],
+  ["event", "Event", "E"],
+  ["pick", "Pick tile", "I"],
+];
 
 const HISTORY = 100;
 
@@ -26,6 +37,7 @@ export function MapEditor({ archive, entry, onChange }: Props) {
   const [showWalk, setShowWalk] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const painting = useRef(false);
   // Undo history of whole-map snapshots. `stroke` holds the map as it was when
@@ -140,6 +152,21 @@ export function MapEditor({ archive, entry, onChange }: Props) {
   };
 
   useUndoKeys(canvas, doUndo, doRedo);
+  useToolKeys(canvas, {
+    ...Object.fromEntries(TOOLS.map(([t, , k]) => [k.toLowerCase(), () => setTool(t)])),
+    "[": () => setTile((t) => Math.max(0, t - 1)),
+    "]": () => setTile((t) => Math.min(Math.max(0, tiles.length - 1), t + 1)),
+  });
+
+  /** The tile under the pointer. */
+  const cellAt = (ev: React.PointerEvent<HTMLCanvasElement>): { x: number; y: number } | null => {
+    const c = canvas.current!;
+    const r = c.getBoundingClientRect();
+    const s = (16 * zoom * r.width) / c.width;
+    const x = Math.floor((ev.clientX - r.left) / s);
+    const y = Math.floor((ev.clientY - r.top) / s);
+    return x < 0 || y < 0 || x >= map.width || y >= map.height ? null : { x, y };
+  };
 
   const floodFill = (x: number, y: number): DecodedMap => {
     const from = map.cells[y * map.width + x].tile;
@@ -160,12 +187,9 @@ export function MapEditor({ archive, entry, onChange }: Props) {
   };
 
   const apply = (ev: React.PointerEvent<HTMLCanvasElement>, commitNow: boolean) => {
-    const c = canvas.current!;
-    const r = c.getBoundingClientRect();
-    const s = (16 * zoom * r.width) / c.width;
-    const x = Math.floor((ev.clientX - r.left) / s);
-    const y = Math.floor((ev.clientY - r.top) / s);
-    if (x < 0 || y < 0 || x >= map.width || y >= map.height) return;
+    const at = cellAt(ev);
+    if (!at) return;
+    const { x, y } = at;
     const i = y * map.width + x;
     const cur = map.cells[i];
     if (tool === "fill") {
@@ -219,18 +243,9 @@ export function MapEditor({ archive, entry, onChange }: Props) {
     <div className="map-editor">
       <div className="map-tools">
         <div className="seg">
-          {(
-            [
-              ["tile", "Paint tile"],
-              ["fill", "Fill"],
-              ["walk", "Walkable"],
-              ["block", "Blocked"],
-              ["event", "Event"],
-              ["pick", "Pick tile"],
-            ] as [Tool, string][]
-          ).map(([t, label]) => (
-            <button key={t} className={tool === t ? "" : "ghost"} onClick={() => setTool(t)}>
-              {label}
+          {TOOLS.map(([t, label, k]) => (
+            <button key={t} className={tool === t ? "" : "ghost"} onClick={() => setTool(t)} title={`${label} (${k})`}>
+              {label} <kbd>{k}</kbd>
             </button>
           ))}
         </div>
@@ -291,32 +306,42 @@ export function MapEditor({ archive, entry, onChange }: Props) {
       </div>
 
       <div className="map-body">
-        <div className="map-canvas">
-          <canvas
-            ref={canvas}
-            onPointerDown={(e) => {
-              const drag = tool === "tile" || tool === "walk" || tool === "block";
-              painting.current = drag;
-              stroke.current = drag ? map : null;
-              (e.target as HTMLElement).setPointerCapture(e.pointerId);
-              apply(e, !drag);
-            }}
-            onPointerMove={(e) => painting.current && apply(e, false)}
-            onPointerUp={() => {
-              const before = stroke.current;
-              painting.current = false;
-              stroke.current = null;
-              if (before && before !== map) {
-                remember(before, null);
-                save(map);
-              }
-            }}
-          />
+        <div className="map-left">
+          <div className="map-canvas">
+            <canvas
+              ref={canvas}
+              onPointerDown={(e) => {
+                const drag = tool === "tile" || tool === "walk" || tool === "block";
+                painting.current = drag;
+                stroke.current = drag ? map : null;
+                (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                apply(e, !drag);
+              }}
+              onPointerMove={(e) => {
+                const at = cellAt(e);
+                if (at?.x !== hover?.x || at?.y !== hover?.y) setHover(at);
+                if (painting.current) apply(e, false);
+              }}
+              onPointerLeave={() => setHover(null)}
+              onPointerUp={() => {
+                const before = stroke.current;
+                painting.current = false;
+                stroke.current = null;
+                if (before && before !== map) {
+                  remember(before, null);
+                  save(map);
+                }
+              }}
+            />
+          </div>
+          <MapStatus map={map} at={hover} />
         </div>
         <div className="palette">
           <div className="palette-head">
             <strong>Tiles</strong>
-            <span className="muted">tile {tile}</span>
+            <span className="muted" title="[ and ] pick the previous / next tile">
+              tile {tile}
+            </span>
           </div>
           <div className="palette-grid">
             {tiles.map((f, i) => (
@@ -335,11 +360,35 @@ export function MapEditor({ archive, entry, onChange }: Props) {
             </button>
           </div>
           <p className="muted small">
-            The dashed box is where the player can stand. Map event N runs script event N+40 when the player steps toward that
-            tile or faces it and presses OK.
+            The dashed box is where the player can stand. Map event N runs script event N+40 (<code>.event N+40</code> in the script
+            that loaded the map) when the player steps toward that tile or faces it and presses OK. Keys: B G W X E I pick a tool,
+            [ ] the tile, Ctrl+Z / Ctrl+Y undo and redo.
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+/** The tile under the pointer, and the script lines that use it. */
+function MapStatus({ map, at }: { map: DecodedMap; at: { x: number; y: number } | null }) {
+  if (!at) return <p className="map-status muted small">Point at a tile to see its position and the script lines that use it.</p>;
+  const cell = map.cells[at.y * map.width + at.x];
+  const p = playerStart(at.x, at.y, map.width, map.height);
+  return (
+    <p className="map-status small">
+      <strong>
+        x {at.x}, y {at.y}
+      </strong>
+      <span>tile {cell.tile}</span>
+      <span className={cell.walkable ? "" : "error"}>{cell.walkable ? "walkable" : "blocked"}</span>
+      {!!cell.event && <span>event {cell.event} → .event {cell.event + 40}</span>}
+      <span className="muted" title="To start the player here (createactor is in screen tiles)">
+        player: <code>loadmap {map.type}, {map.index}, {p.screenX}, {p.screenY}</code> <code>createactor 1, {p.actorX}, {p.actorY}</code>
+      </span>
+      <span className="muted" title="NPCs and objects use map tiles">
+        NPC: <code>createnpc 1, 1, {at.x}, {at.y}</code>
+      </span>
+    </p>
   );
 }

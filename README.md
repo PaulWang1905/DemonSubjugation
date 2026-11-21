@@ -206,10 +206,16 @@ The **Editor** tab builds games in the same format:
   tilesets and animations.
 - **Map editor**: paint and fill tiles, mark walkable/blocked tiles, place map
   events, rename and resize maps, with undo/redo (Ctrl+Z / Ctrl+Y). The dashed
-  box shows where the player can stand.
-- **Script editor**: the story scripts as readable text with labels (see the
-  built-in instruction reference). Errors point at the line. Your own text and
-  labels are kept with the project.
+  box shows where the player can stand; the tile under the pointer shows its
+  position and the `loadmap` / `createactor` / `createnpc` lines that use it.
+- **Script editor**: the story scripts as readable text with labels and line
+  numbers. The built-in reference lists every instruction by purpose with its
+  operands (click one to insert it), the line under the text names the
+  operand at the caret, and *Insert…* adds a dialogue, a choice, a battle, a
+  shop, a chest, an NPC or a map exit (with its `.event` line). Errors point at
+  the line; *Wrap dialogue* fits text to the dialogue boxes. Your own text and
+  labels are kept with the project, and unapplied text survives opening
+  another resource.
 - **Forms** for party members, NPCs, objects, monsters, all item and magic
   kinds, spell lists and level tables (only the edited bytes change).
 - **Pixel editor** for tiles, sprites, portraits, icons and pictures: pen,
@@ -223,8 +229,14 @@ The **Editor** tab builds games in the same format:
   pictures, item icons and animations (sized like the game's others); a new
   party member also gets a portrait and battle sprite. Any resource can be
   duplicated, given another number or deleted.
-- **Playtest** runs the project in the engine; **Export .lib** downloads it.
-- Projects are saved automatically in the browser (IndexedDB).
+- **Check** lists what would break the game (scripts, maps and forms that
+  refer to resources that do not exist, map events no script handles, NPC ids
+  out of range, dialogue split across lines); **Playtest** and **Export** run
+  it first and show any error, each a click away from its resource and line.
+- **Playtest** runs the project in the engine; **Export…** downloads a .gam or
+  a .lib.
+- Projects are saved automatically in the browser (IndexedDB); Ctrl+S saves at
+  once. **?** shows a getting-started guide and the keyboard shortcuts.
 
 Script example:
 

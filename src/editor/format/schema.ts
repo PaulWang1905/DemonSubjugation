@@ -47,7 +47,7 @@ const PLAYER: Field[] = [
   { key: "speed", label: "Speed", at: 0x36, kind: "u8", max: 99, group: "Stats" },
   { key: "lingli", label: "Spirit", at: 0x37, kind: "u8", max: 99, group: "Stats" },
   { key: "luck", label: "Luck", at: 0x38, kind: "u8", max: 99, group: "Stats" },
-  { key: "walk", label: "Walking sprite", at: 0x16, kind: "u8", ref: { resType: 8, type: 1 }, group: "Looks", help: "ACP 1-n. Portrait is picture 1-<index>, battle sprite picture 3-<index>." },
+  { key: "walk", label: "Walking sprite", at: 0x16, kind: "u8", ref: { resType: 8, type: 1 }, group: "Looks", help: "A party walking sprite (Sprites 1-n). The portrait is picture 1-<member number>, the battle sprite picture 3-<member number>." },
   { key: "facing", label: "Facing", at: 2, kind: "enum", options: FACING, group: "Looks" },
   { key: "chain", label: "Spell list", at: 0x17, kind: "u8", ref: { resType: 12, type: 1 }, group: "Magic" },
   { key: "known", label: "Spells known", at: 9, kind: "u8", group: "Magic", help: "How many spells of the list are known at the start." },

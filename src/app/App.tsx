@@ -254,7 +254,7 @@ export function App() {
       {device !== undefined ? (
         <DevicePlayer key={`${device?.id ?? "4988"}:${deviceOs}`} game={device} os={device ? deviceOs : "original"} onExit={onExit} />
       ) : playing ? (
-        <Player key={playing.id + (playtestFrom ? playing.addedAt : "")} game={playing} fonts={fontPair} onExit={onExit} />
+        <Player key={playing.id + (playtestFrom ? playing.addedAt : "")} game={playing} fonts={fontPair} onExit={onExit} backTo={playtestFrom ? "editor" : "library"} />
       ) : (
         <>
           {page === "home" && (

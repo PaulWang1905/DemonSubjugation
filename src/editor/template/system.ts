@@ -42,6 +42,26 @@ export interface SystemOptions {
   subtitle?: string;
 }
 
+/** The title screen's logo (SRS 1-248): the game's name in big letters. */
+export function gameLogo(name: string, subtitle?: string): LibEntry {
+  // letters the pixel font has (others, such as Chinese, are left out)
+  const title = [...name.toUpperCase()].filter((ch) => {
+    try {
+      return !!glyph(ch);
+    } catch {
+      return false;
+    }
+  }).join("").trim() || "MY GAME";
+  const p = new Pix(160, 96, W);
+  p.rect(4, 4, 152, 88).rect(6, 6, 148, 84);
+  // the big letters take 12 px each: smaller for a long name
+  const t = bigText(title, textWidth(title) * 2 <= 140 ? 2 : 1);
+  p.blit(t, 80 - Math.floor(t.width / 2), 34);
+  if (subtitle) p.text(subtitle, 80 - Math.floor(textWidth(subtitle) / 2), 54);
+  p.text("PRESS ENTER", 80 - Math.floor(textWidth("PRESS ENTER") / 2), 76);
+  return stillSrs(1, 248, p, 0, 0, 160);
+}
+
 export function systemResources(opts: SystemOptions): LibEntry[] {
   const out: LibEntry[] = [];
 
@@ -68,15 +88,7 @@ export function systemResources(opts: SystemOptions): LibEntry[] {
   }
 
   // --- SRS 1-248: game logo ---------------------------------------------
-  {
-    const p = new Pix(160, 96, W);
-    p.rect(4, 4, 152, 88).rect(6, 6, 148, 84);
-    const t = bigText(opts.title, 2);
-    p.blit(t, 80 - Math.floor(t.width / 2), 34);
-    if (opts.subtitle) p.text(opts.subtitle, 80 - Math.floor(textWidth(opts.subtitle) / 2), 54);
-    p.text("PRESS ENTER", 80 - Math.floor(textWidth("PRESS ENTER") / 2), 76);
-    out.push(stillSrs(1, 248, p, 0, 0, 160));
-  }
+  out.push(gameLogo(opts.title, opts.subtitle));
 
   // --- SRS 1-249: defeat ----------------------------------------------------
   {
