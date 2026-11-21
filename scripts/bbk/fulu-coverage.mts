@@ -4,7 +4,8 @@
 // (--programs also lists, for each program, what it can call that Fulu lacks:
 // the scan column of src/app/fuluGames.ts)
 // For each program: the OS functions it far-calls (a byte search for
-// LDX/STX $26, LDX/STX $27, JSR $D2F6, as api-scan.mjs) and the resident
+// LDX/STX $26, LDX/STX $27, JSR $D2F6, as api-scan.mjs, with STX zero page
+// or absolute) and the resident
 // routines it JSRs or JMPs to (a byte search for the collection's 61, as
 // resident-calls.mjs found them), less what Fulu has (src/fulu). This is what a
 // program *can* call: a call on a path never taken counts, a call through a
@@ -29,9 +30,11 @@ const has = (a: number) => !!FUNCTIONS[a] || !!HELPERS[a] || a === 0xd2f6 || a =
 /**
  * The resident routines ($D000-$FFFF) the 138 programs of the bbk-games
  * collection JSR or JMP to (resident-calls.mjs over the collection, with the
- * targets that were data, not code, left out).
+ * targets that were data, not code, left out), and $E90D / $E910 (the
+ * serial port's send and receive, in 宠物精灵 and 恶龙传说: found by
+ * fulu-flow.mts in code this list had taken for data).
  */
-const RESIDENT = new Set([0xd29d, 0xd2ca, 0xd2f6, 0xd31a, 0xd340, 0xd362, 0xd3ef, 0xd435, 0xd49e, 0xd4a9, 0xd4c0, 0xd4c6, 0xd506, 0xd50c, 0xd53a, 0xd604, 0xd65b, 0xd6af, 0xd6f5, 0xd81d, 0xd85a, 0xd85f, 0xda09, 0xda1a, 0xda3d, 0xdaaa, 0xdac1, 0xdac7, 0xdaca, 0xdae6, 0xdafc, 0xdb19, 0xdb2f, 0xdb5c, 0xdbe1, 0xdbf2, 0xdc0e, 0xdc7b, 0xdc80, 0xdc83, 0xdcab, 0xdcb1, 0xdcc8, 0xdcef, 0xdcf4, 0xdcf7, 0xdd1f, 0xdd32, 0xdd38, 0xdd52, 0xdd58, 0xdd6f, 0xdd75, 0xdde4, 0xe517, 0xe520, 0xe52c, 0xe530, 0xe901, 0xe907, 0xe90a]);
+const RESIDENT = new Set([0xd29d, 0xd2ca, 0xd2f6, 0xd31a, 0xd340, 0xd362, 0xd3ef, 0xd435, 0xd49e, 0xd4a9, 0xd4c0, 0xd4c6, 0xd506, 0xd50c, 0xd53a, 0xd604, 0xd65b, 0xd6af, 0xd6f5, 0xd81d, 0xd85a, 0xd85f, 0xda09, 0xda1a, 0xda3d, 0xdaaa, 0xdac1, 0xdac7, 0xdaca, 0xdae6, 0xdafc, 0xdb19, 0xdb2f, 0xdb5c, 0xdbe1, 0xdbf2, 0xdc0e, 0xdc7b, 0xdc80, 0xdc83, 0xdcab, 0xdcb1, 0xdcc8, 0xdcef, 0xdcf4, 0xdcf7, 0xdd1f, 0xdd32, 0xdd38, 0xdd52, 0xdd58, 0xdd6f, 0xdd75, 0xdde4, 0xe517, 0xe520, 0xe52c, 0xe530, 0xe901, 0xe907, 0xe90a, 0xe90d, 0xe910]);
 
 interface Program {
   name: string;
@@ -42,8 +45,13 @@ interface Program {
 function scan(name: string, g: Uint8Array): Program {
   const calls = new Set<number>();
   for (let i = 8; i + 3 <= g.length; i++) {
-    if (g[i] === 0x20 && g[i + 1] === 0xf6 && g[i + 2] === 0xd2 && g[i - 8] === 0xa2 && g[i - 6] === 0x86 && g[i - 5] === 0x26 && g[i - 4] === 0xa2 && g[i - 2] === 0x86 && g[i - 1] === 0x27) {
+    if (g[i] !== 0x20 || g[i + 1] !== 0xf6 || g[i + 2] !== 0xd2) continue;
+    // LDX #lo / STX $26 / LDX #hi / STX $27, or with STX absolute ($0026 / $0027: 87 programs' $E78E)
+    if (g[i - 8] === 0xa2 && g[i - 6] === 0x86 && g[i - 5] === 0x26 && g[i - 4] === 0xa2 && g[i - 2] === 0x86 && g[i - 1] === 0x27) {
       const e = g[i - 7] | (g[i - 3] << 8);
+      if (e >= 0xe700 && e < 0xeb00) calls.add(e);
+    } else if (i >= 10 && g[i - 10] === 0xa2 && g[i - 8] === 0x8e && g[i - 7] === 0x26 && g[i - 6] === 0 && g[i - 5] === 0xa2 && g[i - 3] === 0x8e && g[i - 2] === 0x27 && g[i - 1] === 0) {
+      const e = g[i - 9] | (g[i - 4] << 8);
       if (e >= 0xe700 && e < 0xeb00) calls.add(e);
     }
   }

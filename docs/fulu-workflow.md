@@ -39,11 +39,16 @@ BBK_GAMES=<folder of .gam> FMJ_DATA_DIR=<folder with HZK16, ASC16> BBK_FIRMWARE=
 
 ## A round
 
-1. **Scan and play** all 138 programs of the collection: the code scan
-   (`npx tsx scripts/bbk/fulu-coverage.mts <roms folder> <0E00.DAT> --programs`)
-   says what each program's code can call that Fulu lacks; the play test
-   (180 s of random keys on Fulu alone, a temporary test) says where each
-   stops in play.
+1. **Scan and play** all 138 programs of the collection: two code scans
+   say what each program's code can call that Fulu lacks: the byte search
+   (`npx tsx scripts/bbk/fulu-coverage.mts <roms folder> <0E00.DAT> --programs`),
+   and the code flow (`npx tsx scripts/bbk/fulu-flow.mts <roms folder>`,
+   which also says how much of each program's code it followed, what it
+   cannot follow, and any code it missed); the play test (180 s on Fulu
+   alone with **every key** a player can press but the four system keys,
+   Continue past each stop, each distinct stop recorded) says where each
+   stops in play. Random play with a few keys is not enough: Shift and
+   Exit stopped 8 programs that Enter, the arrows and space never did.
 2. **Write** what programs stop at: read the OS function
    (`node scripts/bbk/os-function.mjs <0E00.DAT> <entry>`, and
    `seg:addr,addr` for code behind a switch's table;

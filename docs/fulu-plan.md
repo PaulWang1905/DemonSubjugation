@@ -622,9 +622,10 @@ again.
   method through a box in the player; the mode changes, their icon and
   messages as the OS's; `$E929`, `$D7F1`. 132 play 180 s, 6 end on their
   own: every program.
-- **Next:** the four functions play has never reached (`$E706`, `$E7BE`,
-  `$E8D1`, `$E8E0`, about 1,450 instructions), as programs are seen to need
-  them. Meanwhile a program that meets one stops, and Continue goes on.
+- **Next:** §16. A check of all 138 with every key and a code-flow scan
+  found what random play with Enter, the arrows and space had missed: the
+  Shift key stops 7 programs, Exit stops 2 at `$E8E0`, and the serial
+  port's routines `$E90D` / `$E910` were not in the byte scan's list.
 - **Separately:** the OS's page allocation for new files (§16.2 of the
   report). Sound stays off (the owner's decision): `$EA52` / `$EA64` act
   as with the sound off, and the shadow runs leave out their calls made
@@ -634,3 +635,63 @@ again.
   the owner's decisions); the Fulu page's progress tab (`/fulu/progress`)
   shows it and
   `docs/fulu-games.md` is written from it. Update it with each round.
+
+## 16. F9: every program plays (plan)
+
+**Goal.** Every one of the 138 programs plays on Fulu as on the device,
+whatever the player presses and however far they get: no stop at
+something Fulu lacks, and checked by more than random play.
+
+**What is left** (the check of all 138: `fulu-coverage.mts`'s byte search,
+`fulu-flow.mts`'s code flow, every key played for 180 s, and two read-only
+reviews of the code; how a player reaches each call was traced, five sites
+on the firmware):
+
+| What the player does | Programs | Missing | Size |
+|---|---|---|---|
+| presses Shift (中英) | 平面魔方, 碰碰车, 对对碰, 搬运工, 滑雪, 宠物精灵, 电子宠物; 体闲麻将, 恶龙传说 in their Chinese input | GuiTranslateMsg's Shift (8:$67CC: the mode changes Fulu has; mode 0 returns 0), and the state the launcher leaves (input mode 2, `$2B28` = $0F, help word $FFFF) | ~60 |
+| presses Exit (跳出) | 华容道, 滑雪 | `$E8E0`: the status bar's number blanked | 138 |
+| types "bbk" on the pet screen (a cheat box); finishes the four rounds with a saved high-score list | 宠物精灵; 体闲麻将 | `$E706`: atol | 528 |
+| links two devices (和朋友联机; 长腿哥's sending) | 宠物精灵, 恶龙传说 | `$E8D1` (serial port open), resident `$E90D` / `$E910` (send, receive), the receive interrupt | ~170, and no device at the other end |
+| (no screen reaches it: the field takes a-d only) | 智多星 | `$E7BE`: a double-byte character drawn | 718 |
+
+Also different, without a stop: the year is 0 (the launcher leaves 2004:
+幸运花's calendar), the clock always starts at 12:00:29; sound off (the
+owner's decision; the device starts with it on).
+
+**Phase 1: what needs no new OS function.**
+1. The Shift key, as GuiTranslateMsg has it; compared with the firmware
+   on random modes, keyboard states and keys.
+2. The launcher's state: measure the RAM the firmware's launcher leaves at
+   a program's entry against Fulu's (about 490 bytes of `$2000`-`$2FFF`
+   differ), and take over what programs read: the keyboard state, the
+   help word, the date and time. Shadow-run all programs after.
+3. The every-key play test as a test of the round (all keys but the four
+   system ones, Continue past each stop, each distinct stop recorded), and
+   the code-flow scan in the round (`docs/fulu-workflow.md`).
+4. The progress data and the site say what is true: the programs above
+   stop where they do until it is written.
+
+**Phase 2: the missing functions** (the owner says when): `$E8E0`, then
+`$E706`; the link (the owner decides how: as the device with no cable
+plugged in, so each program shows its own "could not connect"; or more);
+`$E7BE` last, or not at all.
+
+**Phase 3: further than random play reaches.**
+1. Every program on the firmware with every key, logging every OS function
+   and resident routine it enters: what a program calls through a pointer
+   (93 far calls in 48 programs and 40 jump tables in 33 the scans cannot
+   follow) shows here, whether or not Fulu would stop.
+2. Longer runs (30 minutes each) on Fulu and on the firmware with the same
+   keys, compared (the shadow run) for the programs that changed.
+3. The owner's hand tests of the long RPGs, with a list of what to try
+   (saving, shops, battles, the endings).
+
+**Done when** both scans find nothing Fulu lacks, the every-key run and
+the firmware log find no stop, and the shadow runs match.
+
+**Who does what.** The lead writes and ships. Helper agents, each with its
+own brief: one per OS function (in its own worktree, with its firmware
+comparison); a read-only one for the launcher's state; one for the
+firmware log of all programs; the site updater and a fresh reviewer at the
+end of each phase (`docs/fulu-workflow.md`).
