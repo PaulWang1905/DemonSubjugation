@@ -182,6 +182,7 @@ its size in instructions (with the resident code it uses), what it does.
 | $E845, $E848, $E8D7 | | 6:$672B, $6730, $6735 | 39 | A ≠ 0: a status icon on (bit 0 of byte 18 of RAM row 20, 31, 41; the rows from a table at 6:$6D15) |
 | $E938 | | 8:$5D45 | 30 | $2B28 = the byte argument |
 | $E700 | (memset) | 4:$5000 | 102 | memset(p, c, n); leaves p + n and 0 in its arguments, A = $29 |
+| $E706 | (atol) | 4:$524D | 528 | atol(s): skips spaces and tabs only, an optional '-' or '+', then digits (signed chars '0'-'9') as result × 10 + digit in 32 bits, no overflow check; the long in the runtime's scratch at ($2A), $20 at it, A = X = Y = its top byte. Its constants 0 and 10 are in segment 4 at $73FA |
 | $E709 | | 4:$5456 | 734 | |
 | $E712 | | 4:$5EA4 | 157 | |
 | $E718 | | 4:$604F | 129 | |
@@ -502,8 +503,8 @@ files, and checked against the firmware:
   loads, in the six games (the 伏魔记 versions reach saving).
 
 Done since the first audit, each checked against the firmware on random
-arguments: SysRand; strcat $E712, strcmp $E718; itoa $E709 and ltoa $E70F
-(their constants read where the OS has them); SysPlayMelody $E8A1 and
+arguments: SysRand; strcat $E712, strcmp $E718; itoa $E709, ltoa $E70F
+and atol $E706 (their constants read where the OS has them); SysPlayMelody $E8A1 and
 SysStopMelody $E8A4 (Fulu plays no sound: what the melody takes from the
 OS's tune data, the notes' pointers and Y, is declared `fromRom`, and the
 comparison leaves it out; $EA52 / $EA64 act as with the sound off even when

@@ -554,6 +554,20 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       // bitmaps on screen rows, from $1000-$10FF: at most 96 rows of 32 bytes, clear of the OS's variables at $2000
       [0xe78e, () => [rand(96), x(), rand(96), rand(256), 0x10, rand(4) ? 0 : 1]],
       [0xe889, () => [rand(96), x(), rand(96), rand(256), 0x10, rand(256), 0x30 + rand(8), 0]],
+      // atol(s): s at $3000: spaces and tabs, a sign, digits (now and then a long run that overflows), junk after; or empty
+      [0xe706, () => {
+        const s: number[] = [];
+        const pick = (chars: string) => chars.charCodeAt(rand(chars.length));
+        if (rand(16)) {
+          for (let n = rand(4) ? rand(4) : rand(12); n > 0; n--) s.push(pick(" \t\t "));
+          if (rand(2)) s.push(pick(rand(8) ? "-+" : "-+ \t"));
+          for (let n = rand(4) ? rand(11) : 10 + rand(30); n > 0; n--) s.push(pick("0123456789"));
+          for (let n = rand(3) ? rand(4) : 0; n > 0; n--) s.push(rand(2) ? pick("x0-+ /:9\n") : 1 + rand(255));
+        }
+        m.ram.set([...s, 0], 0x3000);
+        m.ram.set([0xd7, 0x17], 0x2a); // the C runtime's scratch area
+        return [0x00, 0x30];
+      }],
     ];
     const failures: string[] = [];
     // (FULU_ONLY=E9AD,E7BB: only those)

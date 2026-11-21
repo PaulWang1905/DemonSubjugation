@@ -13,6 +13,7 @@ import { GuiMsgBox } from "./msgbox";
 import { SysRand } from "./rand";
 import { Itoa } from "./itoa";
 import { Ltoa } from "./ltoa";
+import { Atol } from "./atol";
 import { PrintLong } from "./printLong";
 import { CALENDAR } from "./calendar";
 import { HELP } from "./help";
@@ -48,6 +49,7 @@ export const FUNCTIONS: Record<number, OsFunction> = {
   0xe959: SysRand,
   0xe709: Itoa,
   0xe70f: Ltoa,
+  0xe706: Atol,
   0xe9ad: PrintLong,
   ...CALENDAR,
   ...HELP,
@@ -379,6 +381,7 @@ export const FUNCTIONS: Record<number, OsFunction> = {
 
 /** The SDK's names for the table's entries, where known. */
 export const NAMES: Record<number, string> = {
+  0xe706: "atol",
   0xe71e: "strlen",
   0xe78e: "SysPicture",
   0xe794: "SysLine",
