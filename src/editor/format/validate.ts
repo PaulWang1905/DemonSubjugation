@@ -52,9 +52,9 @@ const severity = (resType: number): Problem["level"] => ([5, 7, 8, 9, 10, 11, 12
 const num = (t: Tok | undefined): number | null => (t && t.kind === "num" ? t.v : null);
 
 /** Which resources an instruction's operands refer to: [operand index → resType, type (number or operand index)]. */
-type RefSpec = { arg: number; resType: number; type: number | { arg: number }; zeroOk?: boolean };
+export type RefSpec = { arg: number; resType: number; type: number | { arg: number }; zeroOk?: boolean };
 const R = (arg: number, resType: number, type: number | { arg: number }, zeroOk = true): RefSpec => ({ arg, resType, type, zeroOk });
-const SCRIPT_REFS: Record<string, RefSpec[]> = {
+export const SCRIPT_REFS: Record<string, RefSpec[]> = {
   loadmap: [R(1, 2, { arg: 0 }, false)],
   createactor: [R(0, 3, 1, false)],
   createnpc: [R(1, 3, 2, false)],
