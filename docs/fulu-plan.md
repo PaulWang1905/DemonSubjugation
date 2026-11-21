@@ -708,11 +708,16 @@ finds no stop in any.
 
 Status: 1 done (180 s each with every key: 102 API entries and 70
 resident routines entered in all, none that Fulu lacks now; the calls
-through pointers are covered as far as play reaches them); 2 in progress
-(the lead); 3 to come, with what to try in `docs/fulu-hand-tests.md`. The OS's own input method stays unwritten (the
-owner's decision: the computer's is used), and the shadow runs' remaining
-mismatches in 宠物精灵, 电子宠物 and 对对碰 are its bar's own memory only.
-Sound stays off.
+through pointers are covered as far as play reaches them); 2 done (the 12
+programs that changed, 30 minutes of each of the two key scripts: 华容道,
+滑雪, 体闲麻将, 智多星, 搬运工 and 幸运花 match the firmware throughout; in
+宠物精灵, 电子宠物, 对对碰, 碰碰车, 平面魔方 and 恶龙传说 what differs is the
+OS's own input bar (its memory and the screen it draws), once a program is
+in Chinese input, and the two known save-file details: 电子宠物's file id,
+and 宠物精灵's save named with a character typed through the input method);
+3 to come, with what to try in `docs/fulu-hand-tests.md`. The OS's own
+input method stays unwritten (the owner's decision: the computer's is
+used). Sound stays off.
 
 **Done when** both scans find nothing Fulu lacks, the every-key run and
 the firmware log find no stop, and the shadow runs match.
