@@ -13,7 +13,7 @@ Updated 2026-11-21.
 - **Compared with BBK's firmware** (the shadow run): 7 in full (their code traced, play, typing and saves compared), 34 for a minute of play.
 - **Tested by hand**: 2 reports (below).
 - **Problems**: 4 open, 10 decided or fixed.
-- **Code scan** (`scripts/bbk/fulu-coverage.mts --programs`): 138 programs call nothing Fulu lacks. The programs call 107 OS functions (Fulu answers 107) and 63 runtime routines (all answered); about 48,400 instructions of OS code are written and 0 left, not counting the OS's own input method (Fulu takes Chinese from the computer's own instead).
+- **Code scan** (`scripts/bbk/fulu-coverage.mts --programs`): 138 programs call nothing Fulu lacks. The programs call 106 OS functions (Fulu answers 106) and 76 runtime routines (all answered); about 48,400 instructions of OS code are written and 0 left, not counting the OS's own input method (Fulu takes Chinese from the computer's own instead).
 
 ## How it got here
 

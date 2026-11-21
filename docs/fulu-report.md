@@ -196,8 +196,9 @@ the running program. The trampoline then:
    saved segment back, sets X = A and N/Z from A, and returns to the
    caller.
 
-107 different API entries are used across the 138 programs. 52 of them
-cover 100 programs, and 70 cover 118.
+107 different API entries are used across the 138 programs (106 by the
+later scans, which count each table entry once). 52 of them cover 100
+programs, and 70 cover 118.
 
 ### 3.2 Resident routines
 
@@ -975,8 +976,8 @@ games draw as pictures (the title, the big 穿 / 戴) stays pixels.
 | Programs of the collection running 180 s of every key on Fulu without stopping | 138 of 138 (105 play the whole time, 33 end as on the device) |
 | Programs of the collection calling nothing Fulu lacks (both code scans) | 138 of 138 |
 | Programs the firmware log saw enter something Fulu lacks | 0 of 138 (102 API entries and 70 resident routines entered in all) |
-| API entries answered | 135: all 107 the collection calls, and 28 the OS calls itself |
-| Resident routines answered | 77: all 63 the collection calls, and 14 more that other routines and OS functions use |
+| API entries answered | 135: all 106 the collection calls, 17 only Fulu's own functions call, and 12 status-bar icon functions written with their set that nothing calls |
+| Resident routines answered | 77: all 75 the collection calls (and the far call $D2F6, Fulu's core), and 2 only Fulu's own functions use |
 | OS code those stand for | about 48,400 instructions of the firmware's (none left that a program calls, §16; the OS's own input method not written, §16.2) |
 | Interrupt handlers | keyboard, ST1, CT |
 | Shadow-run mismatches | 0 (seven games, every entry, play, typing and save scripts) |
@@ -1055,8 +1056,10 @@ Findings about the games:
 
 Fulu is not meant to translate the whole firmware. About half of it serves
 the device's own applications (the dictionaries, the organiser), which no
-game calls. What matters is what the collection's programs call: 107 API
-entries and 63 resident routines over 138 programs.
+game calls. What matters is what the collection's programs call: 106 API
+entries and 76 resident routines over 138 programs (the code-flow scan and
+the firmware log; the byte scan's hand-made list of resident routines had
+63, missing 13 the programs call).
 
 Four measures, which differ a lot:
 

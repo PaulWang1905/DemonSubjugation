@@ -17,6 +17,7 @@ import {
   remainingGames,
   type FuluGame,
   type ProblemStatus,
+  FULU_OTHERS,
 } from "./fuluGames";
 import { REPO_URL } from "./links";
 import { Link } from "./router";
@@ -72,7 +73,7 @@ const TEXT = {
       "A program that is not compared with the original OS yet can still play well: the comparison is how we know it plays exactly as on the device. The 86 programs made with BBK's RPG kit share one engine, so the six of them checked in full already exercise much of what the others run.",
     osText: [
       `Fulu does not copy the whole firmware. About half of it serves the dictionary's own applications (the dictionaries, the organiser), which no game calls. What counts is what the games call: across the 138 programs, ${COVERAGE.apiUsed} OS functions and ${COVERAGE.residentUsed} routines of the C runtime the games were compiled with.`,
-      `Fulu answers ${FULU_COUNTS.functions} OS functions and ${FULU_COUNTS.routines} runtime routines in all, some of them only for other OS functions.`,
+      `Fulu answers ${FULU_COUNTS.functions} OS functions in all: the ${COVERAGE.apiUsed} the programs call, ${FULU_OTHERS.forFulu} that only Fulu's own functions call (parts of the help screen and the calendar, for instance), and ${FULU_OTHERS.iconSet} status-bar icon functions written with the rest of their set, which nothing calls. And ${FULU_COUNTS.routines} runtime routines: the ${COVERAGE.residentUsed - 1} the programs call (the ${COVERAGE.residentUsed}th, the far call, is Fulu's core) and ${FULU_OTHERS.routinesForFulu} only its own functions use.`,
     ],
     meters: (apiDone: number) => [
       ["OS functions the programs call", apiDone, COVERAGE.apiUsed, `${apiDone} of ${COVERAGE.apiUsed}`],
@@ -206,7 +207,7 @@ const TEXT = {
       "尚未与原版系统对比的程序也可能运行良好：对比是为了确认它和在设备上完全一样。86 个用步步高 RPG 工具制作的程序共用同一个引擎，所以其中完整对比过的六款，已经覆盖了其他程序运行的大部分代码。",
     osText: [
       `符箓并不照搬整个固件。大约一半的固件是为词典自己的应用（词典、记事本等）服务的，游戏不会调用。重要的是游戏调用什么：138 个程序共调用 ${COVERAGE.apiUsed} 个系统函数，以及编译它们的 C 运行库中的 ${COVERAGE.residentUsed} 个例程。`,
-      `符箓一共实现了 ${FULU_COUNTS.functions} 个系统函数和 ${FULU_COUNTS.routines} 个运行库例程，其中一些只供其他系统函数使用。`,
+      `符箓一共实现了 ${FULU_COUNTS.functions} 个系统函数：程序调用的 ${COVERAGE.apiUsed} 个；只有符箓自己的函数调用的 ${FULU_OTHERS.forFulu} 个（例如帮助画面和日历的组成部分）；以及 ${FULU_OTHERS.iconSet} 个状态栏图标函数，随同整组一起实现，目前没有任何调用。运行库例程共 ${FULU_COUNTS.routines} 个：程序调用的 ${COVERAGE.residentUsed - 1} 个（第 ${COVERAGE.residentUsed} 个是远调用本身，属于符箓的核心），另有 ${FULU_OTHERS.routinesForFulu} 个只供符箓自己的函数使用。`,
     ],
     meters: (apiDone: number) => [
       ["程序调用的系统函数", apiDone, COVERAGE.apiUsed, `${COVERAGE.apiUsed} 个中的 ${apiDone} 个`],

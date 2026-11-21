@@ -378,7 +378,18 @@ export const FULU_COUNTS = { functions: 135, routines: 77 };
  * left (left: what the missing entries take with what they call; input
  * methods not measured).
  */
-export const COVERAGE = { apiUsed: 107, residentUsed: 63, written: 48400, left: 0 };
+export const COVERAGE = { apiUsed: 106, residentUsed: 76, written: 48400, left: 0 };
+
+/**
+ * What else Fulu answers (tests/fulu-games.test.ts checks the sums against
+ * src/fulu): OS functions only Fulu's own functions call (the help screen's
+ * $F262, $E8CB / $E8CE, the calendar's parts, $E96B...), the status bar's
+ * icon functions written with the rest of their set though nothing calls
+ * them ($E806, $E809, $E82D-$E842, $E84E), and runtime routines only Fulu's
+ * own functions use ($D90B, $D93F). Of the runtime routines the programs
+ * call, the far call itself ($D2F6) is Fulu's core, not a routine.
+ */
+export const FULU_OTHERS = { forFulu: 17, iconSet: 12, routinesForFulu: 2 };
 
 /**
  * The programs that played 180 s of random keys after each step (and those

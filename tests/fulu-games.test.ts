@@ -1,7 +1,7 @@
 // The games list (src/app/fuluGames.ts) and docs/fulu-games.md, written from it, agree.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { COVERAGE, FULU_COUNTS, GAMES, HAND_TESTS, MILESTONES, PROBLEMS, REMAINING } from "../src/app/fuluGames";
+import { COVERAGE, FULU_COUNTS, GAMES, HAND_TESTS, MILESTONES, PROBLEMS, REMAINING, FULU_OTHERS } from "../src/app/fuluGames";
 import { FUNCTIONS } from "../src/fulu/os";
 import { HELPERS } from "../src/fulu/runtime";
 import { fuluGamesMarkdown } from "../src/app/fuluGamesDoc";
@@ -23,6 +23,9 @@ describe("the games Fulu should run", () => {
   it("counts what Fulu answers as src/fulu has it (the site shows the counts)", () => {
     expect(Object.keys(FUNCTIONS).length).toBe(FULU_COUNTS.functions);
     expect(Object.keys(HELPERS).length).toBe(FULU_COUNTS.routines);
+    // what the page says they are: what the programs call, and the others (fuluGames.ts)
+    expect(FULU_COUNTS.functions).toBe(COVERAGE.apiUsed + FULU_OTHERS.forFulu + FULU_OTHERS.iconSet);
+    expect(FULU_COUNTS.routines).toBe(COVERAGE.residentUsed - 1 + FULU_OTHERS.routinesForFulu);
   });
 
   it("lists as left exactly what the programs stop at or their code calls", () => {
