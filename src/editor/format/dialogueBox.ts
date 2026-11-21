@@ -11,13 +11,16 @@
 // - `message` / `timemsg` (Util.showMessage): one box in the middle, as many
 //   lines as the text's length in 16-byte lines (at most 5), 15 letters a
 //   line; what does not fit is never shown.
-// - `choice`: a box in the middle with the two answers, the first selected.
+// - `choice`: the original's box (engine_item.c _0023ACA7, engine/fmj/script/
+//   choiceBox.ts): cleared y 28-70, framed 30-68, the answers at 32 and 50,
+//   the first answer's bar inverted (rows 32-48).
 // - `showgut`: text scrolling up between two pictures, 160 pixels a line.
 //
 // The line loop is the engine's drawTextFrom (TextRender.ts) at 16 pixels:
 // a glyph is drawn while x <= right - 16; Chinese characters are 16 pixels
 // wide, other bytes 8. Strings end with the NUL the assembler adds.
 import { gbkBytes } from "../../engine/java";
+import { CHOICE_MAX_BYTES, choiceBox, type PixelRect } from "../../engine/fmj/script/choiceBox";
 
 /** A glyph drawn on the screen. */
 export interface Glyph {
@@ -70,14 +73,20 @@ export interface MessageLayout {
 
 export interface ChoiceLayout {
   kind: "choice";
-  /** The box: x, y, width, height. */
+  /** The box: x, y, width, height (the cleared area, 28-70). */
   x: number;
   y: number;
   w: number;
   h: number;
+  /** Pixels cleared to white ([x, x2) × [y, y2)); null when the box reaches past the screen (the device then clears nothing). */
+  clear: PixelRect | null;
+  /** The frame's corners (inclusive); null when off the screen. */
+  frame: { x1: number; y1: number; x2: number; y2: number } | null;
+  /** The inverted bar over the first answer. */
+  bar: PixelRect | null;
   first: Glyph[];
   second: Glyph[];
-  /** Glyphs past the box's right edge (on the device they are drawn over the map). */
+  /** The answers are longer than the device shows (19 bytes), or the box reaches past the screen. */
   overflow: boolean;
 }
 
@@ -230,29 +239,26 @@ function drawText(b: Uint8Array, x0: number, y: number): Glyph[] {
   return out;
 }
 
-/** A `choice` box (ScriptVM cmd_choice): the shorter answer is padded to the longer one's length. */
+/** A `choice` box as the original draws it (ScriptVM cmd_choice, choiceBox.ts). */
 export function layoutChoice(first: string, second: string): ChoiceLayout {
-  let c1 = textBytes(first);
-  let c2 = textBytes(second);
-  const pad = (short: Uint8Array, len: number) => {
-    const tmp = new Uint8Array(len);
-    tmp.set(short);
-    for (let i = short.length - 1; i < len; i++) tmp[i] = 0x20;
-    tmp[len - 1] = 0;
-    return tmp;
+  const strip = (b: Uint8Array) => b.slice(0, b[b.length - 1] === 0 ? b.length - 1 : b.length);
+  const b1 = strip(textBytes(first));
+  const b2 = strip(textBytes(second));
+  const box = choiceBox(b1.length, b2.length);
+  const cut = (b: Uint8Array) => b.slice(0, CHOICE_MAX_BYTES);
+  return {
+    kind: "choice",
+    x: box.left,
+    y: 28,
+    w: box.right - box.left + 1,
+    h: 70 - 28 + 1,
+    clear: box.clear,
+    frame: box.frame,
+    bar: box.bar(0),
+    first: drawText(cut(b1), box.first.x, box.first.y),
+    second: drawText(cut(b2), box.second.x, box.second.y),
+    overflow: b1.length > CHOICE_MAX_BYTES || b2.length > CHOICE_MAX_BYTES || !box.clear,
   };
-  let w: number;
-  if (c1.length > c2.length) {
-    w = c1.length * 8 - 8 + 6;
-    c2 = pad(c2, c1.length);
-  } else {
-    w = c2.length * 8 - 8 + 6;
-    c1 = pad(c1, c2.length);
-  }
-  const h = 16 * 2 + 6;
-  const x = Math.trunc((160 - w) / 2);
-  const y = Math.trunc((96 - h) / 2);
-  return { kind: "choice", x, y, w, h, first: drawText(c1, x + 3, y + 3), second: drawText(c2, x + 3, y + 3 + 16), overflow: w > 160 };
 }
 
 /** `showgut` text (TextRender.drawTextInRect): rows of 160 pixels. */

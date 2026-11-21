@@ -114,16 +114,20 @@ export function renderBox(layout: BoxLayout, o: RenderOptions): Bitmap {
     }
     case "choice": {
       scene(bmp);
-      // Util.getFrameBitmap(w, 38)
-      const box = Bitmap.createBitmap(Math.max(1, layout.w), layout.h);
-      const c = new Canvas(box);
-      const p = new Paint();
-      p.color = B;
-      p.style = PaintStyle.STROKE;
-      c.drawColor(W);
-      c.drawRect(1, 1, layout.w - 2, layout.h - 2, p);
-      canvas.drawBitmap(box, layout.x, layout.y);
-      for (const g of layout.first) drawGlyph(bmp, o.fonts, g, 0, W, B); // the first answer is selected
+      // the original's box: cleared, framed, the first answer's bar inverted
+      const fill = (r: { x: number; y: number; x2: number; y2: number } | null, color: number) => {
+        if (!r) return;
+        for (let y = r.y; y < r.y2; y++) for (let x = r.x; x < r.x2; x++) if (x >= 0 && x < 160 && y >= 0 && y < 96) bmp.buffer[y * 160 + x] = color;
+      };
+      fill(layout.clear, W);
+      if (layout.frame) {
+        const p = new Paint();
+        p.color = B;
+        p.style = PaintStyle.STROKE;
+        canvas.drawRect(layout.frame.x1, layout.frame.y1, layout.frame.x2, layout.frame.y2, p);
+      }
+      fill(layout.bar, B);
+      for (const g of layout.first) drawGlyph(bmp, o.fonts, g, 0, layout.bar ? W : B, layout.bar ? B : W); // the first answer is picked
       for (const g of layout.second) drawGlyph(bmp, o.fonts, g);
       break;
     }

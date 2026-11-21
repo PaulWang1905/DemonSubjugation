@@ -1,7 +1,8 @@
 // Screens and pacing that follow the original engine (BA4988/fmj-engine):
 // the level-up screens after a battle (engine_reward.c _0022F05D and its
-// callers in engine_battle.c _0022C000) and scripted walking (MOVE,
-// engine_cmd_scene.c _0020C9C5 / engine_actor.c _0020CF6D).
+// callers in engine_battle.c _0022C000), scripted walking (MOVE,
+// engine_cmd_scene.c _0020C9C5 / engine_actor.c _0020CF6D) and CHOICE's box
+// (engine_item.c _0023ACA7).
 import { describe, expect, it } from "vitest";
 import { createEngine, Keys, type Engine } from "../src/engine";
 import { assemble } from "../src/editor/format/gut";
@@ -10,6 +11,7 @@ import { silentBell } from "../src/editor/template/silentBell";
 import { gainExperience } from "../src/engine/fmj/combat/OriginalRules";
 import { CombatSuccess, LearnMagicScreen, LevelupScreen, MessageBox, RewardScreens, TIMER_TICK_MS, type Layer } from "../src/engine/fmj/combat/ui/CombatSuccess";
 import { MOVE_TILE_MS } from "../src/engine/fmj/script/ScriptVM";
+import { choiceBox, lcdSpan } from "../src/engine/fmj/script/choiceBox";
 import type { Player } from "../src/engine/fmj/characters/Player";
 import { memorySaves } from "./helpers";
 
@@ -158,5 +160,54 @@ describe("scripted walking (MOVE) goes at the original's pace", () => {
     expect(times[0]).toBeGreaterThanOrEqual(MOVE_TILE_MS - 80);
     // the walking frame advances once a tile
     for (let i = 1; i < steps.length; i++) expect(steps[i]).toBe((steps[i - 1] + 1) % 4);
+  });
+});
+
+describe("CHOICE's box is the original's (_0023ACA7)", () => {
+  // the original's numbers, written out: width = longer answer × 8 + 6, left
+  // = (160 - width) / 2; SysLcdPartClear(left, 0x1C, right, 0x46);
+  // SysRect(left + 1, 0x1E, right - 1, 0x44); the answers at left + 3, 0x20
+  // and 0x32; SysLcdReverse(left + 3, i × 0x12 + 0x20, right - 3, + 0x10)
+  it("puts the box, the answers and the bar where the original does", () => {
+    const b = choiceBox(3, 2); // "Yes", "No"
+    expect([b.left, b.right]).toEqual([65, 95]);
+    expect(b.clear).toEqual({ x: 65, y: 28, x2: 96, y2: 71 });
+    expect(b.frame).toEqual({ x1: 66, y1: 30, x2: 94, y2: 68 });
+    expect([b.first, b.second]).toEqual([{ x: 68, y: 32 }, { x: 68, y: 50 }]);
+    expect(b.bar(0)).toEqual({ x: 68, y: 32, x2: 93, y2: 49 });
+    expect(b.bar(1)).toEqual({ x: 68, y: 50, x2: 93, y2: 67 });
+  });
+
+  it("covers the columns the device's byte loops cover", () => {
+    expect(lcdSpan(65, 95)).toEqual([65, 96]);
+    expect(lcdSpan(68, 92)).toEqual([68, 93]);
+    // a right edge that starts a byte is left out (SysLcdReverse / SysLcdPartClear)
+    expect(lcdSpan(4, 88)).toEqual([4, 88]);
+    expect(lcdSpan(3, 5)).toEqual([3, 6]);
+    // 19 letters: the box reaches the LCD's last column and is not cleared
+    expect(choiceBox(19, 4).clear).toBeNull();
+    expect(choiceBox(25, 4).left).toBe(choiceBox(19, 4).left);
+  });
+
+  it("draws it so in a game: white box, frame, the picked answer's bar, which moves", () => {
+    const e = start('  loadmap 1, 1, 2, 1\n  createactor 1, 4, 3\n  choice "Yes", "No", @no\n@no:\n  set 7, 1');
+    tick(e, 30);
+    const red = (x: number, y: number) => e.render()[(y * e.width + x) * 4];
+    const dark = (x: number, y: number) => red(x, y) < red(93, 40);
+    expect(e.game.mainScene.scriptProcess.running).toBe(true);
+    // the frame's corners and sides
+    for (const [x, y] of [[66, 30], [94, 30], [66, 68], [94, 68], [80, 30], [80, 68], [66, 49]]) expect(dark(x, y)).toBe(true);
+    // inside the clearing, outside the frame: white
+    expect(dark(65, 40)).toBe(false);
+    expect(dark(80, 29)).toBe(false);
+    // the bar over the first answer: rows 32-48, columns 68-92 (no letter at its right end)
+    expect(dark(92, 33)).toBe(true);
+    expect(dark(92, 48)).toBe(true);
+    expect(dark(93, 33)).toBe(false);
+    expect(dark(92, 51)).toBe(false);
+    press(e, Keys.DOWN, 2);
+    expect(dark(92, 33)).toBe(false);
+    expect(dark(92, 51)).toBe(true);
+    expect(dark(92, 66)).toBe(true);
   });
 });

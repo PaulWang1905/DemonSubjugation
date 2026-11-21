@@ -89,6 +89,7 @@ revive branch works on fallen members (the C file has that test inverted).
 | SETEVENTTIMER | Fires once after n map ticks (500 ms) | Repeated |
 | ACTORLAYERUP screens (`_0022F05D`) | "Name grew", the level-up panel, then each spell learnt, each for some timer ticks or a key (as after a battle, below) | The message and the panel together until a key; no spells shown |
 | MOVE (`_0020C9C5`, `_0020CF6D`) | A whole tile and one walking frame per step, then the map is redrawn, with no wait: the device's redraw sets the pace, measured at 150 ms a tile (伏魔记's opening, `move 1, 17, 3`, on the 4988 emulator at its 8 MHz); the first tile takes as long, and the script goes on as the last tile is shown | 100 ms a tile, the first at once, and 100 ms more after the last |
+| CHOICE's box (`_0023ACA7`) | Width = the longer answer × 8 + 6, centred; cleared y 28-70, framed 30-68, the answers at 32 and 50 (at most 19 bytes each), the picked one under a bar inverted across the box (rows y to y + 16), with the device's byte-wise clear/invert (a right edge on a byte boundary is left out; nothing is cleared when the box reaches the LCD's last column). The editor's preview draws the same box (`script/choiceBox.ts`) | y 29-66, the answers at 32 and 48, only the picked answer's letters inverted |
 | MENU (`_00210D5B`) | The original's list: from y = 10, at most five rows with scroll arrows, wraps round | Centred, every item at once (long menus ran off the screen), no wrap |
 
 ### After a battle
@@ -167,9 +168,6 @@ really deals the flag value, and an NPC walks until it reaches its target
   items; here there are two lists, each following the original's rules.
 - A status landing on "every enemy" from a thrown item rolls each enemy's
   luck; the original reads past the enemy table there.
-- **CHOICE's box** is drawn as fmj.kt draws it (y 29-66, the answers at 32 and 48, the
-  picked answer's letters inverted); the original clears y 28-70, frames 30-68, puts the
-  answers at 32 and 50 and inverts a bar across the box.
 - **SCREENS** moves only the view here, so the leader moves on the screen; on the device
   the leader keeps its screen place (its map tile changes). 伏魔记 never uses it.
 - Auto-walk (the device's space key, which keeps walking on each 500 ms

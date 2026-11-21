@@ -119,9 +119,11 @@ describe("dialogue boxes as the engine lays them out", () => {
 
   it("lays out a choice box as cmd_choice does", () => {
     const c = layoutChoice("Yes", "No");
-    expect(c).toMatchObject({ x: 65, y: 29, w: 30, h: 38 });
+    // the original's box (_0023ACA7): cleared 28-70, framed 30-68, answers at 32 and 50
+    expect(c).toMatchObject({ x: 65, y: 28, w: 31, h: 43, frame: { x1: 66, y1: 30, x2: 94, y2: 68 }, bar: { x: 68, y: 32, x2: 93, y2: 49 } });
     expect(c.first.map((g) => String.fromCharCode(g.code)).join("")).toBe("Yes");
-    expect(c.second[0]).toMatchObject({ x: 68, y: 48 });
+    expect(c.first[0]).toMatchObject({ x: 68, y: 32 });
+    expect(c.second[0]).toMatchObject({ x: 68, y: 50 });
   });
 
   it("wraps scrolling text at 160 pixels", () => {

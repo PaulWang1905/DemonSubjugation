@@ -39,6 +39,7 @@ import { OperateBuy } from "./OperateBuy";
 import { OperateSale } from "./OperateSale";
 import { ScriptProcess } from "./ScriptProcess";
 import { ScriptResources } from "./ScriptResources";
+import { CHOICE_MAX_BYTES, choiceBox } from "./choiceBox";
 
 /** How long a scripted MOVE takes a tile (the original's redraw, see cmd_move). */
 export const MOVE_TILE_MS = 150;
@@ -521,37 +522,26 @@ export class ScriptVM extends Control {
     };
 
     const cmd_choice: Instruct = (code, start) => {
-      let choice1 = str(code, start);
-      let choice2 = str(code, start + choice1.length);
+      const choice1 = str(code, start);
+      const choice2 = str(code, start + choice1.length);
       const addrOffset = choice1.length + choice2.length;
       const address = g2(code, start + addrOffset);
-      let w: number;
-      if (choice1.length > choice2.length) {
-        w = choice1.length * 8 - 8 + 6;
-        const tmp = new Int8Array(choice1.length);
-        tmp.set(choice2);
-        for (let i = choice2.length - 1; i < tmp.length; i++) tmp[i] = 0x20;
-        tmp[tmp.length - 1] = 0;
-        choice2 = tmp;
-      } else {
-        w = choice2.length * 8 - 8 + 6;
-        const tmp = new Int8Array(choice2.length);
-        tmp.set(choice1);
-        for (let i = choice1.length - 1; i < tmp.length; i++) tmp[i] = 0x20;
-        tmp[tmp.length - 1] = 0;
-        choice1 = tmp;
-      }
-      const c1 = choice1;
-      const c2 = choice2;
-      // Built lazily: Util needs DAT.LIB, which is fine at decode time, but
-      // keeping it lazy also lets scripts be compiled without drawing.
-      let bg: ReturnType<typeof Util.getFrameBitmap> | null = null;
+      // the original (_0023ACA7) shows at most 19 bytes of each answer
+      const shown = (c: Int8Array) => c.slice(0, Math.min(c.length - 1, CHOICE_MAX_BYTES));
+      const c1 = shown(choice1);
+      const c2 = shown(choice2);
+      const box = choiceBox(c1.length, c2.length);
+      const white = new Paint();
+      white.color = Global.COLOR_WHITE;
+      white.style = PaintStyle.FILL;
+      const black = new Paint();
+      black.color = Global.COLOR_BLACK;
+      black.style = PaintStyle.FILL;
+      const frame = new Paint();
+      frame.color = Global.COLOR_BLACK;
+      frame.style = PaintStyle.STROKE;
 
       return makeCommand(addrOffset + 2, () => {
-        if (!bg) bg = Util.getFrameBitmap(w, 16 * 2 + 6);
-        const b = bg;
-        const bgx = Math.trunc((160 - b.width) / 2);
-        const bgy = Math.trunc((96 - b.height) / 2);
         let curChoice = 0;
         let hasSelect = false;
         let mLastDownKey = -1;
@@ -574,14 +564,20 @@ export class ScriptVM extends Control {
           },
           draw(canvas: Canvas) {
             drawScene(canvas);
-            canvas.drawBitmap(b, bgx, bgy);
-            if (curChoice === 0) {
-              TextRender.drawSelText(canvas, c1, bgx + 3, bgy + 3);
-              TextRender.drawText(canvas, c2, bgx + 3, bgy + 3 + 16);
-            } else {
-              TextRender.drawText(canvas, c1, bgx + 3, bgy + 3);
-              TextRender.drawSelText(canvas, c2, bgx + 3, bgy + 3 + 16);
-            }
+            // the box (cleared 28-70, framed 30-68), the answers at 32 and
+            // 50, and the picked one's bar inverted (rows y to y + 16)
+            const r = box.clear;
+            if (r) canvas.drawRect(r.x, r.y, r.x2, r.y2, white);
+            const f = box.frame;
+            if (f) canvas.drawRect(f.x1, f.y1, f.x2, f.y2, frame);
+            const bar = box.bar(curChoice);
+            if (bar) canvas.drawRect(bar.x, bar.y, bar.x2, bar.y2, black);
+            const text = (i: number, t: Int8Array, at: { x: number; y: number }) => {
+              if (i === curChoice && bar) TextRender.drawSelText(canvas, t, at.x, at.y);
+              else TextRender.drawText(canvas, t, at.x, at.y);
+            };
+            text(0, c1, box.first);
+            text(1, c2, box.second);
           },
         };
       });

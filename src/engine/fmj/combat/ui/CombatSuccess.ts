@@ -30,6 +30,7 @@ import type { ResImage } from "../../lib/ResImage";
 import type { GameNode } from "../../views/BaseScreen";
 import { type Canvas, Paint, PaintStyle } from "../../../graphics";
 import { gbkBytes } from "../../../java";
+import { lcdSpan, onLcd } from "../../script/choiceBox";
 
 /** Something drawn on the screen (a box or a panel). */
 export interface Layer {
@@ -49,12 +50,11 @@ const black = new Paint();
 black.color = Global.COLOR_BLACK;
 black.style = PaintStyle.STROKE;
 
-/** The device's drawing calls do nothing when a corner is off the LCD (SysPicture, SysRect, SysLcdPartClear). */
-const onLcd = (x1: number, y1: number, x2: number, y2: number) => x1 < 159 && x2 < 159 && y1 < 96 && y2 < 96 && x1 >= 0 && y1 >= 0;
-
-/** SysLcdPartClear: white from x1, y1 to x2, y2 (inclusive). */
+/** SysLcdPartClear: white from x1, y1 to x2, y2 (the columns its byte loop covers). */
 function clear(canvas: Canvas, x1: number, y1: number, x2: number, y2: number): void {
-  if (onLcd(x1, y1, x2, y2)) canvas.drawRect(x1, y1, x2 + 1, y2 + 1, white);
+  if (!onLcd(x1, y1, x2, y2)) return;
+  const [x, xe] = lcdSpan(x1, x2);
+  if (xe > x) canvas.drawRect(x, y1, xe, y2 + 1, white);
 }
 
 /** A picture's frame drawn with SysPicture (nothing when it does not fit on the LCD). */
