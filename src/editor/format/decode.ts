@@ -182,6 +182,7 @@ export function subTypeName(resType: number, type: number): string {
       `type ${type}`
     );
   if (resType === 8) return ["", "Party walk", "NPC walk", "Monster battle", "Object"][type] ?? `type ${type}`;
+  if (resType === 9 && type >= 1 && type <= 14) return `${subTypeName(6, type)} icon`;
   if (resType === 11)
     return ["", "Portraits", "System UI", "Party battle", "Battle backgrounds", "Story pictures"][type] ?? `type ${type}`;
   if (resType === 12) return ["", "Spell lists", "Level tables"][type] ?? `type ${type}`;

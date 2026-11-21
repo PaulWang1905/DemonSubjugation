@@ -38,6 +38,9 @@ import { fieldsFor } from "../format/schema";
 import type { Problem } from "../format/validate";
 import type { ProjectNotes } from "../format/notes";
 import { AnimationEditor } from "./AnimationEditor";
+import { hasCard } from "./cardModel";
+import { CardView } from "./CardView";
+import { GalleryView } from "./GalleryView";
 import { FieldForm } from "./FieldForm";
 import { MapEditor } from "./MapEditor";
 import { PixelEditor } from "./PixelEditor";
@@ -207,7 +210,9 @@ function BytesView({ entry }: ViewProps) {
 
 registerView({ id: "script.text", label: "Text", title: "The script as text", order: 50, match: (e) => e.resType === 1, component: ScriptTextView });
 registerView({ id: "map.tiles", label: "Tiles", title: "Paint tiles, walkable cells and map events", order: 50, match: (e) => e.resType === 2, component: MapTilesView });
-registerView({ id: "form", label: "Form", title: "Every field", order: 50, match: (e) => (e.resType === 3 || e.resType === 4 || e.resType === 6) && !!fieldsFor(e.resType, e.type), component: FormView });
+registerView({ id: "record.card", label: "Card", title: "The record as a card: picture, key numbers, pickers, where it is used", order: 10, match: hasCard, component: CardView });
+registerView({ id: "record.gallery", label: "Compare", title: "Every record of its kind side by side, sorted by a number", order: 20, match: hasCard, component: GalleryView });
+registerView({ id: "form", label: "Fields", title: "Every field, as stored", order: 50, match: (e) => (e.resType === 3 || e.resType === 4 || e.resType === 6) && !!fieldsFor(e.resType, e.type), component: FormView });
 registerView({ id: "animation", label: "Animation", order: 50, match: (e) => e.resType === 5, component: AnimationView });
 registerView({ id: "pixels", label: "Pixels", title: "Draw the frames", order: 50, match: (e) => e.resType >= 7 && e.resType <= 11, component: PixelView });
 registerView({ id: "table", label: "Table", order: 50, match: (e) => e.resType === 12 && (e.type === 1 || e.type === 2), component: TableView });

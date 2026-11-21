@@ -18,6 +18,8 @@ import { ResourceView } from "./ResourceView";
 import { ExportDialog } from "./ExportDialog";
 import { findLib, isGam } from "../../bbk/gam";
 import { CREATE_OPTIONS, createResource, nextIndex, withGutIndex, withIndex } from "./create";
+import { planRenumber, type RenumberPlan } from "./cardModel";
+import type { RenumberPreview } from "./RenumberControl";
 import { emptyNotes, normalizeNotes, type ProjectNotes } from "./notes";
 import { Palette, type PaletteCommand } from "./Palette";
 import { ProjectHome } from "./ProjectHome";
@@ -398,23 +400,37 @@ export function Editor({ onPlaytest }: Props) {
     }
   };
 
-  /** Give a resource another number. References are not changed. */
+  /** What renumbering a resource will change (every reference follows it); throws when it cannot. */
+  const previewRenumber = (e: LibEntry, index: number): RenumberPreview => {
+    if (!cur) throw new Error("No project is open.");
+    const p = planRenumber(cur.archive, cur.sources, drafts.current, e, index, cur.notes);
+    return { summary: p.summary, details: p.details, warnings: p.warnings };
+  };
+
+  /** Give a resource another number, updating every reference to it (world.ts renumberResource). */
   const renumber = (e: LibEntry, index: number): string | null => {
-    if (!cur) return null;
-    if (!Number.isInteger(index) || index < 1 || index > 255) return "Numbers are 1-255.";
-    if (index === e.index) return null;
-    if (findEntry(cur.archive, e.resType, e.type, index)) return `${e.type}-${index} is already used.`;
-    removeEntry(cur.archive, e.resType, e.type, e.index);
-    putEntry(cur.archive, { ...e, index, data: withIndex(e.data, index) });
-    const from = keyOf(e);
-    const to = keyOf({ ...e, index });
-    const { [from]: src, ...rest } = cur.sources;
-    const next = { ...cur, sources: src !== undefined ? { ...rest, [to]: withGutIndex(src, index) } : rest };
-    if (drafts.current[from] !== undefined) setDraft(to, withGutIndex(drafts.current[from], index));
-    setDraft(from, null);
+    if (!cur || index === e.index) return null;
+    let p: RenumberPlan;
+    try {
+      p = planRenumber(cur.archive, cur.sources, drafts.current, e, index, cur.notes);
+    } catch (err) {
+      return (err as Error).message;
+    }
+    // unapplied text that assembled is now stored; text that does not follows its script
+    for (const k of p.merged) setDraft(k, null);
+    for (const [from, to] of p.moved) {
+      if (drafts.current[from] === undefined) continue;
+      setDraft(to, withGutIndex(drafts.current[from], index));
+      setDraft(from, null);
+    }
+    const next = { ...cur, archive: p.result.archive, sources: p.result.sources, notes: p.result.notes ?? cur.notes };
     setCur(next);
-    setWs((s) => renameTab(s, from, to));
-    setRecents((r) => r.map((x) => (x === `res:${from}` ? `res:${to}` : x)));
+    for (const [from, to] of p.moved) {
+      setWs((s) => renameTab(s, from, to));
+      setRecents((r) => r.map((x) => (x === `res:${from}` ? `res:${to}` : x)));
+    }
+    // (the updated resources' open views show the new references)
+    setRevs((m) => Object.fromEntries([...Object.entries(m), ...p.updated.map((k) => [k, (m[k] ?? 0) + 1] as const)]));
     persist(next);
     setVersion((v) => v + 1);
     return null;
@@ -748,7 +764,7 @@ export function Editor({ onPlaytest }: Props) {
                       onMode={(mode) => setWs((s) => setTabMode(s, t.key, mode))}
                       onChange={cb.change}
                       services={servicesFor(t.key)}
-                      actions={{ duplicate: () => duplicate(entry), renumber: (n) => renumber(entry, n), remove: () => remove(entry) }}
+                      actions={{ duplicate: () => duplicate(entry), renumber: (n) => renumber(entry, n), previewRenumber: (n) => previewRenumber(entry, n), remove: () => remove(entry) }}
                     />
                   );
                 }}

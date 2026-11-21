@@ -1,9 +1,10 @@
 // One resource in a tab: its header (kind, number, name, the switch between
 // its views, number / duplicate / delete) and the view picked from the
 // registry (views.tsx).
-import { Component, useState, type ReactNode } from "react";
+import { Component, type ReactNode } from "react";
 import { subTypeName } from "../format/decode";
 import type { LibArchive, LibEntry } from "../format/lib";
+import { useRenumber, type RenumberActions } from "./RenumberControl";
 import { pickView, viewsFor, type EditorServices } from "./views";
 import { entryTitle, kindLabel } from "./workspace";
 
@@ -15,10 +16,8 @@ interface Props {
   onMode: (mode: string) => void;
   onChange: (data: Uint8Array, source?: string) => void;
   services: EditorServices;
-  actions?: {
+  actions?: RenumberActions & {
     duplicate: () => void;
-    /** Returns an error message, or null when done. */
-    renumber: (index: number) => string | null;
     remove: () => void;
   };
 }
@@ -35,11 +34,11 @@ class Guard extends Component<{ children: ReactNode }, { error: Error | null }> 
 }
 
 export function ResourceView({ archive, entry, mode, onMode, onChange, services, actions }: Props) {
-  const [numError, setNumError] = useState<string | null>(null);
   const views = viewsFor(entry);
   const view = pickView(entry, mode);
   const name = entryTitle(entry);
   const kind = kindLabel(entry);
+  const renumber = useRenumber(entry, actions, kind);
   const idBase = `view-${services.key}`;
   const View = view?.component;
   return (
@@ -83,22 +82,7 @@ export function ResourceView({ archive, entry, mode, onMode, onChange, services,
         )}
         {actions && (
           <div className="res-actions">
-            <label className="field" title="Other resources refer to this one by number; they are not updated">
-              No.
-              <input
-                type="number"
-                min={1}
-                max={255}
-                defaultValue={entry.index}
-                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                onBlur={(e) => {
-                  const err = actions.renumber(Number(e.target.value));
-                  setNumError(err);
-                  if (err) e.target.value = String(entry.index);
-                }}
-                aria-label="Resource number"
-              />
-            </label>
+            {renumber.input}
             <button className="ghost" onClick={actions.duplicate}>
               Duplicate
             </button>
@@ -108,7 +92,7 @@ export function ResourceView({ archive, entry, mode, onMode, onChange, services,
           </div>
         )}
       </header>
-      {numError && <p className="error small">{numError}</p>}
+      {renumber.panel}
       <div id={`${idBase}-body`} role={views.length > 1 ? "tabpanel" : undefined} aria-labelledby={views.length > 1 && view ? `${idBase}-${view.id}` : undefined}>
         <Guard key={view?.id}>{View ? <View archive={archive} entry={entry} onChange={onChange} services={services} /> : <p className="muted">No view for this resource.</p>}</Guard>
       </div>
