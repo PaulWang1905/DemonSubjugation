@@ -138,3 +138,29 @@ shrink evenly; art is listed by the author's names or by what uses it
 ("Tam (walk)", "Dusk Moth (battle)", `format/naming.ts`); and the
 author-facing views, wizards, help and project check no longer show script
 syntax (instruction names, `@labels`, `.event`).
+
+A second new-author test made a bigger game ("Harbor Tale": three maps, a
+shop and an inn, a companion who joins, a walking scene, a cave with
+monsters, a boss, saving, export) with the visual tools only, and its 18
+findings are fixed:
+
+- The engine, checked against the original first (see
+  `docs/original-engine-alignment.md`): the reward and level-up screens
+  wipe and wait as on the device; scripted walking at the device's pace;
+  the choice box drawn with the original's numbers. Where the original
+  behaves like ours, the editor changed instead: questions get answers that
+  say what they do (the question's box has closed when the player picks),
+  and the check warns when someone walks behind the text box before talking.
+- Wizards and cards: a companion who joins (party member and person linked,
+  a named flag, the map keeps them off afterwards); a new party member gets
+  their own portrait, battle sprite, walk sprite and level table to edit;
+  a spell card says who learns it and adds it to a member's list; an inn
+  that restores everyone in the party; random battles with how common each
+  monster is, a fitting background and difficulty; the shop wizard keeps an
+  existing greeting; a chest reads "If opened: … / Otherwise: …"; "+ Add
+  step" stays in the selected branch.
+- The rest: the title picture follows the name; map labels never overlap;
+  the guide counts what already exists and remembers being folded; "?"
+  marks explained; "no darkness in this engine" where an author looks;
+  "Delete frame" vs "Delete sprite…"; export says what was saved; the
+  sidebar "+" is a menu of buttons.

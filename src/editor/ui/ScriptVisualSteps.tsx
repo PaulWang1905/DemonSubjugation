@@ -446,7 +446,7 @@ function Block({ node, api }: { node: Extract<OutlineNode, { kind: "block" }>; a
           <div key={a.key + (a.label ?? "")} className={`sv-arm${a.key === "otherwise" ? " sv-otherwise-arm" : ""}`} role="group" aria-label={armTitle(node.block, a)}>
             <div className="sv-arm-head">
               <span>{armTitle(node.block, a)}</span>
-              {a.label && a.nodes && !a.skip && !(node.block === "ifThen" && joined) && <span className="muted small">◆ {a.label}</span>}
+              {a.label && a.nodes && !a.skip && !(node.block === "ifThen" && joined) && !api.joins?.has(a.label) && <span className="muted small">◆ {a.label}</span>}
             </div>
             {a.skip ? (
               joined ? (

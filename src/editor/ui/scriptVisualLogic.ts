@@ -248,7 +248,11 @@ export function joinLabels(nodes: OutlineNode[], refs: ReadonlyMap<string, numbe
   for (const n of nodes) {
     if (n.kind !== "block") continue;
     if (n.joinLabel && (refs.get(n.joinLabel) ?? 0) === 1) out.add(n.joinLabel);
-    for (const a of n.arms) if (a.nodes) joinLabels(a.nodes, refs, out);
+    for (const a of n.arms) {
+      // (a branch's own label, jumped to by this block alone: the arm's title says it in words)
+      if (a.label && a.nodes && (refs.get(a.label) ?? 0) === 1) out.add(a.label);
+      if (a.nodes) joinLabels(a.nodes, refs, out);
+    }
   }
   return out;
 }

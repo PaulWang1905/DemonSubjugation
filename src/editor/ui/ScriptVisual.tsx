@@ -468,7 +468,12 @@ export function ScriptVisual({ archive, entry, onChange, services }: ViewProps) 
       if (commit(next, id)) focusCard(id);
     },
     listEnd,
-    joins: joinLabels(nodes, refs),
+    // (labels said in words, so not shown: joins, branches' own labels, and the event's own label when only the event table points to it)
+    joins: (() => {
+      const j = joinLabels(nodes, refs);
+      if (group?.label && !refs.get(group.label)) j.add(group.label);
+      return j;
+    })(),
     live,
   };
 
