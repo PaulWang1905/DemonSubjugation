@@ -632,7 +632,7 @@ export function Editor({ onPlaytest }: Props) {
           id: w.what,
           label: `New ${w.label.charAt(0).toLowerCase()}${w.label.slice(1)}`,
           detail: w.blurb,
-          keywords: `new add create make wizard ${w.kind} ${w.label} ${w.kind === "battle" ? "fight enemy random encounter" : w.kind === "shop" ? "buy sell store" : w.kind === "person" ? "npc character villager" : "room place area"}`,
+          keywords: `new add create make wizard ${w.kind} ${w.label} ${w.keywords}`,
           run: () => openWizard(w.kind),
         })),
         { id: "flags", label: "Story flags and variables", detail: "name them", keywords: "flag variable names notes events switches", run: showFlags },

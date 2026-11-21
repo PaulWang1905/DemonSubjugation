@@ -1,10 +1,11 @@
 // Wizards for the things authors make most: a map (joined to another by an
-// exit), a person who talks, a shop, a monster and a battle. Each is a small
+// exit), a person who talks, a shop, a monster and a battle, a companion who
+// joins the party and an inn (WizardsParty.tsx). Each is a small
 // dialog that asks only what matters, makes the change through the model
 // (format/wizards.ts) and hands it to the editor, which stores it and opens
 // the result. Opened from the project home's quick actions, the sidebar's
 // "+" menus ("wizard:person"…) and the command palette (">new person").
-import { useMemo, useRef, useEffect, useState } from "react";
+import { useContext, useMemo, useRef, useEffect, useState } from "react";
 import { decodeMap } from "../format/decode";
 import { findEntry, type LibArchive } from "../format/lib";
 import type { ProjectNotes } from "../format/notes";
@@ -13,7 +14,12 @@ import { freeFlag, sayText, type Texts } from "../format/worldEdit";
 import {
   addBattle,
   addShop,
+  backgroundFor,
   buyPrice,
+  mapBattles,
+  saysFirst,
+  shopValueHints,
+  slotWeights,
   MAP_SIZES,
   MIN_MAP,
   newMap,
@@ -26,10 +32,14 @@ import {
   type Side,
   type WizardResult,
 } from "../format/wizards";
+import { Buttons, firstMap, PersonSelect, toValue, usePeople, type Part, type Run, type WizardInit } from "./wizardParts";
+import { CompanionWizard, InnWizard } from "./WizardsParty";
+import { notePlaced } from "./intents";
 import { DialoguePreview } from "./DialoguePreview";
 import { atLevel, estimateFight, fightWords, maxLevel, monsterStatsOf, scaledMonster, startingParty, TEMPLATE_AIMS, type FightEstimate, type Fighter, type MonsterStats, type TemplateId } from "../format/difficulty";
 import { FrameCanvas } from "./FrameStrip";
 import { ResourcePicker, entryLabel, type ResValue } from "./ResourcePicker";
+import { LabelsContext } from "./names";
 import { Thumb } from "./Thumb";
 import { MiniMap } from "./WorldMap";
 import { framesOf } from "./worldArt";
@@ -37,25 +47,18 @@ import type { WorldIntent } from "./intents";
 import "./starter.css";
 import "./leftovers.css";
 
-export type WizardKind = "map" | "person" | "shop" | "battle";
+export type WizardKind = "map" | "person" | "shop" | "battle" | "companion" | "inn";
+export type { WizardInit } from "./wizardParts";
 
-/** The wizards, for menus: `what` is "wizard:<kind>" (as the editor's create takes it). */
-export const WIZARDS: { kind: WizardKind; what: string; label: string; group: "story" | "world" | "characters"; blurb: string }[] = [
-  { kind: "map", what: "wizard:map", label: "Map…", group: "world", blurb: "a new place, joined to another by an exit" },
-  { kind: "person", what: "wizard:person", label: "Person who talks…", group: "characters", blurb: "someone on a map with a line" },
-  { kind: "shop", what: "wizard:shop", label: "Shop…", group: "story", blurb: "a person who sells items" },
-  { kind: "battle", what: "wizard:battle", label: "Monster or battle…", group: "characters", blurb: "random battles on a map, or a fight with someone" },
+/** The wizards, for menus: `what` is "wizard:<kind>" (as the editor's create takes it); `keywords` for the command palette. */
+export const WIZARDS: { kind: WizardKind; what: string; label: string; group: "story" | "world" | "characters"; blurb: string; keywords: string }[] = [
+  { kind: "map", what: "wizard:map", label: "Map…", group: "world", blurb: "a new place, joined to another by an exit", keywords: "room place area" },
+  { kind: "person", what: "wizard:person", label: "Person who talks…", group: "characters", blurb: "someone on a map with a line", keywords: "npc character villager" },
+  { kind: "companion", what: "wizard:companion", label: "Companion who joins…", group: "characters", blurb: "a party member who waits on a map and joins when talked to", keywords: "party member join ally follower recruit hero character" },
+  { kind: "shop", what: "wizard:shop", label: "Shop…", group: "story", blurb: "a person who sells items", keywords: "buy sell store merchant" },
+  { kind: "inn", what: "wizard:inn", label: "Inn…", group: "story", blurb: "a person who lets the party rest for gold", keywords: "rest sleep heal restore hp mp hotel innkeeper" },
+  { kind: "battle", what: "wizard:battle", label: "Monster or battle…", group: "characters", blurb: "random battles on a map, or a fight with someone", keywords: "fight enemy random encounter" },
 ];
-
-/** Where a wizard starts (the map shown, the side to join, who is selected). */
-export interface WizardInit {
-  map?: string;
-  /** The person selected in the World view ("script#id"): the shop keeper, the one to fight. */
-  person?: string;
-  side?: Side;
-  /** Tick "join it to" (New map). */
-  join?: boolean;
-}
 
 interface Props {
   kind: WizardKind;
@@ -71,24 +74,6 @@ interface Props {
 
 const SIDES: Side[] = ["east", "west", "north", "south"];
 
-/** The map a new game starts on, else the first. */
-function firstMap(archive: LibArchive, texts: Texts): string | undefined {
-  try {
-    const w = projectWorld({ archive, texts });
-    if (w.start) return w.start.map;
-  } catch {
-    /* fall back */
-  }
-  const e = archive.entries.find((x) => x.resType === 2);
-  return e ? `2-${e.type}-${e.index}` : undefined;
-}
-
-const toValue = (key: string | undefined): ResValue | null => {
-  if (!key) return null;
-  const [, type, index] = key.split("-").map(Number);
-  return { type, index };
-};
-
 export function WizardDialog({ kind, init, archive, texts, notes, onApply, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,16 +85,20 @@ export function WizardDialog({ kind, init, archive, texts, notes, onApply, onClo
     try {
       const r = make();
       onApply(r, r.arm);
+      // (the next wizard, a shop or a battle, starts with the one just placed)
+      if (r.placed) notePlaced(r.placed.map, { script: r.placed.script, id: r.placed.id });
       onClose();
     } catch (e) {
       setError((e as Error).message.replace(/^./, (c) => c.toUpperCase()));
     }
   };
-  const title = { map: "New map", person: "New person", shop: "New shop", battle: "New monster or battle" }[kind];
+  const title = { map: "New map", person: "New person", shop: "New shop", battle: "New monster or battle", companion: "New companion who joins", inn: "New inn" }[kind];
   const body =
     kind === "map" ? <MapWizard archive={archive} texts={texts} init={init} run={run} project={project} />
     : kind === "person" ? <PersonWizard archive={archive} texts={texts} init={init} run={run} project={project} />
     : kind === "shop" ? <ShopWizard archive={archive} texts={texts} init={init} run={run} project={project} />
+    : kind === "companion" ? <CompanionWizard archive={archive} texts={texts} init={init} run={run} project={project} />
+    : kind === "inn" ? <InnWizard archive={archive} texts={texts} init={init} run={run} project={project} />
     : <BattleWizard archive={archive} texts={texts} init={init} notes={notes} run={run} project={project} />;
   return (
     <dialog ref={dialog} className="export-dialog wz" onClose={onClose} onCancel={onClose} aria-labelledby="wz-title">
@@ -123,28 +112,6 @@ export function WizardDialog({ kind, init, archive, texts, notes, onApply, onClo
         )}
       </div>
     </dialog>
-  );
-}
-
-type Run = (make: () => WizardResult & { arm?: { map: string; intent: WorldIntent } }) => void;
-interface Part {
-  archive: LibArchive;
-  texts: Texts;
-  init?: WizardInit;
-  run: Run;
-  project: { archive: LibArchive; texts: Texts };
-}
-
-function Buttons({ ok, label, disabled }: { ok: () => void; label: string; disabled?: boolean }) {
-  return (
-    <div className="row wz-buttons">
-      <button type="button" onClick={ok} disabled={disabled}>
-        {label}
-      </button>
-      <button type="button" className="ghost" onClick={(e) => (e.currentTarget.closest("dialog") as HTMLDialogElement | null)?.close()}>
-        Cancel
-      </button>
-    </div>
   );
 }
 
@@ -375,7 +342,7 @@ function PersonWizard({ archive, texts, init, run, project }: Part) {
           run(() => {
             const who = mode === "new" ? { sprite: sprite! } : { npc: npc!.index };
             const r = newPerson(project, { who, name: shownName, map: mapKey!, tile, line, walks });
-            return tile ? r : { ...r, arm: { map: mapKey!, intent: { tool: "person", npc: r.npc, say: line } } };
+            return tile ? { ...r, placed: r.placed } : { ...r, arm: { map: mapKey!, intent: { tool: "person", npc: r.npc, say: line } } };
           })
         }
       />
@@ -385,42 +352,6 @@ function PersonWizard({ archive, texts, init, run, project }: Part) {
 
 // --- a shop -------------------------------------------------------------------------------------
 
-/** People the scripts place, for the shop and battle wizards: those on `first` (the map in view) first. */
-function usePeople(project: { archive: LibArchive; texts: Texts }, first?: string) {
-  return useMemo(() => {
-    try {
-      const w = projectWorld(project);
-      const all = w.placements
-        .filter((p) => p.kind === "person")
-        .map((p) => ({ key: `${p.script}#${p.id}`, script: p.script, id: p.id, name: p.name || `Person #${p.id}`, map: p.map ? (w.maps.get(p.map)?.name ?? p.map) : "no map", map_key: p.map }))
-        .filter((p, i, all) => all.findIndex((q) => q.key === p.key) === i);
-      return first ? [...all.filter((p) => p.map_key === first), ...all.filter((p) => p.map_key !== first)] : all;
-    } catch {
-      return [];
-    }
-  }, [project.archive, project.texts, first]); // eslint-disable-line react-hooks/exhaustive-deps
-}
-
-/** Who: nobody chosen at first unless someone is selected on the map (then the wizard asks). */
-function PersonSelect({ people, value, onChange }: { people: ReturnType<typeof usePeople>; value: string; onChange: (v: string) => void }) {
-  if (!people.length) return <p className="wz-note small">Nobody is placed on a map yet: make a person first (New person).</p>;
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="Person" aria-invalid={!value} className={value ? "" : "wz-ask"}>
-      {!value && (
-        <option value="" disabled>
-          Choose who…
-        </option>
-      )}
-      {people.map((p) => (
-        <option key={p.key} value={p.key}>
-          {p.name} — on {p.map}
-          {people.some((q) => q !== p && q.name === p.name && q.map === p.map) ? ` (#${p.id})` : ""}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 function ShopWizard({ archive, init, run, project }: Part) {
   const people = usePeople(project, init?.map);
   const [who, setWho] = useState(init?.person && people.some((p) => p.key === init.person) ? init.person : "");
@@ -428,6 +359,10 @@ function ShopWizard({ archive, init, run, project }: Part) {
   const [chosen, setChosen] = useState<Set<string>>(() => new Set(items.filter((e) => e.type !== 14 && (buyPrice(archive, e.type, e.index) ?? 0) > 0).slice(0, 4).map((e) => `${e.type}-${e.index}`)));
   const [greeting, setGreeting] = useState("Take a look at my wares!");
   const person = people.find((p) => p.key === who);
+  // (they already say something first: no greeting of the wizard's)
+  const already = useMemo(() => (person ? saysFirst(project, person.script, person.id) : null), [person, project]);
+  const picked = [...chosen].map((k) => ({ type: Number(k.split("-")[0]), index: Number(k.split("-")[1]) }));
+  const hints = shopValueHints(archive, picked);
   return (
     <>
       <p className="muted small">Talking to the person opens a shop. The game shows each item's buy price from its card.</p>
@@ -456,15 +391,26 @@ function ShopWizard({ archive, init, run, project }: Part) {
           })}
         </ul>
         {!items.length && <p className="muted small">This game has no items yet.</p>}
+        {hints.map((h) => (
+          <p key={h} className="wz-note small wz-value-hint" role="status">
+            Worse value: {h}
+          </p>
+        ))}
       </fieldset>
-      <label className="wz-field">
-        <span>They say first</span>
-        <input value={greeting} onChange={(e) => setGreeting(e.target.value)} maxLength={120} placeholder="(nothing)" />
-      </label>
+      {already ? (
+        <p className="muted small">
+          {person!.name} already says “{already.length > 60 ? `${already.slice(0, 57)}…` : already}” first: the shop opens after that (no greeting added).
+        </p>
+      ) : (
+        <label className="wz-field">
+          <span>They say first</span>
+          <input value={greeting} onChange={(e) => setGreeting(e.target.value)} maxLength={120} placeholder="(nothing)" />
+        </label>
+      )}
       <Buttons
         label="Open the shop"
         disabled={!person || !chosen.size}
-        ok={() => run(() => addShop(project, { script: person!.script, id: person!.id, name: person!.name, greeting, items: [...chosen].map((k) => ({ type: Number(k.split("-")[0]), index: Number(k.split("-")[1]) })) }))}
+        ok={() => run(() => addShop(project, { script: person!.script, id: person!.id, name: person!.name, greeting: already ? "" : greeting, items: picked }))}
       />
     </>
   );
@@ -523,12 +469,37 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
   const [speaker, setSpeaker] = useState("");
   const [once, setOnce] = useState(true);
   const [loseEnds, setLoseEnds] = useState(true);
-  const [bg, setBg] = useState<ResValue | null>(() => {
-    const b = archive.entries.find((e) => e.resType === 11 && e.type === 4);
-    return b ? { type: 4, index: b.index } : null;
-  });
+  // the background: one that suits the map (its battles', one named like it, one of a map with its tiles)
+  const labels = useContext(LabelsContext);
+  const suits = (mk: string | undefined) => {
+    const i = mk ? backgroundFor(project, mk, (k) => labels?.get(k) ?? "") : 0;
+    const b = i || archive.entries.find((e) => e.resType === 11 && e.type === 4)?.index;
+    return b ? { type: 4, index: b } : null;
+  };
+  const personMap = (key: string) => people.find((p) => p.key === key)?.map_key ?? undefined;
+  const [bg, setBg] = useState<ResValue | null>(() => suits(picked ? personMap(picked) : (init?.map ?? firstMap(archive, texts))));
+  const [bgTouched, setBgTouched] = useState(false);
+  const mapKey = map ? `2-${map.type}-${map.index}` : undefined;
+  useEffect(() => {
+    if (!bgTouched) setBg(suits(where === "person" ? personMap(who) : mapKey));
+  }, [where, mapKey, who]); // eslint-disable-line react-hooks/exhaustive-deps
+  // random battles: how common each monster is (places of the 8), and what the map has now
+  const [weights, setWeights] = useState<Record<number, number>>({});
+  const current = useMemo(() => (mapKey ? mapBattles(project, mapKey) : null), [mapKey, project]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // a map that has random battles: start from them
+    if (where !== "map" || touched || !current) return;
+    const sw = slotWeights(current.slots);
+    const have = sw.monsters.filter((m) => monsters.some((e) => e.index === m));
+    if (!have.length) return;
+    setChosen(have);
+    setWeights(Object.fromEntries(sw.monsters.map((m, k) => [m, sw.weights[k]])));
+    if (!bgTouched && current.background) setBg({ type: 4, index: current.background });
+  }, [current, where]); // eslint-disable-line react-hooks/exhaustive-deps
+  const weightOf = (m: number) => weights[m] ?? 1;
+  const slotsUsed = chosen.reduce((n, m) => n + weightOf(m), 0) + (making ? weights[-1] ?? 1 : 0);
   const limit = where === "person" ? 3 : 8;
-  const count = chosen.length + (making ? 1 : 0);
+  const count = where === "map" ? slotsUsed : chosen.length + (making ? 1 : 0);
   const person = people.find((p) => p.key === who);
   // who may say the win line: the one fought, or a party member with a portrait
   const portraits = party.start.filter((f) => findEntry(archive, 11, 1, f.index));
@@ -539,6 +510,11 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
   const statsOf = (i: number) => monsterStatsOf(findEntry(archive, 3, 3, i)!.data);
   const fightList = [...chosen.map(statsOf), ...(making && statsOk ? [stats] : [])];
   const battle = where === "person" && fightList.length ? estimateFight(party.party, fightList.slice(0, 3)) : null;
+  // random battles bring 1-3 monsters, each picked from the list: the easiest and the hardest meeting
+  const strength = (m: (typeof fightList)[number]) => (estimateFight(party.party, [m])?.taken ?? 0);
+  const sorted = [...fightList].sort((x, y) => strength(x) - strength(y));
+  const easiest = where === "map" && sorted.length ? estimateFight(party.party, [sorted[0]]) : null;
+  const hardest = where === "map" && sorted.length ? estimateFight(party.party, [sorted[sorted.length - 1], sorted[sorted.length - 1], sorted[sorted.length - 1]]) : null;
   const go = () =>
     run(() => {
       const extra: Change[] = [];
@@ -555,7 +531,7 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
       const background = bg?.index ?? 0;
       const r =
         where === "map"
-          ? randomBattles(project, { map: `2-${map!.type}-${map!.index}`, monsters: list, background, othersOff })
+          ? randomBattles(project, { map: `2-${map!.type}-${map!.index}`, monsters: list, weights: list.map((m) => (making && m === list[list.length - 1] && !chosen.includes(m) ? (weights[-1] ?? 1) : weightOf(m))), background, othersOff })
           : addBattle(project, {
               script: person!.script,
               id: person!.id,
@@ -597,6 +573,13 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
                     level {st.level}, {st.maxHP} HP{est && <span className={`wz-diff ${est.level.replace(" ", "-")}`}> · {est.level}</span>}
                   </span>
                 </label>
+                {where === "map" && chosen.includes(m.index) && (
+                  <select className="wz-common" value={weightOf(m.index)} onChange={(e) => setWeights((w) => ({ ...w, [m.index]: Number(e.target.value) }))} aria-label={`How often ${entryLabel(m)} comes`} title="How often it comes: the game picks each monster of a battle from 8 places at random">
+                    <option value={1}>usual</option>
+                    <option value={2}>common (×2)</option>
+                    <option value={3}>very common (×3)</option>
+                  </select>
+                )}
               </li>
             );
           })}
@@ -682,9 +665,21 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
           {where === "map" && <ResourcePicker archive={archive} resType={2} value={map} onChange={setMap} label="Map" />}
         </label>
         {where === "map" && (
-          <label className="check small wz-sub">
-            <input type="checkbox" checked={othersOff} onChange={(e) => setOthersOff(e.target.checked)} /> No random battles on the other maps (they stay on when the party walks away otherwise)
-          </label>
+          <div className="wz-sub">
+            <p className="muted small">
+              The game sets how often battles come (about one step in 25 while walking) and sends 1-3 monsters at a time, each picked at random from these; neither can be changed, but a monster can come more often than the others ({slotsUsed} of 8 places used).
+              {current && <> This map has random battles already: these replace them.</>}
+            </p>
+            {easiest && hardest && (
+              <>
+                <Difficulty est={easiest} party={party.party} what="One of the easiest" />
+                <Difficulty est={hardest} party={party.party} what="Three of the hardest" />
+              </>
+            )}
+            <label className="check small">
+              <input type="checkbox" checked={othersOff} onChange={(e) => setOthersOff(e.target.checked)} /> No random battles on the other maps (they stay on when the party walks away otherwise)
+            </label>
+          </div>
         )}
         <label className={`wz-choice${where === "person" ? " on" : ""}`}>
           <input type="radio" name="wz-where" checked={where === "person"} onChange={() => setWhere("person")} />
@@ -739,10 +734,10 @@ function BattleWizard({ archive, texts, init, run, project, notes }: Part & { no
       {where !== "none" && (
         <label className="wz-field">
           <span>Battle background</span>
-          <ResourcePicker archive={archive} resType={11} types={[4]} value={bg} onChange={setBg} allowNone label="Battle background" />
+          <ResourcePicker archive={archive} resType={11} types={[4]} value={bg} onChange={(v) => (setBgTouched(true), setBg(v))} allowNone label="Battle background" />
         </label>
       )}
-      {count > limit && <p className="error small">Pick at most {limit} monsters for {where === "person" ? "a battle" : "random battles"}.</p>}
+      {count > limit && <p className="error small">{where === "person" ? "Pick at most 3 monsters for a battle." : `Random battles have 8 places for monsters: ${count} are used (make some less common, or pick fewer).`}</p>}
       <Buttons
         label={where === "none" ? "Make the monster" : "Make it"}
         disabled={count === 0 || count > limit || (making && !statsOk) || (where === "map" && !map) || (where === "person" && !person)}

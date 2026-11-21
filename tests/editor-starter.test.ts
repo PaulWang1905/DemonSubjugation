@@ -201,7 +201,8 @@ describe("the New shop wizard", () => {
     const r = addShop(p, { script: "1-1-1", id: 1, name: "Tam", items: [{ type: 9, index: 1 }, { type: 7, index: 1 }], greeting: "Have a look!" });
     p = apply(p, r);
     keeps(before, p.texts["1-1-1"]);
-    expect(p.texts["1-1-1"]).toMatch(/say 0, "Fine wares!"\n {2}say 0, "Tam: Have a +look!"\n {2}buy 9:1, 7:1\n {2}callback/);
+    // (Tam says something first already: no second greeting)
+    expect(p.texts["1-1-1"]).toMatch(/say 0, "Fine wares!"\n {2}buy 9:1, 7:1\n {2}callback/);
     // again: the list is replaced, nothing added
     const again = addShop(p, { script: "1-1-1", id: 1, name: "Tam", items: [{ type: 9, index: 2 }], greeting: "Hello" });
     expect(again.changes[0].source!.match(/buy /g)!.length).toBe(1);

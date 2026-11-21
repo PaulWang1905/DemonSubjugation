@@ -239,6 +239,20 @@ export function findNode(nodes: OutlineNode[], id: number): { node: OutlineNode;
   return null;
 }
 
+/**
+ * The labels where an if's two ways meet again (an if-then's, or a skip's)
+ * that nothing else jumps to: the Visual view says it in words and does not
+ * show them.
+ */
+export function joinLabels(nodes: OutlineNode[], refs: ReadonlyMap<string, number>, out = new Set<string>()): Set<string> {
+  for (const n of nodes) {
+    if (n.kind !== "block") continue;
+    if (n.joinLabel && (refs.get(n.joinLabel) ?? 0) === 1) out.add(n.joinLabel);
+    for (const a of n.arms) if (a.nodes) joinLabels(a.nodes, refs, out);
+  }
+  return out;
+}
+
 /** Steps shown as cards, in order (blank lines are not shown). */
 export function visibleSteps(nodes: OutlineNode[]): Step[] {
   return outlineSteps(nodes).filter((s) => s.kind !== "blank");
@@ -274,7 +288,12 @@ export function listEnd(nodes: OutlineNode[], fallback: Position): Position {
   const vis = nodes.filter(shown).filter((n) => n.step.kind !== "comment");
   const last = vis[vis.length - 1];
   if (!last) return fallback;
-  if (last.kind === "block") return { before: last.step.id };
+  if (last.kind === "block") {
+    // an if with an "otherwise" that ends the event: its end is the event's end
+    const other = last.arms.find((a) => a.key === "otherwise" && !a.skip && a.nodes?.length && !a.continuesAt);
+    if (other) return listEnd(other.nodes!, { before: last.step.id });
+    return { before: last.step.id };
+  }
   if (last.step.kind === "label") return { after: last.step.id };
   return goesOnStep(last.step) ? { after: last.step.id } : { before: last.step.id };
 }
@@ -299,7 +318,15 @@ export function insertionPoint(model: ScriptModel, group: EventGroup, selected: 
   }
   const { node } = found;
   if (node.kind === "block") {
-    // into its first arm
+    // an if (flag, money, an item…): after it, the way it goes on when it does
+    // not jump (its "otherwise"), never into the branch it jumps to
+    if (node.block === "branch" && goesOnStep(node.step)) return { after: node.step.id };
+    if (node.block === "ifThen" && node.joinLabel) {
+      const at = model.labels.get(node.joinLabel);
+      const join = at !== undefined ? model.steps[at] : undefined;
+      if (join?.kind === "label") return { after: join.id };
+    }
+    // a choice: its first answer; a battle: if won; a menu: its first choice
     const arm = node.arms.find((a) => a.nodes);
     if (node.block === "choice") return { after: node.step.id };
     if (arm?.labelStep) return { after: arm.labelStep.id };
@@ -353,6 +380,12 @@ export function startingValues(name: string, has?: (resType: number, type: numbe
     for (let i = 1; i < 256 && !bg; i++) if (has(11, 4, i)) bg = i;
     if (k >= 0 && (!v[k] || !has(11, 4, v[k] as number))) v[k] = bg;
     return v;
+  }
+  if (has && name === "buy") {
+    // a new shop sells the project's own items (not the catalog's example), story items left out
+    const items: [number, number][] = [];
+    for (let t = 1; t <= 13; t++) for (let i = 1; i < 256 && items.length < 6; i++) if (has(6, t, i)) items.push([t, i]);
+    if (items.length) return [items];
   }
   const c = commandInfo(name)!;
   // new dialogue: short and neutral, so it fits its box without a warning

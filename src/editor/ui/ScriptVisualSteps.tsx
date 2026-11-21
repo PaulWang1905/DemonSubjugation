@@ -34,6 +34,11 @@ export interface StepsApi {
   drop: (id: number, target: number, where: "before" | "after") => void;
   /** The arm's / list's end, for "add a step here". */
   listEnd: (nodes: OutlineNode[], fallback: Position) => Position;
+  /**
+   * Labels only an if's own jump goes to, where its two ways meet again (an
+   * if-then's or a skip's join): not shown, the block says it in words.
+   */
+  joins?: ReadonlySet<string>;
   /** A live text for a step's operand (typed, not stored yet). */
   live: { id: number; k: number; text: string } | null;
   /** The text box shown under a step (narrow views), or nothing. */
@@ -317,6 +322,11 @@ function LineField({ step, api, label }: { step: Step; api: StepsApi; label: str
 }
 
 function LabelMarker({ step, api }: { step: Step; api: StepsApi }) {
+  if (step.label && api.joins?.has(step.label) && !step.comment) return null;
+  return <LabelCard step={step} api={api} />;
+}
+
+function LabelCard({ step, api }: { step: Step; api: StepsApi }) {
   const sv = useSv();
   const [naming, setNaming] = useState(false);
   const [v, setV] = useState(step.label ?? "");
@@ -423,24 +433,34 @@ function AddHere({ api, pos, where }: { api: StepsApi; pos: Position; where: str
 }
 
 function Block({ node, api }: { node: Extract<OutlineNode, { kind: "block" }>; api: StepsApi }) {
+  // where both ways meet again, when the block says it in words (its label is not shown)
+  const joined = !!node.joinLabel && !!api.joins?.has(node.joinLabel);
+  const hasOtherwise = node.arms.some((a) => a.key === "otherwise");
   return (
     <div className={`sv-block sv-block-${node.block}`} role="group" aria-label={node.step.command.title}>
       <InstructionCard step={node.step} api={api} header={node.arms.length > 0} />
-      {node.extra.map((s) => (
-        <StepNode key={s.id} step={s} api={api} />
-      ))}
+      {/* (an if-then's "go to" past its Then is how the text says "otherwise": shown as the Otherwise below) */}
+      {node.extra.map((s) => (node.block === "ifThen" && joined && s.kind === "instruction" && s.op.name === "goto" ? null : <StepNode key={s.id} step={s} api={api} />))}
       <div className="sv-arms">
         {node.arms.map((a) => (
-          <div key={a.key + (a.label ?? "")} className="sv-arm" role="group" aria-label={armTitle(node.block, a)}>
+          <div key={a.key + (a.label ?? "")} className={`sv-arm${a.key === "otherwise" ? " sv-otherwise-arm" : ""}`} role="group" aria-label={armTitle(node.block, a)}>
             <div className="sv-arm-head">
               <span>{armTitle(node.block, a)}</span>
-              {a.label && a.nodes && <span className="muted small">◆ {a.label}</span>}
+              {a.label && a.nodes && !a.skip && !(node.block === "ifThen" && joined) && <span className="muted small">◆ {a.label}</span>}
             </div>
-            {a.nodes ? (
+            {a.skip ? (
+              joined ? (
+                <p className="muted small sv-nothing">nothing: skips the Otherwise and goes on below</p>
+              ) : (
+                <GoTo label={a.label!} prefix="nothing: goes on at" />
+              )
+            ) : a.nodes ? (
               <>
                 <NodeList nodes={a.nodes} api={api} />
-                {a.continuesAt && <GoTo label={a.continuesAt} prefix="then goes on at" />}
-                {!a.continuesAt && !endsInBlock(a.nodes) && <AddHere api={api} pos={api.listEnd(a.nodes, a.labelStep ? { after: a.labelStep.id } : { after: node.step.id })} where="here" />}
+                {a.continuesAt && !(joined && a.continuesAt === node.joinLabel) && <GoTo label={a.continuesAt} prefix="then goes on at" />}
+                {(!a.continuesAt || (joined && a.continuesAt === node.joinLabel)) && !endsInBlock(a.nodes) && (
+                  <AddHere api={api} pos={api.listEnd(a.nodes, a.labelStep ? { after: a.labelStep.id } : { after: node.step.id })} where={a.key === "otherwise" ? "to the Otherwise" : "here"} />
+                )}
               </>
             ) : a.label ? (
               <GoTo label={a.label} />
@@ -450,13 +470,14 @@ function Block({ node, api }: { node: Extract<OutlineNode, { kind: "block" }>; a
         {node.block === "ifThen" && node.joinLabel && (
           <div className="sv-arm sv-otherwise">
             <div className="sv-arm-head">Otherwise</div>
-            <p className="muted small">skips to ◆ {node.joinLabel}, where both ways go on</p>
+            <p className="muted small">{joined ? "nothing: both ways go on with the next step" : <>skips to ◆ {node.joinLabel}, where both ways go on</>}</p>
           </div>
         )}
-        {node.block === "branch" && node.arms.some((a) => a.nodes) && (
+        {node.block === "branch" && !hasOtherwise && node.arms.some((a) => a.nodes) && (
           <div className="sv-arm sv-otherwise">
             <div className="sv-arm-head">Otherwise</div>
             <p className="muted small">goes on with the next step</p>
+            <AddHere api={api} pos={{ after: node.step.id }} where="to the Otherwise" />
           </div>
         )}
       </div>

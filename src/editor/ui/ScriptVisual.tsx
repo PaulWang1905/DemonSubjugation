@@ -49,6 +49,7 @@ import {
   startingValues,
   insertionPoint,
   isDialogue,
+  joinLabels,
   listEnd,
   moveNode,
   setLineText,
@@ -58,6 +59,7 @@ import {
 import { typing, useUndoKeys } from "./undoKeys";
 import type { ViewProps } from "./views";
 import "./scriptVisual.css";
+import "./round2.css";
 import { plainProblem } from "./plainWords";
 
 /** The world index of a project version (an archive object and its version count). */
@@ -307,8 +309,8 @@ export function ScriptVisual({ archive, entry, onChange, services }: ViewProps) 
     if (!p || !group) return;
     let id: number | null = null;
     const ok = edit((m) => {
-      // (a new battle shows a background the project has, not the missing picture 0)
-      const fight = name === "enterfight" || name === "initfight";
+      // (a new battle shows a background the project has, not the missing picture 0; a new shop the project's items)
+      const fight = name === "enterfight" || name === "initfight" || name === "buy";
       let values = fight ? startingValues(name, (rt, t, i) => !!findEntry(archive, rt, t, i)) : undefined;
       // (a new flag step starts on a flag nothing uses yet, not on another story's flag: the author picks one)
       const fk = commandInfo(name)?.operands.findIndex((o) => o.kind === "flag") ?? -1;
@@ -466,6 +468,7 @@ export function ScriptVisual({ archive, entry, onChange, services }: ViewProps) 
       if (commit(next, id)) focusCard(id);
     },
     listEnd,
+    joins: joinLabels(nodes, refs),
     live,
   };
 

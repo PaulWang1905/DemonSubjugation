@@ -7,6 +7,7 @@ import {
 import { assemble } from "../format/gut";
 import { findEntry, putEntry, type LibArchive } from "../format/lib";
 import { blankAnimation, blankGraphic } from "../template/newres";
+import { copyAs, memberByNumber, partyMembers } from "../format/party";
 import type { GroupId } from "./workspace";
 
 export const ITEM_KINDS = ["Hat", "Clothes", "Shoes", "Armour", "Bracers", "Accessory", "Weapon", "Thrown weapon", "Medicine", "Revival", "Elixir", "Stimulant", "Escape item", "Story item"];
@@ -85,7 +86,9 @@ function newMap(index: number): Uint8Array {
 /**
  * Create a resource with sensible defaults (`what` as in CREATE_OPTIONS) and
  * return its key ("resType-type-index"). Party members also get their
- * portrait, battle sprite and level table. Throws when nothing is free.
+ * portrait, battle sprite and level table (copies of the first member's)
+ * and a walk sprite of their own; a party walk sprite starts as a copy of
+ * the game's first. Throws when nothing is free.
  */
 export function createResource(a: LibArchive, what: string): string {
   const [kind, sub] = what.split(":");
@@ -103,18 +106,46 @@ export function createResource(a: LibArchive, what: string): string {
       [resType, type, index] = [2, 1, idx(2, 1)];
       data = newMap(index);
       break;
-    case "player":
+    case "player": {
       [resType, type, index] = [3, 1, idx(3, 1)];
       // The engine finds a party member's portrait (11-1-N), battle
-      // sprite (11-3-N) and level table (12-2-N) by the member's own number.
-      for (const t of [1, 3]) {
-        if (findEntry(a, 11, t, index)) continue;
-        const like = findEntry(a, 11, t, 1);
-        putEntry(a, { resType: 11, type: t, index, data: like ? withIndex(like.data, index) : blankGraphic(a, 11, t, index) });
+      // sprite (11-3-N) and level table (12-2-N) by the member's own number:
+      // copies of the first member's, to draw over (format/party.ts).
+      const hero = partyMembers(a)[0];
+      for (const c of memberByNumber(a, index, hero?.index)) {
+        const [rt, t] = c.key.split("-").map(Number);
+        putEntry(a, { resType: rt, type: t, index, data: c.data });
       }
+      for (const t of [1, 3]) if (!findEntry(a, 11, t, index)) putEntry(a, { resType: 11, type: t, index, data: blankGraphic(a, 11, t, index) });
       if (!findEntry(a, 12, 2, index)) putEntry(a, { resType: 12, type: 2, index, data: defaultLevels(index) });
-      data = encodePlayer({ index, name: `Hero ${index}`, walkSprite: 1, magicChain: 1, magicsKnown: 1, level: 1, maxHP: 60, maxMP: 10, attack: 10, defend: 5, speed: 10, lingli: 5, luck: 10 });
+      // a walk sprite of their own, a copy of the first member's
+      let walk = hero?.walk || a.entries.find((e) => e.resType === 8 && e.type === 1)?.index || 1;
+      const look = findEntry(a, 8, 1, walk);
+      if (look) {
+        const w = idx(8, 1);
+        putEntry(a, { resType: 8, type: 1, index: w, data: copyAs(look.data, 1, w) });
+        walk = w;
+      }
+      const h = hero ? findEntry(a, 3, 1, hero.index)!.data : null;
+      const n16 = (at: number, d: number) => (h ? h[at] | (h[at + 1] << 8) : d);
+      data = encodePlayer({
+        index,
+        name: `Hero ${index}`,
+        walkSprite: walk,
+        // (the first member's spell list: their level table, copied, counts its spells)
+        magicChain: hero ? hero.list : 1,
+        magicsKnown: hero ? hero.known : 1,
+        level: hero?.level ?? 1,
+        maxHP: n16(0x26, 60),
+        maxMP: n16(0x2a, 10),
+        attack: n16(0x2e, 10),
+        defend: n16(0x30, 5),
+        speed: h?.[0x36] ?? 10,
+        lingli: h?.[0x37] ?? 5,
+        luck: h?.[0x38] ?? 10,
+      });
       break;
+    }
     case "npc":
       [resType, type, index] = [3, 2, idx(3, 2)];
       data = encodeNpc({ index, name: `NPC ${index}`, sprite: 1 });
@@ -150,7 +181,9 @@ export function createResource(a: LibArchive, what: string): string {
     case "gfx": {
       [resType, type] = sub.split("-").map(Number);
       index = idx(resType, type);
-      data = blankGraphic(a, resType, type, index);
+      // a party walk sprite starts as a copy of one there is (12 frames to draw over, not blank ones)
+      const like = resType === 8 && type === 1 ? a.entries.find((e) => e.resType === 8 && e.type === 1) : undefined;
+      data = like ? copyAs(like.data, 1, index) : blankGraphic(a, resType, type, index);
       break;
     }
     case "anim":

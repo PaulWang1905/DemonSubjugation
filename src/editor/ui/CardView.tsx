@@ -9,6 +9,7 @@ import { fieldsFor, readField, type Field } from "../format/schema";
 import { resKey } from "../format/world";
 import { crossChecks, effectText, galleryGroupOf, pictureOf, recordKind, roleBlurb, roleOf, statLabel, topFields, usedBy, usedBySummary } from "./cardModel";
 import { ByNumber, FieldRow, NotesBox, Picture, UsedByList, useWorld } from "./CardParts";
+import { CompanionLink, OwnArt, SpellLearners } from "./CardParty";
 import { useUndoKeys } from "./undoKeys";
 import type { ViewProps } from "./views";
 import "./cards.css";
@@ -87,6 +88,8 @@ export function CardView({ archive, entry, onChange, services }: ViewProps) {
             </p>
             {nameField && row(nameField, { big: false, label: "Name" })}
             <p className="muted small cv-blurb">{roleBlurb(entry)}</p>
+            <CompanionLink archive={archive} entry={entry} world={world} services={services} />
+            {kind === "party" && <OwnArt archive={archive} index={entry.index} services={services} />}
             {(kind === "item" || kind === "spell") && (
               <p className="cv-effect">
                 <span className="muted small">Effect</span> {effectText(archive, cur)}
@@ -121,6 +124,7 @@ export function CardView({ archive, entry, onChange, services }: ViewProps) {
             </section>
           ))}
           {kind === "party" && <ByNumber archive={archive} index={entry.index} services={services} />}
+          {kind === "spell" && <SpellLearners archive={archive} entry={entry} services={services} />}
         </div>
         <div className="cv-side">
           <UsedByList list={used} summary={usedBySummary(used)} services={services} />

@@ -85,7 +85,7 @@ export function roleBlurb(r: Ref3): string {
     case "item":
       return ITEM_BLURBS[r.type - 1];
     case "spell":
-      return "Learnt from a spell list by party members and monsters.";
+      return "Party members and monsters learn it from their spell lists (below: who learns it, and adding it to someone's list).";
     default:
       return "";
   }

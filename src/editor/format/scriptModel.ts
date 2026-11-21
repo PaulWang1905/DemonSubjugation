@@ -638,6 +638,11 @@ export interface Arm {
   nodes: OutlineNode[] | null;
   /** Where the arm's code goes on when it does not end (the next label), or null. */
   continuesAt: string | null;
+  /**
+   * An "if … is set: skip these" arm: nothing of its own, it goes on at the
+   * label (the block's joinLabel) the other way also reaches.
+   */
+  skip?: boolean;
 }
 
 export type BlockKind = "choice" | "battle" | "menu" | "ifThen" | "branch";
@@ -652,7 +657,7 @@ export type OutlineNode =
       /** Other lines that belong to the block (the goto of an if-then, the comparisons after a menu). */
       extra: Step[];
       arms: Arm[];
-      /** if-then: the label both ways meet at. */
+      /** if-then, or a branch that skips steps: the label both ways meet at. */
       joinLabel?: string;
     };
 
@@ -710,12 +715,41 @@ export function outline(model: ScriptModel, group: EventGroup): OutlineNode[] {
   };
   /** The segment that follows `seg` (for an arm that goes on into the next label). */
   const nextSeg = (seg: Segment) => segs[segs.indexOf(seg) + 1] ?? null;
+  /** Segments shown inline in a choice's first answer (an if-then's join it goes on with). */
+  const inlined = new Set<Segment>();
+  /**
+   * The join of an if-then whose `goto` is at k (branch @A; goto @B; @A: …
+   * going on into @B:), when only that goto jumps to @B: the segment of @B.
+   */
+  const ifThenJoin = (k: number): Segment | null => {
+    const g = steps[k];
+    if (g.kind !== "instruction" || g.op.name !== "goto" || g.label || typeof g.values[0] !== "string") return null;
+    const b = steps[k - 1];
+    if (!b || b.kind !== "instruction" || b.command.flow !== "branch") return null;
+    const labs = jumpLabels(b);
+    if (labs.length !== 1) return null;
+    const segA = segByLabel.get(labs[0]);
+    const join = g.values[0] as string;
+    if (!segA || segA.from !== k + 1 || entry.has(labs[0]) || (refs.get(labs[0]) ?? 0) !== 1) return null;
+    const last = lastCode(segA);
+    const segB = nextSeg(segA);
+    if (!last || !goesOn(last) || !segB || segB.label !== join || entry.has(join) || (refs.get(join) ?? 0) !== 1) return null;
+    return segB;
+  };
 
   /** Nodes for steps [from, to), nesting what branches there take. */
   const nodesOf = (from: number, to: number): OutlineNode[] => {
     const out: OutlineNode[] = [];
     for (let i = from; i < to; i++) {
       const s = steps[i];
+      // (a range that spans labels: the segments nested elsewhere are shown there)
+      if (i > from && s.label) {
+        const seg = segByLabel.get(s.label);
+        if (seg && seg.from === i && consumed.has(seg)) {
+          i = seg.to - 1;
+          continue;
+        }
+      }
       const branches = s.kind === "instruction" && (s.command.flow === "branch" || s.command.flow === "battle" || s.op.name === "menu");
       if (!branches) {
         out.push({ kind: "step", step: s });
@@ -747,10 +781,19 @@ export function outline(model: ScriptModel, group: EventGroup): OutlineNode[] {
     const labelArgs = c.operands.flatMap((o, k) => (o.kind === "label" && typeof s.values[k] === "string" ? [{ o, k, label: s.values[k] as string }] : []));
     const title = (o: (typeof labelArgs)[number]["o"]) => o.label;
     if (c.name === "choice" && labelArgs.length === 1) {
-      // first answer: the lines after it up to the end of the flow
+      // first answer: the lines after it up to the end of the flow (past an
+      // if-then's join, whose code the answer goes on with)
       let end = i + 1;
-      while (end < to && !(isCode(steps[end]) && !goesOn(steps[end]))) end++;
-      const firstTo = Math.min(end + 1, to);
+      let limit = to;
+      for (;;) {
+        while (end < limit && !(isCode(steps[end]) && !goesOn(steps[end]))) end++;
+        const join = end < limit ? ifThenJoin(end) : null;
+        if (!join) break;
+        inlined.add(join);
+        limit = Math.max(limit, join.to);
+        end = join.from + 1;
+      }
+      const firstTo = Math.min(end + 1, limit);
       const firstLast = (() => {
         for (let j = firstTo - 1; j > i; j--) if (isCode(steps[j])) return steps[j];
         return null;
@@ -790,6 +833,37 @@ export function outline(model: ScriptModel, group: EventGroup): OutlineNode[] {
       const arms = [nestedArm(won.o.key, "If won", won.label, i), nestedArm(lost.o.key, "If lost", lost.label, i)];
       return { node: { kind: "block", block: "battle", step: s, extra: [], arms }, last: i };
     }
+    if (labelArgs.length === 1 && c.flow === "branch") {
+      const a = labelArgs[0];
+      // a skip: branch @L; steps that go on into @L (they run only when it does not jump)
+      const j = model.labels.get(a.label) ?? -1;
+      if (j > i + 1 && j <= to && !entry.has(a.label) && (refs.get(a.label) ?? 0) === 1 && steps[j].kind === "label") {
+        let plain = true;
+        for (let k = i + 1; k < j && plain; k++) if (steps[k].label || (isCode(steps[k]) && !goesOn(steps[k]))) plain = false;
+        if (plain && steps.slice(i + 1, j).some(isCode)) {
+          const arms: Arm[] = [
+            { key: a.o.key, title: title(a.o), label: a.label, labelStep: null, nodes: [], continuesAt: a.label, skip: true },
+            { key: "otherwise", title: "Otherwise", label: null, labelStep: null, nodes: nodesOf(i + 1, j), continuesAt: a.label },
+          ];
+          return { node: { kind: "block", block: "branch", step: s, extra: [], arms, joinLabel: a.label }, last: j - 1 };
+        }
+      }
+      // if-else: branch @A; steps that end; @A: … (the steps are the "otherwise")
+      const segA = segByLabel.get(a.label);
+      if (segA && segA.from === to && i + 1 < to && nestable(a.label, i)) {
+        let lastStep: Step | null = null;
+        for (let k = to - 1; k > i; k--)
+          if (isCode(steps[k])) {
+            lastStep = steps[k];
+            break;
+          }
+        if (lastStep && flowOf(lastStep) === "end") {
+          const then = nestedArm(a.o.key, title(a.o), a.label, i);
+          const otherwise: Arm = { key: "otherwise", title: "Otherwise", label: null, labelStep: null, nodes: nodesOf(i + 1, to), continuesAt: null };
+          return { node: { kind: "block", block: "branch", step: s, extra: [], arms: [then, otherwise] }, last: to - 1 };
+        }
+      }
+    }
     // if-then: branch @A; goto @B; @A: … (goes on into) @B:
     if (labelArgs.length === 1 && c.flow === "branch") {
       const g = steps[i + 1];
@@ -812,7 +886,7 @@ export function outline(model: ScriptModel, group: EventGroup): OutlineNode[] {
 
   const out: OutlineNode[] = [];
   for (const seg of segs) {
-    if (consumed.has(seg)) continue;
+    if (consumed.has(seg) || inlined.has(seg)) continue;
     out.push(...nodesOf(seg.from, seg.to));
   }
   return out;

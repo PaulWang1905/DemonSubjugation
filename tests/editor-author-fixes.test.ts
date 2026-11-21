@@ -246,7 +246,9 @@ describe("6. an If keeps its shape when the last step of its Otherwise is delete
     const shape = () => {
       const nodes = outline(m, group());
       const b = nodes.find((n) => n.kind === "block") as Extract<OutlineNode, { kind: "block" }>;
-      return { arm: b.arms[0].nodes?.map((n) => n.step.text.trim()), after: nodes.slice(nodes.indexOf(b) + 1).map((n) => n.step.text.trim()).filter(Boolean) };
+      // (the steps after the If, or its Otherwise when they end the event there)
+      const otherwise = b.arms.find((a) => a.key === "otherwise")?.nodes ?? [];
+      return { arm: b.arms[0].nodes?.map((n) => n.step.text.trim()), after: [...otherwise, ...nodes.slice(nodes.indexOf(b) + 1)].map((n) => n.step.text.trim()).filter(Boolean) };
     };
     expect(shape()).toEqual({ arm: ["startchapter 1, 2", "callback"], after: ["startchapter 1, 2"] });
     // delete the Otherwise's switch (the step after the block)

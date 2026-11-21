@@ -1,0 +1,83 @@
+/* Round-2 fixes: the Visual view's "add a step here" buttons and Otherwise
+   arms, the companion / inn wizards, the party member's own art, a spell's
+   learners. (Kept apart from the views' own style sheets.) */
+
+/* "+ Add a step here": a clear button at the end of each branch */
+button.sv-add-here {
+  padding: 4px 10px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--line));
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--accent) 85%, var(--ink));
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  font-size: 13px;
+  font-weight: 550;
+}
+button.sv-add-here:hover:not(:disabled),
+button.sv-add-here:focus-visible {
+  border-style: solid;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.sv-arm.sv-otherwise-arm {
+  border-left-style: dashed;
+}
+.sv-nothing {
+  margin: 0;
+}
+
+/* random battles: "how common" beside each chosen monster */
+.wz-monsters li:has(> select.wz-common) {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.wz-monsters li > .wz-item {
+  flex: 1;
+  min-width: 0;
+}
+select.wz-common {
+  flex: none;
+  width: auto;
+  font-size: 13px;
+}
+.wz-members {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.wz-members li {
+  margin: 2px 0;
+}
+.wz-value-hint {
+  margin: 6px 0 0;
+}
+
+/* cards: the member's own art, the spell's learners, the companion link */
+.cv-link {
+  margin: 6px 0 0;
+}
+.cv-link button.link {
+  font-weight: 600;
+}
+.cv-own-art {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.cv-learners {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cv-learners li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+.cv-learners .cv-learn-when {
+  color: var(--muted);
+  font-size: 13px;
+}

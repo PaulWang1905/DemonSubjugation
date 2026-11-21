@@ -65,9 +65,17 @@ export function noteWorldSelection(mapKey: string, who: { script: string; id: nu
   else selected.delete(mapKey);
 }
 
-/** Who is selected in a map's World view, as "script#id". */
+/** The person a wizard last placed on each map (the next wizard starts with them when nobody is selected). */
+const placed = new Map<string, { script: string; id: number }>();
+
+/** A wizard placed someone on a map. */
+export function notePlaced(mapKey: string, who: { script: string; id: number }): void {
+  placed.set(mapKey, who);
+}
+
+/** Who is selected in a map's World view (else the person a wizard last placed there), as "script#id". */
 export function worldSelection(mapKey: string): string | undefined {
-  const s = selected.get(mapKey);
+  const s = selected.get(mapKey) ?? placed.get(mapKey);
   return s ? `${s.script}#${s.id}` : undefined;
 }
 
