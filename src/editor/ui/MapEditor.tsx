@@ -341,7 +341,7 @@ export function MapEditor({ archive, entry, onChange, notes, setNotes }: Props) 
           </div>
           <MapStatus map={map} at={hover} name={(t) => tileName(notes, map.tileset, t)} />
         </div>
-        <div className="palette">
+        <div className="map-palette">
           <TilePalette tiles={tiles} tileset={map.tileset} tile={tile} onPick={setTile} walks={walks} notes={notes} setNotes={setNotes} paintWalk={paintWalk} onPaintWalk={setPaintWalk} />
           <div className="row">
             <button className="ghost" onClick={() => walkTiles(true)}>

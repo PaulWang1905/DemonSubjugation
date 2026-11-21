@@ -59,20 +59,26 @@ export function FlagPicker({ value, onChange, notes, setNotes, world, extra = []
     setQ("");
     setNaming(null);
     setAt(Math.max(0, rows.findIndex((r) => r.kind === "flag" && r.flag === value)));
-    input.current?.focus();
+    // (once the list is placed and shown: a hidden field cannot take the focus)
+    const raf = requestAnimationFrame(() => input.current?.focus({ preventScroll: true }));
     // (by the path the click took: what it hit may be gone already, replaced by what it opened)
     const away = (ev: MouseEvent) => {
       const path = ev.composedPath();
       if (!path.some((n) => n === box.current || n === pop.current)) setOpen(false);
     };
     document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener("mousedown", away);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const choose = (r: Row) => {
     if (r.kind === "new") {
-      const n = nextFreeFlag(notes, world, extraList);
+      // the step's own flag when nothing else uses or names it (a new step starts on a free one), else the next free
+      const own = value > 0 && !notes.flags[String(value)]?.name && (world?.flags.get(value)?.length ?? 0) <= 1;
+      const n = own ? value : nextFreeFlag(notes, world, extraList);
       setNaming(n);
       setNewName(q.trim() && !/^\d+$/.test(q.trim()) ? q.trim() : "");
       return;

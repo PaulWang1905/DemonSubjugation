@@ -52,7 +52,13 @@ export function TilePalette({ tiles, tileset, tile, onPick, walks, notes, setNot
       <div className="tp-preview" aria-live="polite">
         {tiles[shown] && <FrameCanvas frame={tiles[shown]} scale={4} />}
         <div>
-          <strong>{name(shown)}</strong> <span className="muted small">#{shown}</span>
+          {tileNote(notes, tileset, shown)?.name ? (
+            <>
+              <strong>{name(shown)}</strong> <span className="muted small">tile {shown}</span>
+            </>
+          ) : (
+            <strong>Tile {shown}</strong>
+          )}
           {w && (
             <p className="small muted">
               <span className={w.walkable ? "tp-walk" : "tp-solid"}>{w.walkable ? "Walkable" : "Blocked"}</span> when painted ({FROM[w.from]})

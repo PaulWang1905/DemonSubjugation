@@ -255,7 +255,7 @@ function TextField({ step, k, multiline, label }: { step: InstructionStep; k: nu
   return (
     <>
       <textarea className="sv-text" rows={Math.max(1, Math.min(6, Math.ceil(v.length / 46)))} {...common} title={wraps ? "Type it as you like: the line breaks are made when it is stored, so no word is split in the box" : undefined} />
-      {wraps && <span className="sv-wrap-hint muted small">Lines are broken for the box when you leave the field (spaces keep words whole on the device).</span>}
+      {wraps && <span className="sv-wrap-hint muted small">Line breaks for the box are added when you leave the field.</span>}
     </>
   );
 }

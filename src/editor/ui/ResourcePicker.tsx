@@ -74,14 +74,18 @@ export function ResourcePicker({ archive, resType, types, value, onChange, allow
     setQ("");
     const i = shown.findIndex((e) => (e ? e === chosen : !value));
     setAt(Math.max(0, i));
-    input.current?.focus();
+    // (once the list is placed and shown: a hidden field cannot take the focus)
+    const raf = requestAnimationFrame(() => input.current?.focus({ preventScroll: true }));
     // (by the path the click took: what it hit may be gone already, replaced by what it opened)
     const away = (ev: MouseEvent) => {
       const path = ev.composedPath();
       if (!path.some((n) => n === box.current || n === pop.current)) setOpen(false);
     };
     document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener("mousedown", away);
+    };
     // (only when it opens)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
