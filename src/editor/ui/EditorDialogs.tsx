@@ -75,9 +75,13 @@ export function ProblemsDialog({ problems, action, onGo, onProceed, onClose }: P
 
 /** The editor's keyboard shortcuts. */
 export const SHORTCUTS: [string, string][] = [
+  ["Ctrl+P", "Go to any resource, or run a command (Ctrl+Shift+P: commands only)"],
   ["Ctrl+S", "Save now (in a script: apply it)"],
   ["Ctrl+Enter", "Playtest"],
-  ["Ctrl+K or /", "Filter the resources (Enter opens the first, Esc clears)"],
+  ["Ctrl+W or Alt+W", "Close the tab (the browser may keep Ctrl+W for itself)"],
+  ["Ctrl+Tab or Alt+] Alt+[", "Next / previous tab"],
+  ["Click · double-click", "In the sidebar: preview (the next click replaces it) · keep the tab open"],
+  ["Ctrl+K or /", "Filter the sidebar (Enter opens the first, Esc clears)"],
   ["Ctrl+Z · Ctrl+Y", "Undo · redo (maps, pictures, animations; text boxes have their own)"],
   ["B G W X E I", "Map tools: paint, fill, walkable, blocked, event, pick tile"],
   ["[ ]", "Previous / next tile (map) or frame (pictures)"],
@@ -143,8 +147,9 @@ export function GettingStarted() {
         <strong>Items, Magic and Tables</strong> are forms. Number fields that point at another resource show it, or “missing”.
       </li>
       <li>
-        <strong>Tilesets, Sprites and Pictures</strong> open in the pixel editor; <strong>Animations</strong> are the effects of
-        spells and items. <em>+ Add…</em> makes new ones.
+        <strong>Art</strong>: tilesets, sprites, icons and pictures open in the pixel editor; <strong>animations</strong> are the
+        effects of spells and items. The <em>+</em> beside each group of the sidebar makes a new one; <em>Ctrl+P</em> goes to
+        anything.
       </li>
       <li>
         <strong>Playtest</strong> checks the project first and stops at anything that would break the game; <strong>Check</strong>{" "}

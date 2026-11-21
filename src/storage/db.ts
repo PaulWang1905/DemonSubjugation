@@ -43,6 +43,24 @@ export interface StoredProject {
   data: ArrayBuffer;
   /** Script source text as written in the editor (labels, comments), by resource key. */
   sources?: Record<string, string>;
+  /**
+   * What the author keeps beside the game that the engine does not store
+   * (never needed to play). Missing in projects saved before it existed:
+   * read it with normalizeNotes (src/editor/ui/notes.ts).
+   */
+  notes?: ProjectNotes;
+}
+
+/** An editor project's author notes (see StoredProject.notes). Plain JSON. */
+export interface ProjectNotes {
+  /** Names for story flags (setevent, clrevent, if), by flag number. */
+  flags: Record<string, string>;
+  /** Names for variables (set, add, ifcmp…), by variable number. */
+  vars: Record<string, string>;
+  /** Free notes, by resource key ("1-1-2"), or "project" for the whole game. */
+  notes: Record<string, string>;
+  /** Anything else a view keeps, under its own key (e.g. "world.layout"). */
+  extra: Record<string, unknown>;
 }
 
 const DB_NAME = "fmj-react";
