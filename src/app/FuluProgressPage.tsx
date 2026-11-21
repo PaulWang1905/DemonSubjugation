@@ -317,8 +317,10 @@ function SplitBar({ title, parts, total }: { title: string; parts: [number, stri
         {parts.map(([n, what, kind]) => (
           <li key={what}>
             <span className={`fp-dot ${kind}`} aria-hidden="true" />
-            <strong>{n}</strong> {what}
-            <span className="fp-pct"> · {Math.round((100 * n) / total)}%</span>
+            <span>
+              <strong>{n}</strong> {what}
+              <span className="fp-pct"> · {Math.round((100 * n) / total)}%</span>
+            </span>
           </li>
         ))}
       </ul>

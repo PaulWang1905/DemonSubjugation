@@ -148,7 +148,7 @@ const TEXT = {
 const REPORT_URL = `${REPO_URL}/blob/main/docs/fulu-report.md`;
 const SOURCE_URL = `${REPO_URL}/tree/main/src/fulu`;
 
-/** The layers: the game on Fulu on the emulated hardware, in the browser. */
+/** The layers: the game on Fulu on the emulated hardware, in the browser (boxes that wrap at any width). */
 function StackDiagram({ labels }: { labels: string[] }) {
   const [game, gameSub, fulu, fuluSub, hw, hwSub, browser] = labels;
   const rows: [string, string, string][] = [
@@ -157,55 +157,76 @@ function StackDiagram({ labels }: { labels: string[] }) {
     [hw, hwSub, "plain"],
   ];
   return (
-    <svg className="f-svg" viewBox="0 0 640 300" role="img" aria-label={labels.filter((_, i) => i % 2 === 0).join(" / ")}>
-      {rows.map(([title, sub, kind], i) => (
-        <g key={title} transform={`translate(0 ${i * 84})`}>
-          <rect x="1" y="1" width="638" height="70" className={`f-box ${kind}`} />
-          <text x="24" y="32" className="f-t">
-            {title}
-          </text>
-          <text x="24" y="54" className="f-s">
-            {sub}
-          </text>
-        </g>
+    <div className="f-stack">
+      {rows.map(([title, sub, kind]) => (
+        <div key={title} className={`f-layer ${kind}`}>
+          <strong>{title}</strong>
+          <span>{sub}</span>
+        </div>
       ))}
-      <rect x="1" y="253" width="638" height="44" className="f-box dashed" />
-      <text x="320" y="281" textAnchor="middle" className="f-s">
-        {browser}
-      </text>
-    </svg>
+      <div className="f-layer dashed">
+        <span>{browser}</span>
+      </div>
+    </div>
   );
 }
 
-/** The shadow run: one state, two answers, compared. */
+/** The shadow run: one state, two answers, compared (across on wide screens, downwards on phones). */
 function CheckDiagram({ steps }: { steps: string[] }) {
   const [state, firmware, fulu, compare, result] = steps;
   return (
-    <svg className="f-svg" viewBox="0 0 640 230" role="img" aria-label={steps.join(" → ")}>
-      <rect x="1" y="80" width="170" height="70" className="f-box plain" />
-      <text x="86" y="120" textAnchor="middle" className="f-s strong">
-        {state}
-      </text>
-      <path d="M171 115 C 196 115, 196 45, 220 45" className="f-line" />
-      <path d="M171 115 C 196 115, 196 185, 220 185" className="f-line" />
-      <rect x="220" y="12" width="190" height="66" className="f-box plain" />
-      <text x="315" y="50" textAnchor="middle" className="f-s strong">
-        {firmware}
-      </text>
-      <rect x="220" y="152" width="190" height="66" className="f-box lit" />
-      <text x="315" y="190" textAnchor="middle" className="f-s strong">
-        {fulu}
-      </text>
-      <path d="M410 45 C 450 45, 450 115, 490 115" className="f-line" />
-      <path d="M410 185 C 450 185, 450 115, 490 115" className="f-line" />
-      <rect x="490" y="72" width="148" height="86" className="f-box ink" />
-      <text x="564" y="108" textAnchor="middle" className="f-s inv">
-        {compare}
-      </text>
-      <text x="564" y="136" textAnchor="middle" className="f-t inv">
-        {result}
-      </text>
-    </svg>
+    <>
+      <svg className="f-svg f-wide" viewBox="0 0 640 230" role="img" aria-label={steps.join(" → ")}>
+        <rect x="1" y="80" width="170" height="70" className="f-box plain" />
+        <text x="86" y="120" textAnchor="middle" className="f-s strong">
+          {state}
+        </text>
+        <path d="M171 115 C 196 115, 196 45, 220 45" className="f-line" />
+        <path d="M171 115 C 196 115, 196 185, 220 185" className="f-line" />
+        <rect x="220" y="12" width="190" height="66" className="f-box plain" />
+        <text x="315" y="50" textAnchor="middle" className="f-s strong">
+          {firmware}
+        </text>
+        <rect x="220" y="152" width="190" height="66" className="f-box lit" />
+        <text x="315" y="190" textAnchor="middle" className="f-s strong">
+          {fulu}
+        </text>
+        <path d="M410 45 C 450 45, 450 115, 490 115" className="f-line" />
+        <path d="M410 185 C 450 185, 450 115, 490 115" className="f-line" />
+        <rect x="490" y="72" width="148" height="86" className="f-box ink" />
+        <text x="564" y="108" textAnchor="middle" className="f-s inv">
+          {compare}
+        </text>
+        <text x="564" y="136" textAnchor="middle" className="f-t inv">
+          {result}
+        </text>
+      </svg>
+      <svg className="f-svg f-narrow" viewBox="0 0 360 292" role="img" aria-label={steps.join(" → ")}>
+        <rect x="70" y="1" width="220" height="50" className="f-box plain" />
+        <text x="180" y="31" textAnchor="middle" className="f-s strong">
+          {state}
+        </text>
+        <path d="M180 51 C 180 73, 88 73, 88 95" className="f-line" />
+        <path d="M180 51 C 180 73, 272 73, 272 95" className="f-line" />
+        <rect x="1" y="95" width="174" height="56" className="f-box plain" />
+        <text x="88" y="128" textAnchor="middle" className="f-s strong">
+          {firmware}
+        </text>
+        <rect x="185" y="95" width="174" height="56" className="f-box lit" />
+        <text x="272" y="128" textAnchor="middle" className="f-s strong">
+          {fulu}
+        </text>
+        <path d="M88 151 C 88 175, 180 175, 180 200" className="f-line" />
+        <path d="M272 151 C 272 175, 180 175, 180 200" className="f-line" />
+        <rect x="70" y="200" width="220" height="90" className="f-box ink" />
+        <text x="180" y="234" textAnchor="middle" className="f-s inv">
+          {compare}
+        </text>
+        <text x="180" y="268" textAnchor="middle" className="f-t inv">
+          {result}
+        </text>
+      </svg>
+    </>
   );
 }
 

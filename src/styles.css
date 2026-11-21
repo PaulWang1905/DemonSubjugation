@@ -4812,6 +4812,51 @@ p.f-prose {
   stroke: var(--muted);
   stroke-dasharray: 5 5;
 }
+.f-narrow {
+  display: none;
+}
+@media (max-width: 600px) {
+  .f-wide {
+    display: none;
+  }
+  .f-narrow {
+    display: block;
+  }
+}
+/* the layers, as boxes that wrap */
+.f-stack {
+  display: grid;
+  gap: 12px;
+}
+.f-layer {
+  display: grid;
+  gap: 6px;
+  padding: 16px 22px;
+  border: 1.5px solid var(--ink);
+  background: var(--bg);
+}
+.f-layer strong {
+  color: var(--ink);
+  font: 620 22px var(--h-sans);
+  letter-spacing: -0.02em;
+}
+.f-layer span {
+  color: var(--muted);
+  font: 500 13px var(--h-mono);
+}
+.f-layer.lit {
+  border-color: var(--h-ink);
+  background: var(--h-lcd);
+}
+.f-layer.lit strong,
+.f-layer.lit span {
+  color: var(--h-ink);
+}
+.f-layer.dashed {
+  border: 1.5px dashed var(--muted);
+  background: none;
+  text-align: center;
+}
 .f-line {
   fill: none;
   stroke: var(--ink);
@@ -5567,6 +5612,7 @@ p.f-prose {
 .fp-pct {
   color: var(--muted);
   font: 500 12px var(--h-mono);
+  white-space: nowrap;
 }
 
 /* the OS's meters */
