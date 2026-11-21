@@ -65,7 +65,7 @@ export class Player extends FightingCharacter implements Coder {
   }
 
   /** Stats before the last level-up, for the level-up screen (not saved). */
-  levelBefore: { hp: number; maxHP: number; mp: number; maxMP: number; attack: number; defend: number; speed: number; lingli: number; luck: number } | null =
+  levelBefore: { hp: number; maxHP: number; mp: number; maxMP: number; attack: number; defend: number; speed: number; lingli: number; luck: number; learnt: number } | null =
     null;
 
   drawHead(canvas: Canvas, x: number, y: number): void {

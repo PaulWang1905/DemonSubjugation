@@ -17,6 +17,8 @@ original's logic. Turning it off restores fmj.kt's behaviour.
 | Script commands | Same 80 opcodes (0-79), same numbering and argument layouts; every script in the test archives (12,660) re-assembles byte for byte. |
 | Random battles | 1-3 enemies picked at random from the map's list, checked when the player takes a step. |
 | Scripted battles | Cannot be fled. |
+| CHOICE after SAY (`_002085A3`, `_0023ACA7`) | SAY puts the map back (`_0021828D`) when its last page is closed, so CHOICE's box appears over the map alone: the player no longer sees the question. 伏魔记's own answers say what they do ("奉还" / "不给", "取消" / "使用万能钥匙"); the editor asks authors to write them so. |
+| The leader's place on the screen | Tile 4, 3 of the 9×6 screen: walking tests the tiles at screen + 4, 3 ± 1 and scrolls the view (`engine_ui.c`), so the leader stands on the row the say box mostly covers (its top is y 50 with a portrait, 55 without). |
 | Rewards | Experience and money are the sum over the defeated enemies; fallen members get no experience. |
 
 ## Changed to follow the original
@@ -85,7 +87,19 @@ revive branch works on fallen members (the C file has that test inverted).
 
 | ACTORLAYERUP | Experience becomes the requirement of the level below the target + 5, then the usual level-up (can stop short of the target) | Jumped to the level |
 | SETEVENTTIMER | Fires once after n map ticks (500 ms) | Repeated |
+| ACTORLAYERUP screens (`_0022F05D`) | "Name grew", the level-up panel, then each spell learnt, each for some timer ticks or a key (as after a battle, below) | The message and the panel together until a key; no spells shown |
+| MOVE (`_0020C9C5`, `_0020CF6D`) | A whole tile and one walking frame per step, then the map is redrawn, with no wait: the device's redraw sets the pace, measured at 150 ms a tile (伏魔记's opening, `move 1, 17, 3`, on the 4988 emulator at its 8 MHz); the first tile takes as long, and the script goes on as the last tile is shown | 100 ms a tile, the first at once, and 100 ms more after the last |
 | MENU (`_00210D5B`) | The original's list: from y = 10, at most five rows with scroll arrows, wraps round | Centred, every item at once (long menus ran off the screen), no wrap |
+
+### After a battle
+
+| Area | Original (now followed) | fmj.kt (before) |
+| --- | --- | --- |
+| Order and waits (`_0022C000`, `_0022C757`, `_0022CC0F`, `_0022F05D`) | Experience and money boxes, 5 ticks; each item found, 2 ticks; each member who levels up: "name grew", 2 ticks, the stat panel, 3 ticks, each spell learnt, 3 ticks. A wait ends at the (n+1)th 500 ms timer message or a key (`_0020C000`) | Every screen 1 s or a key |
+| What stays on the screen | Boxes are drawn on the LCD over what is there; the stat panel goes into the screen buffer and is shown by a flip that wipes the boxes (the battle scene and the panel alone). So the next member's "grew" box is drawn over the previous member's spell panel until their own panel replaces both, as on the device | Every screen drawn over all the earlier ones |
+| Boxes (`_0022A8FA`) | End caps of picture 2-8 around a frame 8 pixels a letter wide; style 0 at y 24 − h/4 (18), style 1 below it (46), style 2 (items, "grew") half-way (32) | Middle box at y 36, 2 pixels narrower |
+| Panels (`_0022D34B`, `_0022EB3F`) | Centred on the 159-pixel LCD ((159 − w) / 2); the spell panel clears a 3-pixel border, its two lines at 6 and 43 | Centred on 160; lines at 8 and 42 |
+| Spells shown | Those learnt from the level before to the level after, however many levels were gained | Only the last level's |
 
 ### Field, shops and NPCs
 
@@ -153,5 +167,10 @@ really deals the flag value, and an NPC walks until it reaches its target
   items; here there are two lists, each following the original's rules.
 - A status landing on "every enemy" from a thrown item rolls each enemy's
   luck; the original reads past the enemy table there.
+- **CHOICE's box** is drawn as fmj.kt draws it (y 29-66, the answers at 32 and 48, the
+  picked answer's letters inverted); the original clears y 28-70, frames 30-68, puts the
+  answers at 32 and 50 and inverts a bar across the box.
+- **SCREENS** moves only the view here, so the leader moves on the screen; on the device
+  the leader keeps its screen place (its map tile changes). 伏魔记 never uses it.
 - Auto-walk (the device's space key, which keeps walking on each 500 ms
   tick) is not offered; holding a direction does the same.

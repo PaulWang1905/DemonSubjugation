@@ -20,7 +20,7 @@ import { stateFromInt } from "../characters/Character";
 import { Direction } from "../characters/Direction";
 import { Player } from "../characters/Player";
 import { Combat } from "../combat/Combat";
-import { LevelupScreen, MsgScreen } from "../combat/ui/CombatSuccess";
+import { levelUpActions, RewardScreens } from "../combat/ui/CombatSuccess";
 import { ScreenCommonMenu } from "../gamemenu/ScreenCommonMenu";
 import { GoodsListMode, ScreenGoodsList } from "../gamemenu/ScreenGoodsList";
 import type { BaseGoods } from "../goods/BaseGoods";
@@ -39,6 +39,9 @@ import { OperateBuy } from "./OperateBuy";
 import { OperateSale } from "./OperateSale";
 import { ScriptProcess } from "./ScriptProcess";
 import { ScriptResources } from "./ScriptResources";
+
+/** How long a scripted MOVE takes a tile (the original's redraw, see cmd_move). */
+export const MOVE_TILE_MS = 150;
 
 type Instruct = (code: Int8Array, start: number) => Command;
 
@@ -266,20 +269,25 @@ export class ScriptVM extends Control {
       return makeCommand(6, () => {
         const npc = scene().getNPC(npcId);
         log(`cmd_move ${npc.name} to (${dstX}, ${dstY})`);
-        let time = 400;
+        // The original (_0020C9C5, _0020CF6D) moves a whole tile and steps
+        // the walking frame, then redraws the map, with no wait: the pace is
+        // the device's redraw, measured at 150 ms a tile (伏魔记's opening
+        // on the emulated 4988). The first tile takes as long.
+        let time = 0;
         return {
           update(delta: number): boolean {
+            const at = () => npc.posInMap.x === dstX && npc.posInMap.y === dstY;
+            if (at()) return false;
             time += delta;
-            if (time > 100) {
+            while (time >= MOVE_TILE_MS && !at()) {
               const p = npc.posInMap;
               if (dstX < p.x) npc.walk(Direction.West);
               else if (dstX > p.x) npc.walk(Direction.East);
               else if (dstY < p.y) npc.walk(Direction.North);
-              else if (dstY > p.y) npc.walk(Direction.South);
-              else return false;
-              time = 0;
+              else npc.walk(Direction.South);
+              time -= MOVE_TILE_MS;
             }
-            return true;
+            return !at();
           },
           onKeyUp() {},
           onKeyDown() {},
@@ -816,21 +824,18 @@ export class ScriptVM extends Control {
           player.levelUp(toLevel);
         }
         if (!player) return null;
-        const msgScreen = new MsgScreen(vm, T.levelUp(player.name));
-        const levelupScreen = new LevelupScreen(vm, player);
-        let exit = false;
-        let keydown = false;
+        // the original's level-up screens (_0022F05D): "grew", the panel,
+        // each spell learnt, each for some timer ticks or a key
+        const screens = new RewardScreens(levelUpActions(player));
         return {
-          update: () => !exit,
+          update: (delta: number) => !screens.update(delta),
           onKeyUp() {
-            if (keydown) exit = true;
+            screens.onKeyUp();
           },
-          onKeyDown() {
-            keydown = true;
-          },
+          onKeyDown() {},
           draw(canvas: Canvas) {
-            msgScreen.draw(canvas);
-            levelupScreen.draw(canvas);
+            drawScene(canvas);
+            screens.draw(canvas);
           },
         };
       });

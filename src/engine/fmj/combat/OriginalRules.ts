@@ -162,7 +162,7 @@ export function gainExperience(p: Player, exp: number): boolean {
   if (level === from) return false;
 
   const r = rand16();
-  p.levelBefore = { hp: p.hp, maxHP: p.maxHP, mp: p.mp, maxMP: p.maxMP, attack: p.attack, defend: p.defend, speed: p.speed, lingli: p.lingli, luck: p.luck };
+  p.levelBefore = { hp: p.hp, maxHP: p.maxHP, mp: p.mp, maxMP: p.maxMP, attack: p.attack, defend: p.defend, speed: p.speed, lingli: p.lingli, luck: p.luck, learnt: c.getLearnMagicNum(from) };
   const oldMaxHP = p.maxHP;
   const oldMaxMP = p.maxMP;
   p.maxHP = p.maxHP + c.getMaxHP(level) - c.getMaxHP(from);
