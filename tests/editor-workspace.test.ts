@@ -7,7 +7,8 @@ import { blankProject } from "../src/editor/template/blank";
 import { lanternPath, lanternPathSources } from "../src/editor/template/demo";
 import { silentBell, silentBellSources } from "../src/editor/template/silentBell";
 import { CREATE_OPTIONS, createResource } from "../src/editor/ui/create";
-import { emptyNotes, normalizeNotes, notesEmpty, withNote } from "../src/editor/ui/notes";
+import { emptyNotes, normalizeNotes, notesEmpty } from "../src/editor/ui/notes";
+import { setFlagNote } from "../src/editor/format/notes";
 import { pickView, registerView, viewsFor } from "../src/editor/ui/views";
 import {
   closeTab, cycleTab, entryTitle, findStart, groupCounts, groupEntries, groupOf, HOME_TAB, initialTabs, keyOf, kindLabel, openTab, parseKey, pinTab,
@@ -210,14 +211,21 @@ describe("making resources", () => {
 describe("author notes", () => {
   it("reads projects saved before notes existed, and anything malformed", () => {
     expect(normalizeNotes(undefined)).toEqual(emptyNotes());
-    expect(normalizeNotes({ flags: { 3: "gate open", 4: 7 }, vars: [1], extra: { x: [1] } })).toEqual({ flags: { 3: "gate open" }, vars: {}, notes: {}, extra: { x: [1] } });
+    // (the workspace's first shape, as saved before the notes model existed)
+    expect(normalizeNotes({ flags: { 3: "gate open", 4: 7 }, vars: [1], notes: { project: "my game" }, extra: { x: [1] } })).toEqual({
+      version: 1,
+      flags: { 3: { name: "gate open" } },
+      variables: {},
+      resources: { project: { note: "my game" } },
+      extra: { x: [1] },
+    });
   });
 
   it("sets and clears names", () => {
-    let n = withNote(emptyNotes(), "flags", 3, "gate open");
-    expect(n.flags).toEqual({ 3: "gate open" });
+    let n = setFlagNote(emptyNotes(), 3, { name: "gate open" });
+    expect(n.flags).toEqual({ 3: { name: "gate open" } });
     expect(notesEmpty(n)).toBe(false);
-    n = withNote(n, "flags", 3, " ");
+    n = setFlagNote(n, 3, { name: " " });
     expect(notesEmpty(n)).toBe(true);
   });
 });

@@ -36,7 +36,7 @@ import { scriptSource } from "../format/gut";
 import type { LibArchive, LibEntry } from "../format/lib";
 import { fieldsFor } from "../format/schema";
 import type { Problem } from "../format/validate";
-import type { ProjectNotes } from "../../storage/db";
+import type { ProjectNotes } from "../format/notes";
 import { AnimationEditor } from "./AnimationEditor";
 import { FieldForm } from "./FieldForm";
 import { MapEditor } from "./MapEditor";

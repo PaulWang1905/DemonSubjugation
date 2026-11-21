@@ -18,12 +18,14 @@ export interface ProjectNotes {
   flags: Record<string, Note>;
   /** By variable number (0-239). */
   variables: Record<string, Note>;
-  /** By resource key "resType-type-index" ("11-1-3" for portrait 3). */
+  /** By resource key "resType-type-index" ("11-1-3" for portrait 3), or "project" for the whole game. */
   resources: Record<string, Note>;
+  /** What a view keeps for itself, under its own key (e.g. "world.layout"). */
+  extra: Record<string, unknown>;
 }
 
 export function emptyNotes(): ProjectNotes {
-  return { version: 1, flags: {}, variables: {}, resources: {} };
+  return { version: 1, flags: {}, variables: {}, resources: {}, extra: {} };
 }
 
 type Section = "flags" | "variables" | "resources";
@@ -81,7 +83,16 @@ export function dropResourceNote(notes: ProjectNotes, key: string): ProjectNotes
 export function readNotes(raw: unknown): ProjectNotes {
   const out = emptyNotes();
   if (!raw || typeof raw !== "object") return out;
-  const r = raw as Record<string, unknown>;
+  const r = { ...(raw as Record<string, unknown>) };
+  // (the workspace's first shape: { flags: {n: "name"}, vars: {n: "name"}, notes: {key: "text"}, extra })
+  const named = (v: unknown, as: "name" | "note") =>
+    v && typeof v === "object" ? Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, typeof x === "string" ? { [as]: x } : x])) : v;
+  if (r.version === undefined) {
+    r.flags = named(r.flags, "name");
+    r.variables = named(r.variables ?? r.vars, "name");
+    r.resources = named(r.resources ?? r.notes, "note");
+  }
+  if (r.extra && typeof r.extra === "object" && !Array.isArray(r.extra)) out.extra = { ...(r.extra as Record<string, unknown>) };
   for (const section of ["flags", "variables", "resources"] as const) {
     const s = r[section];
     if (!s || typeof s !== "object") continue;
@@ -90,7 +101,7 @@ export function readNotes(raw: unknown): ProjectNotes {
       const { name, note } = v as Record<string, unknown>;
       const n = clean({ name: typeof name === "string" ? name : undefined, note: typeof note === "string" ? note : undefined });
       if (!n) continue;
-      if (section === "resources" ? /^\d+-\d+-\d+$/.test(k) : /^\d+$/.test(k)) out[section][k] = n;
+      if (section === "resources" ? /^(\d+-\d+-\d+|project)$/.test(k) : /^\d+$/.test(k)) out[section][k] = n;
     }
   }
   return out;
@@ -98,5 +109,5 @@ export function readNotes(raw: unknown): ProjectNotes {
 
 /** True when there is nothing to keep. */
 export function notesEmpty(notes: ProjectNotes): boolean {
-  return !Object.keys(notes.flags).length && !Object.keys(notes.variables).length && !Object.keys(notes.resources).length;
+  return !Object.keys(notes.flags).length && !Object.keys(notes.variables).length && !Object.keys(notes.resources).length && !Object.keys(notes.extra).length;
 }
