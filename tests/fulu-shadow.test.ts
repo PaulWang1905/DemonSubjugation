@@ -338,9 +338,21 @@ function shadow(fw: Firmware, gam: Uint8Array, seconds: number, keys: number[] |
 }
 
 /** Let the firmware answer: run until the CPU is back in program memory (pages below the OS's). */
-function runFirmware(m: Machine, limit = 2_000_000): void {
-  for (let n = 0; n < limit && m.page(m.cpu.pc >>> 12) >= 0xe00; n++) m.cpu.step();
+function runFirmware(m: Machine, limit = 2_000_000, skip: number[] = []): void {
+  for (let n = 0; n < limit && m.page(m.cpu.pc >>> 12) >= 0xe00; n++) {
+    // a far call to one of `skip`: returned from at once (an RTS from the trampoline's JSR), as if it did nothing
+    if (m.cpu.pc === FAR_CALL && skip.includes(m.ram[0x26] | (m.ram[0x27] << 8))) {
+      const s = m.cpu.s;
+      m.cpu.pc = ((m.ram[0x100 | ((s + 1) & 0xff)] | (m.ram[0x100 | ((s + 2) & 0xff)] << 8)) + 1) & 0xffff;
+      m.cpu.s = (s + 2) & 0xff;
+      continue;
+    }
+    m.cpu.step();
+  }
 }
+
+/** The OS's input bar (opened for input modes 4 and 8, closed): Fulu has none (the player's own box takes the typing). */
+const INPUT_BAR = [0xe913, 0xe91f, 0xe916, 0xe922];
 
 /** The firmware's machine with RAM in banks 1-4 and the OS's resident code in banks D-F, and Fulu answering for it. */
 /** Whether an entry is one of the sound's functions called with the sound on ($EA52: $2059; $EA64: $2021 bit 2). */
@@ -402,7 +414,7 @@ function flashDifferences(ref: Uint8Array, got: Uint8Array): string {
  * then from the same state on Fulu: what differs ("" if nothing). The
  * machine is left as the firmware left it.
  */
-function farCallBoth(m: Machine, fulu: Fulu, entry: number, a: number, args: number[], cpu: Partial<Regs> = {}): string {
+function farCallBoth(m: Machine, fulu: Fulu, entry: number, a: number, args: number[], cpu: Partial<Regs> = {}, skip: number[] = []): string {
   m.ram.set([0x0f, 0x02], 0x2029); // a program's base page
   m.ram[0x28] = ARGS & 0xff;
   m.ram[0x29] = ARGS >> 8;
@@ -413,7 +425,7 @@ function farCallBoth(m: Machine, fulu: Fulu, entry: number, a: number, args: num
   m.ram[0x1ef] = (RETURN - 1) & 0xff;
   Object.assign(m.cpu, { x: 0, y: 0, p: 0x24, ...cpu, a, s: 0xee, pc: FAR_CALL });
   const before = snapshot(m);
-  runFirmware(m);
+  runFirmware(m, undefined, skip);
   const ref = snapshot(m);
   restore(m, before);
   fulu.enter(FAR_CALL);
@@ -627,6 +639,38 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       }
       const diff = farCallBoth(m, fulu, entry, entry === 0xe8a1 ? rand(16) : rand(256), args);
       if (diff) failures.push(`$${hex(entry, 4)} (${args.map((v) => hex(v)).join(" ")}): ${diff}`);
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it("GuiTranslateMsg ($E93E), on random keys, input modes, $2B28 and latch states", { timeout: 300_000 }, () => {
+    const [m, fulu] = bareMachine();
+    let seed = 23;
+    const rand = (n: number) => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 8) % n;
+    const failures: string[] = [];
+    for (let trial = 0; trial < Number(process.env.FULU_TRIALS ?? 2000) && !failures.length; trial++) {
+      for (let a = 0x400; a < 0x4000; a++) m.ram[a] = rand(256);
+      m.ram.set([0xd7, 0x17], 0x2a); // the C runtime's scratch area
+      m.ram[0x22e] &= ~0x10; // (CT stopped, no interrupt pending)
+      m.write(0x04, 0);
+      m.write(0x05, 0);
+      // the keyboard state: an input mode (0, 1, 2, 4, 8), caps and the shift latch any; $2B28 any; GuiGetMsg's queue (0-9 queued)
+      // (in modes 4 and 8 only Shift, without the latch: the others, and the latched Shift ($26), go to the input method, $E919 or $E925)
+      const mode = [0, 1, 2, 4, 8][rand(5)], chinese = (mode & 0x0c) !== 0;
+      m.ram[0x2b27] = (rand(4) ? 0 : rand(256) & 0xc0) | (rand(2) << 4) | (chinese ? 0 : rand(2) << 5) | mode;
+      m.ram[0x2b28] = rand(256);
+      m.ram.set([rand(8), rand(8), rand(10)], 0x2b09);
+      // a key message (now and then another type): mostly Shift, else any key
+      const key = rand(2) || chinese ? Key.shift : rand(64);
+      const msg = 0x3000 + rand(0x100);
+      m.ram.set([rand(16) ? 1 : rand(256), key, rand(256)], msg);
+      const state = `state ${hex(m.ram[0x2b27])} ${hex(m.ram[0x2b28])}, queue ${[...m.ram.subarray(0x2b09, 0x2b0c)].map((v) => hex(v)).join(" ")}, message ${hex(m.ram[msg])} ${hex(key)}`;
+      // now and then $E93B instead (the mode changes the shift key makes are its), to a mode 1, 2, 4, 8 or any
+      const change = rand(4) === 0, to = [1, 2, 4, 8, rand(256)][rand(5)];
+      // (the firmware's input bar left out: Fulu has none, its mode changes are the rest of the OS's)
+      const regs = { x: rand(256), y: rand(256), p: (rand(256) | 0x24) & ~0x18 };
+      const diff = change ? farCallBoth(m, fulu, 0xe93b, to, [], regs, INPUT_BAR) : farCallBoth(m, fulu, 0xe93e, rand(256), [msg & 0xff, msg >> 8], regs, INPUT_BAR);
+      if (diff) failures.push(`trial ${trial} (${state}${change ? `; $E93B to ${hex(to)}` : ""}): ${diff}`);
     }
     expect(failures).toEqual([]);
   });

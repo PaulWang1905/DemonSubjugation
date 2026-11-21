@@ -209,8 +209,8 @@ its size in instructions (with the resident code it uses), what it does.
 | $E8E0 | (status bar blanked) | 6:$6A40 | 138 | the four digits' 28 segments off (the rows of $E818-$E821), then icons 6, 7, 8 ($E824-$E82A) and 24 ($E8B3, row 61) off through 6:$6753; X = Y = 0, C = Z = 1 as that leaves them. 华容道 and 滑雪 call it on Exit |
 | $E932 | (GUI start-up) | 8:$5000 | 164 | clears $2B09-$2B0B, memset($2B0F, 0, $18), $2B27 = 2, $2B28 = $0F; far-calls $E9A1($FFFF), $E91C, $E848(0), $E8D7(0), $E845(0); returns 1 |
 | $E935 | GuiGetMsg | 8:$5093 | 2075 | (msg): the message pump (below) |
-| $E93B | (input mode) | 8:$5FF3 | 118 | (mode): switch the keyboard state's low 4 bits (modes 2, 4, 8, 1) with a routine per change; Fulu has only no change |
-| $E93E | GuiTranslateMsg | 8:$6111 | 1269 | (msg): a key message becomes (class, code) by the key-class table 8:$8C36 (the second half while the shift latch is set; in src/fulu/gui.ts). $2B27 is the keyboard state: low 4 bits the input mode (1, 2, 4, 8), bits 2, 3 input methods, 4 caps, 5 the shift latch; $2B28 what characters are accepted (bit 0 digits, 1 letters, 2, 3 input methods). Characters: a-z upper case with caps or the latch (which they release), the parameter's high byte = the latch, returns $6973's verdict (letters by $2B28 bit 1, digits bit 0, space and '.' either). Delete ($34) toggles the latch ($695A, and its icon $E845); shift ($29) is a switch on the mode ($67CC, table 8:$8BAC): modes 1, 2 with $2B28 bits 2, 3 clear make it the command $29, else an input method is switched; the latched input key ($36) toggles caps (icon $E848) in mode 2; other commands release the latch. Input methods ($E919, $E925, ...) are not in Fulu |
+| $E93B | (input mode) | 8:$5FF3 | 118 | (mode): switch the keyboard state's low 4 bits (modes 2, 4, 8, 1) with a routine per change (in Fulu without the input bar) |
+| $E93E | GuiTranslateMsg | 8:$6111 | 1269 | (msg): a key message becomes (class, code) by the key-class table 8:$8C36 (the second half while the shift latch is set; in src/fulu/gui.ts). $2B27 is the keyboard state: low 4 bits the input mode (1, 2, 4, 8), bits 2, 3 input methods, 4 caps, 5 the shift latch; $2B28 what characters are accepted (bit 0 digits, 1 letters, 2, 3 input methods). Characters: a-z upper case with caps or the latch (which they release), the parameter's high byte = the latch, returns $6973's verdict (letters by $2B28 bit 1, digits bit 0, space and '.' either). Delete ($34) toggles the latch ($695A, and its icon $E845); shift ($29) is a switch on the mode ($67CC, table 8:$8BAC): modes 1, 2 with $2B28 bits 2, 3 clear make it the command $29, else the mode changes (in Fulu: below, "The Shift key"); the latched input key ($36) toggles caps (icon $E848) in mode 2; other commands release the latch. Input methods ($E919, $E925, ...) are not in Fulu |
 | $E944 | (heap set-up) | 8:$7D92 | 508 | (start, size, x): the heap (below); its memset is a JSR $5000 in segment 8, which is the GUI start-up $E932, run instead |
 | $E947 | SysMemAllocate | 8:$8515 | 1120 | (n): first fit (below) |
 | $E94A | SysMemFree | 8:$88DD | 1013 | (p): free and join (below) |
@@ -496,6 +496,25 @@ Round 3, first part (the report's §16.1). Details worth keeping:
   on the firmware too.
 - $E929 (8:$6BC2): the queue's indexes and count 0, memset of its 24
   bytes. $D7F1: the 32-bit complement of ($20) at scratch + 8.
+- The Shift key (中英) in GuiTranslateMsg: the command $29 (latched it is
+  $26, which in modes 4 and 8 goes to the input method, $E919 / $E925, as
+  every other command there does) goes to 8:$67CC (msg pushed; one local,
+  $2B28 & $0E, never read), a switch on the input mode (table 8:$8BAC,
+  through $DB5C): modes 1 and 2 with $2B28 bit 3 go to mode 4 (8:$5E2C,
+  $E93B's 2 → 4, from mode 1 too, leaving mode 1's icon on), else with bit
+  2 to mode 8 (8:$5E47, 2 → 8); else the message becomes type 5 $29 and it
+  returns 1. Mode 4 goes with bit 2 to mode 8 by 8:$5E47 (so with the
+  message $0A 1, which $E93B's own 4 → 8, 8:$5E9C, does not post), else to
+  2 (8:$5ECA); mode 8 to 2 (8:$5F0D); any other mode (0) returns 0 and
+  changes nothing. A change returns 0. So Shift cycles 2 → 4 → 8 → 2 with
+  $2B28 = $0F (碰碰车), 2 → 8 → 2 with bit 2 only, 2 → 4 → 2 with bit 3
+  only. 8:$5D60(A) is the message's posting: A pushed, a record {$0A, 1 if A
+  = 1 else 2} in 4 locals, posted by 8:$6C3E ($E92C's code), whose zero page
+  and flags show after the change. Compared with the firmware with the
+  input bar's four far calls returned from at once (Fulu has no bar; only
+  the OS's $26/$27 = the entry before each is made, which a full queue
+  leaves to be seen); $E93B is a byte pushed and 3 locals, which the
+  message record's address shows too.
 
 What the others stop at is in the plan. Not Fulu's: 一中传奇 and 热血传奇
 show 烫烫烫 (uninitialised memory) in places, on the firmware too.

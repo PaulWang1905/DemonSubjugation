@@ -368,18 +368,73 @@ export function post(type: number, word: number): boolean {
   return true;
 }
 
-/** A mode change: the keyboard state's mode, the icon $E8D7 (on, off or left), and the message $0A 1 (into Chinese input) or 2 (out of it), in the OS's order. */
-function modeChange(mode: number, icon: number | null, message: number | null, iconFirst = true): () => void {
+/** $zp = $28 + k (CLC / LDA $28 / ADC #k / STA / LDA $29 / ADC #0 / STA). */
+function local(zp: number, k: number): void {
+  clc();
+  ram[zp] = adc(ram[0x28], k);
+  ram[zp + 1] = cpu.a = adc(ram[0x29], 0);
+}
+
+/**
+ * 8:$5D60(A): post the message $0A 1 (A = 1: into Chinese input) or 2 (any
+ * other A), as the OS's compiled C does: A pushed ($DAAA), four locals (the
+ * message {type, word} and A + 1), the message's address pushed and posted
+ * by 8:$6C3E ($E92C's code: its zero page and flags are what this leaves).
+ */
+function postModeMessage(a: number): void {
+  cpu.a = a;
+  HELPERS[0xdaaa](os);
+  reserve(4);
+  local(0x20, 0);
+  ram[0x23] = ram[0x20];
+  ram[0x24] = cpu.a = ram[0x21];
+  cpu.a = 0x0a;
+  cpu.y = 0;
+  wr(word(0x23), 0x0a);
+  cpu.y = 4;
+  clc();
+  cpu.a = adc(rd(word(0x28) + 4), 1);
+  cpu.y = 3;
+  wr(word(0x28) + 3, cpu.a);
+  sec();
+  const into = sbc(rd(word(0x28) + 3), 2) === 0;
+  local(0x20, 1);
+  ram[0x23] = ram[0x20];
+  ram[0x24] = cpu.a = ram[0x21];
+  ram[0x20] = into ? 1 : 2;
+  ram[0x21] = cpu.a = 0;
+  cpu.y = 0;
+  wr(word(0x23), (cpu.a = ram[0x20]));
+  cpu.y = 1;
+  wr(word(0x23) + 1, (cpu.a = ram[0x21]));
+  local(0x20, 0);
+  HELPERS[0xdaca](os);
+  queueMessage(false);
+  drop(2);
+  drop(5);
+}
+
+/** What a mode change does after setting the mode: the input bar opened or closed (its entry), the icon $E8D7 on (1) or off (0), the message $0A 1 (into Chinese input) or 2 (out of it). */
+type ModeStep = ["bar" | "icon" | "message", number];
+
+/**
+ * A mode change: the keyboard state's mode, then its steps in the OS's
+ * order. The input bar's far call is left out (Fulu has no bar): only the
+ * OS's own setting up of it ($26/$27 its entry, X its high byte) is made,
+ * which a full queue (no message to overwrite $26/$27) leaves to be seen.
+ */
+function modeChange(mode: number, ...steps: ModeStep[]): () => void {
   return () => {
-    ram[KEYBOARD] = (ram[KEYBOARD] & 0xf0) | mode;
-    const setIcon = () => {
-      if (icon === null) return;
-      cpu.a = icon;
-      os.call(0xe8d7);
-    };
-    if (iconFirst) setIcon();
-    if (message !== null) post(0x0a, message);
-    if (!iconFirst) setIcon();
+    ram[KEYBOARD] = cpu.a = nz((ram[KEYBOARD] & 0xf0) | mode);
+    for (const [step, v] of steps) {
+      if (step === "bar") {
+        ram[0x26] = cpu.x = v & 0xff;
+        ram[0x27] = cpu.x = nz(v >> 8);
+      } else if (step === "icon") {
+        cpu.a = nz(v);
+        os.call(0xe8d7);
+      } else postModeMessage(v);
+    }
   };
 }
 
@@ -391,19 +446,20 @@ function modeChange(mode: number, icon: number | null, message: number | null, i
  * the message $0A 1 or 2. Fulu has no input bar of its own: the player
  * takes the characters from the computer's or phone's input method, and
  * Fulu gives them to the program as the OS's does (Fulu.type). So it makes
- * the changes, the icon and the messages, without the bar.
+ * the changes, the icon and the messages, without the bar. (8:$5D60's A: 1
+ * for the message $0A 1, 0 for 2.)
  */
 const MODE_CHANGES: Record<string, () => void> = {
-  "2>4": modeChange(4, null, 1),
-  "2>8": modeChange(8, 1, 1),
-  "4>8": modeChange(8, 1, null),
-  "4>2": modeChange(2, null, 2),
-  "4>1": modeChange(1, 1, 2),
-  "8>2": modeChange(2, 0, 2, false),
-  "8>4": modeChange(4, 0, null),
-  "8>1": modeChange(1, 1, 2),
-  "1>4": modeChange(4, 0, 1),
-  "1>8": modeChange(8, 1, 1),
+  "2>4": modeChange(4, ["bar", 0xe913], ["message", 1]), // 8:$5E2C
+  "2>8": modeChange(8, ["bar", 0xe91f], ["icon", 1], ["message", 1]), // 8:$5E47
+  "4>8": modeChange(8, ["bar", 0xe916], ["bar", 0xe91f], ["icon", 1]), // 8:$5E9C
+  "4>2": modeChange(2, ["bar", 0xe916], ["message", 0]), // 8:$5ECA
+  "4>1": modeChange(1, ["icon", 1], ["bar", 0xe916], ["message", 0]), // 8:$5EE5
+  "8>2": modeChange(2, ["bar", 0xe922], ["message", 0], ["icon", 0]), // 8:$5F0D
+  "8>4": modeChange(4, ["bar", 0xe922], ["bar", 0xe913], ["icon", 0]), // 8:$5F35
+  "8>1": modeChange(1, ["icon", 1], ["bar", 0xe922], ["message", 0]), // 8:$5F63
+  "1>4": modeChange(4, ["icon", 0], ["bar", 0xe913], ["message", 1]), // 8:$5FA3
+  "1>8": modeChange(8, ["icon", 1], ["bar", 0xe91f], ["message", 1]), // 8:$5FCB
   "2>1": () => {
     ram[KEYBOARD] = (ram[KEYBOARD] & 0xf0) | 1;
     cpu.a = 1;
@@ -449,23 +505,65 @@ function classify(c: number): number {
   return 0;
 }
 
+/** Where the OS keeps the shift key's switch (8:$8BAC: 4 modes, then their cases' addresses, which only steer the switch), and its default case. */
+const SHIFT_TABLE = 0x8bac, SHIFT_MODES = [1, 2, 4, 8], SHIFT_CODE = [0x6811, 0x6811, 0x688c, 0x68a9], SHIFT_DEFAULT = 0x68b1;
+
 /**
- * 8:$67CC, the shift key: a switch on the input mode (the state's low 4
- * bits). In modes 1 and 2 with no input method allowed ($2B28 bits 2, 3) the
- * message becomes the command $29 and it returns 1.
+ * 8:$67CC(msg), the shift key (called with msg pushed, $DACA): a switch on
+ * the input mode (the state's low 4 bits), through the runtime's $DB5C:
+ *
+ * - modes 1 and 2: with $2B28 bit 3, into Chinese input mode 4 (8:$5E2C,
+ *   MODE_CHANGES' 2 > 4, from mode 1 too); else with bit 2, mode 8 (8:$5E47,
+ *   2 > 8); else the message becomes the command $29 and it returns 1;
+ * - mode 4: with bit 2 to mode 8 (8:$5E47 again, its message $0A 1 too),
+ *   else back to 2 (8:$5ECA, 4 > 2);
+ * - mode 8: back to 2 (8:$5F0D, 8 > 2);
+ * - any other mode: nothing.
+ *
+ * A mode change returns 0 (the key is taken). Its one local, $2B28 & $0E,
+ * is never read. Then, as GuiTranslateMsg returns it: X = Y = A.
  */
 function shiftKey(msg: number): void {
-  const mode = ram[KEYBOARD] & 0x0f;
-  if ((mode !== 1 && mode !== 2) || ram[KEYBOARD + 1] & 0x0c)
-    return void os.stop(`Fulu has no input methods yet (the shift key in mode ${mode}, $2B28 = $${ram[KEYBOARD + 1].toString(16)})`);
-  set16(0x26, 0x6811); // the switch's jump to its case
-  wr(msg, 5);
-  clc();
-  set16(0x20, adc(msg & 0xff, 1) | (adc(msg >> 8, 0) << 8));
-  set16(0x23, word(0x20));
-  set16(0x20, 0x29);
-  put16(word(0x23), 0x29);
-  cpu.a = cpu.y = nz(1);
+  reserve(12); // (GuiTranslateMsg's locals, whose depth its message's address shows)
+  set16(0x20, msg);
+  HELPERS[0xdaca](os);
+  reserve(1);
+  cpu.y = 0;
+  wr(word(0x28), (cpu.a = nz(ram[KEYBOARD + 1] & 0x0e)));
+  const mode = (cpu.a = ram[KEYBOARD] & 0x0f);
+  set16(0x23, mode);
+  // the switch ($DB5C): the case's address from the table, flags of its last comparison (C set, V clear)
+  const i = SHIFT_MODES.indexOf(mode);
+  set16(0x20, SHIFT_TABLE + 8 + 2 * (i < 0 ? 4 : i));
+  set16(0x26, i < 0 ? SHIFT_DEFAULT : SHIFT_CODE[i]);
+  cpu.p = (cpu.p & ~0x41) | 0x01;
+  const high = ram[KEYBOARD + 1];
+  const change = (key: string) => {
+    MODE_CHANGES[key]();
+    cpu.a = nz(0);
+  };
+  if (mode === 1 || mode === 2) {
+    if (nz(high & 0x08)) change("2>4");
+    else if (nz(high & 0x04)) change("2>8");
+    else {
+      cpu.y = 1;
+      wr(msg, (cpu.a = 5));
+      clc();
+      set16(0x20, adc(msg & 0xff, 1) | (adc(msg >> 8, 0) << 8));
+      set16(0x23, word(0x20));
+      set16(0x20, 0x29);
+      put16(word(0x23), 0x29);
+      cpu.y = 1;
+      cpu.a = nz(1);
+    }
+  } else if (mode === 4) change(nz(high & 0x04) ? "2>8" : "4>2");
+  else if (mode === 8) change("8>2");
+  else cpu.a = nz(0);
+  leave(1);
+  const a = (cpu.x = cpu.a);
+  drop(2);
+  cpu.a = nz(a);
+  leave(12);
 }
 
 /** The queue's record at the read index, its address in $20 ($23/$24 kept, pushed and pulled round the runtime's multiply). */
@@ -626,32 +724,35 @@ export const GUI: Record<number, OsFunction> = {
   ),
   0xe938: fn(0x5d45, setKeyboardHigh),
   /**
-   * $E93B(mode): change the input mode. Fulu has only the case of no change
-   * (the mode is the current one, or one the current mode has no change to).
+   * $E93B(mode): change the input mode (MODE_CHANGES, by a switch on the
+   * current mode, then tests of the new one in MODES' order); nothing when
+   * it is the current one, or one the current mode has no change to. (A
+   * byte pushed and 3 locals.)
    */
   0xe93b: fn(0x5ff3, () => {
     const mode = cpu.a, current = ram[KEYBOARD] & 0x0f, order = MODES[current];
-    wr((word(0x28) - 1) & 0xffff, mode); // passed on the software stack
+    HELPERS[0xdaaa](os); // the mode passed on the software stack
+    reserve(3);
     set16(0x23, current);
     if (!order) {
-      // the switch's default
+      // the switch's default (Y as its comparisons leave it)
       set16(0x20, MODE_TABLE + 16);
       set16(0x26, 0x6100);
+      cpu.y = 1;
     } else {
       const i = MODE_ORDER.indexOf(current);
       set16(0x20, MODE_TABLE + 8 + 2 * i);
       set16(0x26, MODE_CODE[i]);
       const change = order.includes(mode) && MODE_CHANGES[`${current}>${mode}`];
-      if (order.includes(mode) && !change) return void os.stop(`Fulu has no change of input mode from ${current} to ${mode} yet`);
       for (const m of order) {
         sec();
         sbc(mode, m);
         if (m === mode) break;
       }
       cpu.y = 3;
-      if (change) change(); // (its calls leave the registers and flags; the epilogue restores the flags)
+      if (change) change(); // (the flags it leaves are kept by the epilogue's PHP / PLP)
     }
-    cpu.a = ram[0x29];
+    drop(4);
   }, ICON_TEMPORARIES), // (the icons' a mode change sets)
   0xe818: digit(0x6b19, DIGIT_ROWS[0]),
   0xe81b: digit(0x6b71, DIGIT_ROWS[1]),
@@ -958,11 +1059,15 @@ export const GUI: Record<number, OsFunction> = {
    *   latch (bit 5), which it releases; the parameter's high byte = whether
    *   the latch was set; returns whether $2B28 accepts it (classify);
    * - delete ($34): toggles the latch; returns 1;
-   * - shift ($29): by the input mode (the state's low 4 bits) and $2B28
-   *   (shiftKey); with the latch, $36: caps toggled; returns 0;
+   * - shift ($29, with the latch clear: latched it is $26): by the input
+   *   mode (the state's low 4 bits) and $2B28, the command $29 or a change
+   *   into or out of Chinese input (shiftKey);
+   * - the input key with the latch ($36): caps toggled (in mode 2); returns 0;
    * - other commands release the latch; return 1.
    *
-   * Fulu has no input methods (state bits 2 and 3, $2B28 bits 2 and 3).
+   * Fulu has no input methods of the OS's (input modes 4 and 8: the bar,
+   * $E919 and $E925, which on the device take the other commands and the
+   * latched shift in those modes; Fulu.type gives what the player types).
    */
   0xe93e: fn(0x6111, () => {
     const msg = get16(word(0x28));
