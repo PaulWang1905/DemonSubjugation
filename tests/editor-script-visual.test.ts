@@ -241,7 +241,7 @@ describe("adding steps", () => {
     ok(r.model);
     const g = r.model.groups.find((x) => x.events.includes(2))!;
     const b = blocks(outline(r.model, g)).find((x) => x.block === "choice")!;
-    expect(b.arms.map((a) => a.title)).toEqual(["“Yes”", "“No”"]);
+    expect(b.arms.map((a) => a.title)).toEqual(["“Go ahead”", "“Not now”"]);
     expect(b.arms[1].nodes?.filter((n) => n.step.kind !== "blank").map((n) => n.step.kind === "instruction" && n.step.op.name)).toEqual(["callback"]);
     // the rest of the event is the first answer
     expect(b.arms[0].nodes?.some((n) => n.step.kind === "instruction" && n.step.op.name === "buy")).toBe(true);
@@ -284,7 +284,7 @@ describe("adding steps", () => {
     expect(startingValues("say")).toEqual([0, "Hello!"]);
     expect(startingValues("message")).toEqual(["..."]);
     expect(startingValues("gaingoods")).toEqual([9, 1]);
-    expect(startingValues("choice")).toEqual(["Yes", "No", "label"]);
+    expect(startingValues("choice")).toEqual(["Go ahead", "Not now", "label"]);
   });
 });
 

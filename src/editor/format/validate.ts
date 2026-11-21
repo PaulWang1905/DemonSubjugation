@@ -5,7 +5,7 @@ import { decodeImage, decodeMap, resourceName } from "./decode";
 import { parseGut, scriptSource, statements, type Tok } from "./gut";
 import { findEntry, type LibArchive, type LibEntry } from "./lib";
 import { fieldsFor, readField, readMagicChain } from "./schema";
-import { checkDialogue } from "./scriptHelp";
+import { checkDialogue, checkSpeakers } from "./scriptHelp";
 import { unreachable } from "./reach";
 import { buildWorld } from "./world";
 
@@ -133,7 +133,7 @@ export function checkProject(a: LibArchive, sources: Record<string, string> = {}
         }
       }
     }
-    for (const d of checkDialogue(text)) out.push({ level: "warning", key: k, where, line: d.line, message: d.message });
+    for (const d of [...checkDialogue(text), ...checkSpeakers(text)]) out.push({ level: "warning", key: k, where, line: d.line, message: d.message });
   }
 
   // maps: tileset, tiles, and their events

@@ -367,7 +367,8 @@ export function startingValues(name: string, has?: (resType: number, type: numbe
   const firstMonster = c.operands.findIndex((o) => o.kind === "monster");
   return c.operands.map((o, k) => {
     if (k === firstMonster) return 1; // a battle with one monster
-    if (o.kind === "text") return o.key === "first" ? "Yes" : o.key === "second" ? "No" : "";
+    // answers that say what they do: the question has closed when they appear
+    if (o.kind === "text") return o.key === "first" ? "Go ahead" : o.key === "second" ? "Not now" : "";
     if (o.kind === "label") return "label";
     return o.min !== undefined && o.min > 0 ? o.min : 0;
   });

@@ -9,6 +9,7 @@ import type { Frame } from "../format/encode";
 import { layoutChoice, layoutMessage, layoutSay, layoutShowgut, type BoxLayout, type SplitWord } from "../format/dialogueBox";
 import { findEntry, type LibArchive } from "../format/lib";
 import { previewFonts, type PreviewFonts } from "./dialogueFonts";
+import { bareAnswers } from "../format/scriptHelp";
 import { renderBox, toImageData } from "./dialogueRender";
 import { DARK, LIGHT } from "./pixels";
 
@@ -43,10 +44,11 @@ export function pictureFrame(archive: LibArchive, type: number, index: number): 
   }
 }
 
-/** Problems a box's layout shows: split words, text past the box. */
-export function layoutIssues(l: BoxLayout | null): string[] {
+/** Problems a box's layout shows: split words, text past the box; for a choice, answers that need the question (`values`). */
+export function layoutIssues(l: BoxLayout | null, values: readonly OperandValue[] = []): string[] {
   if (!l) return [];
   const out: string[] = [];
+  if (l.kind === "choice" && bareAnswers(String(values[0] ?? ""), String(values[1] ?? ""))) out.push("these answers need the question, which the player no longer sees: say what each does (“Rest (10 gold)” / “Leave”)");
   if ((l.kind === "say" || l.kind === "message") && l.split.length) out.push(`${l.split.map((w) => `“${w.text}”`).join(", ")} split across lines of the box`);
   if (l.kind === "message" && l.cutFrom !== null) out.push("the text is longer than the box: the end is not shown");
   if (l.kind === "choice" && l.overflow) out.push("the answers are too long for the screen");
@@ -120,7 +122,7 @@ export function DialoguePreview({ archive, name, values, onWrap }: Props) {
   }, [layout, fonts, at, pics]);
 
   if (!layout) return null;
-  const issues = layoutIssues(layout);
+  const issues = layoutIssues(layout, values);
   const what = name === "say" ? (values[0] ? "with a portrait: 11, then 15 letters a line" : "without a portrait: 15 letters a line") : name === "choice" ? "the first answer selected" : name === "showgut" ? `${layout.kind === "showgut" ? layout.rows.length : 0} lines that scroll up` : "15 letters a line";
   return (
     <figure className="sv-preview" aria-label="How the player sees it">
@@ -143,6 +145,11 @@ export function DialoguePreview({ archive, name, values, onWrap }: Props) {
               page {at + 1} of {pages}: a key shows the next
             </span>
           </div>
+        )}
+        {name === "choice" && (
+          <p className="small" role="note">
+            The player sees only the answers: the dialogue before them has closed (as on the device). Make each answer say what it does, as the original games do (“Return it” / “Keep it”).
+          </p>
         )}
         <p className="muted small">
           The box {what}.{" "}

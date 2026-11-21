@@ -3,7 +3,7 @@
 // instruction and operand the caret is on; and the dialogue-box layout checks
 // (words split across lines, characters the game cannot show).
 import { gbkBytes } from "../../engine/java";
-import { OPS, type OpSpec } from "./gut";
+import { OPS, statements, type OpSpec } from "./gut";
 import { MESSAGE_BOX, SAY_PLAIN, SAY_WITH_PORTRAIT, wrapForBox, wrapMessage } from "./text";
 
 export interface OpHelp {
@@ -39,7 +39,7 @@ const HELP: OpHelp[] = [
   // dialogue
   h("say", "Dialogue", ["portrait", '"text"'], "Show a line of dialogue. Portrait N is picture 1-N (0 = no portrait). The box holds 11 then 15 letters a line with a portrait, 15 without: use Wrap dialogue.", 'say 1, "Hello there!"'),
   h("message", "Dialogue", ['"text"'], "Show a message box (15 letters a line).", 'message "Found a Herb!"'),
-  h("choice", "Dialogue", ['"first"', '"second"', "@ifSecond"], "Ask the player to pick one of two answers; jumps when the second is picked.", 'choice "Yes", "No", @said_no'),
+  h("choice", "Dialogue", ['"first"', '"second"', "@ifSecond"], "Ask the player to pick one of two answers; jumps when the second is picked. The dialogue before it has closed when the answers appear (as on the device): make each answer say what it does.", 'choice "Rest (10 gold)", "Leave", @leave'),
   h("menu", "Dialogue", ["var", '"item1 item2 …"'], "Show a menu of words (separated by spaces); the number picked (0, 1, …) goes into variable var.", 'menu 5, "Inn Shop Leave"'),
   h("timemsg", "Dialogue", ["time", '"text"'], "Show a message that closes by itself after time (in 1/100 s; 0 waits for a key).", 'timemsg 200, "The bell is silent."'),
   h("showgut", "Dialogue", ["topPicture", "bottomPicture", '"text"'], "Scroll text up the screen between two pictures (5-N, 0 = none), as in an ending.", 'showgut 0, 0, "THE END"'),
@@ -64,7 +64,7 @@ const HELP: OpHelp[] = [
   h("createnpc", "NPCs and objects", ["id", "npc", "x", "y"], "Put NPC resource npc on the map at tile x, y as id (1-40). Talking to it runs this script's event id.", "createnpc 1, 1, 10, 6"),
   h("deletenpc", "NPCs and objects", ["id"], "Remove an NPC or object from the map.", "deletenpc 1"),
   h("delallnpc", "NPCs and objects", [], "Remove every NPC and object from the map."),
-  h("move", "NPCs and objects", ["id", "x", "y"], "Make an NPC walk to map tile x, y (the script waits).", "move 1, 12, 6"),
+  h("move", "NPCs and objects", ["id", "x", "y"], "Make an NPC walk to map tile x, y, a tile every 150 ms (the script waits). To be seen while they talk, stop them on the screen's top three rows: the dialogue box covers the rest.", "move 1, 12, 6"),
   h("npcmovemod", "NPCs and objects", ["id", "state"], "How an NPC moves: 0 stand still, 1 walk around, 4 animate in place. Under the original rules (the default) 2 and 3 animate in place too; with them off 2 wanders and 3 pauses, then walks.", "npcmovemod 1, 1"),
   h("npcstep", "NPCs and objects", ["id", "facing", "step"], "Turn an NPC (0 north, 1 east, 2 south, 3 west) and show a step frame (0-2). id 0 is the player.", "npcstep 1, 2, 1"),
   h("facetoface", "NPCs and objects", ["a", "b"], "Turn b to face a (0 = the player).", "facetoface 0, 1"),
@@ -179,8 +179,8 @@ export const SNIPPETS: Snippet[] = [
   },
   {
     label: "Yes / no question",
-    note: "A choice; the second answer jumps to its label.",
-    here: `  choice "Yes", "No", @no_N\n  say 0, "Then let's go!"\n  callback\n@no_N:\n  say 0, "Maybe later."\n  callback`,
+    note: "A question, then two answers; the second jumps to its label. The question's box has closed when the answers appear, so each answer says what it does.",
+    here: `  say 0, "Sail away now?"\n  choice "Sail now", "Stay here", @no_N\n  say 0, "Then let's go!"\n  callback\n@no_N:\n  say 0, "Maybe later."\n  callback`,
   },
   {
     label: "Do something once",
@@ -316,6 +316,21 @@ export interface TextIssue {
 const SAY = /^(\s*(?:@[A-Za-z_]\w*:\s*)?say\s+)(\d+)(\s*,\s*)"((?:[^"\\]|\\.)*)"(.*)$/i;
 const MESSAGE = /^(\s*(?:@[A-Za-z_]\w*:\s*)?message\s+)"((?:[^"\\]|\\.)*)"(.*)$/i;
 const ANY_STRING = /"((?:[^"\\]|\\.)*)"/g;
+const CHOICE = /^\s*(?:@[A-Za-z_]\w*:\s*)?choice\s+"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"/i;
+
+/** Answers that mean nothing without the question: yes / no and the like. */
+const BARE = new Set(["yes", "no", "y", "n", "ok", "okay", "sure", "yeah", "nope", "yes please", "no thanks", "no thank you", "accept", "decline", "agree", "refuse", "是", "否", "是的", "不", "好", "不好", "好的", "确定", "取消"]);
+
+/**
+ * Whether a choice's two answers both mean nothing without the question
+ * ("Yes" / "No"): on the device the question's dialogue has closed when the
+ * answers appear, so the player sees only them. The original games' answers
+ * say what they do (伏魔记: "奉还" / "不给", return it / keep it).
+ */
+export function bareAnswers(first: string, second: string): boolean {
+  const norm = (t: string) => t.trim().toLowerCase().replace(/[.!?,。！？，]+$/u, "").replace(/\s+/g, " ");
+  return BARE.has(norm(first)) && BARE.has(norm(second));
+}
 
 /** The words split across the box's lines: the text runs over `widths` cells a line (repeating). */
 export function splitWords(text: string, widths: number[]): string[] {
@@ -359,6 +374,8 @@ export function checkDialogue(src: string): TextIssue[] {
       const bad = unshowable(unescape(m[1]));
       if (bad.length) out.push({ line, message: `the game cannot show ${bad.map((c) => `"${c}"`).join(" ")} (shown as ?)` });
     }
+    const choice = CHOICE.exec(l);
+    if (choice && bareAnswers(unescape(choice[1]), unescape(choice[2]))) out.push({ line, message: `choice: "${unescape(choice[1])}" / "${unescape(choice[2])}" do not say what they do: the question's box has closed when the player picks (as on the device). Say it in the answers, e.g. "Rest (10 gold)" / "Leave".` });
     const say = SAY.exec(l);
     const msg = say ? null : MESSAGE.exec(l);
     const text = say ? say[4] : msg ? msg[2] : null;
@@ -367,6 +384,78 @@ export function checkDialogue(src: string): TextIssue[] {
     const split = splitWords(unescape(text), widths);
     if (split.length) out.push({ line, message: `${split.map((w) => `"${w}"`).join(", ")} split across lines of the box (Wrap dialogue fixes it)` });
   });
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Who can be seen while people talk
+
+/**
+ * The say box's top edge in pixels (ScriptVM cmd_say, as the original's
+ * _002085A3: 0x32 with a portrait, 0x37 without); it reaches the bottom of
+ * the 160×96 screen.
+ */
+export const SAY_BOX_TOP = { portrait: 50, plain: 55 } as const;
+/** Tile rows of the screen (16 pixels each) that are wholly above the say box: rows 0-2. */
+export const ROWS_ABOVE_BOX = Math.floor(Math.min(SAY_BOX_TOP.portrait, SAY_BOX_TOP.plain) / 16);
+/**
+ * The party leader's tile row on the screen. The original engine walks with
+ * the leader at screen tile 4, 3 (engine_ui.c tests the tiles at screen + 4,
+ * 3 ± 1 and scrolls the view), so the leader always stands on row 3, which
+ * the say box covers but for the top of the sprite: no camera can change it.
+ */
+export const LEADER_SCREEN_ROW = 3;
+
+/**
+ * The map row where someone walking to column x is seen above the say box,
+ * with the view's top-left tile at camera: the lowest of the screen's top
+ * three rows (just above the leader's row, next to them).
+ */
+export function rowAboveBox(camera: { x: number; y: number }): number {
+  return camera.y + ROWS_ABOVE_BOX - 1;
+}
+
+/**
+ * People who walk (`move`) to a tile the dialogue box covers and then talk
+ * (a `say` follows while the view is the one the last `loadmap` set). The
+ * leader always stands on row 3, behind the box (LEADER_SCREEN_ROW); the
+ * others can stand above it.
+ */
+export function checkSpeakers(src: string): TextIssue[] {
+  const out: TextIssue[] = [];
+  const flagged = new Set<number>();
+  let camera: { x: number; y: number } | null = null;
+  const moved = new Map<number, { x: number; y: number; line: number }>();
+  const num = (t: { kind: string; v?: unknown } | undefined) => (t?.kind === "num" ? (t.v as number) : null);
+  for (const s of statements(src)) {
+    const name = s.op.name;
+    const v = (k: number) => num(s.toks[k] as { kind: string; v?: unknown });
+    if (name === "loadmap" || name === "screens") {
+      const [x, y] = name === "loadmap" ? [v(2), v(3)] : [v(0), v(1)];
+      camera = x !== null && y !== null ? { x, y } : null;
+      if (name === "loadmap") moved.clear();
+    } else if (["callback", "goto", "startchapter", "gameover", "enterfight", "return"].includes(name)) {
+      camera = null;
+      moved.clear();
+    } else if (name === "move") {
+      const [id, x, y] = [v(0), v(1), v(2)];
+      if (id !== null && x !== null && y !== null) moved.set(id, { x, y, line: s.line });
+    } else if (name === "deletenpc") {
+      const id = v(0);
+      if (id !== null) moved.delete(id);
+    } else if (name === "say" && camera) {
+      for (const [id, m] of moved) {
+        const col = m.x - camera.x;
+        const row = m.y - camera.y;
+        if (col < 0 || col > 8 || row < ROWS_ABOVE_BOX || row > 5 || flagged.has(m.line)) continue;
+        flagged.add(m.line);
+        out.push({
+          line: m.line,
+          message: `move: person ${id} stops at ${m.x}, ${m.y}, row ${row + 1} of the screen's 6, where the dialogue box covers them when they talk. Stop them at ${m.x}, ${rowAboveBox(camera)} (or higher) to be seen above the box. (The leader always stands on row 4, mostly behind it, as in the original games.)`,
+        });
+      }
+    }
+  }
   return out;
 }
 
