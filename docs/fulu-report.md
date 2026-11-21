@@ -1328,8 +1328,7 @@ fails when the document is out of date).
   the input method (A 0), as on the device. In the firmware comparison,
   once a program is in Chinese input, what differs is the bar's own
   memory and the screen it draws (in 宠物精灵, 电子宠物, 对对碰, 碰碰车,
-  平面魔方 and 恶龙传说); and 宠物精灵's save is named with a character
-  typed through the input method, so its file differs too. In the play test
+  平面魔方 and 恶龙传说). In the play test
   with every key, 宠物精灵 ends (once in 180 s: it was quit) and 电子宠物
   plays until it ends, as on the firmware. The Shift key's changes of mode
   are GuiTranslateMsg's (§16.1, F9).

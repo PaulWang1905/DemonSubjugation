@@ -716,8 +716,11 @@ programs that changed, 30 minutes of each of the two key scripts: 华容道,
 滑雪, 体闲麻将, 智多星, 搬运工 and 幸运花 match the firmware throughout; in
 宠物精灵, 电子宠物, 对对碰, 碰碰车, 平面魔方 and 恶龙传说 what differs is the
 OS's own input bar (its memory and the screen it draws), once a program is
-in Chinese input, and the two known save-file details: 电子宠物's file id,
-and 宠物精灵's save named with a character typed through the input method);
+in Chinese input, and one byte of a new save's directory entry ($FF on the
+device, $D0 on Fulu: 电子宠物, 宠物精灵); the other 97 programs, compared for
+a minute each since: 92 match throughout, 4 differ in that save byte only
+(武林新传, 洛特传奇, 仙三外传, 洛克人), and 武林新传 once in a message box's
+timer count ($E953, `msgbox-timer`, open);
 3 to come, with what to try in `docs/fulu-hand-tests.md`. The OS's own
 input method stays unwritten (the owner's decision: the computer's is
 used). Sound stays off.

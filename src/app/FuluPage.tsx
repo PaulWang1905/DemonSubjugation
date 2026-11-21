@@ -64,7 +64,7 @@ const TEXT = {
       ["At the device's pace", "Each answer takes as long as it did on the real device, so games keep their original speed."],
     ],
     checkTitle: "How we know it is right",
-    checkText: `We ran BBK's original system and Fulu side by side. From the same moment of a game, the original answers a call, then Fulu answers it, and the two machines are compared, down to every byte of memory. In the ${SUMMARY.full} games compared in full, over hundreds of thousands of calls: no differences. In the other programs compared, the only differences are the original's own input bar for Chinese, which Fulu does not draw (the owner's choice), and two details of save files, listed in the progress report.`,
+    checkText: `We ran BBK's original system and Fulu side by side. From the same moment of a game, the original answers a call, then Fulu answers it, and the two machines are compared, down to every byte of memory. In the ${SUMMARY.full} games compared in full, over hundreds of thousands of calls: no differences. Every other program has been compared too, for a minute of play or longer. The only differences found: the original's own input bar for Chinese, which Fulu does not draw (the owner's choice); one byte of a new save file's directory entry; and once, in 武林新传, a message box's timer count. All are listed in the progress report.`,
     check: ["Same moment of a game", "The original answers", "Fulu answers", "Compare everything", "byte by byte"],
     faqTitle: "Good to know",
     faq: [
@@ -127,7 +127,7 @@ const TEXT = {
       ["真机的节奏", "每次回答花的时间和真机一样，游戏保持原来的速度。"],
     ],
     checkTitle: "怎么知道它是对的",
-    checkText: `我们让步步高的原版系统和符箓并排运行。从游戏的同一时刻出发，先让原版回答一次调用，再让符箓回答，然后比较两台机器，直到内存的每一个字节。完整对比的 ${SUMMARY.full} 款游戏，数十万次调用：没有任何差异。在对比过的其他程序中，唯一的差异是原版系统自带的中文输入栏（符箓不绘制，这是作者的选择）和存档文件的两处细节，都列在进展报告里。`,
+    checkText: `我们让步步高的原版系统和符箓并排运行。从游戏的同一时刻出发，先让原版回答一次调用，再让符箓回答，然后比较两台机器，直到内存的每一个字节。完整对比的 ${SUMMARY.full} 款游戏，数十万次调用：没有任何差异。其余每个程序也都对比过，一分钟或更长的试玩。发现的差异只有：原版系统自带的中文输入栏（符箓不绘制，这是作者的选择）；新存档文件目录项中的一个字节；以及在武林新传中出现过一次的消息框定时器计数。都列在进展报告里。`,
     check: ["游戏的同一时刻", "原版回答", "符箓回答", "全部比较", "逐字节"],
     faqTitle: "须知",
     faq: [

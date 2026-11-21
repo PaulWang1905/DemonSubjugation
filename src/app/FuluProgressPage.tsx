@@ -71,6 +71,7 @@ const TEXT = {
       stops: "stop at something Fulu lacks",
       check: "Checked against the original OS",
       full: "in full: code traced; play, saves and typing compared",
+      long: "30 minutes of play compared, call by call",
       played: "a minute of play compared, call by call",
       none: "not compared yet",
       scan: "Code scan: what each program's code can call",
@@ -78,7 +79,7 @@ const TEXT = {
       missing: "something Fulu lacks, often on a path never taken",
     },
     glanceNote:
-      `A program that is not compared with the original OS yet can still play well: the comparison is how we know it plays exactly as on the device. The ${SUM.kit} programs made with BBK's RPG kit share one engine, so the ${KIT_FULL} of them checked in full already exercise much of what the others run.`,
+      `The comparison is how we know a program plays exactly as on the device: each call it makes, answered by both and compared. A minute of play reaches the start of a game; the ${SUM.kit} programs made with BBK's RPG kit share one engine, so the ${KIT_FULL} of them checked in full also stand for much of what the others run later on.`,
     osText: [
       `Fulu does not copy the whole firmware. About half of it serves the dictionary's own applications (the dictionaries, the organiser), which no game calls. What counts is what the games call: across the ${SUM.total} programs, ${COVERAGE.apiUsed} OS functions and ${COVERAGE.residentUsed} routines of the C runtime the games were compiled with.`,
       `Fulu answers ${FULU_COUNTS.functions} OS functions in all: the ${COVERAGE.apiUsed} the programs call, ${FULU_OTHERS.forFulu} that only Fulu's own functions call (parts of the help screen and the calendar, for instance), and ${FULU_OTHERS.iconSet} status-bar icon functions written with the rest of their set, which nothing calls. And ${FULU_COUNTS.routines} runtime routines: the ${COVERAGE.residentUsed - 1} the programs call (the ${COVERAGE.residentUsed}th, the far call, is Fulu's core) and ${FULU_OTHERS.routinesForFulu} only its own functions use.`,
@@ -130,7 +131,7 @@ const TEXT = {
     kit: "RPG kit",
     own: "own code",
     onFulu: { plays: "plays", ends: "ends", stops: "stops" } as Record<FuluGame["onFulu"], string>,
-    firmware: { full: "in full", play: "a minute of play", none: "—" } as Record<FuluGame["firmware"], string>,
+    firmware: { full: "in full", long: "30 minutes of play", play: "a minute of play", none: "—" } as Record<FuluGame["firmware"], string>,
     at: "at",
     clean: "nothing missing",
     yes: "yes",
@@ -203,6 +204,7 @@ const TEXT = {
       stops: "停在符箓尚缺的功能上",
       check: "与原版系统的对比",
       full: "完整：追踪代码，对比试玩、存档和输入",
+      long: "逐个调用对比 30 分钟的试玩",
       played: "逐个调用对比一分钟的试玩",
       none: "尚未对比",
       scan: "代码扫描：每个程序的代码可能调用什么",
@@ -210,7 +212,7 @@ const TEXT = {
       missing: "缺少某个功能（常在从未走到的路径上）",
     },
     glanceNote:
-      `尚未与原版系统对比的程序也可能运行良好：对比是为了确认它和在设备上完全一样。${SUM.kit} 个用步步高 RPG 工具制作的程序共用同一个引擎，所以其中完整对比过的 ${KIT_FULL} 款，已经覆盖了其他程序运行的大部分代码。`,
+      `对比是我们确认程序与在设备上完全一样的方法：它的每一次调用都由两边回答并比较。一分钟的试玩只到得了游戏的开头；${SUM.kit} 个用步步高 RPG 工具制作的程序共用同一个引擎，所以其中完整对比过的 ${KIT_FULL} 款，也代表了其他程序后面会运行的大部分代码。`,
     osText: [
       `符箓并不照搬整个固件。大约一半的固件是为词典自己的应用（词典、记事本等）服务的，游戏不会调用。重要的是游戏调用什么：${SUM.total} 个程序共调用 ${COVERAGE.apiUsed} 个系统函数，以及编译它们的 C 运行库中的 ${COVERAGE.residentUsed} 个例程。`,
       `符箓一共实现了 ${FULU_COUNTS.functions} 个系统函数：程序调用的 ${COVERAGE.apiUsed} 个；只有符箓自己的函数调用的 ${FULU_OTHERS.forFulu} 个（例如帮助画面和日历的组成部分）；以及 ${FULU_OTHERS.iconSet} 个状态栏图标函数，随同整组一起实现，目前没有任何调用。运行库例程共 ${FULU_COUNTS.routines} 个：程序调用的 ${COVERAGE.residentUsed - 1} 个（第 ${COVERAGE.residentUsed} 个是远调用本身，属于符箓的核心），另有 ${FULU_OTHERS.routinesForFulu} 个只供符箓自己的函数使用。`,
@@ -261,7 +263,7 @@ const TEXT = {
     kit: "RPG 工具",
     own: "独立编写",
     onFulu: { plays: "全程运行", ends: "结束", stops: "停止" } as Record<FuluGame["onFulu"], string>,
-    firmware: { full: "完整", play: "一分钟试玩", none: "—" } as Record<FuluGame["firmware"], string>,
+    firmware: { full: "完整", long: "30 分钟试玩", play: "一分钟试玩", none: "—" } as Record<FuluGame["firmware"], string>,
     at: "于",
     clean: "不缺",
     yes: "是",
@@ -430,8 +432,9 @@ export function FuluProgressPage() {
             total={n.total}
             parts={[
               [n.full, t.bars.full, "ink"],
-              [n.play, t.bars.played, "good"],
-              [n.total - n.full - n.play, t.bars.none, "empty"],
+              [n.long, t.bars.long, "good"],
+              [n.play, t.bars.played, "soft"],
+              [n.total - n.full - n.long - n.play, t.bars.none, "empty"],
             ]}
           />
           <SplitBar

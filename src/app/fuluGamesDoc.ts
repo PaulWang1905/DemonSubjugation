@@ -3,7 +3,7 @@
 import { COVERAGE, fuluSummary, GAMES, HAND_TESTS, MILESTONES, PLAY_HISTORY, PROBLEMS, REMAINING, remainingGames, UPDATED, type FuluGame } from "./fuluGames";
 
 const ON_FULU: Record<FuluGame["onFulu"], string> = { plays: "plays", ends: "ends", stops: "stops" };
-const FIRMWARE: Record<FuluGame["firmware"], string> = { full: "full", play: "a minute of play", none: "—" };
+const FIRMWARE: Record<FuluGame["firmware"], string> = { full: "full", long: "30 minutes of play", play: "a minute of play", none: "—" };
 const cell = (s: string) => s.replace(/\|/g, "\\|");
 
 export function fuluGamesMarkdown(): string {
@@ -25,7 +25,7 @@ export function fuluGamesMarkdown(): string {
     `Updated ${UPDATED}.`,
     "",
     `- **On Fulu alone** (180 s each of random keys from every key a player can press, \`scripts/bbk/fulu-play.mts\`, docs/fulu-report.md §16): ${n.plays} play the whole time, ${n.ends} end as on the device (their \`main\` returns: a game-over box, a menu's quit, Exit; the test starts them again), ${n.stops} stop at something Fulu lacks.`,
-    `- **Compared with BBK's firmware** (the shadow run): ${n.full} in full (their code traced, play, typing and saves compared), ${n.play} for a minute of play.`,
+    `- **Compared with BBK's firmware** (the shadow run): ${n.full} in full (their code traced, play, typing and saves compared), ${n.long} for 30 minutes of play, ${n.play} for a minute of play.`,
     `- **Tested by hand**: ${HAND_TESTS.length} report${HAND_TESTS.length === 1 ? "" : "s"} (below).`,
     `- **Problems**: ${n.open} open, ${PROBLEMS.length - n.open} decided or fixed.`,
     `- **Code scan** (\`scripts/bbk/fulu-coverage.mts --programs\`): ${n.scanClean} programs call nothing Fulu lacks. The programs call ${COVERAGE.apiUsed} OS functions (Fulu answers ${apiDone}) and ${COVERAGE.residentUsed} runtime routines (all answered); about ${COVERAGE.written.toLocaleString("en-US")} instructions of OS code are written and ${COVERAGE.left.toLocaleString("en-US")} left, not counting the OS's own input method (Fulu takes Chinese from the computer's own instead).`,

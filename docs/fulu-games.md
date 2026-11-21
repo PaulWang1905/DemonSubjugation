@@ -10,9 +10,9 @@ shows the same lists, in its progress report (/fulu/progress).
 Updated 2026-11-21.
 
 - **On Fulu alone** (180 s each of random keys from every key a player can press, `scripts/bbk/fulu-play.mts`, docs/fulu-report.md §16): 105 play the whole time, 33 end as on the device (their `main` returns: a game-over box, a menu's quit, Exit; the test starts them again), 0 stop at something Fulu lacks.
-- **Compared with BBK's firmware** (the shadow run): 7 in full (their code traced, play, typing and saves compared), 34 for a minute of play.
+- **Compared with BBK's firmware** (the shadow run): 7 in full (their code traced, play, typing and saves compared), 12 for 30 minutes of play, 119 for a minute of play.
 - **Tested by hand**: 2 reports (below).
-- **Problems**: 4 open, 10 decided or fixed.
+- **Problems**: 5 open, 10 decided or fixed.
 - **Code scan** (`scripts/bbk/fulu-coverage.mts --programs`): 138 programs call nothing Fulu lacks. The programs call 106 OS functions (Fulu answers 106) and 76 runtime routines (all answered); about 35,600 instructions of OS code are written and 0 left, not counting the OS's own input method (Fulu takes Chinese from the computer's own instead).
 
 ## How it got here
@@ -57,14 +57,15 @@ Nothing the checks find: both code scans find nothing Fulu lacks in any program,
 | | Problem | Status | Decision | Games |
 |---|---|---|---|---|
 | `sound` | **Sound**: Fulu plays no sound, and keeps the sound off. Programs that switch the sound on ($EA52, $EA64: Eros方块, 二十四点, 滑雪, 豪斯 on the original OS) run as if it were off; their sound-on paths are not written, and the firmware comparison leaves those calls out. | decided | Keep the sound off; ignore sound-on for games that ask for it. The owner will decide later whether to do more. | Eros方块, 二十四点, 滑雪, 豪斯 |
-| `input-methods` | **Chinese input: the computer's own input method**: The OS's own input method (its pinyin bar, about 2,000 instructions, and its tables of pinyin and hanzi, which Fulu cannot copy) is not written. Instead, when a program switches to Chinese input (modes 4 and 8), the player shows a box under the screen: what is typed there with the computer's or phone's own input method (pinyin, handwriting, any) goes to the program as the OS's input method gives a chosen character (a message of type 3 with its GB2312 code). The mode changes, their icon and messages are the OS's; BBK's bar is not drawn, and letters pressed on the device go to the box's place (not to the program, as on the device while typing). In the firmware comparison, once a program is in Chinese input, what differs is the bar's own memory and the screen it draws; and 宠物精灵's save is named with a character typed through the input method, so its file differs too. In the play test with every key, 宠物精灵 ends (once in 180 s: it was quit) and 电子宠物 plays until it ends, as on the device. | decided | Use the computer's or phone's own input method (the owner's choice). | 宠物精灵, 对对碰, 平面魔方, 恶龙传说, 电子宠物, 碰碰车 |
+| `input-methods` | **Chinese input: the computer's own input method**: The OS's own input method (its pinyin bar, about 2,000 instructions, and its tables of pinyin and hanzi, which Fulu cannot copy) is not written. Instead, when a program switches to Chinese input (modes 4 and 8), the player shows a box under the screen: what is typed there with the computer's or phone's own input method (pinyin, handwriting, any) goes to the program as the OS's input method gives a chosen character (a message of type 3 with its GB2312 code). The mode changes, their icon and messages are the OS's; BBK's bar is not drawn, and letters pressed on the device go to the box's place (not to the program, as on the device while typing). In the firmware comparison, once a program is in Chinese input, what differs is the bar's own memory and the screen it draws. In the play test with every key, 宠物精灵 ends (once in 180 s: it was quit) and 电子宠物 plays until it ends, as on the device. | decided | Use the computer's or phone's own input method (the owner's choice). | 宠物精灵, 对对碰, 平面魔方, 恶龙传说, 电子宠物, 碰碰车 |
 | `e94d` | **$E94D (a menu)**: A menu of items in a grid with its own key loop (5,278 instructions with its nine key cases; the first count, 3,400, missed them). Done in round 3: compared with the firmware on 300 random menus and key sequences, and in 中国象棋's play; 中国象棋 plays. Its help key ($E96B) shows a text in memory through $E980; one of the OS's own help texts, which Fulu does not have, would stop it (not seen). | fixed | — | — |
 | `e99e` | **$E99E**: Today's date, from the clock's day counter, through seven more of the OS's calendar functions (about 1,750 instructions). Done in round 3 and compared with the firmware on random dates. | fixed | — | — |
 | `e9ad` | **$E9AD**: A number drawn in a radix (about 870 instructions). Done in round 3: 挖金子 plays, and its calls, and 跳蛋's, match the firmware. | fixed | — | — |
 | `help-dialog` | **$E980 (a help screen)**: A text shown a page at a time and scrolled by the keys (2,429 instructions with its key cases, and $E8CB, $E8CE, $E8E9). Done in round 3: compared with the firmware on 200 random texts and key sequences, and 幸运花, which opens it 28 times a minute, matches the firmware and plays. The 43 programs that can call it no longer stop there. | fixed | — | — |
 | `shift-launcher` | **The Shift key, and the state the launcher leaves**: The play test pressed Enter, the arrows and space at random, and never Shift (中英) or Exit. Played with every key, Shift stopped 7 programs (平面魔方, 碰碰车, 对对碰, 搬运工, 滑雪, 宠物精灵, 电子宠物): Fulu's GuiTranslateMsg had only some of Shift's cases, and programs started with the OS's variables at 0, where BBK's launcher leaves input mode 2, the keyboard state, the help word and the year. Now Shift is written as GuiTranslateMsg has it (compared with the firmware on random input modes, keyboard states and keys), programs start in the state the launcher leaves (measured on nine launches), and the player sets the device's clock to the computer's date and time, so 幸运花's calendar shows today. The play test now presses every key a player can, Shift and Exit included, and none of the 138 stops. | fixed | — | — |
 | `unreached` | **Functions a program can call but none did in random play**: Found by the code scans and traced to what a player does: $E8E0 (Exit in 华容道 and 滑雪 blanks the status bar's number), $E706 (atol: 宠物精灵's cheat box, 体闲麻将's high scores), $E7BE (one double-byte character drawn: 智多星's answer field) and the link cable's serial port ($E8D1, and the resident $E90D and $E910, which the byte scan's list had missed), from 宠物精灵's and 恶龙传说's two-player link menus. All written and compared with the firmware on random arguments; the link as the device with nothing plugged in: sends go out, nothing comes back, and each game shows its own "could not connect" (宠物精灵's 建立连接失败 matches the firmware's screens exactly). The firmware emulator itself hangs there, having no transmitter. | fixed | The link cable: as the device with no cable plugged in. | — |
-| `file-place` | **Where a new save goes in the flash**: The original OS places a new file by pages among its own files; Fulu gives it sectors of its own. Games see only a different file id (电子宠物 in the firmware comparison); saving and loading work. | open | — | 电子宠物 |
+| `file-place` | **Where a new save goes in the flash**: The original OS places a new file by pages among its own files; Fulu gives it sectors of its own. A game that saves sees one byte differ: the first of the new file's directory entry, $FF on the device and $D0 on Fulu (in the firmware comparison: 电子宠物, 宠物精灵, 武林新传, 洛特传奇, 仙三外传 and 洛克人, the programs whose minute of play made a new save). Saving and loading work. | open | — | 仙三外传, 宠物精灵, 武林新传, 洛克人, 洛特传奇, 电子宠物 |
+| `msgbox-timer` | **A message box's timer count in 武林新传**: In the one-minute firmware comparison (its typing script), once in 13 calls of $E953, the message box that closes itself after a time, the timer's count ($2018) was 7 on Fulu and 1 on the device when it returned. The game played on in both; not looked into yet. | open | — | 武林新传 |
 | `unexplained-reads` | **Unexplained reads in 宠物精灵**: In the firmware comparison the OS reads two of its scratch bytes ($2088, $20C8) before writing them, in one of the game's own calls; the results match. | open | — | 宠物精灵 |
 | `wrapped-drawing` | **Drawing that wraps past the screen**: A bitmap window whose sizes wrap past 255 passes the OS's checks, and the OS then draws into its own variables; Fulu draws nothing. No game seen doing it. | open | — | — |
 | `pace` | **Pace**: Fulu charges each OS call the firmware's measured time, within a few percent on the games measured; some openings run about a second longer (三国霸业). | open | — | — |
@@ -87,140 +88,140 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | # | Game | Kit | On Fulu | Firmware comparison | Code scan | By hand | Problems |
 |---|---|---|---|---|---|---|---|
 | 1 | Eros方块 |  | ends | a minute of play |  |  | `sound` |
-| 2 | 一中传奇 | yes | plays | — |  |  | `game-bugs` |
-| 3 | 一中传奇2 | yes | plays | — |  |  |  |
-| 4 | 七剑 | yes | plays | — |  |  |  |
+| 2 | 一中传奇 | yes | plays | a minute of play |  |  | `game-bugs` |
+| 3 | 一中传奇2 | yes | plays | a minute of play |  |  |  |
+| 4 | 七剑 | yes | plays | a minute of play |  |  |  |
 | 5 | 三国霸业 |  | plays | full |  |  |  |
 | 6 | 中国象棋 |  | plays | a minute of play |  |  |  |
 | 7 | 丰收 |  | ends | a minute of play |  |  |  |
-| 8 | 乒乓球 |  | plays | — |  |  |  |
-| 9 | 二十一点 |  | ends | — |  |  |  |
+| 8 | 乒乓球 |  | plays | a minute of play |  |  |  |
+| 9 | 二十一点 |  | ends | a minute of play |  |  |  |
 | 10 | 二十四点 |  | plays | a minute of play |  |  | `sound` |
 | 11 | 五子棋 |  | ends | a minute of play |  |  |  |
-| 12 | 仙三外传 | yes | plays | — |  |  |  |
-| 13 | 仙剑三 | yes | plays | — |  |  |  |
-| 14 | 仙剑奇侠传二之虎啸飞剑 | yes | plays | — |  |  |  |
-| 15 | 仙剑奇侠传四回梦游仙 | yes | plays | — |  |  |  |
-| 16 | 仙界传说 | yes | plays | — |  |  |  |
+| 12 | 仙三外传 | yes | plays | a minute of play |  |  | `file-place` |
+| 13 | 仙剑三 | yes | plays | a minute of play |  |  |  |
+| 14 | 仙剑奇侠传二之虎啸飞剑 | yes | plays | a minute of play |  |  |  |
+| 15 | 仙剑奇侠传四回梦游仙 | yes | plays | a minute of play |  |  |  |
+| 16 | 仙界传说 | yes | plays | a minute of play |  |  |  |
 | 17 | 伏魔记-1.0 | yes | plays | full |  |  |  |
 | 18 | 伏魔记-1.2 | yes | plays | full |  |  |  |
 | 19 | 伏魔记-1.3 | yes | plays | full |  |  | `game-bugs` |
 | 20 | 伏魔记完美版1.0 | yes | plays | full |  |  |  |
 | 21 | 伏魔记怀旧终曲v1.0(原版精修) | yes | plays | full |  |  |  |
-| 22 | 体闲麻将 |  | plays | a minute of play |  |  |  |
-| 23 | 侠客行 | yes | plays | — |  |  |  |
-| 24 | 侠客行4988(终曲版) | yes | plays | — |  |  |  |
-| 25 | 公路快车 |  | ends | — |  |  |  |
-| 26 | 冒险岛 | yes | plays | — |  |  |  |
-| 27 | 剑缘-第一部 | yes | plays | — |  |  |  |
-| 28 | 十字之门 | yes | plays | — |  |  |  |
+| 22 | 体闲麻将 |  | plays | 30 minutes of play |  |  |  |
+| 23 | 侠客行 | yes | plays | a minute of play |  |  |  |
+| 24 | 侠客行4988(终曲版) | yes | plays | a minute of play |  |  |  |
+| 25 | 公路快车 |  | ends | a minute of play |  |  |  |
+| 26 | 冒险岛 | yes | plays | a minute of play |  |  |  |
+| 27 | 剑缘-第一部 | yes | plays | a minute of play |  |  |  |
+| 28 | 十字之门 | yes | plays | a minute of play |  |  |  |
 | 29 | 升级 |  | ends | a minute of play |  |  |  |
-| 30 | 华容道 |  | ends | a minute of play |  |  |  |
-| 31 | 同福奇缘 | yes | plays | — |  |  |  |
-| 32 | 地牢围攻 | yes | plays | — |  |  |  |
+| 30 | 华容道 |  | ends | 30 minutes of play |  |  |  |
+| 31 | 同福奇缘 | yes | plays | a minute of play |  |  |  |
+| 32 | 地牢围攻 | yes | plays | a minute of play |  |  |  |
 | 33 | 坦克大战 |  | ends | a minute of play |  |  |  |
-| 34 | 基督山传奇 | yes | plays | — |  |  |  |
-| 35 | 大乱斗之火影忍者 | yes | plays | — |  |  |  |
-| 36 | 大话三国 | yes | plays | — |  |  |  |
-| 37 | 天之骄子 | yes | plays | — |  |  |  |
-| 38 | 天之骄子终曲版 | yes | plays | — |  |  |  |
-| 39 | 妖 传说 | yes | plays | — |  |  |  |
-| 40 | 妖·传说终曲版 | yes | plays | — |  |  |  |
-| 41 | 娱乐无极限之无影奸细 | yes | plays | — |  |  |  |
-| 42 | 宠物精灵 |  | ends | a minute of play |  |  | `input-methods`, `unexplained-reads` |
-| 43 | 对对碰 |  | ends | a minute of play |  |  | `input-methods` |
-| 44 | 封魔录 | yes | plays | — |  |  |  |
-| 45 | 将门风云 | yes | plays | — |  |  |  |
-| 46 | 少年行 | yes | plays | — |  |  |  |
-| 47 | 屠魔 | yes | plays | — |  |  |  |
-| 48 | 平面魔方 |  | plays | a minute of play |  |  | `input-methods` |
-| 49 | 幸运花 |  | plays | a minute of play |  |  |  |
-| 50 | 异世大陆 | yes | plays | — |  |  |  |
-| 51 | 异时空游记 | yes | plays | — |  |  |  |
-| 52 | 异时空游记2-纵横之旅 | yes | plays | — |  |  |  |
-| 53 | 志在青云 | yes | plays | — |  |  |  |
-| 54 | 恶龙传说 |  | ends | a minute of play |  |  | `input-methods` |
-| 55 | 我的世界 | yes | plays | — |  |  |  |
-| 56 | 战国争霸 | yes | plays | — |  |  |  |
-| 57 | 扫雷 |  | ends | — |  |  |  |
+| 34 | 基督山传奇 | yes | plays | a minute of play |  |  |  |
+| 35 | 大乱斗之火影忍者 | yes | plays | a minute of play |  |  |  |
+| 36 | 大话三国 | yes | plays | a minute of play |  |  |  |
+| 37 | 天之骄子 | yes | plays | a minute of play |  |  |  |
+| 38 | 天之骄子终曲版 | yes | plays | a minute of play |  |  |  |
+| 39 | 妖 传说 | yes | plays | a minute of play |  |  |  |
+| 40 | 妖·传说终曲版 | yes | plays | a minute of play |  |  |  |
+| 41 | 娱乐无极限之无影奸细 | yes | plays | a minute of play |  |  |  |
+| 42 | 宠物精灵 |  | ends | 30 minutes of play |  |  | `file-place`, `input-methods`, `unexplained-reads` |
+| 43 | 对对碰 |  | ends | 30 minutes of play |  |  | `input-methods` |
+| 44 | 封魔录 | yes | plays | a minute of play |  |  |  |
+| 45 | 将门风云 | yes | plays | a minute of play |  |  |  |
+| 46 | 少年行 | yes | plays | a minute of play |  |  |  |
+| 47 | 屠魔 | yes | plays | a minute of play |  |  |  |
+| 48 | 平面魔方 |  | plays | 30 minutes of play |  |  | `input-methods` |
+| 49 | 幸运花 |  | plays | 30 minutes of play |  |  |  |
+| 50 | 异世大陆 | yes | plays | a minute of play |  |  |  |
+| 51 | 异时空游记 | yes | plays | a minute of play |  |  |  |
+| 52 | 异时空游记2-纵横之旅 | yes | plays | a minute of play |  |  |  |
+| 53 | 志在青云 | yes | plays | a minute of play |  |  |  |
+| 54 | 恶龙传说 |  | ends | 30 minutes of play |  |  | `input-methods` |
+| 55 | 我的世界 | yes | plays | a minute of play |  |  |  |
+| 56 | 战国争霸 | yes | plays | a minute of play |  |  |  |
+| 57 | 扫雷 |  | ends | a minute of play |  |  |  |
 | 58 | 投篮游戏 |  | ends | a minute of play |  |  |  |
-| 59 | 抗日小兵 | yes | plays | — |  |  |  |
+| 59 | 抗日小兵 | yes | plays | a minute of play |  |  |  |
 | 60 | 拱猪 |  | ends | a minute of play |  |  |  |
 | 61 | 挖金子 |  | plays | a minute of play |  |  |  |
-| 62 | 接龙 |  | ends | — |  |  |  |
-| 63 | 搬运工 |  | ends | a minute of play |  |  |  |
-| 64 | 新仙剑奇侠传 | yes | plays | — |  |  |  |
-| 65 | 新仙剑奇侠传终曲版 | yes | plays | — |  |  |  |
-| 66 | 新能源危机 | yes | plays | — |  |  |  |
-| 67 | 智多星 |  | plays | a minute of play |  |  |  |
-| 68 | 最终幻想 | yes | plays | — |  |  |  |
-| 69 | 末日传说 | yes | plays | — |  |  |  |
-| 70 | 校园传奇 | yes | plays | — |  |  |  |
-| 71 | 梦幻校园 | yes | plays | — |  |  |  |
-| 72 | 梦幻西游 | yes | plays | — |  |  |  |
-| 73 | 步步高网友俱乐部 | yes | plays | — |  |  |  |
-| 74 | 武林新传 | yes | plays | — |  |  |  |
-| 75 | 比大小 |  | ends | — |  |  |  |
+| 62 | 接龙 |  | ends | a minute of play |  |  |  |
+| 63 | 搬运工 |  | ends | 30 minutes of play |  |  |  |
+| 64 | 新仙剑奇侠传 | yes | plays | a minute of play |  |  |  |
+| 65 | 新仙剑奇侠传终曲版 | yes | plays | a minute of play |  |  |  |
+| 66 | 新能源危机 | yes | plays | a minute of play |  |  |  |
+| 67 | 智多星 |  | plays | 30 minutes of play |  |  |  |
+| 68 | 最终幻想 | yes | plays | a minute of play |  |  |  |
+| 69 | 末日传说 | yes | plays | a minute of play |  |  |  |
+| 70 | 校园传奇 | yes | plays | a minute of play |  |  |  |
+| 71 | 梦幻校园 | yes | plays | a minute of play |  |  |  |
+| 72 | 梦幻西游 | yes | plays | a minute of play |  |  |  |
+| 73 | 步步高网友俱乐部 | yes | plays | a minute of play |  |  |  |
+| 74 | 武林新传 | yes | plays | a minute of play |  |  | `msgbox-timer`, `file-place` |
+| 75 | 比大小 |  | ends | a minute of play |  |  |  |
 | 76 | 泡泡侠 |  | plays | a minute of play |  |  |  |
-| 77 | 泡泡侠 加速版 |  | plays | — |  |  |  |
-| 78 | 洛克人 | yes | plays | — |  |  |  |
-| 79 | 洛特传奇 | yes | plays | — |  |  |  |
-| 80 | 海盗船 |  | ends | — |  |  |  |
-| 81 | 混战三国 | yes | plays | — |  |  |  |
-| 82 | 滑雪 |  | ends | a minute of play |  |  | `sound` |
+| 77 | 泡泡侠 加速版 |  | plays | a minute of play |  |  |  |
+| 78 | 洛克人 | yes | plays | a minute of play |  |  | `file-place` |
+| 79 | 洛特传奇 | yes | plays | a minute of play |  |  | `file-place` |
+| 80 | 海盗船 |  | ends | a minute of play |  |  |  |
+| 81 | 混战三国 | yes | plays | a minute of play |  |  |  |
+| 82 | 滑雪 |  | ends | 30 minutes of play |  |  | `sound` |
 | 83 | 潜艇大战 |  | ends | a minute of play |  |  |  |
-| 84 | 炸弹小子 |  | plays | — |  |  |  |
-| 85 | 烈中轶事 | yes | plays | — |  |  |  |
-| 86 | 热血传奇 | yes | plays | — |  |  | `game-bugs` |
-| 87 | 牛妞历险记 | yes | plays | — |  |  |  |
+| 84 | 炸弹小子 |  | plays | a minute of play |  |  |  |
+| 85 | 烈中轶事 | yes | plays | a minute of play |  |  |  |
+| 86 | 热血传奇 | yes | plays | a minute of play |  |  | `game-bugs` |
+| 87 | 牛妞历险记 | yes | plays | a minute of play |  |  |  |
 | 88 | 猪小弟 |  | ends | a minute of play |  |  |  |
 | 89 | 猫狗大战 |  | plays | a minute of play |  |  |  |
-| 90 | 王氏传 | yes | plays | — |  |  |  |
-| 91 | 生命女神之暗之诅咒 | yes | plays | — |  |  |  |
-| 92 | 电子宠物 |  | ends | a minute of play |  |  | `input-methods`, `file-place` |
-| 93 | 疯狂校园 | yes | plays | — |  |  |  |
-| 94 | 疯狂盗墓人 | yes | plays | — |  |  |  |
-| 95 | 白中传奇 | yes | ends | — |  |  |  |
-| 96 | 碰碰车 |  | plays | a minute of play |  |  | `input-methods` |
-| 97 | 秘密潜入 |  | plays | — |  |  |  |
-| 98 | 紫璇刀 | yes | plays | — |  |  |  |
-| 99 | 纯蓝记 | yes | plays | — |  |  |  |
-| 100 | 英雄剑 | yes | plays | — |  |  |  |
-| 101 | 英雄剑1 | yes | plays | — |  |  |  |
-| 102 | 英雄剑2 | yes | plays | — |  |  |  |
-| 103 | 英雄坛 | yes | plays | — |  |  |  |
+| 90 | 王氏传 | yes | plays | a minute of play |  |  |  |
+| 91 | 生命女神之暗之诅咒 | yes | plays | a minute of play |  |  |  |
+| 92 | 电子宠物 |  | ends | 30 minutes of play |  |  | `input-methods`, `file-place` |
+| 93 | 疯狂校园 | yes | plays | a minute of play |  |  |  |
+| 94 | 疯狂盗墓人 | yes | plays | a minute of play |  |  |  |
+| 95 | 白中传奇 | yes | ends | a minute of play |  |  |  |
+| 96 | 碰碰车 |  | plays | 30 minutes of play |  |  | `input-methods` |
+| 97 | 秘密潜入 |  | plays | a minute of play |  |  |  |
+| 98 | 紫璇刀 | yes | plays | a minute of play |  |  |  |
+| 99 | 纯蓝记 | yes | plays | a minute of play |  |  |  |
+| 100 | 英雄剑 | yes | plays | a minute of play |  |  |  |
+| 101 | 英雄剑1 | yes | plays | a minute of play |  |  |  |
+| 102 | 英雄剑2 | yes | plays | a minute of play |  |  |  |
+| 103 | 英雄坛 | yes | plays | a minute of play |  |  |  |
 | 104 | 英雄坛说 | yes | plays | full |  |  |  |
-| 105 | 英雄坛说终曲版 | yes | plays | — |  |  |  |
-| 106 | 英雄战士 | yes | plays | — |  |  |  |
-| 107 | 落世沉浮 | yes | plays | — |  |  |  |
-| 108 | 蜘蛛侠三 | yes | plays | — |  |  |  |
+| 105 | 英雄坛说终曲版 | yes | plays | a minute of play |  |  |  |
+| 106 | 英雄战士 | yes | plays | a minute of play |  |  |  |
+| 107 | 落世沉浮 | yes | plays | a minute of play |  |  |  |
+| 108 | 蜘蛛侠三 | yes | plays | a minute of play |  |  |  |
 | 109 | 螃蟹回家 |  | plays | a minute of play |  |  |  |
-| 110 | 诸神黄昏 | yes | plays | — |  |  |  |
+| 110 | 诸神黄昏 | yes | plays | a minute of play |  |  |  |
 | 111 | 豪斯 |  | ends | a minute of play |  |  | `sound` |
-| 112 | 贪食蛇 |  | plays | — |  |  |  |
+| 112 | 贪食蛇 |  | plays | a minute of play |  |  |  |
 | 113 | 赛马 |  | plays | a minute of play |  |  |  |
-| 114 | 赤壁之战 乱世枭雄 | yes | plays | — |  |  |  |
-| 115 | 赤壁之战乱世枭雄终曲版 | yes | plays | — |  |  |  |
+| 114 | 赤壁之战 乱世枭雄 | yes | plays | a minute of play |  |  |  |
+| 115 | 赤壁之战乱世枭雄终曲版 | yes | plays | a minute of play |  |  |  |
 | 116 | 跟花 |  | ends | a minute of play |  |  |  |
 | 117 | 跳蛋 |  | ends | a minute of play |  |  |  |
-| 118 | 过关斩将 | yes | plays | — |  |  |  |
-| 119 | 过关斩将4988(终曲版) | yes | plays | — |  |  |  |
-| 120 | 过关斩将4988改主角 | yes | plays | — |  |  |  |
-| 121 | 迷宫游戏 |  | plays | — |  |  |  |
-| 122 | 遗忘传说 | yes | plays | — |  |  |  |
-| 123 | 遗忘传说终曲版 | yes | plays | — |  |  |  |
-| 124 | 释厄传 | yes | plays | — |  |  |  |
-| 125 | 金庸群侠传 | yes | plays | — |  |  |  |
-| 126 | 金庸群侠传终曲版 | yes | plays | — |  |  |  |
-| 127 | 金庸群侠黑暗时代终曲版 | yes | plays | — |  |  |  |
-| 128 | 钓鱼 |  | ends | — |  |  |  |
+| 118 | 过关斩将 | yes | plays | a minute of play |  |  |  |
+| 119 | 过关斩将4988(终曲版) | yes | plays | a minute of play |  |  |  |
+| 120 | 过关斩将4988改主角 | yes | plays | a minute of play |  |  |  |
+| 121 | 迷宫游戏 |  | plays | a minute of play |  |  |  |
+| 122 | 遗忘传说 | yes | plays | a minute of play |  |  |  |
+| 123 | 遗忘传说终曲版 | yes | plays | a minute of play |  |  |  |
+| 124 | 释厄传 | yes | plays | a minute of play |  |  |  |
+| 125 | 金庸群侠传 | yes | plays | a minute of play |  |  |  |
+| 126 | 金庸群侠传终曲版 | yes | plays | a minute of play |  |  |  |
+| 127 | 金庸群侠黑暗时代终曲版 | yes | plays | a minute of play |  |  |  |
+| 128 | 钓鱼 |  | ends | a minute of play |  |  |  |
 | 129 | 钓鲨鱼 |  | ends | a minute of play |  |  |  |
-| 130 | 问道 | yes | plays | — |  |  |  |
+| 130 | 问道 | yes | plays | a minute of play |  |  |  |
 | 131 | 阶梯小子 |  | ends | a minute of play |  |  |  |
 | 132 | 飞行特训 |  | plays | a minute of play |  |  |  |
-| 133 | 魔塔 |  | ends | — |  |  |  |
-| 134 | 魔塔BT版 |  | ends | — |  |  |  |
-| 135 | 魔塔超级版 |  | ends | — |  |  |  |
-| 136 | 魔法学院 | yes | plays | — |  |  |  |
-| 137 | 黑暗之心 | yes | plays | — |  |  |  |
-| 138 | 黑白子 |  | ends | — |  |  |  |
+| 133 | 魔塔 |  | ends | a minute of play |  |  |  |
+| 134 | 魔塔BT版 |  | ends | a minute of play |  |  |  |
+| 135 | 魔塔超级版 |  | ends | a minute of play |  |  |  |
+| 136 | 魔法学院 | yes | plays | a minute of play |  |  |  |
+| 137 | 黑暗之心 | yes | plays | a minute of play |  |  |  |
+| 138 | 黑白子 |  | ends | a minute of play |  |  |  |
