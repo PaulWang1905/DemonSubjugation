@@ -224,7 +224,9 @@ export function placementCondition(model: ScriptModel, p: Placement, names: Name
   const g = model.groups.find((x) => i >= x.from && i < x.to);
   for (let j = i - 1; j >= (g?.from ?? 0); j--) {
     const s = model.steps[j];
-    if (s.kind === "instruction" && s.command.flow === "branch") return `${sentence(s.op.name, s.values, names).text} (line ${s.line})`;
+    // (the condition only: where the jump goes is a label, which authors never see)
+    if (s.kind === "instruction" && s.command.flow === "branch")
+      return `${sentence(s.op.name, s.values, names).text.replace(/,?\s*(?:then\s+)?go(?:es)? (?:on )?to @\w+/gi, "").replace(/@(\w+)/g, "$1").trim()} (line ${s.line})`;
   }
   return "it depends on the way the script gets here";
 }

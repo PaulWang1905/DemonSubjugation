@@ -125,7 +125,9 @@ describe("what is drawn over a map", () => {
     expect(phrase[2]).toBe("→ OLD QUARRY");
     expect(phrase[5]).toBe("message");
     const boulder = o.people.find((p) => p.placement.name === "Boulder")!.placement;
-    expect(placementCondition(world.scripts.get("1-1-1")!.model, boulder)).toMatch(/flag 13.*line 53/);
+    const cond = placementCondition(world.scripts.get("1-1-1")!.model, boulder)!;
+    expect(cond).toMatch(/flag 13.*line 53/);
+    expect(cond).not.toMatch(/@|go to/); // the condition in words, no label
   });
 
   it("says who sets the map up, and what someone says first", () => {
