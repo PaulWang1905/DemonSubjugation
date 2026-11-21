@@ -1,0 +1,109 @@
+/* The resource picker (ResourcePicker.tsx): a button and a searchable list. */
+.rp {
+  position: relative;
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+}
+.rp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rp-btn:hover {
+  border-color: var(--ink);
+}
+.rp-btn.missing {
+  border-color: #b3412e;
+  color: #b3412e;
+}
+.rp-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+.rp-thumb img {
+  max-width: 24px;
+  max-height: 24px;
+  image-rendering: pixelated;
+}
+.rp-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rp-num {
+  flex: none;
+  color: var(--muted);
+  font: 500 11px/1 var(--h-mono, monospace);
+}
+.rp-caret {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+.rp-pop {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  width: max(260px, 100%);
+  max-width: min(420px, 90vw);
+  border: 1px solid var(--ink);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+  overflow: hidden;
+}
+.rp-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+.rp-search:focus {
+  outline: none;
+}
+.rp-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 280px;
+  overflow: auto;
+}
+.rp-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.rp-list li.at {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.rp-list li[aria-selected="true"] .rp-name {
+  font-weight: 650;
+}
+.rp-empty {
+  color: var(--muted);
+  cursor: default;
+}
