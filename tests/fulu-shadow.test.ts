@@ -498,6 +498,8 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
         return [y, sx, sy, zero ? 0 : Math.min(w, 0x100 - sx), zero ? rand(2) * Math.min(h, 0x100 - sy, 0x100 - y) : Math.min(h, 0x100 - sy, 0x100 - y), 0x00, 0x30];
       }, () => rand(160)],
       ...[0xe818, 0xe81b, 0xe81e, 0xe821].map((e): [number, () => number[], () => number] => [e, () => [], () => (rand(4) ? rand(17) : rand(256))]),
+      // the status bar's number blanked and four icons off, from random icons (all of $0400-$3FFF is random)
+      [0xe8e0, () => []],
       // the clock and the key buffer
       [0xe7dc, () => []],
       [0xe7df, () => []],

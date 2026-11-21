@@ -174,7 +174,7 @@ function queueMessage(front: boolean): void {
 }
 
 /** The status icons' rows (6:$6D15), by the index each icon function passes to 6:$6753. */
-const ICON_TABLE = [93, 95, 76, 82, 88, 38, 39, 45, 49, 44, 34, 29, 23, 16, 0, 92, 94, 20, 31, 41, 13];
+const ICON_TABLE = [93, 95, 76, 82, 88, 38, 39, 45, 49, 44, 34, 29, 23, 16, 0, 92, 94, 20, 31, 41, 13, 6, 68, 0, 61];
 /** The icon functions but the GUI's three: their table entries and indexes (each at 6:$66D6 + 5 × its index). */
 const ICON_ENTRIES: [number, number][] = [
   [0xe800, 0], [0xe803, 1], [0xe806, 2], [0xe809, 3], [0xe812, 4], [0xe815, 5],
@@ -657,6 +657,29 @@ export const GUI: Record<number, OsFunction> = {
   0xe81b: digit(0x6b71, DIGIT_ROWS[1]),
   0xe81e: digit(0x6bcf, DIGIT_ROWS[2]),
   0xe821: digit(0x6c2d, DIGIT_ROWS[3]),
+  /**
+   * $E8E0: blank the status bar's number (the 28 segments of $E818-$E821's
+   * four digits), then turn off icons 6, 7, 8 ($E824-$E82A's) and 24
+   * ($E8B3's) through 6:$6753, ending as the last of those leaves things.
+   */
+  0xe8e0: fn(
+    0x6a40,
+    () => {
+      for (const row of DIGIT_ROWS.flat()) {
+        const a = iconRow(row);
+        wr(a, (cpu.a = rd(a) & 0xfe));
+      }
+      for (const i of [6, 7, 8, 24]) {
+        ram[0x2080] = 0;
+        const a = iconRow(ICON_TABLE[i]);
+        wr(a, (cpu.a = rd(a) & 0xfe));
+      }
+      cpu.x = cpu.y = 0;
+      cmp(0, 0);
+      cpu.p &= ~0x40;
+    },
+    ICON_TEMPORARIES,
+  ),
   /**
    * $E8EF(p): the status icons' bits (bit 0 of byte 18 of each of the 96 RAM
    * rows) as 12 bytes to p: shifted in row by row through $208D-$2098 (row 0

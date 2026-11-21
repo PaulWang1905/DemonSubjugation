@@ -203,6 +203,7 @@ its size in instructions (with the resident code it uses), what it does.
 | $E889 | SysPictureDummy | 6:$5B18 | 323 | (x1 in A, y1, x2, y2, bitmap, buffer): as SysPicture (mode 0) into a 20-byte-stride buffer; far-calls the multiply $EAEC |
 | $E8BF | (clear an outline) | 5:$8603 | 474 | (x1 in A, y1, x2, y2): SysRect's code with the colour at $2080 = 0: the outline cleared |
 | $E8EC | (icons off) | 6:$624D | 333 | every status icon off (all icon rows but 6, 7, 8, 13, 20, 31, 41, 68, 78, 89-91); icon n's row is 6:$6D15[n] |
+| $E8E0 | (status bar blanked) | 6:$6A40 | 138 | the four digits' 28 segments off (the rows of $E818-$E821), then icons 6, 7, 8 ($E824-$E82A) and 24 ($E8B3, row 61) off through 6:$6753; X = Y = 0, C = Z = 1 as that leaves them. 华容道 and 滑雪 call it on Exit |
 | $E932 | (GUI start-up) | 8:$5000 | 164 | clears $2B09-$2B0B, memset($2B0F, 0, $18), $2B27 = 2, $2B28 = $0F; far-calls $E9A1($FFFF), $E91C, $E848(0), $E8D7(0), $E845(0); returns 1 |
 | $E935 | GuiGetMsg | 8:$5093 | 2075 | (msg): the message pump (below) |
 | $E93B | (input mode) | 8:$5FF3 | 118 | (mode): switch the keyboard state's low 4 bits (modes 2, 4, 8, 1) with a routine per change; Fulu has only no change |
@@ -383,6 +384,11 @@ Round 2 (see the report's §16.1 for the list) took the programs that play
 - the status icons: one routine (6:$6753) for $E800-$E84E, their rows at
   6:$6D15 by index (entry 6:$66D6 + 5 × index); the bar graph's 38 rows at
   6:$6CEE, $E8E3's thresholds at 6:$69A4.
+- $E8E0 blanks the status bar's number and four icons (6-8 and 24) the
+  same way: compared on random icon state, and in 华容道's and 滑雪's
+  shadow runs (Exit); on Fulu alone both now end cleanly on Exit at the
+  title and in play. Index 24's routine is $E8B3 (6:$674E), which Fulu
+  does not have yet; 6:$6D15 has 25 entries (21-23: rows 6, 68, 0).
 - GuiGetMsg's queue: records {type, word} at $2B0F, read index $2B09, write
   index $2B0A, count $2B0B (at most 8); taking one leaves $26/$27 = 3 ×
   index (the record's offset, from the runtime's multiply).
