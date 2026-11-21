@@ -44,10 +44,11 @@ BBK_GAMES=<folder of .gam> FMJ_DATA_DIR=<folder with HZK16, ASC16> BBK_FIRMWARE=
    (`npx tsx scripts/bbk/fulu-coverage.mts <roms folder> <0E00.DAT> --programs`),
    and the code flow (`npx tsx scripts/bbk/fulu-flow.mts <roms folder>`,
    which also says how much of each program's code it followed, what it
-   cannot follow, and any code it missed); the play test (180 s on Fulu
-   alone with **every key** a player can press but the four system keys,
-   Continue past each stop, each distinct stop recorded) says where each
-   stops in play. Random play with a few keys is not enough: Shift and
+   cannot follow, and any code it missed); the play test
+   (`npx tsx scripts/bbk/fulu-play.mts <roms folder> <shard> <shards> 180`:
+   180 s on Fulu alone with **every key** a player can press but the four
+   system keys, Continue past each stop, each distinct stop recorded) says
+   where each stops in play. Random play with a few keys is not enough: Shift and
    Exit stopped 8 programs that Enter, the arrows and space never did.
 2. **Write** what programs stop at: read the OS function
    (`node scripts/bbk/os-function.mjs <0E00.DAT> <entry>`, and
