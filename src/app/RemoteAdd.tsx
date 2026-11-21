@@ -48,14 +48,15 @@ const session = () => sessionStorage;
 const local = () => localStorage;
 
 /**
- * Add games from a link: a GitHub folder or file, a direct .lib or .gam link
- * or a web folder listing; folders can be browsed and games picked one by
- * one. The files come from third parties: nothing loads until the visitor
- * has ticked that they understand this.
+ * Add games from a link: a public collection to browse, or a GitHub folder or
+ * file, a direct .lib or .gam link or a web folder listing; folders can be
+ * filtered and games picked one by one. The files come from third parties:
+ * nothing loads until the visitor has ticked that they understand this.
  */
 export function RemoteAdd({ busy, onImport }: Props) {
   const [link, setLink] = useState(() => read(local, LAST));
   const [agreed, setAgreed] = useState(() => read(session, AGREED) === "1");
+  const [rereading, setRereading] = useState(false);
   const [folder, setFolder] = useState<RemoteFolder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export function RemoteAdd({ busy, onImport }: Props) {
 
   const agree = (on: boolean) => {
     setAgreed(on);
+    setRereading(false);
     write(session, AGREED, on ? "1" : null);
   };
 
@@ -132,31 +134,41 @@ export function RemoteAdd({ busy, onImport }: Props) {
   const shownFiles = shown.filter((e) => e.type === "file" && !done.has(e.url));
 
   return (
-    <section className="remote" aria-labelledby="remote-h">
-      <h2 id="remote-h" className="remote-h">
-        {t.label}
-      </h2>
+    <section className="remote" id="add-link" aria-labelledby="remote-h">
+      <header className="remote-top">
+        <h2 id="remote-h" className="remote-h">
+          {t.label}
+        </h2>
+        <p className="remote-lead">{t.lead}</p>
+      </header>
 
-      <div className={`remote-notice${agreed ? " agreed" : ""}`}>
-        <p className="remote-notice-title">{t.disclaimerTitle}</p>
-        <p>{t.disclaimer}</p>
-        <label className="remote-agree">
-          <input type="checkbox" checked={agreed} onChange={(e) => agree(e.target.checked)} />
-          <span>{t.agree}</span>
-        </label>
-      </div>
+      {agreed && !rereading ? (
+        <p className="remote-accepted">
+          <span aria-hidden="true">✓</span> {t.accepted}{" "}
+          <button type="button" className="remote-linkbtn" onClick={() => setRereading(true)}>
+            {t.readAgain}
+          </button>
+        </p>
+      ) : (
+        <div className={`remote-notice${agreed ? " agreed" : ""}`}>
+          <p className="remote-notice-title">{t.disclaimerTitle}</p>
+          <p>{t.disclaimer}</p>
+          <label className="remote-agree">
+            <input type="checkbox" checked={agreed} onChange={(e) => agree(e.target.checked)} />
+            <span>{t.agree}</span>
+          </label>
+        </div>
+      )}
 
-      <div className="remote-sources" aria-label={t.sourcesLabel}>
-        <p className="remote-sub">{t.sourcesLabel}</p>
+      <div className={`remote-ways${agreed ? "" : " locked"}`}>
         {SOURCES.map((s) => (
-          <div key={s.id} className="remote-source">
-            <div className="remote-source-text">
-              <strong>{s.title}</strong>
-              <span className="muted small">{t.sourceBy(s.owner)}</span>
-              <span className="small">{t.sourceWhat[s.id]}</span>
-            </div>
-            <div className="remote-source-actions">
-              <button type="button" onClick={() => void open(s.url)} disabled={locked}>
+          <div key={s.id} className="remote-way">
+            <p className="remote-sub">{t.sourcesLabel}</p>
+            <strong className="remote-way-title">{s.title}</strong>
+            <span className="muted small">{t.sourceBy(s.owner)}</span>
+            <p className="remote-way-text">{t.sourceWhat[s.id]}</p>
+            <div className="remote-way-actions">
+              <button type="button" className="remote-go" onClick={() => void open(s.url)} disabled={locked}>
                 {t.browse}
               </button>
               <a className="remote-ext" href={s.url} target="_blank" rel="noopener noreferrer">
@@ -165,37 +177,39 @@ export function RemoteAdd({ busy, onImport }: Props) {
             </div>
           </div>
         ))}
+        <form
+          className="remote-way remote-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void open(link);
+          }}
+        >
+          <label htmlFor="remote-link" className="remote-sub">
+            {t.ownLink}
+          </label>
+          <div className="row">
+            <input
+              id="remote-link"
+              type="url"
+              inputMode="url"
+              autoComplete="url"
+              placeholder="https://github.com/owner/repo/tree/main/folder"
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              disabled={!agreed}
+            />
+            <button type="submit" className="remote-go" disabled={locked || !link.trim()}>
+              {t.open}
+            </button>
+          </div>
+          <p className="muted small">{t.hint}</p>
+        </form>
+        {!agreed && <p className="remote-need">{t.needAgree}</p>}
       </div>
-
-      <form
-        className="remote-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void open(link);
-        }}
-      >
-        <label htmlFor="remote-link" className="remote-sub">
-          {t.ownLink}
-        </label>
-        <div className="row">
-          <input
-            id="remote-link"
-            type="url"
-            inputMode="url"
-            placeholder="https://github.com/owner/repo/tree/main/folder"
-            value={link}
-            onChange={(e) => setLink(e.target.value)}
-            disabled={!agreed}
-          />
-          <button type="submit" disabled={locked || !link.trim()}>
-            {t.open}
-          </button>
-        </div>
-        <p className="muted small">{agreed ? t.hint : t.needAgree}</p>
-      </form>
 
       {loading && (
         <p className="remote-status" role="status">
+          <span className="remote-spin" aria-hidden="true" />
           {loading}
         </p>
       )}
@@ -257,17 +271,21 @@ export function RemoteAdd({ busy, onImport }: Props) {
                   </button>
                 </li>
               ) : (
-                <li key={e.url}>
+                <li key={e.url} className={done.has(e.url) ? "is-added" : undefined}>
                   <label className="remote-file">
                     <input type="checkbox" checked={picked.has(e.url)} onChange={() => toggle(e.url)} disabled={locked || done.has(e.url)} />
-                    <span className="name">{e.name.replace(/\.(lib|gam)$/i, "")}</span>
-                    <span className="remote-kind">{/\.gam$/i.test(e.name) ? t.kindGam : t.kindLib}</span>
-                    <span className="muted small remote-size">{size(e.size)}</span>
+                    <span className="remote-file-text">
+                      <span className="name">{e.name.replace(/\.(lib|gam)$/i, "")}</span>
+                      <span className="remote-meta">
+                        {/\.gam$/i.test(e.name) ? t.kindGam : t.kindLib}
+                        {e.size ? ` · ${size(e.size)}` : ""}
+                      </span>
+                    </span>
                   </label>
                   {done.has(e.url) ? (
-                    <span className="remote-added small">{t.added}</span>
+                    <span className="remote-added small">✓ {t.added}</span>
                   ) : (
-                    <button className="ghost small" onClick={() => void add([e.url])} disabled={locked}>
+                    <button className="remote-add" onClick={() => void add([e.url])} disabled={locked}>
                       {t.add}
                     </button>
                   )}
@@ -277,7 +295,7 @@ export function RemoteAdd({ busy, onImport }: Props) {
           </ul>
           {picked.size > 0 && (
             <div className="remote-actions">
-              <button onClick={() => void add([...picked])} disabled={locked}>
+              <button className="remote-go" onClick={() => void add([...picked])} disabled={locked}>
                 {t.addSelected(picked.size)}
               </button>
             </div>

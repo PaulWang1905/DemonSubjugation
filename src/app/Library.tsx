@@ -97,6 +97,9 @@ export function Library({ games, fonts, persistent, busy, messages, firmware, on
             <span aria-hidden="true">+</span>
           </button>
           <p className="h-meta">{t.dropHint}</p>
+          <a className="h-meta g-to-link" href="#add-link">
+            {t.remote.orLink}
+          </a>
         </div>
       </header>
 
@@ -111,6 +114,10 @@ export function Library({ games, fonts, persistent, busy, messages, firmware, on
           )}
         </div>
       )}
+
+      <div className="g-link-sec">
+        <RemoteAdd busy={busy} onImport={onImport} />
+      </div>
 
       <section className="g-shelf" id="games">
         <div className="g-shelf-head">
@@ -239,10 +246,6 @@ export function Library({ games, fonts, persistent, busy, messages, firmware, on
             </div>
           ))}
         </div>
-      </section>
-
-      <section className="h-section g-link-sec">
-        <RemoteAdd busy={busy} onImport={onImport} />
       </section>
 
       {drag && (

@@ -88,6 +88,10 @@ const en = {
 
   remote: {
     label: "Add from a link",
+    lead: "Browse a public collection, or paste a link to a folder or a file. The games come straight from that site into this browser.",
+    accepted: "You accepted that these files come from third-party, publicly available sources.",
+    readAgain: "Read again",
+    orLink: "or add from a link ↓",
     disclaimerTitle: "Files from other people's sites",
     disclaimer:
       "FMJ React does not host, own, check or endorse the files you load from a link. They come straight from third-party websites (such as GitHub) into this browser and stay there; nothing is uploaded. The games belong to their authors and publishers: load only what is publicly available and what you may use where you live.",
@@ -100,7 +104,7 @@ const en = {
     } as Record<string, string>,
     browse: "Browse this collection",
     viewSource: "View on GitHub",
-    ownLink: "Or your own link",
+    ownLink: "Your own link",
     filter: "Filter by name",
     selectAll: (n: number) => `Select all shown (${n})`,
     clear: "Clear",
@@ -226,6 +230,10 @@ const zh: GamesText = {
 
   remote: {
     label: "通过链接添加",
+    lead: "浏览一个公开合集，或者粘贴文件夹或文件的链接。游戏直接从那个网站下载到这个浏览器。",
+    accepted: "你已确认这些文件来自第三方公开来源。",
+    readAgain: "再读一遍",
+    orLink: "或者通过链接添加 ↓",
     disclaimerTitle: "来自他人网站的文件",
     disclaimer:
       "FMJ React 不托管、不拥有、不检查也不认可你通过链接载入的文件。它们直接从第三方网站（例如 GitHub）下载到这个浏览器并保存在这里，不会上传任何内容。游戏的权利属于它们的作者和发行方：请只载入公开可得、并且在你所在地可以合法使用的文件。",
@@ -238,7 +246,7 @@ const zh: GamesText = {
     } as Record<string, string>,
     browse: "浏览这个合集",
     viewSource: "在 GitHub 上查看",
-    ownLink: "或者你自己的链接",
+    ownLink: "你自己的链接",
     filter: "按名称筛选",
     selectAll: (n: number) => `全选显示的（${n} 个）`,
     clear: "清除",
