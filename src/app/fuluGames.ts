@@ -55,7 +55,7 @@ export const GAMES: FuluGame[] = [
   { name: "伏魔记-1.3", kit: true, onFulu: "plays", firmware: "full", problems: ["game-bugs"] },
   { name: "伏魔记完美版1.0", kit: true, onFulu: "plays", firmware: "full" },
   { name: "伏魔记怀旧终曲v1.0(原版精修)", kit: true, onFulu: "plays", firmware: "full" },
-  { name: "体闲麻将", kit: false, onFulu: "plays", scan: ["$E706"], firmware: "play" },
+  { name: "体闲麻将", kit: false, onFulu: "plays", firmware: "play" },
   { name: "侠客行", kit: true, onFulu: "plays", firmware: "none" },
   { name: "侠客行4988(终曲版)", kit: true, onFulu: "plays", firmware: "none" },
   { name: "公路快车", kit: false, onFulu: "plays", firmware: "none" },
@@ -63,7 +63,7 @@ export const GAMES: FuluGame[] = [
   { name: "剑缘-第一部", kit: true, onFulu: "plays", firmware: "none" },
   { name: "十字之门", kit: true, onFulu: "plays", firmware: "none" },
   { name: "升级", kit: false, onFulu: "plays", firmware: "play" },
-  { name: "华容道", kit: false, onFulu: "plays", scan: ["$E8E0"], firmware: "play" },
+  { name: "华容道", kit: false, onFulu: "plays", firmware: "play" },
   { name: "同福奇缘", kit: true, onFulu: "plays", firmware: "none" },
   { name: "地牢围攻", kit: true, onFulu: "plays", firmware: "none" },
   { name: "坦克大战", kit: false, onFulu: "ends", firmware: "play" },
@@ -75,7 +75,7 @@ export const GAMES: FuluGame[] = [
   { name: "妖 传说", kit: true, onFulu: "plays", firmware: "none" },
   { name: "妖·传说终曲版", kit: true, onFulu: "plays", firmware: "none" },
   { name: "娱乐无极限之无影奸细", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "宠物精灵", kit: false, onFulu: "plays", scan: ["$E706", "$E8D1"], firmware: "play", problems: ["input-methods", "unexplained-reads"] },
+  { name: "宠物精灵", kit: false, onFulu: "plays", scan: ["$E8D1", "$E90D", "$E910"], firmware: "play", problems: ["input-methods", "unexplained-reads"] },
   { name: "对对碰", kit: false, onFulu: "plays", firmware: "play", problems: ["input-methods"] },
   { name: "封魔录", kit: true, onFulu: "plays", firmware: "none" },
   { name: "将门风云", kit: true, onFulu: "plays", firmware: "none" },
@@ -87,7 +87,7 @@ export const GAMES: FuluGame[] = [
   { name: "异时空游记", kit: true, onFulu: "plays", firmware: "none" },
   { name: "异时空游记2-纵横之旅", kit: true, onFulu: "plays", firmware: "none" },
   { name: "志在青云", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "恶龙传说", kit: false, onFulu: "ends", scan: ["$E8D1"], firmware: "play", problems: ["input-methods"] },
+  { name: "恶龙传说", kit: false, onFulu: "ends", scan: ["$E8D1", "$E90D", "$E910"], firmware: "play", problems: ["input-methods"] },
   { name: "我的世界", kit: true, onFulu: "plays", firmware: "none" },
   { name: "战国争霸", kit: true, onFulu: "plays", firmware: "none" },
   { name: "扫雷", kit: false, onFulu: "plays", firmware: "none" },
@@ -100,7 +100,7 @@ export const GAMES: FuluGame[] = [
   { name: "新仙剑奇侠传", kit: true, onFulu: "plays", firmware: "none" },
   { name: "新仙剑奇侠传终曲版", kit: true, onFulu: "plays", firmware: "none" },
   { name: "新能源危机", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "智多星", kit: false, onFulu: "plays", scan: ["$E7BE"], firmware: "play" },
+  { name: "智多星", kit: false, onFulu: "plays", firmware: "play" },
   { name: "最终幻想", kit: true, onFulu: "plays", firmware: "none" },
   { name: "末日传说", kit: true, onFulu: "plays", firmware: "none" },
   { name: "校园传奇", kit: true, onFulu: "plays", firmware: "none" },
@@ -115,7 +115,7 @@ export const GAMES: FuluGame[] = [
   { name: "洛特传奇", kit: true, onFulu: "plays", firmware: "none" },
   { name: "海盗船", kit: false, onFulu: "plays", firmware: "none" },
   { name: "混战三国", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "滑雪", kit: false, onFulu: "plays", scan: ["$E8E0"], firmware: "play", problems: ["sound"] },
+  { name: "滑雪", kit: false, onFulu: "plays", firmware: "play", problems: ["sound"] },
   { name: "潜艇大战", kit: false, onFulu: "ends", firmware: "play" },
   { name: "炸弹小子", kit: false, onFulu: "plays", firmware: "none" },
   { name: "烈中轶事", kit: true, onFulu: "plays", firmware: "none" },
@@ -286,8 +286,8 @@ export const PROBLEMS: Problem[] = [
     id: "unreached",
     title: { en: "Functions a program can call but none did in play", zh: "程序可能调用、试玩中没有调用的函数" },
     detail: {
-      en: "$E706, $E7BE, $E8D1 and $E8E0 are in the code of one or two programs each (about 1,450 instructions in all), on paths 180 s of random keys never took. A program that takes one stops on Fulu and names it; Continue goes on past it.",
-      zh: "$E706、$E7BE、$E8D1 和 $E8E0 各出现在一两个程序的代码里（合计约 1,450 条指令），随机按键 180 秒都没有走到。程序一旦调用，就会在符箓上停止并说出函数名；选择“继续”即可跳过。",
+      en: "The link cable's serial port ($E8D1, and the resident $E90D and $E910, about 170 instructions) is in 宠物精灵's and 恶龙传说's code, reached from their two-player link menus (和朋友联机; 长腿哥's sending). A program that takes it stops on Fulu and names it; Continue goes on past it.",
+      zh: "联机线的串口（$E8D1，以及常驻例程 $E90D 和 $E910，约 170 条指令）在宠物精灵和恶龙传说的代码里，从它们的双人联机菜单（和朋友联机；长腿哥的寄送）进入。程序一旦调用，就会在符箓上停止并说出函数名；选择“继续”即可跳过。",
     },
     status: "open",
   },
@@ -355,7 +355,7 @@ export const PROBLEMS: Problem[] = [
 export const UPDATED = "2026-11-20";
 
 /** What Fulu answers (tests/fulu-games.test.ts checks these against src/fulu). */
-export const FULU_COUNTS = { functions: 131, routines: 75 };
+export const FULU_COUNTS = { functions: 134, routines: 75 };
 
 /**
  * How much of the OS the collection needs, by the code scan
@@ -364,7 +364,7 @@ export const FULU_COUNTS = { functions: 131, routines: 75 };
  * left (left: what the missing entries take with what they call; input
  * methods not measured).
  */
-export const COVERAGE = { apiUsed: 107, residentUsed: 61, written: 46800, left: 1449 };
+export const COVERAGE = { apiUsed: 107, residentUsed: 63, written: 48200, left: 172 };
 
 /** The programs that played 180 s of random keys after each step (and those that ended on their own). */
 export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; ends: number }[] = [
@@ -523,10 +523,9 @@ export interface Remaining {
 }
 
 export const REMAINING: Remaining[] = [
-  { what: "$E7BE", size: 718, plan: "later", problem: "unreached" },
-  { what: "$E706", size: 528, plan: "later", problem: "unreached" },
-  { what: "$E8E0", size: 138, plan: "later", problem: "unreached" },
+  { what: "$E910", size: 73, plan: "later", problem: "unreached" },
   { what: "$E8D1", size: 65, plan: "later", problem: "unreached" },
+  { what: "$E90D", size: 34, plan: "later", problem: "unreached" },
 ];
 
 /** The programs that stop at, and that can call, a remaining item. */

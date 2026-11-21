@@ -13,7 +13,7 @@ Updated 2026-11-20.
 - **Compared with BBK's firmware** (the shadow run): 7 in full (their code traced, play, typing and saves compared), 34 for a minute of play.
 - **Tested by hand**: 2 reports (below).
 - **Problems**: 5 open, 8 decided or fixed.
-- **Code scan** (`scripts/bbk/fulu-coverage.mts --programs`): 132 programs call nothing Fulu lacks. The programs call 107 OS functions (Fulu answers 103) and 61 runtime routines (all answered); about 46,800 instructions of OS code are written and 1,449 left, not counting the OS's own input method (Fulu takes Chinese from the computer's own instead).
+- **Code scan** (`scripts/bbk/fulu-coverage.mts --programs`): 136 programs call nothing Fulu lacks. The programs call 107 OS functions (Fulu answers 104) and 63 runtime routines (all answered); about 48,200 instructions of OS code are written and 172 left, not counting the OS's own input method (Fulu takes Chinese from the computer's own instead).
 
 ## How it got here
 
@@ -48,10 +48,9 @@ Updated 2026-11-20.
 
 | What | Instructions | Stops in play | Code can call it | When |
 |---|---|---|---|---|
-| `$E7BE` | 718 | — | 智多星 | later |
-| `$E706` | 528 | — | 体闲麻将, 宠物精灵 | later |
-| `$E8E0` | 138 | — | 华容道, 滑雪 | later |
+| `$E910` | 73 | — | 宠物精灵, 恶龙传说 | later |
 | `$E8D1` | 65 | — | 宠物精灵, 恶龙传说 | later |
+| `$E90D` | 34 | — | 宠物精灵, 恶龙传说 | later |
 
 ## Problems
 
@@ -63,7 +62,7 @@ Updated 2026-11-20.
 | `e99e` | **$E99E**: Today's date, from the clock's day counter, through seven more of the OS's calendar functions (about 1,750 instructions). Done in round 3 and compared with the firmware on random dates. | fixed | — | — |
 | `e9ad` | **$E9AD**: A number drawn in a radix (about 870 instructions). Done in round 3: 挖金子 plays, and its calls, and 跳蛋's, match the firmware. | fixed | — | — |
 | `help-dialog` | **$E980 (a help screen)**: A text shown a page at a time and scrolled by the keys (2,429 instructions with its key cases, and $E8CB, $E8CE, $E8E9). Done in round 3: compared with the firmware on 200 random texts and key sequences, and 幸运花, which opens it 28 times a minute, matches the firmware and plays. The 43 programs that can call it no longer stop there. | fixed | — | — |
-| `unreached` | **Functions a program can call but none did in play**: $E706, $E7BE, $E8D1 and $E8E0 are in the code of one or two programs each (about 1,450 instructions in all), on paths 180 s of random keys never took. A program that takes one stops on Fulu and names it; Continue goes on past it. | open | — | — |
+| `unreached` | **Functions a program can call but none did in play**: The link cable's serial port ($E8D1, and the resident $E90D and $E910, about 170 instructions) is in 宠物精灵's and 恶龙传说's code, reached from their two-player link menus (和朋友联机; 长腿哥's sending). A program that takes it stops on Fulu and names it; Continue goes on past it. | open | — | — |
 | `file-place` | **Where a new save goes in the flash**: The original OS places a new file by pages among its own files; Fulu gives it sectors of its own. Games see only a different file id (电子宠物 in the firmware comparison); saving and loading work. | open | — | 电子宠物 |
 | `unexplained-reads` | **Unexplained reads in 宠物精灵**: In the firmware comparison the OS reads two of its scratch bytes ($2088, $20C8) before writing them, in one of the game's own calls; the results match. | open | — | 宠物精灵 |
 | `wrapped-drawing` | **Drawing that wraps past the screen**: A bitmap window whose sizes wrap past 255 passes the OS's checks, and the OS then draws into its own variables; Fulu draws nothing. No game seen doing it. | open | — | — |
@@ -107,7 +106,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 19 | 伏魔记-1.3 | yes | plays | full |  |  | `game-bugs` |
 | 20 | 伏魔记完美版1.0 | yes | plays | full |  |  |  |
 | 21 | 伏魔记怀旧终曲v1.0(原版精修) | yes | plays | full |  |  |  |
-| 22 | 体闲麻将 |  | plays | a minute of play | `$E706` |  |  |
+| 22 | 体闲麻将 |  | plays | a minute of play |  |  |  |
 | 23 | 侠客行 | yes | plays | — |  |  |  |
 | 24 | 侠客行4988(终曲版) | yes | plays | — |  |  |  |
 | 25 | 公路快车 |  | plays | — |  |  |  |
@@ -115,7 +114,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 27 | 剑缘-第一部 | yes | plays | — |  |  |  |
 | 28 | 十字之门 | yes | plays | — |  |  |  |
 | 29 | 升级 |  | plays | a minute of play |  |  |  |
-| 30 | 华容道 |  | plays | a minute of play | `$E8E0` |  |  |
+| 30 | 华容道 |  | plays | a minute of play |  |  |  |
 | 31 | 同福奇缘 | yes | plays | — |  |  |  |
 | 32 | 地牢围攻 | yes | plays | — |  |  |  |
 | 33 | 坦克大战 |  | ends on its own | a minute of play |  |  |  |
@@ -127,7 +126,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 39 | 妖 传说 | yes | plays | — |  |  |  |
 | 40 | 妖·传说终曲版 | yes | plays | — |  |  |  |
 | 41 | 娱乐无极限之无影奸细 | yes | plays | — |  |  |  |
-| 42 | 宠物精灵 |  | plays | a minute of play | `$E706` `$E8D1` |  | `input-methods`, `unexplained-reads` |
+| 42 | 宠物精灵 |  | plays | a minute of play | `$E8D1` `$E90D` `$E910` |  | `input-methods`, `unexplained-reads` |
 | 43 | 对对碰 |  | plays | a minute of play |  |  | `input-methods` |
 | 44 | 封魔录 | yes | plays | — |  |  |  |
 | 45 | 将门风云 | yes | plays | — |  |  |  |
@@ -139,7 +138,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 51 | 异时空游记 | yes | plays | — |  |  |  |
 | 52 | 异时空游记2-纵横之旅 | yes | plays | — |  |  |  |
 | 53 | 志在青云 | yes | plays | — |  |  |  |
-| 54 | 恶龙传说 |  | ends on its own | a minute of play | `$E8D1` |  | `input-methods` |
+| 54 | 恶龙传说 |  | ends on its own | a minute of play | `$E8D1` `$E90D` `$E910` |  | `input-methods` |
 | 55 | 我的世界 | yes | plays | — |  |  |  |
 | 56 | 战国争霸 | yes | plays | — |  |  |  |
 | 57 | 扫雷 |  | plays | — |  |  |  |
@@ -152,7 +151,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 64 | 新仙剑奇侠传 | yes | plays | — |  |  |  |
 | 65 | 新仙剑奇侠传终曲版 | yes | plays | — |  |  |  |
 | 66 | 新能源危机 | yes | plays | — |  |  |  |
-| 67 | 智多星 |  | plays | a minute of play | `$E7BE` |  |  |
+| 67 | 智多星 |  | plays | a minute of play |  |  |  |
 | 68 | 最终幻想 | yes | plays | — |  |  |  |
 | 69 | 末日传说 | yes | plays | — |  |  |  |
 | 70 | 校园传奇 | yes | plays | — |  |  |  |
@@ -167,7 +166,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 79 | 洛特传奇 | yes | plays | — |  |  |  |
 | 80 | 海盗船 |  | plays | — |  |  |  |
 | 81 | 混战三国 | yes | plays | — |  |  |  |
-| 82 | 滑雪 |  | plays | a minute of play | `$E8E0` |  | `sound` |
+| 82 | 滑雪 |  | plays | a minute of play |  |  | `sound` |
 | 83 | 潜艇大战 |  | ends on its own | a minute of play |  |  |  |
 | 84 | 炸弹小子 |  | plays | — |  |  |  |
 | 85 | 烈中轶事 | yes | plays | — |  |  |  |
