@@ -464,6 +464,8 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       [0xe7d3, () => [rand(256), rand(256), [0x80, 0x88, 0x20 + rand(0x20), 0xe0 + rand(4)][rand(4)], 0, rand(256), 0x30 + rand(8), rand(4) ? rand(64) : rand(256)]],
       [0xe7e5, () => [], () => rand(60)],
       [0xe8d4, () => []],
+      // the serial port opened: a speed 0-4 and a mode 0-3, mostly; A mostly 0
+      [0xe8d1, () => [rand(6) ? rand(5) : rand(256), rand(6) ? rand(4) : rand(256)], () => (rand(4) ? 0 : rand(256))],
       [0xe8ad, () => (m.ram.set([rand(256), rand(16)], 0x2029), [rand(256), 0x30 + rand(8)])],
       [0xe8e3, () => [], () => (rand(4) ? rand(101) : rand(256))],
       // a message posted to, or put back at the front of, GuiGetMsg's queue (indexes 0-7, 0-9 queued)
@@ -790,6 +792,13 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
     const set16 = (zp: number, v: number) => ((m.ram[zp] = v & 0xff), (m.ram[zp + 1] = (v >> 8) & 0xff));
     const fill = (a: number, n: number, f: () => number) => { for (let i = 0; i < n; i++) m.write(a + i, f()); };
     const RETURN = 0x0ff0;
+    // the device's transmitter, for $E90D: a byte written to $08 has gone at once ($09 bit 5). The
+    // firmware emulator has none: without it the OS would wait for the bit forever
+    const write = m.write.bind(m);
+    m.write = (a: number, v: number) => {
+      write(a, v);
+      if (a === 0x08) m.ram[0x09] |= 0x20;
+    };
     const failures: string[] = [];
     for (const addr of Object.keys(HELPERS).map(Number)) {
       for (let trial = 0; trial < 400; trial++) {
@@ -869,6 +878,24 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
           m.write(sp, 1 + rand(13 - cpu.a));
           m.write(sp + 1, rand(256));
           m.write(sp + 2, rand(16));
+        } else if (addr === 0xe90d) {
+          // send(p), n in A: from anywhere in RAM
+          const p = ptr();
+          m.write(sp, p & 0xff);
+          m.write(sp + 1, p >> 8);
+          m.ram[0x09] = rand(256);
+        } else if (addr === 0xe910) {
+          // read(p, &n) from the ring at ($3E): its indexes mostly 0-127 (now and then empty), now and
+          // then an error byte; $0244 bit 0 set (with it clear the OS reads $08 forever on the firmware
+          // emulator, src/fulu/link.ts)
+          const p = ptr(), n = ptr();
+          [p & 0xff, p >> 8, n & 0xff, n >> 8].forEach((v, i) => m.write(sp + i, v));
+          m.write(n, rand(4) ? rand(16) : rand(256));
+          set16(0x3e, ptr());
+          m.ram[0x202e] = rand(8) ? rand(128) : rand(256);
+          m.ram[0x202f] = rand(4) ? rand(128) : m.ram[0x202e];
+          m.ram[0x2278] = rand(4) ? 0 : rand(256);
+          m.ram[0x244] = rand(256) | 1;
         } else if (addr === 0xe90a) {
           cpu.a = rand(16);
           set16(0x2f, 0);

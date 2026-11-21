@@ -105,7 +105,8 @@ nothing extra.
 | $201A | timer 1: 1 = open |
 | $201B | flags: bit 2 = key sound on |
 | $201E-$2021 | the OS's 32-bit event flags: bit 0 timer 1 fired (ST1 interrupt), bit 24 ($2021 bit 0) a key arrived (keyboard interrupt), bit 25 a type-7 message (GuiGetMsg polls instead of sleeping while it is set); others below |
-| $2027, $2028 | (copied $2027 → $2028 by the keyboard interrupt) |
+| $2027, $2028 | the power-off delay (4, set at boot) and its countdown: copied $2027 → $2028 by the keyboard interrupt, the link's send and read; counted down by the clock alarm's interrupt (vector $13, 7:$7923) |
+| $202E, $202F, $2278 | the link's receive ring at ($3E) = $2279 (128 bytes): read and write index, error byte |
 | $2029, $202A | the running program's base page |
 | $20CD, $20CE | cursor: on, blink phase (the CT interrupt) |
 | $2122-$2151 | (cleared by $E9C2: four 12-byte records), $216A |
@@ -320,6 +321,41 @@ from them when asked again.
    the timeout.
 7. Timer 1 closed and the old period reopened; SysRestoreScreen, SysMemFree.
    Returns 1 (A = X = Y).
+
+## The link cable ($E8D1, $E8D4, $E90D, $E910)
+
+src/fulu/link.ts. Ports: $08 data (write: send; read: received), $09
+status (bit 5: the byte sent, cleared by writing $DF; bit 6 raises the RXD
+interrupt, vector $0C, in BA4988.cpp), $0242/3 divisor, $0244 control ($43
+on, 0 off; read, bit 0 is the receiver's "empty"), $0245 mode × $40. The
+RXD interrupt (vector $0C, straight to resident $F7CC) reads $08 into the
+ring while $0244 bit 0 is clear and sets $2021 bit 1 (full: $2278 bit 3). $E8D1(speed 0-4, mode 0-3) opens (A must be
+0); the divisors (833, 416, 208, 139, 69) are about 1 MHz over 1200-14400
+baud. $E90D (JSR, n in A, p on the software stack) sends; it returns
+$2027 by its last load, not whether it sent, and the games test that
+(non-zero: sent). $E910(p, &n) reads the ring, never waits; data arriving
+is GuiGetMsg's type 7 ($2021 bit 1), which $E8D4 and $E910 clear.
+
+Nothing plugged in (the owner's decision: each game shows its own "could not
+connect" and goes on). On a device the transmitter needs no partner: each
+byte goes and $09 bit 5 comes up; nothing arrives. The firmware emulator
+(machine.ts, as BA4988.cpp) has no transmitter: $09 is a plain register and
+the first send waits at $F9AF forever. Fulu does as the device: each byte
+charged 10 bits at the divisor's speed, no RXD interrupt ever. Compared on
+random arguments (the helpers' test gives the firmware the transmitter: a
+write to $08 sets $09 bit 5). After $E8D4 ($0244 = 0) $E910 reads $08
+forever on the firmware emulator; Fulu returns, as the device with nothing
+waiting.
+
+- 宠物精灵 (8:$5000 link-open; after naming: Exit, right ×5, Enter, down
+  ×2, Enter = 连机 PK): $E8D4, $E8D1(4, 0), 建立连接中, then 10 bytes sent
+  every 3 s, four times, then 建立连接失败 and Exit back to the pet. The
+  firmware emulator stays on 建立连接中 (hung in the first send); with the
+  transmitter added it and Fulu show the same screens (0 pixels differ).
+- 恶龙传说 (seg 15; read only): $E8D1(4, 0), 正在连接..., then a byte sent
+  once a second for 20 s ($90E4) → 发送数据类型信息失败, or waiting 20 s for
+  one ($90E7) → 接收数据类型信息失败; seg 10 closes with $E8D4. On the
+  firmware emulator the sending menus hang at the first byte.
 
 ## Still to do
 

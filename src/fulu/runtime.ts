@@ -15,6 +15,7 @@
 import { B, C, Z } from "../bbk/cpu";
 import { adc, asl, carry, clc, cmp, cpu, long, lsr, m, nz, os, plp, ram, rd, rol, ror, sbc, sec, setP, store, use, word, wr } from "./alu";
 import type { Fulu, Handler } from "./fulu";
+import { LINK_HELPERS } from "./link";
 
 const scratch = () => word(0x2a);
 
@@ -1193,6 +1194,8 @@ const table: Record<number, () => unknown> = {
   0xe52c: floatMultiply,
   0xe907: mapBanks,
   0xe90a: savePage,
+  // the link cable: send and read (src/fulu/link.ts)
+  ...LINK_HELPERS,
 };
 table[0xdac1] = table[0xdae6];
 table[0xdac7] = table[0xdb19];

@@ -19,6 +19,7 @@ import { CALENDAR } from "./calendar";
 import { HELP } from "./help";
 import { MENU } from "./menu";
 import { YesNo } from "./dialog";
+import { LINK } from "./link";
 import { compare } from "./runtime";
 import type { Handler, OsFunction } from "./fulu";
 
@@ -54,6 +55,7 @@ export const FUNCTIONS: Record<number, OsFunction> = {
   ...CALENDAR,
   ...HELP,
   ...MENU,
+  ...LINK,
   0xe950: YesNo,
   // memset(p, c, n), as compiled C: it counts p up and n down in its arguments
   0xe700: fn(0x5000, () => {
@@ -316,14 +318,6 @@ export const FUNCTIONS: Record<number, OsFunction> = {
   0xea64: fn(0x88ab, () => {
     cpu.a = nz(ram[KEY_EVENTS] & 0x04);
     cmp(cpu.a, 0);
-  }),
-  // $E8D4: $0244 = 0 and $2021 bit 1 cleared (flags kept: PHP ... PLP), A = 1
-  0xe8d4: fn(0x7b0d, () => {
-    const p = cpu.p;
-    wr(0x244, 0);
-    ram[KEY_EVENTS] = cpu.a = ram[KEY_EVENTS] & 0xfd;
-    cpu.p = p;
-    cpu.a = nz(1);
   }),
   // $E8AD(p): the running program's physical address (its base page, $2029/$202A, × $1000) as a long to p, through $2F/$30
   0xe8ad: fn(0x74f4, () => {
