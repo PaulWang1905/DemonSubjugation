@@ -75,7 +75,7 @@ export const GAMES: FuluGame[] = [
   { name: "妖 传说", kit: true, onFulu: "plays", firmware: "none" },
   { name: "妖·传说终曲版", kit: true, onFulu: "plays", firmware: "none" },
   { name: "娱乐无极限之无影奸细", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "宠物精灵", kit: false, onFulu: "plays", scan: ["$E8D1", "$E90D", "$E910"], firmware: "play", problems: ["input-methods", "unexplained-reads"] },
+  { name: "宠物精灵", kit: false, onFulu: "plays", firmware: "play", problems: ["input-methods", "unexplained-reads"] },
   { name: "对对碰", kit: false, onFulu: "plays", firmware: "play", problems: ["input-methods"] },
   { name: "封魔录", kit: true, onFulu: "plays", firmware: "none" },
   { name: "将门风云", kit: true, onFulu: "plays", firmware: "none" },
@@ -87,7 +87,7 @@ export const GAMES: FuluGame[] = [
   { name: "异时空游记", kit: true, onFulu: "plays", firmware: "none" },
   { name: "异时空游记2-纵横之旅", kit: true, onFulu: "plays", firmware: "none" },
   { name: "志在青云", kit: true, onFulu: "plays", firmware: "none" },
-  { name: "恶龙传说", kit: false, onFulu: "ends", scan: ["$E8D1", "$E90D", "$E910"], firmware: "play", problems: ["input-methods"] },
+  { name: "恶龙传说", kit: false, onFulu: "ends", firmware: "play", problems: ["input-methods"] },
   { name: "我的世界", kit: true, onFulu: "plays", firmware: "none" },
   { name: "战国争霸", kit: true, onFulu: "plays", firmware: "none" },
   { name: "扫雷", kit: false, onFulu: "plays", firmware: "none" },
@@ -284,12 +284,16 @@ export const PROBLEMS: Problem[] = [
   },
   {
     id: "unreached",
-    title: { en: "Functions a program can call but none did in play", zh: "程序可能调用、试玩中没有调用的函数" },
+    title: { en: "Functions a program can call but none did in random play", zh: "程序可能调用、随机试玩中没有调用的函数" },
     detail: {
-      en: "The link cable's serial port ($E8D1, and the resident $E90D and $E910, about 170 instructions) is in 宠物精灵's and 恶龙传说's code, reached from their two-player link menus (和朋友联机; 长腿哥's sending). A program that takes it stops on Fulu and names it; Continue goes on past it.",
-      zh: "联机线的串口（$E8D1，以及常驻例程 $E90D 和 $E910，约 170 条指令）在宠物精灵和恶龙传说的代码里，从它们的双人联机菜单（和朋友联机；长腿哥的寄送）进入。程序一旦调用，就会在符箓上停止并说出函数名；选择“继续”即可跳过。",
+      en: "Found by the code scans and traced to what a player does: $E8E0 (Exit in 华容道 and 滑雪 blanks the status bar's number), $E706 (atol: 宠物精灵's cheat box, 体闲麻将's high scores), $E7BE (one double-byte character drawn: 智多星's answer field) and the link cable's serial port ($E8D1, and the resident $E90D and $E910, which the byte scan's list had missed), from 宠物精灵's and 恶龙传说's two-player link menus. All written and compared with the firmware on random arguments; the link as the device with nothing plugged in: sends go out, nothing comes back, and each game shows its own \"could not connect\" (宠物精灵's 建立连接失败 matches the firmware's screens exactly). The firmware emulator itself hangs there, having no transmitter.",
+      zh: "由代码扫描发现，并追查到玩家的操作：$E8E0（华容道和滑雪按“跳出”时清除状态栏数字）、$E706（atol：宠物精灵的作弊框、体闲麻将的排行榜）、$E7BE（画一个双字节汉字：智多星的答案输入框），以及联机线的串口（$E8D1，以及字节扫描清单漏掉的常驻例程 $E90D 和 $E910），来自宠物精灵和恶龙传说的双人联机菜单。全部已实现，并用随机参数与固件对比过；联机按设备未插线时的情况处理：数据发出去，没有回应，每个游戏显示自己的“连接失败”（宠物精灵的“建立连接失败”与固件画面完全一致）。固件模拟器本身没有发送器，会卡在那里。",
     },
-    status: "open",
+    decision: {
+      en: "The link cable: as the device with no cable plugged in.",
+      zh: "联机线：按设备未插线时的情况处理。",
+    },
+    status: "fixed",
   },
   {
     id: "file-place",
@@ -355,7 +359,7 @@ export const PROBLEMS: Problem[] = [
 export const UPDATED = "2026-11-20";
 
 /** What Fulu answers (tests/fulu-games.test.ts checks these against src/fulu). */
-export const FULU_COUNTS = { functions: 134, routines: 75 };
+export const FULU_COUNTS = { functions: 135, routines: 77 };
 
 /**
  * How much of the OS the collection needs, by the code scan
@@ -364,7 +368,7 @@ export const FULU_COUNTS = { functions: 134, routines: 75 };
  * left (left: what the missing entries take with what they call; input
  * methods not measured).
  */
-export const COVERAGE = { apiUsed: 107, residentUsed: 63, written: 48200, left: 172 };
+export const COVERAGE = { apiUsed: 107, residentUsed: 63, written: 48400, left: 0 };
 
 /** The programs that played 180 s of random keys after each step (and those that ended on their own). */
 export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; ends: number }[] = [
@@ -523,9 +527,6 @@ export interface Remaining {
 }
 
 export const REMAINING: Remaining[] = [
-  { what: "$E910", size: 73, plan: "later", problem: "unreached" },
-  { what: "$E8D1", size: 65, plan: "later", problem: "unreached" },
-  { what: "$E90D", size: 34, plan: "later", problem: "unreached" },
 ];
 
 /** The programs that stop at, and that can call, a remaining item. */

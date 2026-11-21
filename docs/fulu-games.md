@@ -12,8 +12,8 @@ Updated 2026-11-20.
 - **On Fulu alone** (180 s of random keys each, docs/fulu-report.md §16): 132 play the whole time, 6 end on their own (their `main` returns, as on the device), 0 stop at something Fulu lacks.
 - **Compared with BBK's firmware** (the shadow run): 7 in full (their code traced, play, typing and saves compared), 34 for a minute of play.
 - **Tested by hand**: 2 reports (below).
-- **Problems**: 5 open, 8 decided or fixed.
-- **Code scan** (`scripts/bbk/fulu-coverage.mts --programs`): 136 programs call nothing Fulu lacks. The programs call 107 OS functions (Fulu answers 104) and 63 runtime routines (all answered); about 48,200 instructions of OS code are written and 172 left, not counting the OS's own input method (Fulu takes Chinese from the computer's own instead).
+- **Problems**: 4 open, 9 decided or fixed.
+- **Code scan** (`scripts/bbk/fulu-coverage.mts --programs`): 138 programs call nothing Fulu lacks. The programs call 107 OS functions (Fulu answers 107) and 63 runtime routines (all answered); about 48,400 instructions of OS code are written and 0 left, not counting the OS's own input method (Fulu takes Chinese from the computer's own instead).
 
 ## How it got here
 
@@ -48,9 +48,6 @@ Updated 2026-11-20.
 
 | What | Instructions | Stops in play | Code can call it | When |
 |---|---|---|---|---|
-| `$E910` | 73 | — | 宠物精灵, 恶龙传说 | later |
-| `$E8D1` | 65 | — | 宠物精灵, 恶龙传说 | later |
-| `$E90D` | 34 | — | 宠物精灵, 恶龙传说 | later |
 
 ## Problems
 
@@ -62,7 +59,7 @@ Updated 2026-11-20.
 | `e99e` | **$E99E**: Today's date, from the clock's day counter, through seven more of the OS's calendar functions (about 1,750 instructions). Done in round 3 and compared with the firmware on random dates. | fixed | — | — |
 | `e9ad` | **$E9AD**: A number drawn in a radix (about 870 instructions). Done in round 3: 挖金子 plays, and its calls, and 跳蛋's, match the firmware. | fixed | — | — |
 | `help-dialog` | **$E980 (a help screen)**: A text shown a page at a time and scrolled by the keys (2,429 instructions with its key cases, and $E8CB, $E8CE, $E8E9). Done in round 3: compared with the firmware on 200 random texts and key sequences, and 幸运花, which opens it 28 times a minute, matches the firmware and plays. The 43 programs that can call it no longer stop there. | fixed | — | — |
-| `unreached` | **Functions a program can call but none did in play**: The link cable's serial port ($E8D1, and the resident $E90D and $E910, about 170 instructions) is in 宠物精灵's and 恶龙传说's code, reached from their two-player link menus (和朋友联机; 长腿哥's sending). A program that takes it stops on Fulu and names it; Continue goes on past it. | open | — | — |
+| `unreached` | **Functions a program can call but none did in random play**: Found by the code scans and traced to what a player does: $E8E0 (Exit in 华容道 and 滑雪 blanks the status bar's number), $E706 (atol: 宠物精灵's cheat box, 体闲麻将's high scores), $E7BE (one double-byte character drawn: 智多星's answer field) and the link cable's serial port ($E8D1, and the resident $E90D and $E910, which the byte scan's list had missed), from 宠物精灵's and 恶龙传说's two-player link menus. All written and compared with the firmware on random arguments; the link as the device with nothing plugged in: sends go out, nothing comes back, and each game shows its own "could not connect" (宠物精灵's 建立连接失败 matches the firmware's screens exactly). The firmware emulator itself hangs there, having no transmitter. | fixed | The link cable: as the device with no cable plugged in. | — |
 | `file-place` | **Where a new save goes in the flash**: The original OS places a new file by pages among its own files; Fulu gives it sectors of its own. Games see only a different file id (电子宠物 in the firmware comparison); saving and loading work. | open | — | 电子宠物 |
 | `unexplained-reads` | **Unexplained reads in 宠物精灵**: In the firmware comparison the OS reads two of its scratch bytes ($2088, $20C8) before writing them, in one of the game's own calls; the results match. | open | — | 宠物精灵 |
 | `wrapped-drawing` | **Drawing that wraps past the screen**: A bitmap window whose sizes wrap past 255 passes the OS's checks, and the OS then draws into its own variables; Fulu draws nothing. No game seen doing it. | open | — | — |
@@ -126,7 +123,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 39 | 妖 传说 | yes | plays | — |  |  |  |
 | 40 | 妖·传说终曲版 | yes | plays | — |  |  |  |
 | 41 | 娱乐无极限之无影奸细 | yes | plays | — |  |  |  |
-| 42 | 宠物精灵 |  | plays | a minute of play | `$E8D1` `$E90D` `$E910` |  | `input-methods`, `unexplained-reads` |
+| 42 | 宠物精灵 |  | plays | a minute of play |  |  | `input-methods`, `unexplained-reads` |
 | 43 | 对对碰 |  | plays | a minute of play |  |  | `input-methods` |
 | 44 | 封魔录 | yes | plays | — |  |  |  |
 | 45 | 将门风云 | yes | plays | — |  |  |  |
@@ -138,7 +135,7 @@ Kit: made with BBK's RPG kit (FMJ React's own engine plays it too). On Fulu: pla
 | 51 | 异时空游记 | yes | plays | — |  |  |  |
 | 52 | 异时空游记2-纵横之旅 | yes | plays | — |  |  |  |
 | 53 | 志在青云 | yes | plays | — |  |  |  |
-| 54 | 恶龙传说 |  | ends on its own | a minute of play | `$E8D1` `$E90D` `$E910` |  | `input-methods` |
+| 54 | 恶龙传说 |  | ends on its own | a minute of play |  |  | `input-methods` |
 | 55 | 我的世界 | yes | plays | — |  |  |  |
 | 56 | 战国争霸 | yes | plays | — |  |  |  |
 | 57 | 扫雷 |  | plays | — |  |  |  |
