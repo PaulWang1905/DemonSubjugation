@@ -9,6 +9,32 @@ import { lanternPath } from "./demo";
 import { gameLogo } from "./system";
 import { SAY_WITH_PORTRAIT, wrapForBox } from "../format/text";
 
+/**
+ * The start script's text. The welcome is said once (flag 1 remembers it):
+ * an exit back to the start map runs the start code again after its
+ * createactor, and the party should not be welcomed again.
+ */
+const START = `.gut 1 1
+.desc "start"
+.events 40
+
+@start:
+  loadmap 1, 1, 4, 4
+  createactor 1, 4, 3
+  setscenename "START"
+  showscenename
+  if 1, @welcomed
+  setevent 1
+  say 1, "${wrapForBox("Your adventure starts here!", SAY_WITH_PORTRAIT)}"
+@welcomed:
+  callback
+`;
+
+/** The blank project's script text, so the editor shows it with its labels. */
+export function blankSources(): Record<string, string> {
+  return { "1-1-1": START };
+}
+
 export function blankProject(title = "MY GAME"): LibArchive {
   const a = lanternPath();
   const titleBytes = Uint8Array.from(gbkBytes(title).slice(0, 9), (b) => b & 0xff);
@@ -27,24 +53,7 @@ export function blankProject(title = "MY GAME"): LibArchive {
       cells.push({ tile: border ? 2 : 0, walkable: !border, event: 0 });
     }
   putEntry(a, { resType: 2, type: 1, index: 1, data: encodeMap({ type: 1, index: 1, tileset: 1, name: "START", width: w, height: h, cells }) });
-  putEntry(a, {
-    resType: 1,
-    type: 1,
-    index: 1,
-    data: assemble(`
-.gut 1 1
-.desc "start"
-.events 40
-
-@start:
-  loadmap 1, 1, 4, 4
-  createactor 1, 4, 3
-  setscenename "START"
-  showscenename
-  say 1, "${wrapForBox("Your adventure starts here!", SAY_WITH_PORTRAIT)}"
-  callback
-`),
-  });
+  putEntry(a, { resType: 1, type: 1, index: 1, data: assemble(START) });
   // the title screen shows the game's own name, not the demo's
   putEntry(a, gameLogo(title));
   return { titleBytes, entries: a.entries };

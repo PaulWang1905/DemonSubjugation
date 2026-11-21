@@ -11,7 +11,7 @@ import { checkProject, describeEntry, problemSummary, type Problem } from "../fo
 import { HelpDialog, ProblemsDialog } from "./EditorDialogs";
 import { typing } from "./undoKeys";
 import { findEntry, putEntry, readLib, removeEntry, writeLib, type LibArchive, type LibEntry } from "../format/lib";
-import { blankProject } from "../template/blank";
+import { blankProject, blankSources } from "../template/blank";
 import { lanternPath, lanternPathSources } from "../template/demo";
 import { silentBell, silentBellSources } from "../template/silentBell";
 import { ResourceView } from "./ResourceView";
@@ -21,12 +21,21 @@ import { CREATE_OPTIONS, createResource, nextIndex, withGutIndex, withIndex } fr
 import { planRenumber, type RenumberPlan } from "./cardModel";
 import type { RenumberPreview } from "./RenumberControl";
 import { emptyNotes, normalizeNotes, type ProjectNotes } from "./notes";
+import { setFlagNote } from "../format/notes";
 import { Palette, type PaletteCommand } from "./Palette";
 import { ProjectHome } from "./ProjectHome";
 import { ProjectsPage, type StartKind } from "./ProjectsPage";
 import { Sidebar } from "./Sidebar";
 import { panelId, tabId, TabStrip } from "./TabStrip";
 import type { EditorServices, OpenOptions } from "./views";
+// (phase 3a: the guided first game, the wizards, play from here, story flag names)
+import { fullTexts, playFromHere, type WizardResult } from "../format/wizards";
+import { GuidePanel } from "./Guide";
+import { notePlaytest, readGuide, startGuide } from "./guideModel";
+import { requestWorld, type WorldIntent } from "./intents";
+import { HomeQuickActions } from "./HomeStarter";
+import { StoryFlags } from "./StoryFlags";
+import { WIZARDS, WizardDialog, WizardToast, type WizardInit, type WizardKind } from "./Wizards";
 import {
   closeTab, cycleTab, entryOf, groupOf, HOME_TAB, initialTabs, keyOf, kindLabel, openTab, parseKey, pinTab, pushRecent, renameTab, resourceItem,
   retainTabs, setTabMode, type GroupId, type TabState,
@@ -135,6 +144,10 @@ export function Editor({ onPlaytest }: Props) {
   const [recents, setRecents] = useState<string[]>([]);
   const [groups, setGroups] = useState<ReadonlySet<GroupId>>(new Set(DEFAULT_GROUPS));
   const [palette, setPalette] = useState<string | null>(null);
+  const [wizard, setWizard] = useState<{ kind: WizardKind; init?: WizardInit } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  // a "Playtest from here" waiting for the project check
+  const pendingHere = useRef<{ map: string; x: number; y: number } | null>(null);
   // Resources changed from outside their own view: their views are re-created.
   const [revs, setRevs] = useState<Record<string, number>>({});
 
@@ -186,8 +199,8 @@ export function Editor({ onPlaytest }: Props) {
     setCur(o);
   };
 
-  const openArchive = (name: string, archive: LibArchive, sources: Record<string, string> = {}) => {
-    const o = { id: newId(), name, archive, sources, notes: emptyNotes() };
+  const openArchive = (name: string, archive: LibArchive, sources: Record<string, string> = {}, notes = emptyNotes()) => {
+    const o = { id: newId(), name, archive, sources, notes };
     show(o);
     persist(o, true);
   };
@@ -195,7 +208,8 @@ export function Editor({ onPlaytest }: Props) {
   const start = (kind: StartKind, name?: string) => {
     if (kind === "demo") openArchive("Lantern Path", lanternPath(), lanternPathSources());
     else if (kind === "bell") openArchive("The Silent Bell", silentBell(), silentBellSources());
-    else if (name) openArchive(name, blankProject(name.toUpperCase().slice(0, 9)));
+    // (a new blank game starts the guided first game)
+    else if (name) openArchive(name, blankProject(name.toUpperCase().slice(0, 9)), blankSources(), setFlagNote(startGuide(emptyNotes()), 1, { name: "welcomed" }));
   };
 
   const openFile = async (f: File | undefined) => {
@@ -357,6 +371,8 @@ export function Editor({ onPlaytest }: Props) {
 
   // (re-checked after every change; `version` counts them)
   const problems = useMemo(() => (cur ? checkProject(cur.archive, cur.sources) : []), [cur, version]);
+  // every script's text as the author sees it (for the guide, the wizards, the flags card)
+  const allTexts = useMemo(() => (cur ? fullTexts(cur.archive, drafts.current, cur.sources) : {}), [cur, version, dirty]);
   const marks = useMemo(() => {
     const m = new Map<string, "error" | "warning">();
     for (const p of problems) if (p.key && m.get(p.key) !== "error") m.set(p.key, p.level);
@@ -366,6 +382,10 @@ export function Editor({ onPlaytest }: Props) {
   /** Make a new resource (`what` as in CREATE_OPTIONS) and open it. */
   const create = (what: string) => {
     if (!cur) return;
+    if (what.startsWith("wizard:")) {
+      setWizard({ kind: what.slice(7) as WizardKind });
+      return;
+    }
     try {
       const key = createResource(cur.archive, what);
       const next = { ...cur, archive: { ...cur.archive, entries: [...cur.archive.entries] } };
@@ -456,10 +476,47 @@ export function Editor({ onPlaytest }: Props) {
     try {
       const bytes = writeLib(o.archive);
       onPlaytest({ id: `playtest-${o.id}`, name: `${o.name} (playtest)`, data: bytes.buffer as ArrayBuffer });
+      setNotes(notePlaytest);
     } catch (e) {
       alert(`Cannot build the game: ${(e as Error).message}`);
     }
   };
+
+  /** Playtest a copy of the project that starts on a map's tile (format/wizards.ts playFromHere). */
+  const runHere = (o: Open, at: { map: string; x: number; y: number }): string => {
+    const r = playFromHere({ archive: o.archive, texts: fullTexts(o.archive, {}, o.sources) }, at.map, at.x, at.y);
+    const bytes = writeLib(r.archive);
+    onPlaytest({ id: `playtest-${o.id}`, name: `${o.name} (playtest from here)`, data: bytes.buffer as ArrayBuffer });
+    setNotes(notePlaytest);
+    return r.note;
+  };
+
+  /** "Playtest from here": apply the scripts' text, check, and play from the tile (the project itself is not changed). */
+  const playtestAt = (map: string, x: number, y: number): string | null => {
+    if (!cur) return null;
+    const { next, failed } = applyDrafts(cur);
+    const found = [...failed, ...checkProject(next.archive, next.sources)];
+    if (found.some((p) => p.level === "error")) {
+      pendingHere.current = { map, x, y };
+      setChecking({ action: "playtest", problems: found });
+      return null;
+    }
+    return runHere(next, { map, x, y });
+  };
+
+  /** Store what a wizard made (Wizards.tsx), open it, and arm a World view tool if asked. */
+  const applyWizard = (r: WizardResult, arm?: { map: string; intent: WorldIntent }) => {
+    for (const c of r.changes) write(c.key, c.data, c.source, false);
+    if (r.notes) setNotes(r.notes);
+    const gs = r.changes.map((c) => parseKey(c.key)).filter((k): k is NonNullable<typeof k> => !!k).map(groupOf);
+    if (gs.length) setGroups((g) => new Set([...g, ...gs]));
+    if (r.open) openResource(r.open.key, { mode: r.open.mode, line: r.open.line });
+    if (arm) requestWorld(arm.map, arm.intent);
+    setToast(r.message);
+  };
+
+  const openWizard = (kind: WizardKind, init?: WizardInit) => setWizard({ kind, init });
+  const resumeGuide = () => setNotes(startGuide);
 
   /**
    * Playtest or export: apply the scripts' unapplied text, check the project,
@@ -483,6 +540,16 @@ export function Editor({ onPlaytest }: Props) {
   const goToProblem = (p: Problem) => {
     setChecking(null);
     if (p.key) openResource(p.key, { line: p.line });
+  };
+
+  /** The project home's story flags card. */
+  const showFlags = () => {
+    openResource(HOME_TAB);
+    requestAnimationFrame(() => {
+      const el = root.current?.querySelector<HTMLElement>("#story-flags");
+      el?.scrollIntoView({ block: "start", behavior: "smooth" });
+      el?.querySelector<HTMLElement>("input")?.focus({ preventScroll: true });
+    });
   };
 
   const showGroup = (g: GroupId) => {
@@ -517,6 +584,15 @@ export function Editor({ onPlaytest }: Props) {
         { id: "playtest", label: "Playtest", detail: "Ctrl+Enter", keywords: "run play test", run: playtest },
         { id: "check", label: "Check the project", detail: problemSummary(problems), keywords: "problems errors warnings", run: showProblems },
         { id: "export", label: "Export…", detail: ".gam or .lib", keywords: "download save file", run: () => guarded("export") },
+        ...WIZARDS.map((w) => ({
+          id: w.what,
+          label: `New ${w.label.charAt(0).toLowerCase()}${w.label.slice(1)}`,
+          detail: w.blurb,
+          keywords: `new add create make wizard ${w.kind} ${w.label} ${w.kind === "battle" ? "fight enemy random encounter" : w.kind === "shop" ? "buy sell store" : w.kind === "person" ? "npc character villager" : "room place area"}`,
+          run: () => openWizard(w.kind),
+        })),
+        { id: "flags", label: "Story flags and variables", detail: "name them", keywords: "flag variable names notes events switches", run: showFlags },
+        { id: "guide", label: "Guide me: make a first game", detail: "step by step", keywords: "tour tutorial guide help start", run: resumeGuide },
         ...makers.map((o) => ({
           id: `new:${o.what}`,
           label: `New ${o.what === "gfx:8-2" ? "person sprite" : o.label.charAt(0).toLowerCase() + o.label.slice(1)}`,
@@ -628,6 +704,8 @@ export function Editor({ onPlaytest }: Props) {
     setNotes,
     playtest,
     showProblems,
+    playtestAt,
+    wizard: (kind, init) => openWizard(kind as WizardKind, init),
   });
 
   return (
@@ -676,16 +754,42 @@ export function Editor({ onPlaytest }: Props) {
           problems={checking.problems}
           action={checking.action}
           onGo={goToProblem}
-          onClose={() => setChecking(null)}
+          onClose={() => {
+            pendingHere.current = null;
+            setChecking(null);
+          }}
           onProceed={() => {
             const a = checking.action;
             setChecking(null);
-            if (a === "playtest") runPlaytest(cur);
+            const here = pendingHere.current;
+            pendingHere.current = null;
+            if (a === "playtest" && here) {
+              try {
+                setToast(runHere(cur, here));
+              } catch (err) {
+                setToast(`Cannot play from there: ${(err as Error).message}`);
+              }
+            } else if (a === "playtest") runPlaytest(cur);
             else if (a === "export") setExporting(true);
           }}
         />
       )}
       {help && <HelpDialog onClose={() => setHelp(false)} />}
+      {wizard && <WizardDialog kind={wizard.kind} init={wizard.init} archive={cur.archive} texts={allTexts} notes={cur.notes} onApply={applyWizard} onClose={() => setWizard(null)} />}
+      {toast && <WizardToast text={toast} onClose={() => setToast(null)} />}
+      {readGuide(cur.notes)?.closed === false && (
+        <GuidePanel
+          archive={cur.archive}
+          texts={allTexts}
+          version={version}
+          notes={cur.notes}
+          setNotes={setNotes}
+          onOpen={openResource}
+          onArm={requestWorld}
+          onPlaytest={playtest}
+          onWizard={openWizard}
+        />
+      )}
       {palette !== null && (
         <Palette
           resources={resourceItems}
@@ -750,6 +854,9 @@ export function Editor({ onPlaytest }: Props) {
                         onProblem={goToProblem}
                         onHelp={() => setHelp(true)}
                         onPalette={() => setPalette("")}
+                        quick={<HomeQuickActions notes={cur.notes} onWizard={openWizard} onGuide={resumeGuide} />}
+                        after={<StoryFlags archive={cur.archive} texts={allTexts} notes={cur.notes} setNotes={setNotes} onOpen={(key, line) => openResource(key, { line })} />}
+                        onGuide={resumeGuide}
                       />
                     );
                   const entry = entryOf(cur.archive, t.key);

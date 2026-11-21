@@ -42,6 +42,11 @@ export function EventList({ entries, current, onSelect, model, placed, disabled,
           </li>
         ))}
       </ul>
+      {entries.length <= 1 && !adding && (
+        <p className="muted small sv-events-empty">
+          {entries.length ? "Only the start so far." : "No events yet."} Events run when the player talks to someone this script places or steps on a map tile: add one here, or put someone on a map with its World view (Add person).
+        </p>
+      )}
       {adding ? (
         <AddEvent model={model} placed={placed} onCancel={() => setAdding(false)} onAdd={(a) => (setAdding(false), onAdd(a))} />
       ) : (

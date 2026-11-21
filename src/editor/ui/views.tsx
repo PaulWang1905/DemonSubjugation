@@ -101,6 +101,14 @@ export interface EditorServices {
   playtest(): void;
   /** Show the project check's list. */
   showProblems(): void;
+  /**
+   * Playtest a copy of the project that starts on map tile x, y of a map
+   * (the project is not changed). Returns what the copy does, or null when
+   * the project check is shown first. Throws when the player cannot start there.
+   */
+  playtestAt?(mapKey: string, x: number, y: number): string | null;
+  /** Open a wizard ("map", "person", "shop", "battle"; Wizards.tsx), starting on a map. */
+  wizard?(kind: string, init?: { map?: string }): void;
 }
 
 /** What a view component gets. */

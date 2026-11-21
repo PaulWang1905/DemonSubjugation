@@ -56,9 +56,10 @@ import { useToolKeys, useUndoKeys } from "./undoKeys";
 import type { ViewProps } from "./views";
 import { MiniMap } from "./WorldMap";
 import { framesOf, mapCanvas, spriteFrame } from "./worldArt";
+import { requestWorld, useWorldIntent } from "./intents";
 import "./world.css";
 
-type Tool = "select" | "person" | "chest" | "exit" | "start" | "tile" | "fill" | "walk" | "block" | "event" | "pick";
+type Tool = "select" | "person" | "chest" | "exit" | "start" | "tile" | "fill" | "walk" | "block" | "event" | "pick" | "here";
 
 const PLACE_TOOLS: [Tool, string, string, string][] = [
   ["select", "Select", "V", "Click to see what something is; drag people, objects and the start to move them"],
@@ -159,6 +160,16 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
   const stage = useRef<HTMLDivElement>(null);
   const stroke = useRef<Uint8Array | null>(null);
   const s = 16 * zoom;
+
+  // requests from outside (the guide, the New person wizard): arm a tool, pick who
+  useWorldIntent(mapKey, (i) => {
+    if (i.tool) setTool(i.tool as Tool);
+    if (i.npc) setNpc({ type: 2, index: i.npc });
+    if (i.say) setSay(i.say);
+    if (i.box) setBox({ type: 4, index: i.box });
+    setError(null);
+    setNotice(i.tool === "person" && i.npc ? "Click a tile to put them there." : null);
+  });
 
   // --- the world index ---------------------------------------------------------
   const input = useMemo(() => indexInput(archive, services.scriptText), [archive, services.version]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -385,6 +396,11 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       setBytes(paintAt(bytes, p.x, p.y, false));
       return;
     }
+    if (tool === "here") {
+      setTool("select");
+      playHere(p.x, p.y);
+      return;
+    }
     if (tool === "person") placePerson(p.x, p.y);
     else if (tool === "chest") placeChest(p.x, p.y);
     else if (tool === "start") startHere(p.x, p.y);
@@ -459,6 +475,25 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       }
     } catch (err) {
       setError((err as Error).message);
+    }
+  };
+
+  /** "Playtest from here": a copy of the game that starts on this tile (the project is not changed). */
+  const playHere = (x: number, y: number) => {
+    if (!services.playtestAt) return;
+    if (!inPlayerBand(x, y, map.width, map.height)) {
+      setError("The player cannot stand that close to the edge: pick a tile inside the dashed box.");
+      return;
+    }
+    if (!map.cells[y * map.width + x].walkable) {
+      setError("That tile is blocked: pick a walkable tile to start on.");
+      return;
+    }
+    try {
+      const note = services.playtestAt(mapKey, x, y);
+      if (note) setNotice(note);
+    } catch (err) {
+      setError(`Cannot play from there: ${(err as Error).message}`);
     }
   };
 
@@ -871,6 +906,13 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
           Tile picture {cell.tile} · {cell.walkable ? "walkable" : "blocked"}
           {!inPlayerBand(x, y, map.width, map.height) ? " · outside where the player can stand" : ""}
         </p>
+        {services.playtestAt && cell.walkable && inPlayerBand(x, y, map.width, map.height) && (
+          <div className="row">
+            <button className="ghost" onClick={() => playHere(x, y)} title="Play a copy of the game that starts on this tile (story flags and variables start clear)">
+              ▶ Playtest from here
+            </button>
+          </div>
+        )}
         {here.map((p) => (
           <p key={p.placement.stepId} className="small">
             <button className="link" onClick={() => setSel({ kind: "person", script: p.placement.script, id: p.placement.id, group: p.placement.group })}>
@@ -983,7 +1025,21 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     return (
       <div className="w-panel-body">
         <h4>On this map</h4>
-        {!setup && <p className="w-note small">No script shows this map yet. Add an exit to it from another map's World view: a script is made to set it up.</p>}
+        {!setup && (
+          <div className="empty-state w-note small">
+            <p>No script shows this map yet, so nobody can be placed here and the party cannot get here. Add an exit to it from another map: a script is made to set it up.</p>
+            {world.start && world.start.map !== mapKey && (
+              <button
+                onClick={() => {
+                  services.openResource(world.start!.map, { mode: "map.world" });
+                  requestWorld(world.start!.map, { tool: "exit" });
+                }}
+              >
+                Add an exit on {mapName(world.start.map)}…
+              </button>
+            )}
+          </div>
+        )}
         {overlay.people.length ? (
           <ul className="w-list">
             {overlay.people.map((op) => (
@@ -999,7 +1055,25 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
             ))}
           </ul>
         ) : (
-          setup && <p className="muted small">Nobody is here yet: Add person (P) puts someone here who talks.</p>
+          setup && (
+            <div className="empty-state small">
+              <p>Nobody is here yet. Put someone here who talks, a chest with something inside, or a way to another map.</p>
+              <div className="row">
+                <button onClick={() => setTool("person")}>Add a person</button>
+                <button className="ghost" onClick={() => setTool("chest")}>
+                  Add a chest
+                </button>
+                <button className="ghost" onClick={() => setTool("exit")}>
+                  Add an exit
+                </button>
+                {services.wizard && (
+                  <button className="ghost" onClick={() => services.wizard!("map", { map: mapKey })}>
+                    New map joined here…
+                  </button>
+                )}
+              </div>
+            </div>
+          )
         )}
         {overlay.exits.length > 0 && (
           <>
@@ -1252,7 +1326,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
   };
 
   const toolBtn = ([t, label, k, title]: [Tool, string, string, string?]) => (
-    <button key={t} className={tool === t ? "" : "ghost"} aria-pressed={tool === t} onClick={() => (setTool(t), setError(null), setNotice(null))} title={`${title ?? label} (${k})`}>
+    <button key={t} data-tool={t} className={tool === t ? "" : "ghost"} aria-pressed={tool === t} onClick={() => (setTool(t), setError(null), setNotice(null))} title={`${title ?? label} (${k})`}>
       {label} <kbd>{k}</kbd>
     </button>
   );
@@ -1260,7 +1334,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
   const stageClass = `w-stage${interactive ? "" : PAINTING.has(tool) ? " painting" : " placing"}`;
 
   return (
-    <div className="w-view">
+    <div className="w-view" data-map={mapKey}>
       <div className="w-tools" role="toolbar" aria-label="World tools">
         <div className="seg">{PLACE_TOOLS.map(toolBtn)}</div>
         <div className="seg w-paint">
@@ -1318,6 +1392,24 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
         <button className="ghost small" onClick={() => services.openResource("home")} title="Every map and how exits join them, on the project home">
           World map
         </button>
+        {services.playtestAt && (
+          <button
+            className={tool === "here" ? "small" : "ghost small"}
+            aria-pressed={tool === "here"}
+            data-tool="here"
+            onClick={() => {
+              if (sel?.kind === "cell") playHere(sel.x, sel.y);
+              else {
+                setTool(tool === "here" ? "select" : "here");
+                setNotice(tool === "here" ? null : "Click the tile to start the playtest on.");
+                setError(null);
+              }
+            }}
+            title="Playtest a copy of the game starting on a tile of this map: the selected tile, or the next one you click (right-click a tile does it too). Story flags and variables start clear."
+          >
+            ▶ Playtest from here
+          </button>
+        )}
       </div>
       <div className="w-body">
         <div className="w-left">
@@ -1330,6 +1422,12 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
               onPointerMove={onStageMove}
               onPointerUp={onStageUp}
               onPointerLeave={() => setHover(null)}
+              onContextMenu={(e) => {
+                const p = cellFromEvent(e);
+                if (!p || !services.playtestAt) return;
+                e.preventDefault();
+                playHere(p.x, p.y);
+              }}
             >
               <canvas ref={canvas} aria-label={`Map ${map.name}, ${map.width} by ${map.height} tiles`} role="img" />
               <div className="w-layer">

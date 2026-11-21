@@ -24,6 +24,12 @@ interface Props {
   onProblem: (p: Problem) => void;
   onHelp: () => void;
   onPalette: () => void;
+  /** Quick actions (the wizards, the guide), under the names. */
+  quick?: React.ReactNode;
+  /** More cards at the end (story flag names). */
+  after?: React.ReactNode;
+  /** Start or resume the guided first game. */
+  onGuide?: () => void;
 }
 
 /** The title as bytes: GBK, at most 9 (a Chinese character takes 2). */
@@ -53,9 +59,10 @@ export function ProjectHome(p: Props) {
   };
 
   const next: { text: React.ReactNode; action?: [string, () => void] }[] = [
-    { text: <>Paint the first place the player sees.</>, action: start.map ? ["Open the map", () => p.onOpen(start.map!)] : ["New map", () => p.onCreate("map")] },
+    ...(p.onGuide ? [{ text: <>New here? The guide makes a small game with you, step by step, and plays it.</>, action: ["Guide me", p.onGuide] as [string, () => void] }] : []),
+    { text: <>Paint the first place the player sees.</>, action: start.map ? ["Open the map", () => p.onOpen(start.map!)] : ["New map", () => p.onCreate("wizard:map")] },
     { text: <>Write what happens when the game starts: who is there, what they say.</>, action: start.script ? ["Open the start script", () => p.onOpen(start.script!)] : undefined },
-    { text: <>Add a person to talk to: a person (NPC) with a walk sprite, placed by the script.</>, action: ["New person", () => p.onCreate("npc")] },
+    { text: <>Add a person to talk to: a person (NPC) with a walk sprite, placed by the script.</>, action: ["New person…", () => p.onCreate("wizard:person")] },
     { text: <>Playtest: the project is checked first, and problems link to where they are.</>, action: ["Playtest", p.onPlaytest] },
     { text: <>Export a .gam or a .lib to keep a copy or share it (projects live in this browser).</>, action: ["Export…", p.onExport] },
   ];
@@ -127,8 +134,8 @@ export function ProjectHome(p: Props) {
             <button className="ghost" onClick={p.onExport}>
               Export…
             </button>
-            <button className="ghost" onClick={() => p.onCreate("map")}>
-              + New map
+            <button className="ghost" onClick={() => p.onCreate("wizard:map")}>
+              + New map…
             </button>
             <button className="ghost" onClick={() => p.onCreate("script")}>
               + New script
@@ -166,6 +173,8 @@ export function ProjectHome(p: Props) {
           )}
         </section>
       </div>
+
+      {p.quick}
 
       <WorldMapCard archive={archive} sources={p.sources} onOpen={(key) => p.onOpen(key)} />
 
@@ -206,6 +215,8 @@ export function ProjectHome(p: Props) {
           </button>
         </p>
       </details>
+
+      {p.after}
     </div>
   );
 }

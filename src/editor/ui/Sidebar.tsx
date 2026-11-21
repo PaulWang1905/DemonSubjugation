@@ -7,6 +7,7 @@ import { filterLabel } from "../format/decode";
 import type { LibArchive } from "../format/lib";
 import { CREATE_OPTIONS } from "./create";
 import { hasThumb, Thumb } from "./Thumb";
+import { WIZARDS } from "./Wizards";
 import { entryTitle, groupEntries, groupOf, keyOf, parseKey, type GroupId } from "./workspace";
 
 interface Props {
@@ -65,6 +66,8 @@ export function Sidebar({ archive, active, onOpen, onCreate, dirty, marks, open,
       {shown.map((g) => {
         const isOpen = filtering || open.has(g.id);
         const make = CREATE_OPTIONS.filter((o) => o.group === g.id);
+        // (the wizards first: they ask what matters and place what they make)
+        const guided = WIZARDS.filter((w) => w.group === g.id);
         const headId = `side-${g.id}`;
         return (
           <div key={g.id} className="group" data-group={g.id}>
@@ -75,7 +78,7 @@ export function Sidebar({ archive, active, onOpen, onCreate, dirty, marks, open,
                 </span>
                 {g.label} <span className="muted count">{g.count}</span>
               </button>
-              {make.length === 1 ? (
+              {make.length === 1 && !guided.length ? (
                 <button className="ghost group-add" onClick={() => onCreate(make[0].what)} title={`New ${make[0].label.toLowerCase()}`} aria-label={`New ${make[0].label.toLowerCase()}`}>
                   +
                 </button>
@@ -88,15 +91,33 @@ export function Sidebar({ archive, active, onOpen, onCreate, dirty, marks, open,
                   onChange={(e) => e.target.value && onCreate(e.target.value)}
                 >
                   <option value="">+</option>
-                  {make.map((o) => (
-                    <option key={o.what} value={o.what}>
-                      {o.label}
-                    </option>
-                  ))}
+                  {guided.length > 0 && (
+                    <optgroup label="Guided">
+                      {guided.map((w) => (
+                        <option key={w.what} value={w.what}>
+                          {w.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <optgroup label={guided.length ? "Blank" : "New"}>
+                    {make.map((o) => (
+                      <option key={o.what} value={o.what}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               )}
             </div>
-            {isOpen && g.count === 0 && <p className="muted small group-empty">None yet: “+” makes one.</p>}
+            {isOpen && g.count === 0 && (
+              <>
+                <p className="muted small group-empty">None yet.</p>
+                <button className="ghost group-empty-add" onClick={() => onCreate((guided[0] ?? make[0]).what)}>
+                  + New {(guided[0] ?? make[0]).label.toLowerCase()}
+                </button>
+              </>
+            )}
             {isOpen &&
               g.sections.map((s) => (
                 <div key={s.id} className="section" role="group" aria-label={s.label}>

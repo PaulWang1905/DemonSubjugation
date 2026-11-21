@@ -202,8 +202,8 @@ describe("events and groups", () => {
   });
 
   it("finds a start group for a script without labels (a disassembly)", () => {
-    const blank = blankProject().entries.find((e) => e.resType === 1)!;
-    const m = parseScript(disassemble(blank.data));
+    // (the blank game's first start script, before it learnt to welcome the party only once)
+    const m = parseScript(disassemble(assemble('.gut 1 1\n.events 40\n  loadmap 1, 1, 4, 4\n  createactor 1, 4, 3\n  say 1, "Hello"\n  callback\n')));
     expect(m.groups).toHaveLength(1);
     expect(startGroup(m)).toMatchObject({ start: true, label: null, events: [] });
   });
