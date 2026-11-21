@@ -78,7 +78,10 @@ describe("fields to controls", () => {
     expect(ctl(wen, "step")).toMatchObject({ kind: "select", options: [[0, "Left foot forward"], [1, "Standing"], [2, "Right foot forward"]] });
     expect((ctl(chest, "step") as { options: unknown[] }).options).toHaveLength(2);
     expect(ctl(wolf, "immune")).toMatchObject({ kind: "checks" });
-    expect(ctl(herb, "users")).toMatchObject({ kind: "checks" });
+    // only equipment is worn: a herb has no "usable by" nor a flag set while worn
+    expect(ctl(herb, "users")).toEqual({ kind: "hidden" });
+    expect(ctl(rec(BELL, 6, 2, 1), "users")).toMatchObject({ kind: "checks" });
+    expect(ctl(rec(BELL, 6, 2, 1), "event")).toEqual({ kind: "flag" });
     expect(ctl(spark, "all")).toEqual({ kind: "toggle" });
   });
   it("references become pickers of the right kind", () => {

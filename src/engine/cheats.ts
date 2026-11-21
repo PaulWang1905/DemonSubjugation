@@ -59,6 +59,8 @@ export interface Cheats {
   setItemCount(type: number, index: number, count: number): void;
   flags(): number[];
   setFlag(n: number, on: boolean): void;
+  /** The variables that are not 0 (0-199 last the whole game, 200-239 the running script). */
+  variables?(): { n: number; value: number }[];
   location(): { map: string; type: number; index: number; x: number; y: number } | null;
   inCombat(): boolean;
   winCombat(): void;
@@ -148,6 +150,11 @@ export function createCheats(game: MainGame): Cheats {
     },
     setFlag(n, on) {
       if (n >= 1 && n < ScriptResources.globalEvents.length) ScriptResources.globalEvents[n] = on;
+    },
+    variables() {
+      const out: { n: number; value: number }[] = [];
+      ScriptResources.variables.forEach((value, n) => value && out.push({ n, value }));
+      return out;
     },
     location() {
       const s = game.mainScene;

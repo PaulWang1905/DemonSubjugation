@@ -18,7 +18,7 @@ import { decodeMap } from "../format/decode";
 import { encodeNpc, encodeSceneObj } from "../format/encode";
 import { assemble } from "../format/gut";
 import { findEntry, type LibArchive, type LibEntry } from "../format/lib";
-import { parseScript, toSource, type ScriptModel } from "../format/scriptModel";
+import { parseScript, setOperand, toSource, type ScriptModel } from "../format/scriptModel";
 import { buildWorld, describeKey, resKey, scriptNames, withCellEvent, type Placement, type WorldIndex } from "../format/world";
 import {
   addCellHandler,
@@ -49,7 +49,10 @@ import {
 } from "../format/worldEdit";
 import { flagName, setFlagNote, setVariableNote, variableName } from "../format/notes";
 import { cells as textCells, wrapMessage } from "../format/text";
-import { FrameCanvas } from "./FrameStrip";
+import { TilePalette, PAINT_TOOLS as PAINT_NAMES } from "./TilePalette";
+import { useTileWalks } from "./tileHints";
+import { paintLo } from "../format/tiles";
+import { encodeMap } from "../format/encode";
 import { DARK } from "./pixels";
 import { ResourcePicker, entryLabel, type ResValue } from "./ResourcePicker";
 import { useToolKeys, useUndoKeys } from "./undoKeys";
@@ -57,7 +60,9 @@ import type { ViewProps } from "./views";
 import { MiniMap } from "./WorldMap";
 import { framesOf, mapCanvas, spriteFrame } from "./worldArt";
 import { requestWorld, useWorldIntent } from "./intents";
+import { canStand, canTouch, mapEntries, mapReach, nearestTile, nearestTouchable, reachArea, standProblem, touchProblem, type Point } from "../format/reach";
 import "./world.css";
+import "./authoring.css";
 
 type Tool = "select" | "person" | "chest" | "exit" | "start" | "tile" | "fill" | "walk" | "block" | "event" | "pick" | "here";
 
@@ -68,14 +73,8 @@ const PLACE_TOOLS: [Tool, string, string, string][] = [
   ["exit", "Add exit", "D", "A tile that takes the party to another map (a door, a road)"],
   ["start", "Start here", "S", "Start a new game on a tile of this map"],
 ];
-const PAINT_TOOLS: [Tool, string, string][] = [
-  ["tile", "Tile", "B"],
-  ["fill", "Fill", "G"],
-  ["walk", "Walkable", "W"],
-  ["block", "Blocked", "X"],
-  ["event", "Event no.", "E"],
-  ["pick", "Pick", "I"],
-];
+// (the same names and keys as the Tiles view's)
+const PAINT_TOOLS = PAINT_NAMES as unknown as [Tool, string, string, string][];
 const PAINTING = new Set<Tool>(["tile", "fill", "walk", "block", "event", "pick"]);
 
 type Sel =
@@ -83,6 +82,14 @@ type Sel =
   | { kind: "start" }
   | { kind: "cell"; x: number; y: number }
   | { kind: "arrival"; from: string; x: number; y: number };
+
+/** A way out of a refused click: do it on the nearest tile that works. */
+interface Offer {
+  x: number;
+  y: number;
+  label: string;
+  run: (x: number, y: number) => void;
+}
 
 type Snap = Record<string, { data: Uint8Array; source?: string }>;
 interface UndoEntry {
@@ -137,8 +144,14 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
   const [tool, setTool] = useState<Tool>("select");
   const [sel, setSel] = useState<Sel | null>(null);
   const [setupPick, setSetupPick] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(2);
+  // "fit" (0): as large as fits the space beside the panel (1× to 4× in quarter steps), else a fixed zoom
+  const [zoomPick, setZoomPick] = useState(0);
+  const [room, setRoom] = useState(0);
   const [showWalk, setShowWalk] = useState(false);
+  const [showReach, setShowReach] = useState(true);
+  const [paintWalk, setPaintWalk] = useState(true);
+  const [offer, setOffer] = useState<Offer | null>(null);
+  const [warn, setWarn] = useState<string | null>(null);
   const [showEvents, setShowEvents] = useState(true);
   const [showNames, setShowNames] = useState(true);
   const [tile, setTile] = useState(0);
@@ -153,12 +166,25 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
   const [item, setItem] = useState<ResValue | null>(null);
   const [exitDraft, setExitDraft] = useState<ExitDraft>({ cell: null, target: null, arrival: null, back: true, backCell: null, picking: "arrival" });
   const [confirmDelete, setConfirmDelete] = useState(false);
+  /** The Add person / Add chest panel shows "make a new one" instead of the picker. */
+  const [making, setMaking] = useState(false);
   const undo = useRef<UndoEntry[]>([]);
   const redo = useRef<UndoEntry[]>([]);
   const [, bump] = useState(0);
   const canvas = useRef<HTMLCanvasElement>(null);
   const stage = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  // the width the map has (for "fit"), followed as the window changes
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => el.clientWidth > 0 && setRoom(el.clientWidth - 2));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const stroke = useRef<Uint8Array | null>(null);
+  const fit = room > 0 ? Math.max(1, Math.min(4, Math.floor((room / (map.width * 16)) * 4) / 4)) : 2;
+  const zoom = zoomPick || fit;
   const s = 16 * zoom;
 
   // requests from outside (the guide, the New person wizard): arm a tool, pick who
@@ -167,6 +193,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     if (i.npc) setNpc({ type: 2, index: i.npc });
     if (i.say) setSay(i.say);
     if (i.box) setBox({ type: 4, index: i.box });
+    if (i.select) (setSel({ kind: "cell", ...i.select }), setTool("select"));
     setError(null);
     setNotice(i.tool === "person" && i.npc ? "Click a tile to put them there." : null);
   });
@@ -185,6 +212,21 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     const t = findEntry(archive, 7, 1, map.tileset);
     return t ? framesOf(t.data) : [];
   }, [archive, map.tileset]);
+  // whether painting each tile makes the cell walkable (a house blocks, a path does not)
+  const walks = useTileWalks(archive, services.notes, map.tileset, tiles.length);
+  const tileWalkable = (t: number) => (paintWalk ? (walks[t]?.walkable ?? null) : null);
+  // where the player can get on this map (from the start and the arrivals), as painted now
+  const reach = useMemo(() => mapReach(world, mapKey, map), [world, mapKey, map]);
+  const eventFree = (x: number, y: number) => !map.cells[y * map.width + x].event;
+
+  /** Refuse a tile the player can never get next to, offering the nearest one that works. */
+  const unreachableHere = (x: number, y: number, what: string, run: (x: number, y: number) => void, free: (x: number, y: number) => boolean = () => true): boolean => {
+    if (canTouch(reach, x, y)) return false;
+    const near = nearestTouchable(reach, x, y, free);
+    setError(`The player can never get to ${at(x, y)} to use ${what}: ${touchProblem(map, reach, x, y)}.${near ? ` ${at(near.x, near.y)} is the nearest tile they can walk into.` : ""}`);
+    setOffer(near ? { ...near, label: `Use ${at(near.x, near.y)} instead`, run } : null);
+    return true;
+  };
 
   // --- storing changes, undo -------------------------------------------------------
   const write = (snap: Snap) => {
@@ -235,6 +277,8 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       redo.current = [];
       write(after);
       setError(null);
+      setOffer(null);
+      setWarn(null);
       setNotice(`${label}. Ctrl+Z undoes it.`);
       bump((n) => n + 1);
       return true;
@@ -290,13 +334,20 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     const ctx = c.getContext("2d")!;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(mapCanvas(archive, bytes), 0, 0, c.width, c.height);
-    if (showWalk) {
+    const tint = showWalk || tool === "tile" || tool === "fill" || tool === "walk" || tool === "block";
+    if (tint) {
       ctx.fillStyle = "rgba(200,40,40,0.32)";
       map.cells.forEach((cell, i) => {
         if (!cell.walkable) ctx.fillRect((i % map.width) * s, Math.floor(i / map.width) * s, s, s);
       });
     }
-    if (showWalk || PAINTING.has(tool) || tool === "start" || tool === "exit") {
+    if (showReach) {
+      // where the player can never stand: shaded (blocked tiles are shaded by Walkable when it is on)
+      ctx.fillStyle = "rgba(10,20,40,0.30)";
+      for (let y = 0; y < map.height; y++)
+        for (let x = 0; x < map.width; x++) if (!canStand(reach, x, y) && !(tint && !map.cells[y * map.width + x].walkable)) ctx.fillRect(x * s, y * s, s, s);
+    }
+    if (showReach || showWalk || PAINTING.has(tool) || tool === "start" || tool === "exit") {
       ctx.strokeStyle = "rgba(20,60,200,0.7)";
       ctx.setLineDash([5, 4]);
       ctx.strokeRect(4 * s + 0.5, 3 * s + 0.5, Math.max(0, map.width - 8) * s, Math.max(0, map.height - 5) * s);
@@ -321,7 +372,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     if (tool === "exit" && exitDraft.cell) box(exitDraft.cell, "#1f7a3a");
     if (drag?.moved) box(drag.to, "#1f7a3a", true);
     if (hover && tool !== "select") box(hover, "rgba(255,255,255,0.9)");
-  }, [archive, bytes, map, s, zoom, showWalk, tool, sel, hover, drag, exitDraft.cell]);
+  }, [archive, bytes, map, s, zoom, showWalk, showReach, reach, tool, sel, hover, drag, exitDraft.cell]);
 
   // --- pointer ------------------------------------------------------------------
   const cellFromEvent = (e: { clientX: number; clientY: number }): { x: number; y: number } | null => {
@@ -337,7 +388,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     const o = cellLo(b, map.width, x, y);
     let lo = b[o];
     let ev = b[o + 1];
-    if (tool === "tile") lo = (lo & 0x80) | (tile & 0x7f);
+    if (tool === "tile") lo = paintLo(lo, tile, tileWalkable(tile));
     else if (tool === "walk") lo |= 0x80;
     else if (tool === "block") lo &= 0x7f;
     else if (tool === "event") ev = click && ev === eventNo ? 0 : eventNo;
@@ -350,15 +401,15 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
 
   const fillAt = (x: number, y: number): Uint8Array => {
     const from = map.cells[y * map.width + x].tile;
-    if (from === tile) return bytes;
+    if (from === tile && tileWalkable(tile) === null) return bytes;
     const out = bytes.slice();
     const seen = new Uint8Array(map.width * map.height);
     const stack = [y * map.width + x];
     while (stack.length) {
       const i = stack.pop()!;
-      if (seen[i] || (out[0x12 + i * 2] & 0x7f) !== from) continue;
+      if (seen[i] || (bytes[0x12 + i * 2] & 0x7f) !== from) continue;
       seen[i] = 1;
-      out[0x12 + i * 2] = (out[0x12 + i * 2] & 0x80) | (tile & 0x7f);
+      out[0x12 + i * 2] = paintLo(out[0x12 + i * 2], tile, tileWalkable(tile));
       const cx = i % map.width;
       if (cx > 0) stack.push(i - 1);
       if (cx < map.width - 1) stack.push(i + 1);
@@ -372,7 +423,10 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     const p = cellFromEvent(e);
     if (!p || e.button !== 0) return;
     setError(null);
+    setOffer(null);
+    setWarn(null);
     if (tool === "select") {
+      setNotice(null);
       setSel({ kind: "cell", ...p });
       setConfirmDelete(false);
       return;
@@ -387,7 +441,12 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       return;
     }
     if (tool === "event") {
-      commit(`Paint event ${eventNo}`, { map: paintAt(bytes, p.x, p.y, true) });
+      const next = paintAt(bytes, p.x, p.y, true);
+      const painted = next[cellLo(next, map.width, p.x, p.y) + 1] !== 0;
+      if (commit(`Paint event ${eventNo}`, { map: next }) && painted && !canTouch(reach, p.x, p.y)) {
+        const near = nearestTouchable(reach, p.x, p.y, eventFree);
+        setWarn(`The player can never get to ${at(p.x, p.y)}, so event ${eventNo} there never runs: ${touchProblem(map, reach, p.x, p.y)}.${near ? ` Try ${at(near.x, near.y)}.` : ""}`);
+      }
       return;
     }
     if (tool === "tile" || tool === "walk" || tool === "block") {
@@ -404,13 +463,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     if (tool === "person") placePerson(p.x, p.y);
     else if (tool === "chest") placeChest(p.x, p.y);
     else if (tool === "start") startHere(p.x, p.y);
-    else if (tool === "exit") {
-      if (cellEvent(p.x, p.y)) {
-        setError(`That tile already has event ${cellEvent(p.x, p.y)}. Pick a tile without one (or clear it with the Event no. tool).`);
-        return;
-      }
-      setExitDraft((d) => ({ ...d, cell: p }));
-    }
+    else if (tool === "exit") pickExitCell(p.x, p.y);
   };
 
   const onStageMove = (e: React.PointerEvent) => {
@@ -440,7 +493,54 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
   // --- edits ----------------------------------------------------------------------
   const who = (p: Placement) => p.name || `${p.kind} #${p.id}`;
 
+  /** The exit tool's first click: the tile that leads away. */
+  const pickExitCell = (x: number, y: number) => {
+    setError(null);
+    setOffer(null);
+    if (cellEvent(x, y)) {
+      setError(`That tile already has event ${cellEvent(x, y)}. Pick a tile without one (or clear it with the Event no. tool).`);
+      return;
+    }
+    if (unreachableHere(x, y, "an exit there", pickExitCell, eventFree)) return;
+    setExitDraft((d) => ({ ...d, cell: { x, y } }));
+  };
+
+  /** Move a map event (an exit, an event tile) from one cell to another: the number moves, its code stays. */
+  const moveCell = (from: Point, x: number, y: number) => {
+    const n = cellEvent(from.x, from.y);
+    if (!n || (from.x === x && from.y === y)) return;
+    const there = cellEvent(x, y);
+    if (there) {
+      setError(`${at(x, y)} already has event ${there}: move this one somewhere else.`);
+      return;
+    }
+    const c = overlayCell(n);
+    const what = c?.exit ? `the exit ${c.phrase}` : `event ${n}`;
+    if (commit(`Move ${what} to ${at(x, y)}`, { map: withCellEvent(withCellEvent(bytes, from.x, from.y, 0), x, y, n) })) {
+      // (the tile's panel says when the player can never get there, with a button to move it)
+      setSel({ kind: "cell", x, y });
+    }
+  };
+
+  /** Move where an exit from another map lands: its loadmap's view. */
+  const moveArrival = (a: { from: string; x: number; y: number }, x: number, y: number) => {
+    const ar = overlay.arrivals.find((r) => r.from === a.from && r.x === a.x && r.y === a.y);
+    const t = ar?.exit.targets.find((t) => t.map === mapKey && t.x === a.x && t.y === a.y);
+    if (!ar || !t || (a.x === x && a.y === y)) return;
+    const why = standProblem(map, null, x, y);
+    if (why) {
+      setError(`The party cannot arrive on ${at(x, y)}: ${why}.`);
+      return;
+    }
+    const cam = arrivalCamera(x, y, world.playerScreen);
+    const m = parseScript(textOf(t.load.script)!);
+    const out = setOperand(setOperand(m, t.load.stepId, 2, cam.x), t.load.stepId, 3, cam.y);
+    if (commit(`Move the arrival from ${mapName(a.from)} to ${at(x, y)}`, { texts: { [t.load.script]: toSource(out) } })) setSel({ kind: "arrival", from: a.from, x, y });
+  };
+
   const moveTo = (what: Sel, x: number, y: number) => {
+    if (what.kind === "cell") return moveCell(what, x, y);
+    if (what.kind === "arrival") return moveArrival(what, x, y);
     if (what.kind === "person") {
       const p = placementOf(what);
       if (!p) return;
@@ -457,12 +557,11 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       setError(world.start ? `The game starts on ${mapName(world.start.map)}: "Start here" moves the start within that map.` : "Script 1-1 shows no map, so there is no start to move.");
       return;
     }
-    if (!inPlayerBand(x, y, map.width, map.height)) {
-      setError("The player cannot stand that close to the edge: pick a tile inside the dashed box.");
-      return;
-    }
-    if (!map.cells[y * map.width + x].walkable) {
-      setError("That tile is blocked: the player would be stuck. Pick a walkable tile.");
+    const why = standProblem(map, null, x, y);
+    if (why) {
+      const near = nearestTile(map.width, map.height, x, y, (a, b) => !standProblem(map, null, a, b));
+      setError(`A new game cannot start on ${at(x, y)}: ${why}.`);
+      setOffer(near ? { ...near, label: `Start on ${at(near.x, near.y)} instead`, run: startHere } : null);
       return;
     }
     if (st.x === x && st.y === y) return;
@@ -481,12 +580,9 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
   /** "Playtest from here": a copy of the game that starts on this tile (the project is not changed). */
   const playHere = (x: number, y: number) => {
     if (!services.playtestAt) return;
-    if (!inPlayerBand(x, y, map.width, map.height)) {
-      setError("The player cannot stand that close to the edge: pick a tile inside the dashed box.");
-      return;
-    }
-    if (!map.cells[y * map.width + x].walkable) {
-      setError("That tile is blocked: pick a walkable tile to start on.");
+    const why = standProblem(map, null, x, y);
+    if (why) {
+      setError(`The playtest cannot start on ${at(x, y)}: ${why}.`);
       return;
     }
     try {
@@ -514,6 +610,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       setError("Pick who to place first.");
       return;
     }
+    if (unreachableHere(x, y, "them", placePerson)) return;
     const m = parseScript(textOf(script)!);
     const e = findEntry(archive, 3, 2, npc.index);
     const name = e ? entryLabel(e) : "person";
@@ -535,6 +632,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       setError("Pick the object (a chest) first.");
       return;
     }
+    if (unreachableHere(x, y, "it", placeChest)) return;
     const m = parseScript(textOf(script)!);
     const e = findEntry(archive, 3, 4, box.index);
     const name = e ? entryLabel(e) : "chest";
@@ -608,7 +706,11 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       const n = freeCellEvent(loaders.map((k) => modelOf(k)!).filter(Boolean), map.cells.map((c) => c.event));
       const texts: Texts = { [script]: textOf(script)! };
       if (toScript?.exists) texts[toScript.key] = textOf(toScript.key)!;
-      const first = addExit(texts, { fromScript: script, mapEvent: n, toMap: { type: 1, index: d.target.index, name: tMap.name }, camera: arrivalCamera(d.arrival.x, d.arrival.y, world.playerScreen), toScript, usedVariables: used, fromName: map.name });
+      // free story flags, should an arrival need a new game's welcome to play only once
+      const named = Object.keys(services.notes.flags);
+      const once: number[] = [];
+      for (let k = 0; k < 4; k++) once.push(freeFlag(world, [...named, ...once.map(String)]));
+      const first = addExit(texts, { fromScript: script, mapEvent: n, toMap: { type: 1, index: d.target.index, name: tMap.name }, camera: arrivalCamera(d.arrival.x, d.arrival.y, world.playerScreen), toScript, usedVariables: used, fromName: map.name, onceFlags: once });
       let r = first;
       const others: Record<string, Uint8Array> = {};
       let newMap = withCellEvent(bytes, d.cell.x, d.cell.y, n);
@@ -617,8 +719,9 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
         if (r.variable) used.add(r.variable.variable);
         const tLoaders = [...new Set([toScript.key, ...(world.maps.get(tKey)?.loadedBy.map((l) => l.script) ?? [])])];
         const n2 = freeCellEvent(tLoaders.map((k) => (k === toScript!.key ? parseScript(r.texts[k]) : modelOf(k)!)).filter(Boolean), tMap.cells.map((c) => c.event));
-        const beside = besideExit(d.cell.x, d.cell.y, map.width, map.height, (x, y) => map.cells[y * map.width + x].walkable);
-        r = addExit(r.texts, { fromScript: toScript.key, mapEvent: n2, toMap: { type: map.type, index: map.index, name: map.name }, camera: arrivalCamera(beside.x, beside.y, world.playerScreen), toScript: { key: script, exists: true }, usedVariables: used, fromName: tMap.name });
+        // beside the exit: the nearest tile the player can stand on and walk from (not another event tile)
+        const beside = besideExit(d.cell.x, d.cell.y, map.width, map.height, (x, y) => map.cells[y * map.width + x].walkable, (x, y) => (!reach.seeded || canStand(reach, x, y)) && eventFree(x, y));
+        r = addExit(r.texts, { fromScript: toScript.key, mapEvent: n2, toMap: { type: map.type, index: map.index, name: map.name }, camera: arrivalCamera(beside.x, beside.y, world.playerScreen), toScript: { key: script, exists: true }, usedVariables: used, fromName: tMap.name, onceFlags: once.filter((f) => !first.onceFlags?.includes(f)) });
         others[tKey] = withCellEvent(tEntry.data, d.backCell.x, d.backCell.y, n2);
         back = " and the way back";
       }
@@ -627,6 +730,9 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       if (commit(`Add an exit to ${tMap.name || "another map"}${back}`, { map: newMap, others, texts: r.texts })) {
         // name the variables that tell arrivals apart, for the event views
         services.setNotes((nn) => vars.reduce((acc, v) => (variableName(acc, v.variable) ? acc : setVariableNote(acc, v.variable, { name: "where the party comes from" })), nn));
+        // and the flags that make a new game's welcome play once
+        const guarded = [...(first.onceFlags ?? []), ...(r !== first ? (r.onceFlags ?? []) : [])];
+        if (guarded.length) services.setNotes((nn) => guarded.reduce((acc, f) => (flagName(acc, f) ? acc : setFlagNote(acc, f, { name: "new game's welcome played" })), nn));
         setSel({ kind: "cell", ...d.cell });
         setTool("select");
         setExitDraft({ cell: null, target: null, arrival: null, back: true, backCell: null, picking: "arrival" });
@@ -671,6 +777,8 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
           if (!interactive || e.button !== 0) return;
           e.stopPropagation();
           setError(null);
+          setNotice(null);
+          setWarn(null);
           setConfirmDelete(false);
           if (o.what) setSel(o.what);
           o.onClick?.();
@@ -722,7 +830,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       {
         label: `${who(p)}, ${p.kind} #${p.id} at ${at(p.x, p.y)}${cond ? " (only sometimes)" : ""}`,
         title: `${who(p)} (#${p.id})${cond ? ` — only sometimes: ${cond}` : ""}. Drag to move.`,
-        className: `w-person${cond ? " maybe" : ""}`,
+        className: `w-person${cond ? " maybe" : ""}${canTouch(reach, p.x, p.y) ? "" : " unreached"}`,
         what,
         draggable: true,
       },
@@ -745,8 +853,10 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     .map((a) =>
       thing(`a-${a.from}-${a.x}-${a.y}`, a.x, a.y, <span className={`w-chip arrive ${side(a.x)}`}>↘ from {mapName(a.from)}</span>, {
         label: `Arrival from ${mapName(a.from)} at ${at(a.x, a.y)}`,
+        title: `The party arrives here from ${mapName(a.from)}. Drag to move where they arrive.`,
         className: "w-arrival",
         what: { kind: "arrival", from: a.from, x: a.x, y: a.y },
+        draggable: true,
       }),
     );
 
@@ -763,8 +873,10 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
             </>,
             {
               label: `Event ${c.mapEvent} at ${at(p.x, p.y)}: ${c.phrase}`,
-              className: `w-cell${c.exit ? " exit" : ""}`,
+              title: `${c.exit ? `Exit ${c.phrase}` : `Event ${c.mapEvent}: ${c.phrase}`}${canTouch(reach, p.x, p.y) ? "" : " — the player can never get here"}. Drag to move it.`,
+              className: `w-cell${c.exit ? " exit" : ""}${canTouch(reach, p.x, p.y) ? "" : " unreached"}`,
               what: { kind: "cell", x: p.x, y: p.y },
+              draggable: true,
             },
           ),
         ),
@@ -808,6 +920,9 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
           </div>
         </div>
         <p className="small">Placed by {scriptLink(p.script, p.line, `script ${scriptLabel(p.script)}, line ${p.line}`)}.</p>
+        {!canTouch(reach, p.x, p.y) && (
+          <ReachNote text={`The player can never get next to ${who(p)}: ${touchProblem(map, reach, p.x, p.y)}.`} near={nearestTouchable(reach, p.x, p.y)} onMove={(t) => moveTo({ kind: "person", script: p.script, id: p.id, group: p.group }, t.x, t.y)} />
+        )}
         {cond && <p className="w-note small">Only sometimes: {cond}.</p>}
         <h5>{p.kind === "person" ? "Talking to them" : "Facing it and pressing OK"}</h5>
         {label ? (
@@ -815,7 +930,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
             {first && (
               <SayField
                 key={`${p.script}:${first.stepId}:${first.text}`}
-                label={first.kind === "say" ? "They say first" : "The first message it shows"}
+                label={first.afterItem ? "Once it has been opened, it says" : !first.always ? (first.kind === "say" ? "They sometimes say first (a flag or a choice decides)" : "It sometimes shows (a flag or a choice decides)") : first.kind === "say" ? "They say first" : "It shows"}
                 text={first.text}
                 onSave={(t) => commit(`Change what ${who(p)} says`, { texts: { [p.script]: toSource(setLineText(parseScript(textOf(p.script)!), first.stepId, t)) } })}
               />
@@ -904,8 +1019,9 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
         </h4>
         <p className="muted small">
           Tile picture {cell.tile} · {cell.walkable ? "walkable" : "blocked"}
-          {!inPlayerBand(x, y, map.width, map.height) ? " · outside where the player can stand" : ""}
+          {canStand(reach, x, y) ? " · the player can stand here" : canTouch(reach, x, y) ? " · the player can walk into it from beside it" : " · the player can never get here"}
         </p>
+        {!!n && !canTouch(reach, x, y) && <ReachNote text={`The player can never get here, so this tile's event never runs: ${touchProblem(map, reach, x, y)}.`} near={nearestTouchable(reach, x, y, eventFree)} onMove={(t) => moveCell({ x, y }, t.x, t.y)} />}
         {services.playtestAt && cell.walkable && inPlayerBand(x, y, map.width, map.height) && (
           <div className="row">
             <button className="ghost" onClick={() => playHere(x, y)} title="Play a copy of the game that starts on this tile (story flags and variables start clear)">
@@ -1108,13 +1224,18 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
         return (
           <div className="w-panel-body">
             <h4>Add a person</h4>
-            {archive.entries.some((e) => e.resType === 3 && e.type === 2) ? (
-              <label className="w-field">
+            {archive.entries.some((e) => e.resType === 3 && e.type === 2) && !making ? (
+              <div className="w-field">
                 <span>Who</span>
-                <ResourcePicker archive={archive} resType={3} types={[2]} value={npc} onChange={setNpc} label="Person" />
-              </label>
+                <div className="row w-who">
+                  <ResourcePicker archive={archive} resType={3} types={[2]} value={npc} onChange={(v) => (setNpc(v), setError(null))} label="Person" />
+                  <button className="ghost small" onClick={() => setMaking(true)} title="Make a new person: pick how they look and name them">
+                    New person…
+                  </button>
+                </div>
+              </div>
             ) : (
-              <NewCharacter archive={archive} kind={2} onMake={makeCharacter} />
+              <NewCharacter archive={archive} kind={2} onMake={(k, sp, n) => (makeCharacter(k, sp, n), setMaking(false))} onCancel={archive.entries.some((e) => e.resType === 3 && e.type === 2) ? () => setMaking(false) : undefined} />
             )}
             <label className="w-field">
               <span>They say</span>
@@ -1127,13 +1248,18 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
         return (
           <div className="w-panel-body">
             <h4>Add a chest</h4>
-            {archive.entries.some((e) => e.resType === 3 && e.type === 4) ? (
-              <label className="w-field">
+            {archive.entries.some((e) => e.resType === 3 && e.type === 4) && !making ? (
+              <div className="w-field">
                 <span>Object</span>
-                <ResourcePicker archive={archive} resType={3} types={[4]} value={box} onChange={setBox} label="Object" />
-              </label>
+                <div className="row w-who">
+                  <ResourcePicker archive={archive} resType={3} types={[4]} value={box} onChange={(v) => (setBox(v), setError(null))} label="Object" />
+                  <button className="ghost small" onClick={() => setMaking(true)} title="Make a new object: pick how it looks and name it">
+                    New object…
+                  </button>
+                </div>
+              </div>
             ) : (
-              <NewCharacter archive={archive} kind={4} onMake={makeCharacter} />
+              <NewCharacter archive={archive} kind={4} onMake={(k, sp, n) => (makeCharacter(k, sp, n), setMaking(false))} onCancel={archive.entries.some((e) => e.resType === 3 && e.type === 4) ? () => setMaking(false) : undefined} />
             )}
             <label className="w-field">
               <span>Inside</span>
@@ -1187,21 +1313,18 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
                 </span>
               </label>
             )}
-            <div className="palette-head">
-              <strong>Tiles</strong>
-              <span className="muted small" title="[ and ] pick the previous / next tile">
-                tile {tile}
-              </span>
-            </div>
-            <div className="palette-grid w-palette">
-              {tiles.map((f, i) => (
-                <button key={i} className={`tilebtn ${i === tile ? "sel" : ""}`} onClick={() => (setTile(i), tool !== "tile" && tool !== "fill" && setTool("tile"))} title={`Tile ${i}`} aria-label={`Tile ${i}`} aria-pressed={i === tile}>
-                  <FrameCanvas frame={f} scale={1} />
-                </button>
-              ))}
-              {tiles.length === 0 && <p className="muted">Tileset {map.tileset} is missing.</p>}
-            </div>
-            <p className="muted small">The map's name, size and tileset are in the Tiles view.</p>
+            <TilePalette
+              tiles={tiles}
+              tileset={map.tileset}
+              tile={tile}
+              onPick={(i) => (setTile(i), tool !== "tile" && tool !== "fill" && setTool("tile"))}
+              walks={walks}
+              notes={services.notes}
+              setNotes={services.setNotes}
+              paintWalk={paintWalk}
+              onPaintWalk={setPaintWalk}
+            />
+            <p className="muted small">Red tint: blocked cells. The map's size and tileset are in the Tiles view.</p>
           </div>
         );
     }
@@ -1214,8 +1337,14 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     const tMap = tEntry ? decodeMap(tEntry.data) : null;
     const same = tKey === mapKey;
     const loader = tKey ? world.maps.get(tKey)?.loadedBy.find((l) => l.start) : undefined;
-    const arrivalOk = !!(d.arrival && tMap && inPlayerBand(d.arrival.x, d.arrival.y, tMap.width, tMap.height) && tMap.cells[d.arrival.y * tMap.width + d.arrival.x].walkable);
-    const backOk = !d.back || same || (d.backCell && tMap && !tMap.cells[d.backCell.y * tMap.width + d.backCell.x].event);
+    const arrivalWhy = d.arrival && tMap ? standProblem(tMap, null, d.arrival.x, d.arrival.y) : null;
+    const arrivalOk = !!(d.arrival && tMap && !arrivalWhy);
+    // the way back must be a tile the party can walk into from where it arrives
+    const tReach = tMap && tKey ? reachArea(tMap, [...(d.arrival ? [d.arrival] : []), ...mapEntries(world, tKey)]) : null;
+    const backTaken = !!(d.backCell && tMap && tMap.cells[d.backCell.y * tMap.width + d.backCell.x].event);
+    const backWhy = d.backCell && tMap && tReach && !backTaken ? touchProblem(tMap, tReach, d.backCell.x, d.backCell.y) : null;
+    const backNear = backWhy && tReach && tMap ? nearestTouchable(tReach, d.backCell!.x, d.backCell!.y, (x, y) => !tMap.cells[y * tMap.width + x].event) : null;
+    const backOk = !d.back || same || (d.backCell && tMap && !backTaken && !backWhy);
     const marks = [
       ...(d.arrival ? [{ ...d.arrival, kind: "pick" as const }] : []),
       ...(d.back && d.backCell ? [{ ...d.backCell, kind: "back" as const }] : []),
@@ -1269,12 +1398,33 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
                   arrivalOk ? (
                     <>They arrive at {at(d.arrival.x, d.arrival.y)}.</>
                   ) : (
-                    <span className="error">The party cannot stand on {at(d.arrival.x, d.arrival.y)}: pick a walkable tile inside the dashed box.</span>
+                    <span className="error">
+                      The party cannot arrive on {at(d.arrival.x, d.arrival.y)}: {arrivalWhy}.
+                    </span>
                   )
                 ) : (
                   <span className="muted">No arrival tile yet.</span>
                 )}{" "}
-                {d.back && !same && (d.backCell ? (backOk ? <>The way back is at {at(d.backCell.x, d.backCell.y)}.</> : <span className="error">That tile already has an event.</span>) : <span className="muted">No way back tile yet.</span>)}
+                {d.back &&
+                  !same &&
+                  (d.backCell ? (
+                    backOk ? (
+                      <>The way back is at {at(d.backCell.x, d.backCell.y)}.</>
+                    ) : backTaken ? (
+                      <span className="error">That tile already has an event.</span>
+                    ) : (
+                      <span className="error">
+                        The party can never get to {at(d.backCell.x, d.backCell.y)} to use it: {backWhy}.{" "}
+                        {backNear && (
+                          <button className="link" onClick={() => setExitDraft((x) => ({ ...x, backCell: backNear }))}>
+                            Use {at(backNear.x, backNear.y)}
+                          </button>
+                        )}
+                      </span>
+                    )
+                  ) : (
+                    <span className="muted">No way back tile yet.</span>
+                  ))}
               </p>
               <p className="muted small">
                 {same
@@ -1319,6 +1469,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
         <strong>{at(hover.x, hover.y)}</strong>
         <span>tile {cell.tile}</span>
         <span className={cell.walkable ? "" : "error"}>{cell.walkable ? "walkable" : "blocked"}</span>
+        {!canStand(reach, hover.x, hover.y) && <span className="muted">{canTouch(reach, hover.x, hover.y) ? "walked into from beside it" : "the player can never get here"}</span>}
         {!!cell.event && <span>event {cell.event}{c ? `: ${c.phrase}` : ""}</span>}
         {here.length > 0 && <span>{here.join(", ")}</span>}
       </>
@@ -1326,7 +1477,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
   };
 
   const toolBtn = ([t, label, k, title]: [Tool, string, string, string?]) => (
-    <button key={t} data-tool={t} className={tool === t ? "" : "ghost"} aria-pressed={tool === t} onClick={() => (setTool(t), setError(null), setNotice(null))} title={`${title ?? label} (${k})`}>
+    <button key={t} data-tool={t} className={tool === t ? "" : "ghost"} aria-pressed={tool === t} onClick={() => (setTool(t), setError(null), setNotice(null), setOffer(null), setMaking(false))} title={`${title ?? label} (${k})`}>
       {label} <kbd>{k}</kbd>
     </button>
   );
@@ -1369,6 +1520,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
         ) : (
           <span className="small w-note">No script shows this map yet.</span>
         )}
+        <MapNameField name={map.name} onSave={(n) => commit(`Rename the map ${n}`, { map: encodeMap({ ...decodeMap(bytes), name: n }) })} />
         <span className="spacer" />
         <label className="check small">
           <input type="checkbox" checked={showNames} onChange={(e) => setShowNames(e.target.checked)} /> Names
@@ -1379,9 +1531,13 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
         <label className="check small">
           <input type="checkbox" checked={showWalk} onChange={(e) => setShowWalk(e.target.checked)} /> Walkable
         </label>
+        <label className="check small" title="Shade where the player can never stand (the edges, and places walled off)">
+          <input type="checkbox" checked={showReach} onChange={(e) => setShowReach(e.target.checked)} /> Reach
+        </label>
         <label className="field small">
           Zoom
-          <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
+          <select value={zoomPick} onChange={(e) => setZoomPick(Number(e.target.value))}>
+            <option value={0}>Fit ({fit}×)</option>
             {[1, 2, 3, 4].map((z) => (
               <option key={z} value={z}>
                 {z}×
@@ -1413,7 +1569,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       </div>
       <div className="w-body">
         <div className="w-left">
-          <div className="w-scroll">
+          <div className="w-scroll" ref={scroller}>
             <div
               ref={stage}
               className={stageClass}
@@ -1439,6 +1595,12 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
             </div>
           </div>
           <p className="map-status small w-status">{status()}</p>
+          {showReach && (
+            <p className="w-reach-legend small muted">
+              <span className="w-reach-swatch" aria-hidden="true" /> Shaded: where the player can never stand. The player keeps 4 tiles from the left and right edges, 3 from the top and 2 from
+              the bottom (the dashed box), and blocked tiles stop them. Exits, event tiles and people work when the player can stand on or next to them.
+            </p>
+          )}
         </div>
         <aside className="w-panel" aria-label="Details">
           {error && (
@@ -1446,7 +1608,26 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
               {error}
             </p>
           )}
-          {notice && !error && (
+          {offer && error && (
+            <div className="row w-offer">
+              <button
+                onClick={() => {
+                  const o = offer;
+                  setOffer(null);
+                  setError(null);
+                  o.run(o.x, o.y);
+                }}
+              >
+                {offer.label}
+              </button>
+            </div>
+          )}
+          {warn && !error && (
+            <p className="w-msg warn small" role="status">
+              {warn}
+            </p>
+          )}
+          {notice && !error && !warn && (
             <p className="w-msg ok small" role="status">
               {notice}
             </p>
@@ -1477,14 +1658,46 @@ function SayField({ label, text, onSave }: { label: string; text: string; onSave
   );
 }
 
+/** The map's name (12 letters, 6 Chinese characters), saved on Enter or leaving the field. */
+function MapNameField({ name, onSave }: { name: string; onSave: (n: string) => void }) {
+  const [v, setV] = useState(name);
+  useEffect(() => setV(name), [name]);
+  const ok = textCells(v) <= 12;
+  const save = () => {
+    const n = v.trim().toUpperCase();
+    if (ok && n && n !== name) onSave(n);
+    else setV(name);
+  };
+  return (
+    <label className="field small w-mapname" title="The map's name: shown when the player arrives (setscenename) and in the editor; 12 letters at most">
+      Name
+      <input value={v} aria-invalid={!ok} onChange={(e) => setV(e.target.value)} onBlur={save} onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()} />
+    </label>
+  );
+}
+
+/** "The player can never get here", with a button that moves it to the nearest tile that works. */
+function ReachNote({ text, near, onMove }: { text: string; near: Point | null; onMove: (p: Point) => void }) {
+  return (
+    <div className="w-note small w-reach-note" role="note">
+      <p>{text}</p>
+      {near && (
+        <button className="ghost" onClick={() => onMove(near)}>
+          Move it to {near.x}, {near.y}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Make a person / object resource from a walk sprite, when the game has none. */
-function NewCharacter({ archive, kind, onMake }: { archive: LibArchive; kind: 2 | 4; onMake: (kind: 2 | 4, sprite: number, name: string) => void }) {
+function NewCharacter({ archive, kind, onMake, onCancel }: { archive: LibArchive; kind: 2 | 4; onMake: (kind: 2 | 4, sprite: number, name: string) => void; onCancel?: () => void }) {
   const [sprite, setSprite] = useState<ResValue | null>(null);
   const [name, setName] = useState(kind === 2 ? "Villager" : "Chest");
   const ok = textCells(name) <= 12;
   return (
     <div className="w-new">
-      <p className="small">This game has no {kind === 2 ? "people" : "objects"} yet. Make one from a sprite:</p>
+      <p className="small">{onCancel ? `A new ${kind === 2 ? "person" : "object"}: pick how ${kind === 2 ? "they look" : "it looks"} and a name.` : `This game has no ${kind === 2 ? "people" : "objects"} yet. Make one from a sprite:`}</p>
       <label className="w-field">
         <span>Sprite</span>
         <ResourcePicker archive={archive} resType={8} types={[kind]} value={sprite} onChange={setSprite} label={kind === 2 ? "Person walk sprite" : "Object sprite"} />
@@ -1493,9 +1706,16 @@ function NewCharacter({ archive, kind, onMake }: { archive: LibArchive; kind: 2 
         <span>Name</span>
         <input value={name} onChange={(e) => setName(e.target.value)} aria-invalid={!ok} />
       </label>
-      <button disabled={!sprite || !ok} onClick={() => sprite && onMake(kind, sprite.index, name)}>
-        Make {kind === 2 ? "this person" : "this object"}
-      </button>
+      <div className="row">
+        <button disabled={!sprite || !ok} onClick={() => sprite && onMake(kind, sprite.index, name)}>
+          Make {kind === 2 ? "this person" : "this object"}
+        </button>
+        {onCancel && (
+          <button className="ghost" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
+      </div>
     </div>
   );
 }

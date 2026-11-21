@@ -13,6 +13,8 @@ export interface WorldIntent {
   say?: string;
   /** Object (3-4-n) for Add chest. */
   box?: number;
+  /** A tile to select (a problem the project check found there). */
+  select?: { x: number; y: number };
 }
 
 const pending = new Map<string, WorldIntent>();

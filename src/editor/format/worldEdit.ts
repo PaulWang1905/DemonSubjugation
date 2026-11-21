@@ -33,6 +33,7 @@ import {
   addEvent,
   addPlacement,
   deleteSteps,
+  dominators,
   entryStep,
   eventGroup,
   insertLines,
@@ -52,6 +53,7 @@ import {
   type Step,
 } from "./scriptModel";
 import { findEntry, type LibArchive } from "./lib";
+import { nearestTile } from "./reach";
 import { resKey, type Exit, type MapInfo, type Placement, type PlayerStart, type Where, type WorldIndex } from "./world";
 import { SAY_PLAIN, SAY_WITH_PORTRAIT, wrapForBox, wrapMessage } from "./text";
 
@@ -170,13 +172,33 @@ export function eventInstructions(model: ScriptModel, label: string | null): Ins
     .filter((s): s is InstructionStep => s.kind === "instruction");
 }
 
-/** The first line said in an event (say / message), for "Talking to her: …" and editing it in place. */
-export function firstLine(model: ScriptModel, label: string | null): { stepId: number; line: number; text: string; portrait: number; kind: "say" | "message" } | null {
-  for (const s of eventInstructions(model, label)) {
-    if (s.op.name === "say") return { stepId: s.id, line: s.line, text: collapse(String(s.values[1])), portrait: s.values[0] as number, kind: "say" };
-    if (s.op.name === "message") return { stepId: s.id, line: s.line, text: collapse(String(s.values[0])), portrait: 0, kind: "message" };
+/**
+ * The first line said in an event (say / message), for "Talking to her: …"
+ * and editing it in place. `always`: it is said every time (no flag or choice
+ * decides); `afterItem`: it is only said on a way that does not give the
+ * event's item (a chest's "The chest is empty.").
+ */
+export function firstLine(model: ScriptModel, label: string | null): { stepId: number; line: number; text: string; portrait: number; kind: "say" | "message"; always: boolean; afterItem: boolean } | null {
+  const steps = eventInstructions(model, label);
+  const s = steps.find((x) => x.op.name === "say" || x.op.name === "message");
+  if (!s) return null;
+  const t = label ? labelTarget(model, label) : -1;
+  let always = true;
+  let afterItem = false;
+  if (t >= 0) {
+    const dom = dominators(model, t);
+    const i = model.steps.indexOf(s);
+    const ends = [...dom.keys()].filter((n) => successors(model, n).length === 0);
+    always = ends.every((n) => dom.get(n)!.has(i));
+    // a way to an end that gives an item and never passes this line
+    const gives = [...dom.keys()].filter((n) => {
+      const x = model.steps[n];
+      return x.kind === "instruction" && x.op.name === "gaingoods";
+    });
+    afterItem = !always && gives.length > 0 && gives.every((g) => !dom.get(g)!.has(i)) && ends.some((n) => dom.get(n)!.has(i) && gives.every((g) => !dom.get(n)!.has(g)));
   }
-  return null;
+  const kind = s.op.name === "say" ? "say" : "message";
+  return { stepId: s.id, line: s.line, text: collapse(String(s.values[kind === "say" ? 1 : 0])), portrait: kind === "say" ? (s.values[0] as number) : 0, kind, always, afterItem };
 }
 
 const collapse = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -419,9 +441,13 @@ export function addCellHandler(model: ScriptModel, mapEvent: number, label: stri
 
 // --- exits ------------------------------------------------------------------
 
-/** A new script that sets a map up: it shows the map with the view at camera. */
+/**
+ * A new script that sets a map up: it shows the map with the view at camera.
+ * It is called "<map> events" (not the map's own name, so "Switch to script
+ * FOREST events" is not read as the map).
+ */
 export function newMapScript(index: number, map: { type: number; index: number; name: string }, camera: { x: number; y: number }): string {
-  const desc = map.name.replace(/["\\]/g, "").slice(0, 20) || `map ${map.index}`;
+  const desc = `${map.name.replace(/["\\]/g, "").trim().slice(0, 13) || `map ${map.index}`} events`;
   return [`.gut 1 ${index}`, `.desc "${desc}"`, ".events 40", "", "@start:", instructionLine("loadmap", [map.type, map.index, camera.x, camera.y]), "  callback", ""].join("\n");
 }
 
@@ -468,17 +494,25 @@ export function arrivalVariable(model: ScriptModel, map: { type: number; index: 
  * where the usual way goes on after showing the map (after its createactor
  * lines, which a new game needs and an arrival must not repeat).
  */
-export function addArrival(model: ScriptModel, map: { type: number; index: number }, camera: { x: number; y: number }, v: { variable: number; value: number }, name: string): { model: ScriptModel; label: string } {
+export function addArrival(
+  model: ScriptModel,
+  map: { type: number; index: number },
+  camera: { x: number; y: number },
+  v: { variable: number; value: number },
+  name: string,
+  onceFlags: readonly number[] = [],
+): { model: ScriptModel; label: string; guarded: number[] } {
   let m = model;
   let at = startLoad(m, map);
   if (at < 0) throw new Error("this script does not show the map when it starts");
   const label = uniqueLabel(m, `arrive_${slug(name)}`);
   // where the usual way goes on
   let j = at + 1;
+  let newGame = false;
   while (j < m.steps.length) {
     const s = m.steps[j];
     if (s.label) break;
-    if (s.kind === "instruction" && s.op.name === "createactor") j++;
+    if (s.kind === "instruction" && s.op.name === "createactor") (j++, (newGame = true));
     else if (s.kind === "instruction" || s.kind === "data" || s.kind === "raw") break;
     else j++;
   }
@@ -519,7 +553,88 @@ export function addArrival(model: ScriptModel, map: { type: number; index: numbe
     if (m.steps.length && m.steps[m.steps.length - 1].kind !== "blank") tail.push("");
     m = insertLines(m, "end", [...tail, ...code]).model;
   }
-  return { model: m, label };
+  // a new game's own part (the welcome, the first items) plays once, not on every arrival
+  let guarded: number[] = [];
+  if (newGame && onceFlags.length) {
+    const g = guardOnce(m, join, onceFlags);
+    m = g.model;
+    guarded = g.flags;
+  }
+  return { model: m, label, guarded };
+}
+
+/** What a new game does once and an arrival must not repeat: dialogue, items, money, pictures, party members. */
+const ONCE = new Set(["say", "message", "timemsg", "gaingoods", "gainmoney", "movie", "showgut", "learnmagic", "createactor"]);
+
+/**
+ * Make the start code's once-only steps after `join` run once: each run of
+ * them (in text order, up to a label or a decision, not already behind
+ * `if F, @L` + `setevent F`) gets `if F, @once_done` + `setevent F` before it
+ * and `@once_done:` after it, with a flag from `flags` for each run.
+ */
+export function guardOnce(model: ScriptModel, join: string, flags: readonly number[]): { model: ScriptModel; flags: number[] } {
+  let m = model;
+  const used: number[] = [];
+  const g = m.groups.find((x) => x.start);
+  const from = m.labels.get(join);
+  if (!g || from === undefined) return { model: m, flags: used };
+  // runs, by step ids
+  const runs: number[][] = [];
+  let run: number[] = [];
+  const open = new Set<string>(); // labels of guards we are inside
+  let pendingGuard: { flag: number; label: string } | null = null;
+  const close = () => {
+    if (run.length) runs.push(run);
+    run = [];
+  };
+  for (let i = from + 1; i < g.to; i++) {
+    const s = m.steps[i];
+    if (s.label) {
+      open.delete(s.label);
+      close();
+      if (s.kind === "label") continue;
+    }
+    if (s.kind !== "instruction") {
+      if (s.kind === "data" || s.kind === "raw") close();
+      continue;
+    }
+    if (s.op.name === "if" && typeof s.values[1] === "string") {
+      close();
+      pendingGuard = { flag: s.values[0] as number, label: s.values[1] as string };
+      continue;
+    }
+    if (s.op.name === "setevent" && pendingGuard && s.values[0] === pendingGuard.flag) {
+      open.add(pendingGuard.label);
+      pendingGuard = null;
+      continue;
+    }
+    pendingGuard = null;
+    if (ONCE.has(s.op.name) && s.command.flow === "next") {
+      if (!open.size) run.push(s.id);
+      continue;
+    }
+    // a quiet step (turning, a sound, a scene name) may sit inside a run; anything that decides or ends closes it
+    if (s.command.flow !== "next") close();
+    else if (run.length) run.push(s.id);
+  }
+  close();
+  for (const r of runs) {
+    // trailing quiet steps stay outside
+    const ids = [...r];
+    while (ids.length) {
+      const last = m.steps.find((x) => x.id === ids[ids.length - 1]);
+      if (last && last.kind === "instruction" && ONCE.has(last.op.name)) break;
+      ids.pop();
+    }
+    if (!ids.length) continue;
+    const flag = flags[used.length];
+    if (flag === undefined) break;
+    used.push(flag);
+    const done = uniqueLabel(m, "once_done");
+    m = insertLines(m, { before: ids[0] }, [instructionLine("if", [flag, done]), instructionLine("setevent", [flag])]).model;
+    m = insertLines(m, { after: ids[ids.length - 1] }, [`@${done}:`]).model;
+  }
+  return { model: m, flags: used };
 }
 
 export interface ExitSpec {
@@ -540,10 +655,15 @@ export interface ExitSpec {
   usedVariables: ReadonlySet<number>;
   /** The name of the map the exit is on (for the arrival's label). */
   fromName?: string;
+  /**
+   * Free story flags, for making the target's new-game-only steps (its
+   * welcome) play once when an arrival is added to the game's start script.
+   */
+  onceFlags?: readonly number[];
 }
 
 /** Add an exit: the cell's handler in fromScript and, for another map, the arrival in its script. */
-export function addExit(texts: Texts, spec: ExitSpec): { texts: Texts; label: string; arrival?: string; variable?: { variable: number; value: number } } {
+export function addExit(texts: Texts, spec: ExitSpec): { texts: Texts; label: string; arrival?: string; variable?: { variable: number; value: number }; onceFlags?: number[] } {
   const from = parseScript(texts[spec.fromScript] ?? "");
   if (texts[spec.fromScript] === undefined) throw new Error(`script ${spec.fromScript} is not open for editing`);
   const label = uniqueLabel(from, `to_${slug(spec.toMap.name)}`);
@@ -566,36 +686,20 @@ export function addExit(texts: Texts, spec: ExitSpec): { texts: Texts; label: st
   const body = [instructionLine("set", [v.variable, v.value]), instructionLine("startchapter", [st, si])];
   let out: Texts = { ...texts, [spec.fromScript]: toSource(addEvent(from, 40 + spec.mapEvent, label, body)) };
   // (the same script may set both maps up)
-  const arrive = addArrival(parseScript(out[spec.toScript.key]), spec.toMap, spec.camera, v, `from_${slug(spec.fromName ?? "elsewhere")}`);
+  const arrive = addArrival(parseScript(out[spec.toScript.key]), spec.toMap, spec.camera, v, `from_${slug(spec.fromName ?? "elsewhere")}`, spec.onceFlags ?? []);
   out = { ...out, [spec.toScript.key]: toSource(arrive.model) };
-  return { texts: out, label, arrival: arrive.label, variable: v };
+  return { texts: out, label, arrival: arrive.label, variable: v, onceFlags: arrive.guarded };
 }
 
-/** A tile next to (x, y) the player can stand on, for arriving beside an exit (else the tile itself). */
-export function besideExit(x: number, y: number, w: number, h: number, walkable: (x: number, y: number) => boolean): { x: number; y: number } {
-  const order = [
-    [0, 1],
-    [0, -1],
-    [1, 0],
-    [-1, 0],
-    [1, 1],
-    [-1, 1],
-    [1, -1],
-    [-1, -1],
-  ];
-  for (const [dx, dy] of order) {
-    const nx = x + dx;
-    const ny = y + dy;
-    if (inPlayerBand(nx, ny, w, h) && walkable(nx, ny)) return { x: nx, y: ny };
-  }
-  for (let r = 2; r <= 4; r++)
-    for (let dy = -r; dy <= r; dy++)
-      for (let dx = -r; dx <= r; dx++) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (inPlayerBand(nx, ny, w, h) && walkable(nx, ny)) return { x: nx, y: ny };
-      }
-  return { x: Math.max(4, Math.min(w - 5, x)), y: Math.max(3, Math.min(h - 3, y)) };
+/**
+ * The tile nearest to the exit at (x, y) the player can stand on, for arriving
+ * beside it: walkable, inside the band, accepted by `ok` (reached from where
+ * the player enters, not on another event tile), closest by straight distance
+ * (ties: below, above, right, left of it). Else the nearest tile in the band.
+ */
+export function besideExit(x: number, y: number, w: number, h: number, walkable: (x: number, y: number) => boolean, ok: (x: number, y: number) => boolean = () => true): { x: number; y: number } {
+  const p = nearestTile(w, h, x, y, (a, b) => inPlayerBand(a, b, w, h) && walkable(a, b) && ok(a, b));
+  return p ?? { x: Math.max(4, Math.min(w - 5, x)), y: Math.max(3, Math.min(h - 3, y)) };
 }
 
 // --- deleting -----------------------------------------------------------------

@@ -56,12 +56,13 @@
   color: var(--muted);
   font-size: 11px;
 }
+/* (placed fixed on the page by usePopoverPlace, so no panel clips it) */
 .rp-pop {
-  position: absolute;
-  z-index: 40;
-  top: calc(100% + 4px);
-  left: 0;
-  width: max(260px, 100%);
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  width: 260px;
   max-width: min(420px, 90vw);
   border: 1px solid var(--ink);
   border-radius: 10px;
@@ -87,6 +88,8 @@
   margin: 0;
   padding: 4px;
   max-height: 280px;
+  min-height: 0;
+  flex: 1 1 auto;
   overflow: auto;
 }
 .rp-list li {

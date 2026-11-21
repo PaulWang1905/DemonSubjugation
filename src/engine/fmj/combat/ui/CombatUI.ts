@@ -63,7 +63,8 @@ export class CombatUI extends BaseScreen {
   readonly mTargetIndicator: FrameAnimation;
   /** Marks the enemy an action targets. */
   readonly mMonsterIndicator: FrameAnimation;
-  readonly mHeadsImg: ResImage[];
+  /** The party's portraits in battle (members 1-3; a game with fewer members has fewer). */
+  readonly mHeadsImg: (ResImage | null)[];
 
   constructor(
     readonly parent: GameNode,
@@ -72,7 +73,7 @@ export class CombatUI extends BaseScreen {
   ) {
     super();
     this.mScreenStack = new ScreenStack(this.game);
-    this.mHeadsImg = [1, 2, 3].map((i) => DatLib.getRes(ResType.PIC, 1, i) as ResImage);
+    this.mHeadsImg = [1, 2, 3].map((i) => DatLib.getRes(ResType.PIC, 1, i, true) as ResImage | null);
     let tmpImg = DatLib.getRes(ResType.PIC, 2, 4) as ResImage;
     this.mPlayerIndicator = new FrameAnimation(tmpImg, 1, 2);
     this.mTargetIndicator = new FrameAnimation(tmpImg, 3, 4);

@@ -11,6 +11,9 @@ import type { InstructionStep, ScriptModel } from "../format/scriptModel";
 import { pictureFrame } from "./DialoguePreview";
 import { DARK, LIGHT } from "./pixels";
 import { ResourcePicker } from "./ResourcePicker";
+import { SAY_PLAIN, SAY_WITH_PORTRAIT, wrapForBox, wrapMessage } from "../format/text";
+import { FlagPicker } from "./FlagPicker";
+import type { WorldIndex } from "../format/world";
 import { controlFor, parseOperandNumber, type Control } from "./scriptVisualLogic";
 
 /** What the steps and their controls share (ScriptVisual.tsx provides it). */
@@ -33,6 +36,8 @@ export interface SvContext {
   /** Show a label's code. */
   goLabel: (label: string) => void;
   disabled: boolean;
+  /** The project's world index (the flags its scripts use), when it could be built. */
+  world?: WorldIndex;
 }
 
 export const Sv = createContext<SvContext | null>(null);
@@ -98,6 +103,73 @@ function NumberField({ value, label, min, max, onCommit, width = 5 }: { value: n
   );
 }
 
+/** The flags a script's lines use (flag operands). */
+function modelFlags(model: ScriptModel): number[] {
+  const out = new Set<number>();
+  for (const s of model.steps) {
+    if (s.kind !== "instruction") continue;
+    s.command.operands.forEach((o, k) => o.kind === "flag" && typeof s.values[k] === "number" && out.add(s.values[k] as number));
+  }
+  return [...out];
+}
+
+/** A story flag, picked by name (or made new), and renamed in place. */
+function FlagField({ step, k, label }: { step: InstructionStep; k: number; label: string }) {
+  const sv = useSv();
+  const value = Number(step.values[k]);
+  const extra = useMemo(() => modelFlags(sv.model), [sv.model]);
+  return (
+    <span className="sv-named">
+      <span className="sv-kind">flag</span>
+      <FlagPicker value={value} onChange={(n) => n !== value && sv.setOperands(step.id, [[k, n]])} notes={sv.notes} setNotes={sv.setNotes} world={sv.world} extra={extra} label={label} disabled={sv.disabled} />
+      <RenameNamed kind="flag" value={value} />
+    </span>
+  );
+}
+
+/** "rename" / "name this flag" beside a flag or variable. */
+function RenameNamed({ kind, value }: { kind: "flag" | "variable"; value: number }) {
+  const sv = useSv();
+  const name = kind === "flag" ? sv.notes.flags[String(value)]?.name : sv.notes.variables[String(value)]?.name;
+  const [naming, setNaming] = useState(false);
+  const [text, setText] = useState(name ?? "");
+  const save = () => {
+    setNaming(false);
+    if ((name ?? "") === text.trim()) return;
+    sv.setNotes((n) => (kind === "flag" ? setFlagNote(n, value, { name: text }) : setVariableNote(n, value, { name: text })));
+  };
+  if (naming)
+    return (
+      <input
+        className="sv-name-input"
+        autoFocus
+        value={text}
+        placeholder={kind === "flag" ? "e.g. gate open" : "e.g. where we came from"}
+        aria-label={`Name for ${kind} ${value}`}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.preventDefault(), save());
+          else if (e.key === "Escape") (setNaming(false), setText(name ?? ""));
+        }}
+      />
+    );
+  return (
+    <button
+      type="button"
+      className={`link sv-name${name ? "" : " unnamed"}`}
+      disabled={sv.disabled}
+      onClick={() => {
+        setText(name ?? "");
+        setNaming(true);
+      }}
+      title={name ? `Rename ${kind} ${value} (names are kept with the project, not in the game)` : `Give ${kind} ${value} a name (kept with the project, not in the game)`}
+    >
+      {name ? "rename" : `name this ${kind}`}
+    </button>
+  );
+}
+
 /** A flag's or variable's number with the author's name for it, named in place. */
 function NamedNumber({ kind, value, label, min, max, onCommit }: { kind: "flag" | "variable"; value: number; label: string; min: number; max: number; onCommit: (text: string) => void }) {
   const sv = useSv();
@@ -147,11 +219,15 @@ function NamedNumber({ kind, value, label, min, max, onCommit }: { kind: "flag" 
 
 function TextField({ step, k, multiline, label }: { step: InstructionStep; k: number; multiline: boolean; label: string }) {
   const sv = useSv();
-  const value = String(step.values[k] ?? "");
+  const stored = String(step.values[k] ?? "");
+  // dialogue is shown as typed (without the spaces that keep words whole in the box) and wrapped when stored
+  const wraps = isWrapped(step, k);
+  const value = wraps ? unpadded(stored) : stored;
   const [v, setV, revert] = useDraftValue(value);
+  const out = (t: string) => (wraps ? wrapTyped(step, t) : t);
   const commit = () => {
     sv.setLive(null);
-    if (v !== value) sv.setOperands(step.id, [[k, v]]);
+    if (v !== value && out(v) !== stored) sv.setOperands(step.id, [[k, out(v)]]);
   };
   const common = {
     "aria-label": label,
@@ -161,9 +237,9 @@ function TextField({ step, k, multiline, label }: { step: InstructionStep; k: nu
     onChange: (e: { target: { value: string } }) => {
       const t = e.target.value.replace(/\r?\n/g, " ");
       setV(t);
-      sv.setLive({ id: step.id, k, text: t });
+      sv.setLive({ id: step.id, k, text: out(t) });
     },
-    onFocus: () => sv.setLive({ id: step.id, k, text: v }),
+    onFocus: () => sv.setLive({ id: step.id, k, text: out(v) }),
     onBlur: commit,
     onKeyDown: (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && (!multiline || e.ctrlKey || e.metaKey || !e.shiftKey)) {
@@ -176,7 +252,33 @@ function TextField({ step, k, multiline, label }: { step: InstructionStep; k: nu
     },
   };
   if (!multiline) return <input className="sv-text-input" {...common} style={{ width: `${Math.max(6, v.length + 2)}ch` }} />;
-  return <textarea className="sv-text" rows={Math.max(1, Math.min(6, Math.ceil(v.length / 46)))} {...common} />;
+  return (
+    <>
+      <textarea className="sv-text" rows={Math.max(1, Math.min(6, Math.ceil(v.length / 46)))} {...common} title={wraps ? "Type it as you like: the line breaks are made when it is stored, so no word is split in the box" : undefined} />
+      {wraps && <span className="sv-wrap-hint muted small">Lines are broken for the box when you leave the field (spaces keep words whole on the device).</span>}
+    </>
+  );
+}
+
+/** Dialogue text the editor wraps itself: say / message / timed message text without control codes. */
+function isWrapped(step: InstructionStep, k: number): boolean {
+  const name = step.op.name;
+  if (name !== "say" && name !== "message" && name !== "timemsg") return false;
+  if (step.command.operands[k]?.kind !== "text") return false;
+  return !/\\/.test(String(step.values[k] ?? ""));
+}
+
+/** The text without the padding that wrapping added. */
+function unpadded(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/** Typed text as stored: wrapped for its box (11 then 15 letters a line with a portrait, 15 without; messages 15). */
+function wrapTyped(step: InstructionStep, t: string): string {
+  const text = unpadded(t);
+  if (!text) return text;
+  if (step.op.name === "say") return wrapForBox(text, Number(step.values[0]) ? SAY_WITH_PORTRAIT : SAY_PLAIN);
+  return wrapMessage(text);
 }
 
 function LabelField({ step, k, label }: { step: InstructionStep; k: number; label: string }) {
@@ -304,6 +406,7 @@ export function OperandControl({ step, k, control }: { step: InstructionStep; k:
       );
     }
     case "flag":
+      return <FlagField step={step} k={k} label={label} />;
     case "variable":
       return <NamedNumber kind={ctl.kind} value={Number(v)} label={label} min={o?.min ?? 0} max={o?.max ?? 255} onCommit={commitNumber} />;
     case "label":

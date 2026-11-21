@@ -1,9 +1,18 @@
 import { useEffect, useRef, type RefObject } from "react";
 
-/** Whether a key press went to a text field (which keeps its own keys). */
+const field = (t: Element | null): boolean => {
+  const h = t as HTMLElement | null;
+  return !!h && (h.tagName === "INPUT" || h.tagName === "TEXTAREA" || h.tagName === "SELECT" || h.isContentEditable);
+};
+
+/** Whether a key press went to a text field (which keeps its own keys): the event's target or the focused element. */
 export function typing(e: KeyboardEvent): boolean {
-  const t = e.target as HTMLElement | null;
-  return !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+  return field(e.target as Element | null) || field(document.activeElement);
+}
+
+/** Whether a picker's list (a popover) or a dialog is open: single keys belong to it then. */
+export function popoverOpen(): boolean {
+  return !!document.querySelector("[data-popover], dialog[open], [aria-expanded='true'][aria-haspopup]");
 }
 
 /**
@@ -42,7 +51,7 @@ export function useToolKeys(anchor: RefObject<HTMLElement | null>, keys: Record<
   useEffect(() => {
     if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || typing(e) || document.querySelector("dialog[open]")) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || typing(e) || popoverOpen()) return;
       if (!anchor.current || anchor.current.offsetParent === null) return;
       const f = fns.current[e.key.toLowerCase()];
       if (!f) return;

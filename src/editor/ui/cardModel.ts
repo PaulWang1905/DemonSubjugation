@@ -104,7 +104,9 @@ export type Control =
   | { kind: "ref"; resType: number; types: number[]; typeField?: Field; allowNone: boolean }
   /** A spell list (12-1-n), shown with its spells. */
   | { kind: "spellList" }
-  /** Shown inside another field's control (a ref's sub-type). */
+  /** A story flag, picked by name (0: none). */
+  | { kind: "flag" }
+  /** Shown inside another field's control (a ref's sub-type), or not shown for this kind. */
   | { kind: "hidden" };
 
 /** What a card shows beyond schema.ts: plainer labels, units, help, real ranges. */
@@ -154,7 +156,7 @@ function metaFor(kind: RecordKind, type: number, f: Field): Meta {
     icon: { label: "Icon", help: "The picture in menus and shops (item icons of this kind)." },
     ani: { label: "Animation", help: "Played when it is used." },
     event: { label: "Sets story flag while worn", help: "Equipment only: this flag is set while it is worn (and such items cannot be sold). 0: none.", max: 2400 },
-    users: kind === "item" && type > 7 ? { label: "Usable by", help: "Only equipment checks this." } : { label: "Usable by" },
+    users: { label: "Usable by", help: kind === "item" ? "Who can wear it." : undefined },
     dropIndex: { label: "Drops", help: "The item it may leave behind." },
     dropCount: { label: "How many it drops" },
     stealIndex: { label: "Can be stolen", help: "The item a steal spell takes from it." },
@@ -191,6 +193,9 @@ export function controlFor(r: { resType: number; type: number }, f: Field, field
   const meta = metaFor(kind, r.type, f);
   // a byte holding another field's sub-type is edited with that field's picker
   if (fields.some((g) => g.ref && typeof g.ref.type === "object" && g.ref.type.at === f.at && g !== f)) return { kind: "hidden" };
+  // only equipment (kinds 1-7) is worn: who can wear it and the flag it sets mean nothing on other items
+  if (kind === "item" && r.type > 7 && (f.key === "users" || f.key === "event")) return { kind: "hidden" };
+  if (kind === "item" && f.key === "event") return { kind: "flag" };
   if (f.ref) {
     if (f.ref.resType === 12 && f.ref.type === 1) return { kind: "spellList" };
     if (typeof f.ref.type === "number") return { kind: "ref", resType: f.ref.resType, types: [f.ref.type], allowNone: true };

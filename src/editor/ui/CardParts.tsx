@@ -11,6 +11,7 @@ import { buildWorld, parseKey, resKey, type WorldIndex } from "../format/world";
 import { checkValue, controlFor, fieldHelp, fieldLabel, recordKind, refValue, spellListNames, userBits, writeRef, type Control, type Issue, type PictureSource, type UsedBy } from "./cardModel";
 import { blitFrame, LIGHT } from "./pixels";
 import { ResourcePicker } from "./ResourcePicker";
+import { FlagPicker } from "./FlagPicker";
 import type { EditorServices } from "./views";
 import { viewsFor } from "./views";
 
@@ -250,6 +251,8 @@ function Ctl(p: FieldProps & { control: Control; id: string; label: string; desc
     }
     case "toggle":
       return <input type="checkbox" {...aria} checked={v === 1} onChange={(e) => write(() => writeField(data, f, e.target.checked ? 1 : 0))} />;
+    case "flag":
+      return <FlagPicker value={Number(v)} allowNone label={p.label} notes={services.notes} setNotes={services.setNotes} onChange={(n) => write(() => writeField(data, f, n))} />;
     case "ref": {
       const value = refValue(f, c, data);
       const exists = value && findEntry(archive, c.resType, value.type, value.index);

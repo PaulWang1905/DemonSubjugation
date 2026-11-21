@@ -182,7 +182,7 @@ describe("flags, variables and references", () => {
     expect(names.event!(42)).toBe("map event 2");
     expect(sentence("facetoface", [0, 1], names).text).toBe("Wen (#1) turns to the player");
     expect(sentence("if", [2, "elder_hint"], names).text).toBe("If “quest given” is set, go to @elder_hint");
-    expect(sentence("startchapter", [1, 2], names).text).toBe("Switch to Whisperwood");
+    expect(sentence("startchapter", [1, 2], names).text).toBe("Switch to script “Whisperwood”");
     expect(projectNames(a).resource!(6, 9, 99)).toBeNull();
     expect(describeKey(a, "6-9-1")).toBe("Item 9-1 Herb (medicine)");
     expect(describeKey(a, "2-1-9")).toBe("Map 1-9 (missing)");

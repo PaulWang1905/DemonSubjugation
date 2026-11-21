@@ -37,9 +37,21 @@ const SWITCHES: [keyof CheatSwitches, string, string][] = [
 
 type Tab = "party" | "items" | "story" | "tricks" | "device";
 
+/** The author's names for flags and variables (a playtest from the editor). */
+export interface StoryNames {
+  flags?: Record<string, string>;
+  variables?: Record<string, string>;
+}
+
 interface Props {
   /** The game's party, items, story and switches (null: the game has none to offer). */
   cheats: Cheats | null;
+  /** Names for the Story tab's flags and variables. */
+  names?: StoryNames;
+  /** Open on this tab. */
+  start?: "party" | "items" | "story" | "tricks";
+  /** A line under the header (what the menu is for here). */
+  note?: ReactNode;
   /** After a change: the game redraws what it shows. */
   onChange: () => void;
   /** A Device tab (the emulator's own tools), when there is one. */
@@ -55,8 +67,8 @@ const CHEAT_TABS: [Tab, string][] = [
 ];
 
 /** The hidden test menu. The game is paused while it is open. */
-export function DebugMenu({ cheats, onChange, device, onClose }: Props) {
-  const [tab, setTab] = useState<Tab>(cheats ? "party" : "device");
+export function DebugMenu({ cheats, onChange, device, onClose, names, start, note }: Props) {
+  const [tab, setTab] = useState<Tab>(cheats ? (start ?? "party") : "device");
   const [, setVersion] = useState(0);
   const changed = () => {
     onChange();
@@ -71,7 +83,7 @@ export function DebugMenu({ cheats, onChange, device, onClose }: Props) {
   return (
     <aside className="debug" role="dialog" aria-label="Debug menu">
       <header>
-        <strong>Debug menu</strong>
+        <strong>{note ? "Test tools" : "Debug menu"}</strong>
         <span className="muted small">game paused</span>
         <div className="spacer" />
         <button
@@ -82,6 +94,7 @@ export function DebugMenu({ cheats, onChange, device, onClose }: Props) {
           ✕
         </button>
       </header>
+      {note && <p className="muted small debug-note">{note}</p>}
       <nav className="seg">
         {tabs.map(([t, l]) => (
           <button
@@ -102,7 +115,7 @@ export function DebugMenu({ cheats, onChange, device, onClose }: Props) {
         )}
         {tab === "party" && c && <PartyTab c={c} changed={changed} />}
         {tab === "items" && c && <ItemsTab c={c} changed={changed} />}
-        {tab === "story" && c && <StoryTab c={c} changed={changed} />}
+        {tab === "story" && c && <StoryTab c={c} changed={changed} names={names} />}
         {tab === "tricks" && c && (
           <div className="debug-list">
             {SWITCHES.map(([k, label, help]) => (
@@ -358,10 +371,13 @@ function ItemsTab({ c, changed }: { c: Cheats; changed: () => void }) {
   );
 }
 
-function StoryTab({ c, changed }: { c: Cheats; changed: () => void }) {
+function StoryTab({ c, changed, names }: { c: Cheats; changed: () => void; names?: StoryNames }) {
   const [n, setN] = useState(1);
   const flags = c.flags();
   const loc = c.location();
+  const flagName = (f: number) => names?.flags?.[String(f)];
+  const vars = c.variables?.() ?? [];
+  const named = Object.entries(names?.flags ?? {}).map(([k, v]) => [Number(k), v] as const);
   return (
     <div className="debug-list">
       <section className="debug-card">
@@ -416,13 +432,54 @@ function StoryTab({ c, changed }: { c: Cheats; changed: () => void }) {
                     changed();
                   }}
                 >
-                  {f} ✕
+                  {f}
+                  {flagName(f) ? ` ${flagName(f)}` : ""} ✕
                 </button>
               ))}
             </div>
+            {named.some(([f]) => !flags.includes(f)) && (
+              <>
+                <p className="muted small">Your named flags that are off (click to turn one on):</p>
+                <div className="debug-flags">
+                  {named
+                    .filter(([f]) => !flags.includes(f))
+                    .map(([f, name]) => (
+                      <button
+                        key={f}
+                        className="ghost chipbtn"
+                        title={`Turn flag ${f} on`}
+                        onClick={() => {
+                          c.setFlag(f, true);
+                          changed();
+                        }}
+                      >
+                        {f} {name} +
+                      </button>
+                    ))}
+                </div>
+              </>
+            )}
           </>
         )}
       </section>
+      {c.variables && (
+        <section className="debug-card">
+          <strong>Variables</strong>
+          <p className="muted small">The numbers scripts keep (0-199 for the whole game, 200-239 while a script runs). Only those that are not 0 are listed.</p>
+          {vars.length === 0 ? (
+            <span className="muted small">All are 0.</span>
+          ) : (
+            <ul className="debug-items">
+              {vars.map((v) => (
+                <li key={v.n}>
+                  variable {v.n}
+                  {names?.variables?.[String(v.n)] ? ` (${names.variables[String(v.n)]})` : ""}: <strong>{v.value}</strong>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 }

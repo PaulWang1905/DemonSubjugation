@@ -1,0 +1,253 @@
+/* Fixes from the new-author test (phase 3b): the name dialog, reachability,
+   flag pickers, popovers that escape their panels, tool names. */
+
+.name-dialog .name-input {
+  font: 600 22px/1.2 var(--h-mono, ui-monospace, monospace);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 10px 12px;
+}
+.name-dialog p {
+  margin: 0;
+}
+
+/* -- the World view: where the player can get (item 1) -- */
+.w-msg.warn {
+  color: var(--w-none);
+  background: var(--w-none-bg);
+}
+.w-offer {
+  margin: -4px 0 10px;
+}
+.w-reach-legend {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 4px 2px 0;
+  max-width: 72ch;
+  line-height: 1.45;
+}
+.w-reach-swatch {
+  flex: none;
+  width: 14px;
+  height: 10px;
+  border: 1px dashed rgba(20, 60, 200, 0.7);
+  background: rgba(10, 20, 40, 0.3);
+}
+.w-reach-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 6px 0;
+}
+.w-reach-note p {
+  margin: 0;
+}
+.w-thing.unreached .w-num {
+  outline: 2px solid var(--w-none);
+  outline-offset: 1px;
+}
+.w-thing.unreached .w-chip::after,
+.w-thing.unreached .w-name::after {
+  content: " ⚠";
+  color: var(--w-none);
+}
+.w-cell,
+.w-arrival {
+  cursor: grab;
+}
+.w-who {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.res-name-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.res-name-field input {
+  min-width: 16em;
+}
+.sv-wrap-hint {
+  display: block;
+  margin-top: 2px;
+}
+.w-mapname input {
+  width: 9em;
+  text-transform: uppercase;
+}
+
+/* -- scrolling that shows (item 18): the site hides scroll bars, the map and the tabs need them -- */
+.w-scroll,
+.map-canvas {
+  scrollbar-width: thin;
+}
+.w-scroll::-webkit-scrollbar,
+.map-canvas::-webkit-scrollbar {
+  display: block;
+  width: 10px;
+  height: 10px;
+}
+.w-scroll::-webkit-scrollbar-thumb,
+.map-canvas::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+.e-tabs-wrap {
+  position: relative;
+  flex: none;
+  display: flex;
+  min-width: 0;
+}
+.e-tabs-wrap .e-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* tabs shrink before the strip scrolls */
+.e-tabs-wrap .e-tab {
+  flex: 0 1 auto;
+  min-width: 132px;
+}
+.e-tabs-wrap .e-tab.home {
+  flex: none;
+  min-width: 0;
+}
+.e-tabs-arrow {
+  flex: none;
+  width: 26px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--bg) 70%, var(--panel));
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: 0 0 8px rgb(0 0 0 / 0.12);
+  z-index: 1;
+}
+.e-tabs-arrow:hover {
+  background: var(--panel);
+}
+
+/* -- the flag picker (FlagPicker.tsx; item 5) -- */
+.fp {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.fp-pop {
+  width: 320px;
+}
+.fp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 8px;
+  align-items: baseline;
+  width: 100%;
+}
+.fp-uses {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rp-list li.fp-new {
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.fp-newform {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+.fp-newform label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* -- the tile palette (TilePalette.tsx; items 4, 9) -- */
+.tp {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tp-preview {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 68px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.tp-preview canvas {
+  flex: none;
+  border: 1px solid var(--line);
+}
+.tp-preview p {
+  margin: 2px 0 0;
+}
+.tp-walk {
+  color: var(--accent);
+  font-weight: 600;
+}
+.tp-solid {
+  color: #b3412e;
+  font-weight: 600;
+}
+.tp-grid {
+  max-height: 240px;
+  overflow: auto;
+  margin: 0;
+}
+.tp-btn {
+  position: relative;
+}
+.tp-btn.solid::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  border: 5px solid transparent;
+  border-right-color: #c0392b;
+  border-bottom-color: #c0392b;
+  pointer-events: none;
+}
+.tp-btn:hover canvas,
+.tp-btn:focus-visible canvas {
+  outline: 2px solid var(--ink);
+}
+.tp-this {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tp-name {
+  width: 100%;
+  box-sizing: border-box;
+}
+.tp-solidity {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.tp-paintwalk {
+  line-height: 1.35;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tp-solid {
+    color: #f08c75;
+  }
+}
+:root[data-theme="dark"] .tp-solid {
+  color: #f08c75;
+}

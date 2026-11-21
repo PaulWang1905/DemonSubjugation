@@ -113,12 +113,13 @@ describe("tabs", () => {
     s = openTab(s, "1-1-2");
     expect(s.active).toBe("1-1-2");
     expect(s.tabs.map((t) => t.key)).toEqual([HOME_TAB, "1-1-2", "2-1-1", "3-2-1"]);
-    // a kept tab also takes the preview's place (the preview was passing)
+    // a new tab goes after the active one; the preview elsewhere goes away (it was passing)
     s = openTab(s, "6-9-1", { pin: true });
-    expect(s.tabs.map((t) => t.key)).toEqual([HOME_TAB, "1-1-2", "2-1-1", "6-9-1"]);
+    expect(s.tabs.map((t) => t.key)).toEqual([HOME_TAB, "1-1-2", "6-9-1", "2-1-1"]);
+    s = { ...s, active: "6-9-1" };
     // with no preview, a new tab goes after the active one
     s = openTab({ ...s, active: "1-1-2" }, "7-1-1");
-    expect(s.tabs.map((t) => t.key)).toEqual([HOME_TAB, "1-1-2", "7-1-1", "2-1-1", "6-9-1"]);
+    expect(s.tabs.map((t) => t.key)).toEqual([HOME_TAB, "1-1-2", "7-1-1", "6-9-1", "2-1-1"]);
   });
 
   it("closing activates the right neighbour, else the left", () => {

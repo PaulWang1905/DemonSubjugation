@@ -304,7 +304,7 @@ describe("edits", () => {
     const texts: Texts = { "1-1-1": buildWorld(a).scripts.get("1-1-1")!.source };
     const world: WorldIndex = buildWorld(a, texts);
     const r = addExit(texts, { fromScript: "1-1-1", mapEvent: 1, toMap: { type: 1, index: 2, name: "FOREST" }, camera: arrivalCamera(12, 7, world.playerScreen), toScript: { key: "1-1-2", exists: false }, usedVariables: new Set() });
-    expect(r.texts["1-1-2"]).toBe('.gut 1 2\n.desc "FOREST"\n.events 40\n\n@start:\n  loadmap 1, 2, 8, 4\n  callback\n');
+    expect(r.texts["1-1-2"]).toBe('.gut 1 2\n.desc "FOREST events"\n.events 40\n\n@start:\n  loadmap 1, 2, 8, 4\n  callback\n');
     putEntry(a, { resType: 2, type: 1, index: 1, data: withCellEvent(findEntry(a, 2, 1, 1)!.data, 15, 7, 1) });
     const w2 = buildWorld(store(a, r.texts), r.texts);
     expect(w2.maps.get("2-1-1")!.exits[0].targets).toMatchObject([{ map: "2-1-2", x: 12, y: 7, certain: true }]);

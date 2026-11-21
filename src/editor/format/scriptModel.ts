@@ -1084,6 +1084,20 @@ export function startPlacement(model: ScriptModel): Position {
   });
   const at = pick(["createnpc", "createbox"]) ?? pick(["loadmap", "createactor"]);
   if (at !== undefined) return { after: model.steps[at].id };
+  // no loadmap runs on every path (an arrival shows the map its own way):
+  // where the ways meet after showing the map (a join label)
+  const g = model.groups.find((x) => x.start);
+  let firstLoad = -1;
+  for (let i = entry; g && i < g.to; i++) {
+    const s = model.steps[i];
+    if (s.kind === "instruction" && s.op.name === "loadmap") {
+      firstLoad = i;
+      break;
+    }
+  }
+  // (the first code on every path after it; label lines stay above the new line)
+  const join = firstLoad >= 0 ? sorted.find((i) => i > firstLoad) : undefined;
+  if (join !== undefined && !model.steps[join].label) return { before: model.steps[join].id };
   return { before: model.steps[entry].id };
 }
 

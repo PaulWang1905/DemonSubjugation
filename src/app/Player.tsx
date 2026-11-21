@@ -7,7 +7,7 @@ import type { StoredGame } from "../storage/db";
 import { useEngineKeys } from "./useEngineKeys";
 import { usePlayerFonts } from "./usePlayerFonts";
 import { Keypad } from "./Keypad";
-import { DebugMenu } from "./DebugMenu";
+import { DebugMenu, type StoryNames } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { HiresText, outputScale, type ScreenEffect, type TextStyle } from "./hiresText";
@@ -24,6 +24,8 @@ interface Props {
   onExit: () => void;
   /** Where the back button goes: the game library, or the editor for a playtest. */
   backTo?: "library" | "editor";
+  /** A playtest's names for flags and variables (the debug menu shows them). */
+  names?: StoryNames;
 }
 
 
@@ -38,7 +40,7 @@ function savesTelling(gameId: string, refused: () => void): SaveStorage {
     },
   };
 }
-export function Player({ game, fonts, onExit, backTo = "library" }: Props) {
+export function Player({ game, fonts, onExit, backTo = "library", names }: Props) {
   // the player's own text follows the site language
   const lang = useSiteLang();
   const pt = PLAYER_TEXT[lang];
@@ -468,6 +470,11 @@ export function Player({ game, fonts, onExit, backTo = "library" }: Props) {
               ⛶
             </button>
           )}
+          {backTo === "editor" && (
+            <button className="tb-btn" onClick={openDebug} aria-label={pt.testTools} title={pt.testToolsTitle}>
+              🛠
+            </button>
+          )}
           <button className="tb-btn" onClick={openOptions} aria-label={pt.options} title={pt.options}>
             ⚙
           </button>
@@ -481,6 +488,11 @@ export function Player({ game, fonts, onExit, backTo = "library" }: Props) {
             {game.name}
           </span>
           <div className="spacer" />
+          {backTo === "editor" && (
+            <button className="ghost" onClick={openDebug} title={pt.testToolsTitle}>
+              {pt.testTools}
+            </button>
+          )}
           {speedField}
           <span className="tb-opt">{lookOptions}</span>
           <button className="ghost" onClick={toggleFullscreen} title={pt.fullscreen} aria-label={pt.fullscreen}>
@@ -523,7 +535,16 @@ export function Player({ game, fonts, onExit, backTo = "library" }: Props) {
 
       {notice && <div className="notice">{notice}</div>}
 
-      {debugOpen && engineRef.current && <DebugMenu cheats={engineRef.current.cheats} onChange={() => engineRef.current?.redraw()} onClose={() => setDebugOpen(false)} />}
+      {debugOpen && engineRef.current && (
+        <DebugMenu
+          cheats={engineRef.current.cheats}
+          names={names}
+          start={backTo === "editor" ? "tricks" : undefined}
+          note={backTo === "editor" ? pt.testToolsNote : undefined}
+          onChange={() => engineRef.current?.redraw()}
+          onClose={() => setDebugOpen(false)}
+        />
+      )}
 
       {touch ? (
         optionsOpen && (

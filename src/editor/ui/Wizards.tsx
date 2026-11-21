@@ -92,7 +92,7 @@ export function WizardDialog({ kind, init, archive, texts, notes, onApply, onClo
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
-  const project = { archive, texts };
+  const project = { archive, texts, namedFlags: Object.keys(notes.flags) };
   const run: Run = (make) => {
     try {
       const r = make();

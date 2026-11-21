@@ -136,12 +136,14 @@ export class Combat extends BaseScreen implements CombatUICallBack {
   private createBackgroundBitmap(scrb: number, scrl: number, scrr: number): void {
     this.mBackground = Bitmap.createBitmap(160, 96);
     const canvas = new Canvas(this.mBackground);
-    let img = DatLib.getRes(ResType.PIC, 4, scrb) as ResImage;
-    img.draw(canvas, 1, 0, 0); // background
-    img = DatLib.getRes(ResType.PIC, 4, scrl) as ResImage;
-    img.draw(canvas, 1, 0, 96 - img.height); // bottom-left
-    img = DatLib.getRes(ResType.PIC, 4, scrr) as ResImage;
-    img.draw(canvas, 1, 160 - img.width, 0); // top-right
+    // picture 0 is "none" (scripts leave the corner pictures 0): nothing to draw, nothing missing
+    const pic = (n: number) => (n ? (DatLib.getRes(ResType.PIC, 4, n) as ResImage) : null);
+    let img = pic(scrb);
+    img?.draw(canvas, 1, 0, 0); // background
+    img = pic(scrl);
+    img?.draw(canvas, 1, 0, 96 - img.height); // bottom-left
+    img = pic(scrr);
+    img?.draw(canvas, 1, 160 - img.width, 0); // top-right
     this.mScrb = scrb;
     this.mScrl = scrl;
     this.mScrR = scrr;

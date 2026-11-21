@@ -214,10 +214,15 @@ function Card({ step, api, kind, children }: { step: Step; api: StepsApi; kind: 
       data-step={step.id}
       onMouseDown={(e) => {
         const t = e.target as HTMLElement;
-        if (t.closest("input, textarea, select, button, .rp")) return;
+        if (t.closest(".sv-card") !== e.currentTarget) return;
+        // typing in a step's field selects the step too (so "+ Add step" adds after it), leaving the focus in the field
+        if (t.closest("input, textarea, select, button, .rp, .fp")) {
+          if (!selected) api.select(step.id);
+          return;
+        }
         api.select(step.id, true);
       }}
-      onFocus={(e) => e.target === e.currentTarget && api.selected !== step.id && api.select(step.id)}
+      onFocus={(e) => (e.target as HTMLElement).closest(".sv-card") === e.currentTarget && api.selected !== step.id && api.select(step.id)}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes("application/x-sv-step")) return;
         e.preventDefault();
@@ -284,7 +289,8 @@ function InstructionCard({ step, api, header }: { step: InstructionStep; api: St
       {step.comment && <p className="sv-comment small">{step.comment.replace(/^;\s*/, "")}</p>}
       {api.preview?.(step.id)}
       {editing && <Details step={step} />}
-      <Problems list={api.problems.get(step.id)} />
+      {/* (while its text is typed the box beside it says what fits; the stored text's warnings would be stale) */}
+      <Problems list={api.live?.id === step.id ? undefined : api.problems.get(step.id)} />
     </Card>
   );
 }

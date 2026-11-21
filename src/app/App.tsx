@@ -1,5 +1,6 @@
 import { isReactOnly, preferredEngine } from "../bbk/gamBuild";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { StoryNames } from "./DebugMenu";
 import { deleteGame, getFont, isPersistent, listFirmware, listGames, putFirmwareFile, putFont, putGame, type StoredGame } from "../storage/db";
 import { REQUIRED_REGIONS, type RegionId } from "../bbk/firmware";
 import { findLib } from "../bbk/gam";
@@ -182,8 +183,10 @@ export function App() {
   const closeMenu = () => setMenuOpen(false);
   const playDemo = (which?: "bell" | "lantern") => setPlaying(which === "lantern" ? demoGame() : bellGame());
 
-  const onPlaytest = useCallback((p: { id: string; name: string; data: ArrayBuffer }) => {
+  const [playtestNames, setPlaytestNames] = useState<StoryNames | undefined>(undefined);
+  const onPlaytest = useCallback((p: { id: string; name: string; data: ArrayBuffer; names?: StoryNames }) => {
     setPlaytestFrom(true);
+    setPlaytestNames(p.names);
     setPlaying({ id: p.id, name: p.name, fileName: "playtest", size: p.data.byteLength, addedAt: Date.now(), data: p.data });
   }, []);
 
@@ -254,7 +257,7 @@ export function App() {
       {device !== undefined ? (
         <DevicePlayer key={`${device?.id ?? "4988"}:${deviceOs}`} game={device} os={device ? deviceOs : "original"} onExit={onExit} />
       ) : playing ? (
-        <Player key={playing.id + (playtestFrom ? playing.addedAt : "")} game={playing} fonts={fontPair} onExit={onExit} backTo={playtestFrom ? "editor" : "library"} />
+        <Player key={playing.id + (playtestFrom ? playing.addedAt : "")} game={playing} fonts={fontPair} onExit={onExit} backTo={playtestFrom ? "editor" : "library"} names={playtestFrom ? playtestNames : undefined} />
       ) : (
         <>
           {page === "home" && (

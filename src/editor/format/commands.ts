@@ -994,7 +994,8 @@ export function operandText(c: CommandInfo, k: number, values: readonly OperandV
   if (refs.length) {
     const r = refs[0];
     const n = names.resource?.(r.resType, r.type, r.index);
-    const word = n ? n : refWord(r.resType, r.type, r.index);
+    // (a script by its name reads like a map's: "Switch to script “FOREST events”")
+    const word = n ? (r.resType === 1 ? `script “${n}”` : n) : refWord(r.resType, r.type, r.index);
     return { ...base, text: n === null ? `${word} (missing)` : word, ref: r, missing: n === null };
   }
   switch (o.kind) {

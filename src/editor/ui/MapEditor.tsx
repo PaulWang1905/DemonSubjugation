@@ -3,22 +3,18 @@ import { decodeImage, decodeMap, type DecodedMap } from "../format/decode";
 import { encodeMap, type Frame, type MapCell } from "../format/encode";
 import { findEntry, type LibArchive, type LibEntry } from "../format/lib";
 import { cells as textCells } from "../format/text";
-import { FrameCanvas } from "./FrameStrip";
 import { useToolKeys, useUndoKeys } from "./undoKeys";
-import { playerStart } from "../format/scriptHelp";
 import { DARK, LIGHT, blitFrame } from "./pixels";
+import type { ProjectNotes } from "../format/notes";
+import { inBand } from "../format/reach";
+import { tileName } from "../format/tiles";
+import { PAINT_TOOLS, TilePalette } from "./TilePalette";
+import { useTileWalks } from "./tileHints";
 
 type Tool = "tile" | "fill" | "walk" | "block" | "event" | "pick";
 
-/** The tools, their names and keys. */
-const TOOLS: [Tool, string, string][] = [
-  ["tile", "Paint tile", "B"],
-  ["fill", "Fill", "G"],
-  ["walk", "Walkable", "W"],
-  ["block", "Blocked", "X"],
-  ["event", "Event", "E"],
-  ["pick", "Pick tile", "I"],
-];
+/** The tools, their names and keys (the World view's painting tools). */
+const TOOLS = PAINT_TOOLS as unknown as [Tool, string, string, string][];
 
 const HISTORY = 100;
 
@@ -26,9 +22,12 @@ interface Props {
   archive: LibArchive;
   entry: LibEntry;
   onChange: (data: Uint8Array) => void;
+  /** The project notes (tile names, which tiles are solid). */
+  notes?: ProjectNotes;
+  setNotes?: (update: (prev: ProjectNotes) => ProjectNotes) => void;
 }
 
-export function MapEditor({ archive, entry, onChange }: Props) {
+export function MapEditor({ archive, entry, onChange, notes, setNotes }: Props) {
   const [map, setMap] = useState<DecodedMap>(() => decodeMap(entry.data));
   const [tool, setTool] = useState<Tool>("tile");
   const [tile, setTile] = useState(0);
@@ -37,6 +36,7 @@ export function MapEditor({ archive, entry, onChange }: Props) {
   const [showWalk, setShowWalk] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [paintWalk, setPaintWalk] = useState(true);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const painting = useRef(false);
@@ -55,6 +55,9 @@ export function MapEditor({ archive, entry, onChange }: Props) {
     const t = findEntry(archive, 7, 1, map.tileset);
     return t ? decodeImage(t.data).frames : [];
   }, [archive, map.tileset]);
+  // painting a tile also makes the cell walkable or blocked, as the tile is (format/tiles.ts)
+  const walks = useTileWalks(archive, notes, map.tileset, tiles.length);
+  const paintCell = (c: MapCell): MapCell => ({ ...c, tile, walkable: paintWalk && walks[tile] ? walks[tile].walkable : c.walkable });
 
   // draw
   useEffect(() => {
@@ -170,13 +173,15 @@ export function MapEditor({ archive, entry, onChange }: Props) {
 
   const floodFill = (x: number, y: number): DecodedMap => {
     const from = map.cells[y * map.width + x].tile;
-    if (from === tile) return map;
+    if (from === tile && !paintWalk) return map;
     const cells = map.cells.slice();
+    const seen = new Uint8Array(cells.length);
     const stack = [y * map.width + x];
     while (stack.length) {
       const i = stack.pop()!;
-      if (cells[i].tile !== from) continue;
-      cells[i] = { ...cells[i], tile };
+      if (seen[i] || map.cells[i].tile !== from) continue;
+      seen[i] = 1;
+      cells[i] = paintCell(cells[i]);
       const cx = i % map.width;
       if (cx > 0) stack.push(i - 1);
       if (cx < map.width - 1) stack.push(i + 1);
@@ -199,7 +204,7 @@ export function MapEditor({ archive, entry, onChange }: Props) {
     let nextCell: MapCell = cur;
     switch (tool) {
       case "tile":
-        nextCell = { ...cur, tile };
+        nextCell = paintCell(cur);
         break;
       case "walk":
         nextCell = { ...cur, walkable: true };
@@ -243,8 +248,8 @@ export function MapEditor({ archive, entry, onChange }: Props) {
     <div className="map-editor">
       <div className="map-tools">
         <div className="seg">
-          {TOOLS.map(([t, label, k]) => (
-            <button key={t} className={tool === t ? "" : "ghost"} onClick={() => setTool(t)} title={`${label} (${k})`}>
+          {TOOLS.map(([t, label, k, title]) => (
+            <button key={t} className={tool === t ? "" : "ghost"} aria-pressed={tool === t} onClick={() => setTool(t)} title={`${title} (${k})`}>
               {label} <kbd>{k}</kbd>
             </button>
           ))}
@@ -334,23 +339,10 @@ export function MapEditor({ archive, entry, onChange }: Props) {
               }}
             />
           </div>
-          <MapStatus map={map} at={hover} />
+          <MapStatus map={map} at={hover} name={(t) => tileName(notes, map.tileset, t)} />
         </div>
         <div className="palette">
-          <div className="palette-head">
-            <strong>Tiles</strong>
-            <span className="muted" title="[ and ] pick the previous / next tile">
-              tile {tile}
-            </span>
-          </div>
-          <div className="palette-grid">
-            {tiles.map((f, i) => (
-              <button key={i} className={`tilebtn ${i === tile ? "sel" : ""}`} onClick={() => setTile(i)} title={`Tile ${i}`}>
-                <FrameCanvas frame={f} scale={2} />
-              </button>
-            ))}
-            {tiles.length === 0 && <p className="muted">Tileset {map.tileset} is missing.</p>}
-          </div>
+          <TilePalette tiles={tiles} tileset={map.tileset} tile={tile} onPick={setTile} walks={walks} notes={notes} setNotes={setNotes} paintWalk={paintWalk} onPaintWalk={setPaintWalk} />
           <div className="row">
             <button className="ghost" onClick={() => walkTiles(true)}>
               Tile {tile} walkable everywhere
@@ -362,7 +354,7 @@ export function MapEditor({ archive, entry, onChange }: Props) {
           <p className="muted small">
             The dashed box is where the player can stand. Map event N runs script event N+40 (<code>.event N+40</code> in the script
             that loaded the map) when the player steps toward that tile or faces it and presses OK. Keys: B G W X E I pick a tool,
-            [ ] the tile, Ctrl+Z / Ctrl+Y undo and redo.
+            [ ] the tile, Ctrl+Z / Ctrl+Shift+Z undo and redo.
           </p>
         </div>
       </div>
@@ -370,25 +362,21 @@ export function MapEditor({ archive, entry, onChange }: Props) {
   );
 }
 
-/** The tile under the pointer, and the script lines that use it. */
-function MapStatus({ map, at }: { map: DecodedMap; at: { x: number; y: number } | null }) {
-  if (!at) return <p className="map-status muted small">Point at a tile to see its position and the script lines that use it.</p>;
+/** The tile under the pointer, in words. */
+function MapStatus({ map, at, name }: { map: DecodedMap; at: { x: number; y: number } | null; name: (tile: number) => string }) {
+  if (!at) return <p className="map-status muted small">Point at a tile to see where it is and what it is.</p>;
   const cell = map.cells[at.y * map.width + at.x];
-  const p = playerStart(at.x, at.y, map.width, map.height);
+  const band = inBand(at.x, at.y, map.width, map.height);
   return (
     <p className="map-status small">
       <strong>
-        x {at.x}, y {at.y}
+        {at.x}, {at.y}
       </strong>
-      <span>tile {cell.tile}</span>
+      <span>{name(cell.tile)}</span>
       <span className={cell.walkable ? "" : "error"}>{cell.walkable ? "walkable" : "blocked"}</span>
-      {!!cell.event && <span>event {cell.event} → .event {cell.event + 40}</span>}
-      <span className="muted" title="To start the player here (createactor is in screen tiles)">
-        player: <code>loadmap {map.type}, {map.index}, {p.screenX}, {p.screenY}</code> <code>createactor 1, {p.actorX}, {p.actorY}</code>
-      </span>
-      <span className="muted" title="NPCs and objects use map tiles">
-        NPC: <code>createnpc 1, 1, {at.x}, {at.y}</code>
-      </span>
+      {!band && <span className="muted">too close to the edge for the player to stand on</span>}
+      {!!cell.event && <span>map event {cell.event}: walking into it runs the map's script event {cell.event + 40}</span>}
+      <span className="muted">People, chests, exits and the start are placed in the World view.</span>
     </p>
   );
 }

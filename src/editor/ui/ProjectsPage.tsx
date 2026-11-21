@@ -1,10 +1,11 @@
 // The editor's start page: the author's projects, and the ways to start one
 // (in English and Chinese; the editor itself is in English).
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { StoredProject } from "../../storage/db";
 import { Link } from "../../app/router";
 import { useSiteLang } from "../../app/siteLang";
 import { Arrow } from "../../app/Tile";
+import "./authoring.css";
 
 const HOME = {
   en: {
@@ -27,6 +28,10 @@ const HOME = {
     edited: "Edited",
     help: "How to play your game",
     newName: "Name of the new game (letters, up to 9):",
+    nameTitle: "Name your game",
+    nameHint: "Up to 9 letters or digits. The device shows it in capitals; you can change it later at the top of the editor.",
+    create: "Create the game",
+    cancel: "Cancel",
     confirmDelete: (n: string) => `Delete project “${n}”?`,
   },
   zh: {
@@ -49,6 +54,10 @@ const HOME = {
     edited: "修改于",
     help: "怎么玩你的游戏",
     newName: "新游戏的名字（字母，最多 9 个）：",
+    nameTitle: "给游戏起个名字",
+    nameHint: "最多 9 个字母或数字。设备上以大写显示；以后可以在编辑器顶部修改。",
+    create: "创建游戏",
+    cancel: "取消",
     confirmDelete: (n: string) => `删除项目“${n}”？`,
   },
 };
@@ -68,16 +77,11 @@ export function ProjectsPage({ projects, onStart, onOpenFile, onOpen, onDelete }
   const lang = useSiteLang();
   const h = HOME[lang];
   const fileInput = useRef<HTMLInputElement>(null);
+  const [naming, setNaming] = useState(false);
   const starts = [
     ["bell", () => onStart("bell")],
     ["lantern", () => onStart("demo")],
-    [
-      "blank",
-      () => {
-        const name = prompt(h.newName, "MY GAME")?.trim();
-        if (name) onStart("blank", name);
-      },
-    ],
+    ["blank", () => setNaming(true)],
     ["open", () => fileInput.current?.click()],
   ] as const;
   // returning authors find their projects first
@@ -149,6 +153,40 @@ export function ProjectsPage({ projects, onStart, onOpenFile, onOpen, onDelete }
       </section>
 
       {projects.length === 0 && projectList}
+      {naming && <NameDialog h={h} onCancel={() => setNaming(false)} onCreate={(name) => (setNaming(false), onStart("blank", name))} />}
     </div>
+  );
+}
+
+/** The new blank game's name, asked in the page (not the browser's prompt). */
+function NameDialog({ h, onCreate, onCancel }: { h: (typeof HOME)["en"]; onCreate: (name: string) => void; onCancel: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [name, setName] = useState("MY GAME");
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+  const clean = name.trim();
+  return (
+    <dialog ref={dialog} className="export-dialog name-dialog" onClose={onCancel} onCancel={onCancel} aria-labelledby="name-dialog-title">
+      <form method="dialog" onSubmit={(e) => (e.preventDefault(), clean && onCreate(clean))}>
+        <h2 id="name-dialog-title">{h.nameTitle}</h2>
+        <input
+          className="name-input"
+          aria-label={h.newName}
+          autoFocus value={name} maxLength={9} onChange={(e) => setName(e.target.value)} onFocus={(e) => e.target.select()} aria-describedby="name-dialog-hint"
+        />
+        <p id="name-dialog-hint" className="muted small">
+          {h.nameHint}
+        </p>
+        <div className="row">
+          <button type="submit" disabled={!clean}>
+            {h.create}
+          </button>
+          <button type="button" className="ghost" onClick={onCancel}>
+            {h.cancel}
+          </button>
+        </div>
+      </form>
+    </dialog>
   );
 }

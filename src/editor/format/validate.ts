@@ -6,6 +6,8 @@ import { parseGut, scriptSource, statements, type Tok } from "./gut";
 import { findEntry, type LibArchive, type LibEntry } from "./lib";
 import { fieldsFor, readField, readMagicChain } from "./schema";
 import { checkDialogue } from "./scriptHelp";
+import { unreachable } from "./reach";
+import { buildWorld } from "./world";
 
 export interface Problem {
   /** error: the game is likely to stop or misbehave; warning: it runs, but not as meant. */
@@ -17,6 +19,8 @@ export interface Problem {
   message: string;
   /** Line of the script's text, for scripts. */
   line?: number;
+  /** The map tile it is about, for maps (the World view shows it). */
+  tile?: { x: number; y: number };
 }
 
 const KIND: Record<number, string> = {
@@ -202,8 +206,36 @@ export function checkProject(a: LibArchive, sources: Record<string, string> = {}
     }
   }
 
+  // what the player can never get to (exits at the edge, people behind walls)
+  try {
+    const world = buildWorld(a, sources);
+    const grids = new Map<string, ReturnType<typeof decodeMap>>();
+    const grid = (k: string) => {
+      if (!grids.has(k)) {
+        const [, t, i] = k.split("-").map(Number);
+        const e = findEntry(a, 2, t, i);
+        try {
+          if (e) grids.set(k, decodeMap(e.data));
+        } catch {
+          /* reported with the map */
+        }
+      }
+      return grids.get(k) ?? null;
+    };
+    for (const r of unreachable(world, grid)) {
+      const [, t, i] = r.map.split("-").map(Number);
+      const e = findEntry(a, 2, t, i)!;
+      const near = r.nearest ? ` The nearest tile that works is ${r.nearest.x}, ${r.nearest.y}.` : "";
+      out.push({ level: "warning", key: r.map, where: describeEntry(e), tile: { x: r.x, y: r.y }, message: `${cap(r.name)} at ${r.x}, ${r.y} can never be reached: ${r.reason}.${near}` });
+    }
+  } catch {
+    /* the scripts' own problems are reported above */
+  }
+
   return out;
 }
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** "2 errors, 1 warning" */
 export function problemSummary(list: Problem[]): string {

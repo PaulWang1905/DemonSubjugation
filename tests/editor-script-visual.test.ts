@@ -280,7 +280,9 @@ describe("adding steps", () => {
   });
 
   it("starts steps from the catalog's examples", () => {
-    expect(startingValues("say")).toEqual([1, "Hello there!"]);
+    // new dialogue is short and neutral: it fits its box without a warning
+    expect(startingValues("say")).toEqual([0, "Hello!"]);
+    expect(startingValues("message")).toEqual(["..."]);
     expect(startingValues("gaingoods")).toEqual([9, 1]);
     expect(startingValues("choice")).toEqual(["Yes", "No", "label"]);
   });

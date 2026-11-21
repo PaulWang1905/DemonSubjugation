@@ -1,7 +1,8 @@
 // The open tabs: the project home first, then resources. A preview tab
 // (opened with a single click) is shown in italics and is replaced by the
 // next preview; a dot marks a script with text not applied yet.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import "./authoring.css";
 import type { LibArchive } from "../format/lib";
 import { entryOf, entryTitle, HOME_TAB, kindLabel, type Tab } from "./workspace";
 
@@ -24,7 +25,23 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, onA
   const strip = useRef<HTMLDivElement>(null);
   useEffect(() => {
     strip.current?.querySelector(`[aria-selected="true"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [active]);
+  }, [active, tabs.length]);
+  // arrows at the ends when the tabs do not fit (they also shrink first)
+  const [ends, setEnds] = useState({ left: false, right: false });
+  useEffect(() => {
+    const el = strip.current;
+    if (!el) return;
+    const update = () => setEnds({ left: el.scrollLeft > 1, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 });
+    update();
+    el.addEventListener("scroll", update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, [tabs.length]);
+  const scrollBy = (dir: 1 | -1) => strip.current?.scrollBy({ left: dir * Math.max(160, (strip.current?.clientWidth ?? 400) * 0.6), behavior: "smooth" });
 
   const focusTab = (i: number) => {
     const t = tabs[(i + tabs.length) % tabs.length];
@@ -33,6 +50,12 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, onA
   };
 
   return (
+    <div className="e-tabs-wrap">
+      {ends.left && (
+        <button type="button" className="e-tabs-arrow left" tabIndex={-1} aria-label="Show the tabs to the left" onClick={() => scrollBy(-1)}>
+          ‹
+        </button>
+      )}
     <div className="e-tabs" role="tablist" aria-label="Open resources" ref={strip}>
       {tabs.map((t, i) => {
         const home = t.key === HOME_TAB;
@@ -94,6 +117,12 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, onA
           </div>
         );
       })}
+    </div>
+      {ends.right && (
+        <button type="button" className="e-tabs-arrow right" tabIndex={-1} aria-label="Show the tabs to the right" onClick={() => scrollBy(1)}>
+          ›
+        </button>
+      )}
     </div>
   );
 }

@@ -340,9 +340,25 @@ function groupTail(model: ScriptModel, group: EventGroup): { model: ScriptModel;
 // ---------------------------------------------------------------------------
 // New steps
 
-/** Starting values for a new instruction: its catalog example when it has one without labels, else defaults. */
-export function startingValues(name: string): OperandValue[] {
+/**
+ * Starting values for a new instruction: its catalog example when it has one
+ * without labels, else defaults. With `has` (whether a resource exists), a
+ * battle's background is a picture the project has (not "none").
+ */
+export function startingValues(name: string, has?: (resType: number, type: number, index: number) => boolean): OperandValue[] {
+  if (has && (name === "enterfight" || name === "initfight")) {
+    const v = startingValues(name);
+    const k = commandInfo(name)!.operands.findIndex((o) => o.key === "background");
+    let bg = 0;
+    for (let i = 1; i < 256 && !bg; i++) if (has(11, 4, i)) bg = i;
+    if (k >= 0 && (!v[k] || !has(11, 4, v[k] as number))) v[k] = bg;
+    return v;
+  }
   const c = commandInfo(name)!;
+  // new dialogue: short and neutral, so it fits its box without a warning
+  if (name === "say") return [0, "Hello!"];
+  if (name === "message") return ["..."];
+  if (name === "timemsg") return [200, "..."];
   if (c.example && !c.operands.some((o) => o.kind === "label")) {
     const m = parseScript(`  ${c.example}`);
     const s = m.steps[0];
@@ -563,7 +579,46 @@ export function deleteNode(model: ScriptModel, group: EventGroup, id: number): {
   for (const l of definedLabels(steps)) {
     if ((refs.get(l) ?? 0) > (inside.get(l) ?? 0)) return { error: `Other steps go to @${l}; change them first (or delete in the Text view).` };
   }
-  return { model: deleteSteps(model, [...ids]) };
+  return { model: keepArms(model, deleteSteps(model, [...ids]), group) };
+}
+
+/** The labels of the arms an outline shows nested (their code under the block). */
+function nestedArmLabels(nodes: OutlineNode[], out = new Set<string>()): Set<string> {
+  for (const n of nodes) {
+    if (n.kind !== "block") continue;
+    for (const a of n.arms) {
+      if (a.label && a.nodes) out.add(a.label);
+      if (a.nodes) nestedArmLabels(a.nodes, out);
+    }
+  }
+  return out;
+}
+
+/**
+ * Keep the shape of the event's branches after a deletion: when removing the
+ * last step of an "otherwise" left the code before an arm going on into it
+ * (so the arm would show as a plain jump, and both ways would run it), end
+ * that code there with "End" — the "otherwise" that was there did nothing
+ * more either, and the If keeps its If set / Otherwise shape.
+ */
+export function keepArms(before: ScriptModel, after: ScriptModel, group: EventGroup): ScriptModel {
+  const was = nestedArmLabels(outline(before, group));
+  const g = after.groups.find((x) => x.label === group.label && x.start === group.start) ?? after.groups.find((x) => x.from === group.from);
+  if (!g || !was.size) return after;
+  const now = nestedArmLabels(outline(after, g));
+  let m = after;
+  for (const l of was) {
+    if (now.has(l)) continue;
+    const at = m.labels.get(l);
+    if (at === undefined) continue;
+    // the code just above the arm's label: does it now run on into it?
+    let j = at - 1;
+    while (j >= 0 && (m.steps[j].kind === "blank" || m.steps[j].kind === "comment" || m.steps[j].kind === "label")) j--;
+    const above = m.steps[j];
+    if (!above || !goesOnStep(above)) continue;
+    m = insertLines(m, { after: above.id }, ["  callback"]).model;
+  }
+  return m;
 }
 
 /** Set several operands of one instruction (a pair's type and index). */

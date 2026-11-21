@@ -10,6 +10,8 @@
 // Opening a script here writes nothing.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { assemble, scriptSource } from "../format/gut";
+import { findEntry } from "../format/lib";
+import { nextFreeFlag } from "../format/flags";
 import { commandInfo, type OperandValue } from "../format/commands";
 import {
   addEvent,
@@ -44,6 +46,7 @@ import {
   eventEnd,
   eventEntries,
   insertCommand,
+  startingValues,
   insertionPoint,
   isDialogue,
   listEnd,
@@ -303,7 +306,17 @@ export function ScriptVisual({ archive, entry, onChange, services }: ViewProps) 
     if (!p || !group) return;
     let id: number | null = null;
     const ok = edit((m) => {
-      const r = insertCommand(m, group, name, p.pos);
+      // (a new battle shows a background the project has, not the missing picture 0)
+      const fight = name === "enterfight" || name === "initfight";
+      let values = fight ? startingValues(name, (rt, t, i) => !!findEntry(archive, rt, t, i)) : undefined;
+      // (a new flag step starts on a flag nothing uses yet, not on another story's flag: the author picks one)
+      const fk = commandInfo(name)?.operands.findIndex((o) => o.kind === "flag") ?? -1;
+      if (fk >= 0) {
+        const inScript = m.steps.flatMap((s) => (s.kind === "instruction" ? s.command.operands.flatMap((o, k) => (o.kind === "flag" && typeof s.values[k] === "number" ? [s.values[k] as number] : [])) : []));
+        values = values ?? startingValues(name);
+        values[fk] = nextFreeFlag(services.notes, world, inScript);
+      }
+      const r = insertCommand(m, group, name, p.pos, values);
       id = r.id;
       return r.model;
     });
@@ -410,6 +423,7 @@ export function ScriptVisual({ archive, entry, onChange, services }: ViewProps) 
     notes: services.notes,
     setNotes: services.setNotes,
     people,
+    world,
     setOperands: setOps,
     newLabel: (id, k) => {
       if (!group) return;

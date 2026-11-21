@@ -33,6 +33,7 @@ import { fullTexts, playFromHere, type WizardResult } from "../format/wizards";
 import { GuidePanel } from "./Guide";
 import { notePlaytest, readGuide, startGuide } from "./guideModel";
 import { requestWorld, type WorldIntent } from "./intents";
+import { NotesContext } from "./names";
 import { HomeQuickActions } from "./HomeStarter";
 import { StoryFlags } from "./StoryFlags";
 import { WIZARDS, WizardDialog, WizardToast, type WizardInit, type WizardKind } from "./Wizards";
@@ -42,7 +43,7 @@ import {
 } from "./workspace";
 
 interface Props {
-  onPlaytest: (p: { id: string; name: string; data: ArrayBuffer }) => void;
+  onPlaytest: (p: { id: string; name: string; data: ArrayBuffer; names?: { flags: Record<string, string>; variables: Record<string, string> } }) => void;
 }
 
 interface Open {
@@ -123,6 +124,12 @@ const TabPanel = memo(
   },
   (a, b) => !a.active && !b.active && a.id === b.id,
 );
+
+/** The notes' names for flags and variables, for the playtest's test tools. */
+function storyNames(notes: ProjectNotes): { flags: Record<string, string>; variables: Record<string, string> } {
+  const names = (r: Record<string, { name?: string }>) => Object.fromEntries(Object.entries(r).flatMap(([k, v]) => (v.name ? [[k, v.name]] : [])));
+  return { flags: names(notes.flags), variables: names(notes.variables) };
+}
 
 export function Editor({ onPlaytest }: Props) {
   const [projects, setProjects] = useState<StoredProject[]>([]);
@@ -475,7 +482,7 @@ export function Editor({ onPlaytest }: Props) {
   const runPlaytest = (o: Open) => {
     try {
       const bytes = writeLib(o.archive);
-      onPlaytest({ id: `playtest-${o.id}`, name: `${o.name} (playtest)`, data: bytes.buffer as ArrayBuffer });
+      onPlaytest({ id: `playtest-${o.id}`, name: `${o.name} (playtest)`, data: bytes.buffer as ArrayBuffer, names: storyNames(o.notes) });
       setNotes(notePlaytest);
     } catch (e) {
       alert(`Cannot build the game: ${(e as Error).message}`);
@@ -486,7 +493,7 @@ export function Editor({ onPlaytest }: Props) {
   const runHere = (o: Open, at: { map: string; x: number; y: number }): string => {
     const r = playFromHere({ archive: o.archive, texts: fullTexts(o.archive, {}, o.sources) }, at.map, at.x, at.y);
     const bytes = writeLib(r.archive);
-    onPlaytest({ id: `playtest-${o.id}`, name: `${o.name} (playtest from here)`, data: bytes.buffer as ArrayBuffer });
+    onPlaytest({ id: `playtest-${o.id}`, name: `${o.name} (playtest from here)`, data: bytes.buffer as ArrayBuffer, names: storyNames(o.notes) });
     setNotes(notePlaytest);
     return r.note;
   };
@@ -539,7 +546,11 @@ export function Editor({ onPlaytest }: Props) {
   /** Open the resource a problem is in (a script at its line). */
   const goToProblem = (p: Problem) => {
     setChecking(null);
-    if (p.key) openResource(p.key, { line: p.line });
+    if (p.key && p.tile && p.key.startsWith("2-")) {
+      // a tile of a map: the World view shows it
+      openResource(p.key, { mode: "map.world" });
+      requestWorld(p.key, { select: p.tile });
+    } else if (p.key) openResource(p.key, { line: p.line });
   };
 
   /** The project home's story flags card. */
@@ -709,6 +720,8 @@ export function Editor({ onPlaytest }: Props) {
   });
 
   return (
+    // (the notes reach the pickers deep in the views: names for sprites and pictures)
+    <NotesContext.Provider value={cur.notes}>
     <div className="editor" ref={root}>
       <div className="editor-bar">
         <button className="ghost" onClick={backToProjects}>
@@ -881,5 +894,6 @@ export function Editor({ onPlaytest }: Props) {
         </div>
       </div>
     </div>
+    </NotesContext.Provider>
   );
 }

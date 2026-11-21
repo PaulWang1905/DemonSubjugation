@@ -48,6 +48,7 @@ import { ScriptEditor } from "./ScriptEditor";
 import { ScriptVisual } from "./ScriptVisual";
 import { LevelTableEditor, MagicChainEditor } from "./TableEditors";
 import { WorldView } from "./WorldView";
+import { ResourceNameField } from "./names";
 
 /** How to open a resource (EditorServices.openResource). */
 export interface OpenOptions {
@@ -174,8 +175,8 @@ function ScriptTextView({ archive, entry, onChange, services }: ViewProps) {
   );
 }
 
-function MapTilesView({ archive, entry, onChange }: ViewProps) {
-  return <MapEditor archive={archive} entry={entry} onChange={onChange} />;
+function MapTilesView({ archive, entry, onChange, services }: ViewProps) {
+  return <MapEditor archive={archive} entry={entry} onChange={onChange} notes={services.notes} setNotes={services.setNotes} />;
 }
 
 function AnimationView({ entry, onChange }: ViewProps) {
@@ -190,8 +191,15 @@ function pixelHint(e: LibEntry): string | undefined {
   return undefined;
 }
 
-function PixelView({ entry, onChange }: ViewProps) {
-  return <PixelEditor entry={entry} onChange={onChange} hint={pixelHint(entry)} />;
+function PixelView({ entry, onChange, services }: ViewProps) {
+  // sprites, pictures and icons have no name in the game: the author can give one (shown in pickers)
+  const named = entry.resType === 8 || entry.resType === 9 || entry.resType === 11;
+  return (
+    <>
+      {named && <ResourceNameField services={services} what={entry.resType === 8 ? "sprite" : entry.resType === 9 ? "icon" : "picture"} />}
+      <PixelEditor entry={entry} onChange={onChange} hint={pixelHint(entry)} />
+    </>
+  );
 }
 
 function TableView({ archive, entry, onChange }: ViewProps) {

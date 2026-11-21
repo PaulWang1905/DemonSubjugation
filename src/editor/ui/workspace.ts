@@ -228,8 +228,9 @@ export const initialTabs = (): TabState => ({ tabs: [{ key: HOME_TAB, pinned: tr
 
 /**
  * Show a resource. An open tab is activated (and pinned if asked); otherwise
- * a preview open (pin false) replaces the current preview tab in place, and a
- * new tab goes after the active one.
+ * the new tab goes right after the active one, replacing the preview tab
+ * (which goes away: it was only passing) — in place when the preview is the
+ * active tab, so a new tab never turns up somewhere else in the strip.
  */
 export function openTab(s: TabState, key: string, opts: { pin?: boolean; mode?: string } = {}): TabState {
   const at = s.tabs.findIndex((t) => t.key === key);
@@ -241,9 +242,10 @@ export function openTab(s: TabState, key: string, opts: { pin?: boolean; mode?: 
   }
   const tab: Tab = { key, pinned: !!opts.pin, ...(opts.mode ? { mode: opts.mode } : {}) };
   const preview = s.tabs.findIndex((t) => !t.pinned);
-  if (preview >= 0) return { tabs: s.tabs.map((t, i) => (i === preview ? tab : t)), active: key };
-  const after = Math.max(0, s.tabs.findIndex((t) => t.key === s.active));
-  return { tabs: [...s.tabs.slice(0, after + 1), tab, ...s.tabs.slice(after + 1)], active: key };
+  if (preview >= 0 && s.tabs[preview].key === s.active) return { tabs: s.tabs.map((t, i) => (i === preview ? tab : t)), active: key };
+  const rest = preview >= 0 ? s.tabs.filter((_, i) => i !== preview) : s.tabs;
+  const after = Math.max(0, rest.findIndex((t) => t.key === s.active));
+  return { tabs: [...rest.slice(0, after + 1), tab, ...rest.slice(after + 1)], active: key };
 }
 
 export function pinTab(s: TabState, key: string): TabState {

@@ -49,6 +49,7 @@ import {
   arrivalCamera,
   arrivalVariable,
   freeCellEvent,
+  freeFlag,
   inPlayerBand,
   loadsWhenStarting,
   mapSetups,
@@ -59,7 +60,7 @@ import {
   startPosition,
   type Texts,
 } from "./worldEdit";
-import { setVariableNote, variableName, type ProjectNotes } from "./notes";
+import { flagName, setFlagNote, setVariableNote, variableName, type ProjectNotes } from "./notes";
 import { cells as textCells } from "./text";
 
 /** A resource to store: bytes and, for a script, its text. */
@@ -85,6 +86,8 @@ export interface Project {
   archive: LibArchive;
   /** Every script's text as the author sees it. */
   texts: Texts;
+  /** Story flags the author's notes name (taken, though no script uses them yet). */
+  namedFlags?: readonly string[];
 }
 
 const MAP_RES = 2;
@@ -244,6 +247,9 @@ export function newMap(p: Project, o: NewMapOptions): WizardResult {
     fromName: fm.name,
   });
   const n2 = freeCellEvent([parseScript(first.texts[toScript])], cells.map((c) => c.event));
+  // (free flags, should the way back need a new game's welcome to play only once)
+  const once: number[] = [];
+  for (let k = 0; k < 4; k++) once.push(freeFlag(world, [...(p.namedFlags ?? []), ...once.map(String)]));
   const r = addExit(first.texts, {
     fromScript: toScript,
     mapEvent: n2,
@@ -252,6 +258,7 @@ export function newMap(p: Project, o: NewMapOptions): WizardResult {
     toScript: { key: fromScript, exists: true },
     usedVariables: used,
     fromName: name,
+    onceFlags: once,
   });
   bytes = withCellEvent(bytes, back.out.x, back.out.y, n2);
   const fromBytes = withCellEvent(from.entry.data, there.out.x, there.out.y, n);
@@ -259,7 +266,11 @@ export function newMap(p: Project, o: NewMapOptions): WizardResult {
   return {
     changes: [{ key, data: bytes }, { key: o.connect.from, data: fromBytes }, ...scriptChanges(p.texts, r.texts)],
     open: { key, mode: "map.world" },
-    notes: v ? (nn) => (variableName(nn, v.variable) ? nn : setVariableNote(nn, v.variable, { name: "where the party comes from" })) : undefined,
+    notes: (nn) => {
+      let out = v && !variableName(nn, v.variable) ? setVariableNote(nn, v.variable, { name: "where the party comes from" }) : nn;
+      for (const f of r.onceFlags ?? []) if (!flagName(out, f)) out = setFlagNote(out, f, { name: "new game's welcome played" });
+      return out;
+    },
     message: `Made map 1-${index} ${name}: walking ${o.connect.side} off ${fm.name} at ${there.out.x}, ${there.out.y} leads there, and its ${OPPOSITE[o.connect.side]} edge leads back. Script 1-${toScript.split("-")[2]} sets it up.`,
   };
 }
