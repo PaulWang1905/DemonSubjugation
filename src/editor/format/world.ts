@@ -127,6 +127,12 @@ export interface Exit {
   label: string | null;
   /** Where it can lead (several when flags or choices decide). */
   targets: Arrival[];
+  /**
+   * Some way through it leads where the index cannot follow: a switch to a
+   * script that does not exist, or paths too many or too long to walk (the
+   * map is then known only at run time). Such an exit may have no targets.
+   */
+  unknown?: boolean;
 }
 
 /** Map cells with one event number, and what runs there. */
@@ -246,8 +252,13 @@ function whereOf(script: string, model: ScriptModel, i: number): Where {
   return { script, stepId: s.id, line: s.line, group: g?.label ?? null, events: g?.events ?? [], start: g?.start ?? false };
 }
 
-/** The maps current at each instruction: from the start (inherited: null) and from each event (the maps the start code leaves). */
-function mapsAtSteps(model: ScriptModel): Map<number, Set<string | null>> {
+/**
+ * The maps current at each instruction: from the start (inherited: null) and
+ * from each event (the maps the start code leaves). `inherited`: the maps the
+ * script can be started on (see runningMaps); events of a script whose start
+ * code shows no map run on those (else, failing all, on any map it shows).
+ */
+function mapsAtSteps(model: ScriptModel, inherited?: ReadonlySet<string>): Map<number, Set<string | null>> {
   const at = new Map<number, Set<string | null>>();
   const run = (entry: number, initial: Set<string | null>) => {
     const work: [number, string | null][] = [...initial].map((m) => [entry, m]);
@@ -270,13 +281,55 @@ function mapsAtSteps(model: ScriptModel): Map<number, Set<string | null>> {
   const loaded = new Set<string>();
   for (const s of model.steps) if (s.kind === "instruction" && s.op.name === "loadmap") loaded.add(resKey(2, num(s.values[0]), num(s.values[1])));
   const endMaps = new Set([...ends].filter((m): m is string => m !== null));
-  const initial: Set<string | null> = endMaps.size ? endMaps : loaded.size ? new Set(loaded) : new Set([null]);
+  let initial: Set<string | null>;
+  if (inherited) {
+    // the start code leaves the map it was started on where it shows none
+    const on = new Set<string | null>([...endMaps, ...(ends.has(null) || !ends.size ? inherited : [])]);
+    initial = on.size ? on : new Set([null]);
+  } else initial = endMaps.size ? endMaps : loaded.size ? new Set(loaded) : new Set([null]);
   for (const e of model.events) {
     if (!e.label) continue;
     const t = labelTarget(model, e.label);
     if (t >= 0) run(t, initial);
   }
   return at;
+}
+
+/**
+ * The maps each script runs on, for its events: a script started by
+ * startchapter / callchapter keeps the map shown when it was started (the
+ * hub script of a town is started right after the town's loadmap, by the
+ * script of the house the player leaves), so its events happen there and not
+ * on the maps its own exits show. Worked out to a fixed point over the
+ * scripts; maps a script's start code shows itself come from mapsAtSteps.
+ */
+function runningMaps(scripts: Map<string, ScriptInfo>): { inherited: Map<string, Set<string>>; mapsAt: Map<string, Map<number, Set<string | null>>> } {
+  const inherited = new Map<string, Set<string>>([...scripts.keys()].map((k) => [k, new Set<string>()]));
+  const mapsAt = new Map<string, Map<number, Set<string | null>>>();
+  // scripts to (re)visit: all at first, then those started on more maps than before
+  let dirty = new Set(scripts.keys());
+  for (let round = 0; dirty.size && round < 200; round++) {
+    const next = new Set<string>();
+    for (const key of dirty) {
+      const info = scripts.get(key)!;
+      const at = mapsAtSteps(info.model, inherited.get(key)!);
+      mapsAt.set(key, at);
+      info.model.steps.forEach((s, i) => {
+        if (s.kind !== "instruction" || (s.op.name !== "startchapter" && s.op.name !== "callchapter")) return;
+        const target = resKey(1, num(s.values[0]), num(s.values[1]));
+        const into = inherited.get(target);
+        if (!into) return;
+        for (const m of at.get(i) ?? [])
+          for (const k of m === null ? inherited.get(key)! : [m])
+            if (!into.has(k)) {
+              into.add(k);
+              next.add(target);
+            }
+      });
+    }
+    dirty = next;
+  }
+  return { inherited, mapsAt };
 }
 
 /** Whether some path from `entry` to an end avoids step `avoid`. */
@@ -318,6 +371,8 @@ interface PathState {
   actor: Where | null;
   certain: boolean;
   switches: number;
+  /** Where scripts run by callchapter go back to on return (innermost last). */
+  calls?: { script: string; i: number }[];
   flagsSet: number[];
   /** Variables not in `vars` are 0: all of them (a new game), or only 200-239 (another script started). */
   zero: "all" | "locals" | "none";
@@ -337,6 +392,8 @@ interface PathEnd {
   state: PathState;
   /** How the path ended: callback / return (the player gets control), gameover, or lost (budget, unknown jump). */
   how: "control" | "gameover" | "lost";
+  /** Lost at a script switch (to a missing script, or one switch too many). */
+  switching?: boolean;
 }
 
 const b8 = (v: number) => v & 0xff;
@@ -361,7 +418,7 @@ function walk(scripts: Map<string, ScriptInfo>, from: PathState, firstOnly: bool
       if (firstOnly) break;
       continue;
     }
-    const key = `${st.script}|${st.i}|${st.map}|${st.cam}|${st.screen}|${st.zero}|${st.vk}|${st.fk}`;
+    const key = `${st.script}|${st.i}|${st.map}|${st.cam}|${st.screen}|${st.zero}|${st.vk}|${st.fk}|${st.calls?.map((c) => `${c.script}:${c.i}`) ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     const s = model.steps[st.i];
@@ -384,11 +441,31 @@ function walk(scripts: Map<string, ScriptInfo>, from: PathState, firstOnly: bool
     const label = (k: number) => (typeof v[k] === "string" ? labelTarget(model, v[k] as string) : -1);
     const where = () => whereOf(st.script, model, st.i);
     switch (s.op.name) {
-      case "callback":
       case "return":
+        if (st.calls?.length) {
+          // a script run by callchapter hands back to its caller
+          const back = st.calls[st.calls.length - 1];
+          push(clone(st, back.i, { script: back.script, calls: st.calls.slice(0, -1) }));
+          continue;
+        }
         ends.push({ state: st, how: "control" });
         if (firstOnly) return ends;
         continue;
+      case "callback":
+        ends.push({ state: st, how: "control" });
+        if (firstOnly) return ends;
+        continue;
+      case "callchapter": {
+        // runs another script from its start (the map, people and variables stay), then goes on here
+        const m = scripts.get(resKey(1, num(v[0]), num(v[1])))?.model;
+        if (!m || (st.calls?.length ?? 0) > 4) {
+          ends.push({ state: st, how: "lost", switching: true });
+          if (firstOnly) return ends;
+          continue;
+        }
+        push(clone(st, entryStep(m), { script: resKey(1, num(v[0]), num(v[1])), calls: [...(st.calls ?? []), { script: st.script, i: fall() }] }));
+        continue;
+      }
       case "gameover":
         ends.push({ state: st, how: "gameover" });
         if (firstOnly) return ends;
@@ -413,12 +490,12 @@ function walk(scripts: Map<string, ScriptInfo>, from: PathState, firstOnly: bool
         const target = resKey(1, num(v[0]), num(v[1]));
         const m = scripts.get(target)?.model;
         if (!m || st.switches > 8) {
-          ends.push({ state: st, how: "lost" });
+          ends.push({ state: st, how: "lost", switching: true });
           if (firstOnly) return ends;
           continue;
         }
         const vars = new Map([...st.vars].filter(([k]) => k < 200));
-        const n = clone(st, entryStep(m), { script: target, switches: st.switches + 1, vars, vk: String([...vars]), zero: st.zero === "all" ? "all" : "locals" });
+        const n = clone(st, entryStep(m), { script: target, switches: st.switches + 1, calls: undefined, vars, vk: String([...vars]), zero: st.zero === "all" ? "all" : "locals" });
         if (!memo || firstOnly) {
           push(n);
           continue;
@@ -431,7 +508,7 @@ function walk(scripts: Map<string, ScriptInfo>, from: PathState, firstOnly: bool
           sub = walk(scripts, { ...n, certain: true }, false, memo, budget);
           memo.set(mk, sub);
         }
-        for (const e of sub) ends.push({ how: e.how, state: { ...e.state, certain: e.state.certain && st.certain } });
+        for (const e of sub) ends.push({ how: e.how, switching: e.switching, state: { ...e.state, certain: e.state.certain && st.certain } });
         continue;
       }
       case "set":
@@ -495,6 +572,8 @@ function walk(scripts: Map<string, ScriptInfo>, from: PathState, firstOnly: bool
       }
     }
   }
+  // out of budget: the ways not walked lead somewhere unknown
+  for (const st of stack) ends.push({ state: st, how: "lost" });
   return ends;
 }
 
@@ -709,20 +788,33 @@ export function buildWorld(archive: LibArchive, sources: Record<string, string> 
 
   const start = findStart(scripts);
   const playerScreen = start ? { x: start.screenX, y: start.screenY } : { x: 4, y: 3 };
-  const startFlags = new Map((start?.flagsSet ?? []).map((f) => [f, true]));
+  // flags the start sets stay set for exits, unless some script clears them
+  // again (the first quest's flag is cleared once it is done, and the way it
+  // blocked opens)
+  const startFlags = new Map((start?.flagsSet ?? []).filter((f) => !flags.get(f)?.some((u) => u.access === "clear")).map((f) => [f, true]));
 
   // cell events and exits
   const exits: Exit[] = [];
   const memo = new Map<string, PathEnd[]>();
+  const running = runningMaps(scripts);
   for (const info of scripts.values()) {
     const { model, key } = info;
-    const mapsAt = mapsAtOf.get(key)!;
+    const mapsAt = running.mapsAt.get(key)!;
     for (const ev of model.events) {
       if (!ev.label) continue;
       const t = labelTarget(model, ev.label);
       if (t < 0) continue;
+      // the maps the event happens on: those shown when it starts, else the
+      // ones the script is started on, else (never started) any it shows
       const on = [...(mapsAt.get(t) ?? [])].filter((m): m is string => m !== null);
-      for (const from of on.length ? on : info.maps) {
+      const inherited = [...running.inherited.get(key)!];
+      let froms = on.length ? on : inherited.length ? inherited : info.maps;
+      // a map cell event can only happen on maps that have such cells
+      if (ev.number > 40) {
+        const withCells = froms.filter((m) => cellsOf.get(m)?.get(ev.number - 40)?.length);
+        if (withCells.length) froms = withCells;
+      }
+      for (const from of froms) {
         const map = maps.get(from);
         let trigger: Trigger;
         if (ev.number > 40) {
@@ -733,8 +825,11 @@ export function buildWorld(archive: LibArchive, sources: Record<string, string> 
         const targets: Arrival[] = [];
         const seen = new Set<string>();
         let stays = false;
+        let unknown = false;
         for (const e of ends) {
           const s = e.state;
+          // lost after showing a map or switching script: it goes somewhere the index cannot tell
+          if (e.how === "lost" && (s.load || s.switches > 0 || e.switching)) unknown = true;
           if (e.how !== "control") continue;
           if (!s.load || !s.map || !s.cam) {
             stays = true;
@@ -746,9 +841,9 @@ export function buildWorld(archive: LibArchive, sources: Record<string, string> 
           targets.push({ map: s.map, cameraX: s.cam[0], cameraY: s.cam[1], x: s.screen ? s.cam[0] + s.screen[0] : null, y: s.screen ? s.cam[1] + s.screen[1] : null, load: s.load, certain: false });
         }
         // certain: every way through the event ends there
-        if (targets.length === 1 && !stays) targets[0].certain = true;
-        if (targets.length) {
-          const exit: Exit = { from, trigger, script: key, event: ev.number, label: ev.label, targets };
+        if (targets.length === 1 && !stays && !unknown) targets[0].certain = true;
+        if (targets.length || unknown) {
+          const exit: Exit = { from, trigger, script: key, event: ev.number, label: ev.label, targets, ...(unknown ? { unknown } : {}) };
           exits.push(exit);
           map?.exits.push(exit);
           for (const tk of new Set(targets.map((x) => x.map))) maps.get(tk)?.entrances.push(exit);

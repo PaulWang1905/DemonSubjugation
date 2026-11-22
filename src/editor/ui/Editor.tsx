@@ -890,6 +890,7 @@ export function Editor({ onPlaytest }: Props) {
                   if (t.key === HOME_TAB)
                     return (
                       <ProjectHome
+                        projectId={cur.id}
                         archive={cur.archive}
                         sources={cur.sources}
                         name={cur.name}

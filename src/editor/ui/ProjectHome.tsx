@@ -33,6 +33,8 @@ interface Props {
   onGuide?: () => void;
   /** The title screen's picture (beside the names). */
   titleScreen?: React.ReactNode;
+  /** The project's id (the world map remembers its zoom under it). */
+  projectId?: string;
 }
 
 /** The title as bytes: GBK, at most 9 (a Chinese character takes 2). */
@@ -184,7 +186,7 @@ export function ProjectHome(p: Props) {
 
       {p.quick}
 
-      <WorldMapCard archive={archive} sources={p.sources} onOpen={(key) => p.onOpen(key)} />
+      <WorldMapCard archive={archive} sources={p.sources} onOpen={(key) => p.onOpen(key)} projectId={p.projectId} />
 
       <section className="p-card">
         <h3>In this game</h3>

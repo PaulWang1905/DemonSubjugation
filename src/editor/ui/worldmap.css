@@ -1,0 +1,324 @@
+/* The world map (WorldMap.tsx): a zooming, panning view of map cards joined by lines. */
+
+.wmap {
+  --wm-line: color-mix(in srgb, var(--muted) 55%, var(--panel));
+  --wm-on: var(--accent);
+  --wm-sel: #c98a00;
+  --wm-q: #8a5a00;
+  --wm-q-bg: #fff3d6;
+  --wm-miss: var(--danger);
+  --wm-bg: color-mix(in srgb, var(--bg) 70%, var(--panel));
+  --wm-dot: color-mix(in srgb, var(--line) 80%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wmap {
+    --wm-line: color-mix(in srgb, var(--muted) 50%, var(--panel));
+    --wm-sel: #f0c050;
+    --wm-q: #f3c477;
+    --wm-q-bg: #3a2c12;
+    --wm-bg: color-mix(in srgb, var(--bg) 60%, var(--panel));
+  }
+}
+:root[data-theme="dark"] .wmap {
+  --wm-line: color-mix(in srgb, var(--muted) 50%, var(--panel));
+  --wm-sel: #f0c050;
+  --wm-q: #f3c477;
+  --wm-q-bg: #3a2c12;
+  --wm-bg: color-mix(in srgb, var(--bg) 60%, var(--panel));
+}
+
+.wm-card {
+  min-width: 0;
+}
+.wm-card h3 {
+  margin-bottom: 4px;
+}
+
+/* the bar */
+.wmap-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.wmap-bar .seg {
+  align-items: center;
+}
+.wmap-bar .seg button {
+  min-width: 30px;
+  padding: 3px 8px;
+  font-size: 15px;
+  line-height: 1;
+}
+.wmap-zoom {
+  min-width: 46px;
+  padding: 0 4px;
+  text-align: center;
+  font-family: var(--h-mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.wmap-hint {
+  margin-left: 4px;
+}
+.wmap-legend {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px 6px;
+  flex-wrap: wrap;
+}
+.wmap-legend svg {
+  vertical-align: middle;
+}
+.wmap-q.missing {
+  border-color: var(--wm-miss);
+  color: var(--wm-miss);
+}
+.wmap-legend svg + svg,
+.wmap-legend .wmap-q {
+  margin-left: 8px;
+}
+.wmap-q {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px dashed var(--wm-q);
+  background: var(--wm-q-bg);
+  color: var(--wm-q);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* the view */
+.wmap-view {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  /* its size comes from the page, never from the map inside */
+  contain: inline-size;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background-color: var(--wm-bg);
+  background-image: radial-gradient(var(--wm-dot) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+  cursor: grab;
+  touch-action: pan-x pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wmap-view.grabbing {
+  cursor: grabbing;
+}
+.wmap-view.grabbing .wmap-card {
+  cursor: grabbing;
+}
+.wmap-canvas {
+  position: relative;
+}
+.wmap-lines {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+.wmap-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+/* lines */
+.wmap-line {
+  stroke: var(--wm-line);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  transition: opacity 0.12s;
+}
+.wmap-head {
+  fill: var(--wm-line);
+}
+.wmap-line.on {
+  stroke: var(--wm-on);
+  stroke-width: 2.6;
+}
+.wmap-head.on {
+  fill: var(--wm-on);
+}
+.wmap-line.dim {
+  opacity: 0.16;
+}
+.wmap-stub line {
+  stroke: var(--wm-q);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+.wmap-stub circle {
+  fill: var(--wm-q-bg);
+  stroke: var(--wm-q);
+  stroke-width: 1.2;
+  stroke-dasharray: 2 2;
+}
+.wmap-stub text {
+  fill: var(--wm-q);
+  font: 700 10px var(--h-sans, system-ui, sans-serif);
+}
+.wmap-stub.missing line,
+.wmap-stub.missing circle {
+  stroke: var(--wm-miss);
+}
+.wmap-stub.missing text {
+  fill: var(--wm-miss);
+}
+.wmap-stub.dim {
+  opacity: 0.2;
+}
+
+/* cards */
+.wmap-card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  text-align: left;
+  font-weight: 400;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition:
+    opacity 0.12s,
+    border-color 0.12s;
+}
+.wmap-card:hover {
+  border-color: var(--ink);
+}
+.wmap-card.start {
+  border: 2px solid var(--accent);
+}
+.wmap-card.near {
+  border-color: var(--wm-on);
+}
+.wmap-card.active {
+  border-color: var(--wm-on);
+  box-shadow: 0 0 0 2px var(--wm-on);
+}
+.wmap-card.selected {
+  box-shadow: 0 0 0 3px var(--wm-sel);
+}
+.wmap-card.dim {
+  opacity: 0.38;
+}
+.wmap-card:focus-visible {
+  outline: 3px solid var(--wm-sel);
+  outline-offset: 3px;
+}
+.wmap-pic {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgb(167, 186, 130);
+  pointer-events: none;
+}
+.wmap-pic img {
+  max-width: 100%;
+  max-height: 100%;
+  image-rendering: auto;
+}
+.wmap-name {
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wmap-card.far .wmap-name {
+  text-align: center;
+}
+.wmap-start {
+  color: var(--accent);
+}
+.wmap-meta {
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wmap-badge {
+  position: absolute;
+  top: -0.6em;
+  right: -0.6em;
+  display: grid;
+  place-items: center;
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 50%;
+  border: 1px dashed var(--wm-q);
+  background: var(--wm-q-bg);
+  color: var(--wm-q);
+  font-weight: 700;
+  line-height: 1;
+}
+.wmap-badge.missing {
+  border-color: var(--wm-miss);
+  color: var(--wm-miss);
+}
+.wmap-alone {
+  position: absolute;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* the selected map's links, over the bottom left of the view */
+.wmap-stage {
+  position: relative;
+  min-width: 0;
+}
+.wmap-detail {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  max-width: min(600px, calc(100% - 20px));
+  max-height: calc(100% - 20px);
+  overflow: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--wm-sel);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.wmap-detail p {
+  margin: 4px 0 0;
+}
+.wmap-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wmap-detail-head .spacer {
+  flex: 1;
+}
+.wmap-links button.link {
+  font-size: inherit;
+  padding: 0;
+}
