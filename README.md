@@ -1,4 +1,15 @@
-# FMJ React
+# BUBU · 步步
+
+**BUBU's Unofficial BBK Universe** (步步的步步高游戏世界): play BBK
+electronic-dictionary games in the browser, and make your own. A fan project,
+not affiliated with BBK (步步高). Its parts:
+
+- **FMJ React**: the RPG engine (below).
+- **Fulu** (符箓): a stand-in for the Longman 4988's OS.
+- **Original OS**: the 4988 emulated with its own firmware.
+- **BBK Maker**: the game editor.
+
+## FMJ React
 
 A browser port of the engine behind the BBK electronic-dictionary RPGs
 (步步高电子词典 RPG, e.g. 伏魔记, and the many community games built for the same

@@ -200,7 +200,7 @@ export function App() {
         <header className="topbar">
           <Link to="home" className="brand" onClick={closeMenu}>
             <img src="/favicon.svg" alt="" width={28} height={28} />
-            <span>FMJ React</span>
+            <span>BUBU</span>
           </Link>
           <nav className={menuOpen ? "site-nav open" : "site-nav"} id="site-nav" aria-label={t.navLabel}>
             {PAGES.filter((p) => p.page !== "home" && !p.parent).map((p) => (

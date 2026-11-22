@@ -378,7 +378,7 @@ export function SiteFooter({ onPlayDemo }: { onPlayDemo: PlayDemo }) {
     <footer className="site-footer">
       <div className="footer-brand">
         <img src="/favicon.svg" alt="" width={24} height={24} />
-        <strong>FMJ React</strong>
+        <strong>BUBU</strong>
         <span className="muted">{t.footerTagline}</span>
       </div>
       <nav className="footer-links" aria-label={t.footerLabel}>

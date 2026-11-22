@@ -10,19 +10,19 @@ export type Page = "home" | "games" | "guide" | "fulu" | "fulu-progress" | "abou
 
 /** The site's pages; one with a parent is a tab of that page, not in the site's menu. */
 export const PAGES: { page: Page; path: string; label: string; title: string; parent?: Page }[] = [
-  { page: "home", path: "/", label: "Home", title: "FMJ React: play and make pocket RPGs in your browser" },
-  { page: "games", path: "/games", label: "Games", title: "Games · FMJ React" },
-  { page: "guide", path: "/guide", label: "Guide", title: "Guide · FMJ React" },
-  { page: "fulu", path: "/fulu", label: "Fulu", title: "Fulu · FMJ React" },
-  { page: "fulu-progress", path: "/fulu/progress", label: "Progress", title: "Fulu progress report · FMJ React", parent: "fulu" },
-  { page: "about", path: "/about", label: "About", title: "About · FMJ React" },
-  { page: "editor", path: "/editor", label: "Editor", title: "Editor · FMJ React" },
+  { page: "home", path: "/", label: "Home", title: "BUBU: BUBU's Unofficial BBK Universe" },
+  { page: "games", path: "/games", label: "Games", title: "Games · BUBU" },
+  { page: "guide", path: "/guide", label: "Guide", title: "Guide · BUBU" },
+  { page: "fulu", path: "/fulu", label: "Fulu", title: "Fulu · BUBU" },
+  { page: "fulu-progress", path: "/fulu/progress", label: "Progress", title: "Fulu progress report · BUBU", parent: "fulu" },
+  { page: "about", path: "/about", label: "About", title: "About · BUBU" },
+  { page: "editor", path: "/editor", label: "BBK Maker", title: "BBK Maker · BUBU" },
 ];
 
 export const pathOf = (p: Page) => PAGES.find((x) => x.page === p)?.path ?? "/";
 
 /** The browser tab title for a page. */
-export const titleOf = (p: Page) => PAGES.find((x) => x.page === p)?.title ?? "Page not found · FMJ React";
+export const titleOf = (p: Page) => PAGES.find((x) => x.page === p)?.title ?? "Page not found · BUBU";
 
 function current(): Page {
   if (location.hash === "#editor") return "editor"; // the old address of the editor

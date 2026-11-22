@@ -1,7 +1,7 @@
 {
-  "name": "FMJ React",
-  "short_name": "FMJ",
-  "description": "A browser port of the BBK electronic-dictionary RPG engine.",
+  "name": "BUBU: BUBU's Unofficial BBK Universe",
+  "short_name": "BUBU",
+  "description": "Play BBK electronic-dictionary games in your browser, and make your own.",
   "start_url": "/",
   "display": "fullscreen",
   "background_color": "#14161a",

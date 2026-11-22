@@ -94,8 +94,8 @@ const en = {
     orLink: "or add from a link ↓",
     disclaimerTitle: "Files from other people's sites",
     disclaimer:
-      "FMJ React does not host, own, check or endorse the files you load from a link. They come straight from third-party websites (such as GitHub) into this browser and stay there; nothing is uploaded. The games belong to their authors and publishers: load only what is publicly available and what you may use where you live.",
-    agree: "I understand these files come from third-party, publicly available sources that FMJ React does not control, and that using them is my own responsibility.",
+      "BUBU does not host, own, check or endorse the files you load from a link. They come straight from third-party websites (such as GitHub) into this browser and stay there; nothing is uploaded. The games belong to their authors and publishers: load only what is publicly available and what you may use where you live.",
+    agree: "I understand these files come from third-party, publicly available sources that BUBU does not control, and that using them is my own responsibility.",
     needAgree: "Tick the box above to load games from a link.",
     sourcesLabel: "A public collection",
     sourceBy: (owner: string) => `By ${owner}, on GitHub`,
@@ -236,8 +236,8 @@ const zh: GamesText = {
     orLink: "或者通过链接添加 ↓",
     disclaimerTitle: "来自他人网站的文件",
     disclaimer:
-      "FMJ React 不托管、不拥有、不检查也不认可你通过链接载入的文件。它们直接从第三方网站（例如 GitHub）下载到这个浏览器并保存在这里，不会上传任何内容。游戏的权利属于它们的作者和发行方：请只载入公开可得、并且在你所在地可以合法使用的文件。",
-    agree: "我明白这些文件来自 FMJ React 无法控制的第三方公开来源，使用它们的责任由我自己承担。",
+      "步步 BUBU 不托管、不拥有、不检查也不认可你通过链接载入的文件。它们直接从第三方网站（例如 GitHub）下载到这个浏览器并保存在这里，不会上传任何内容。游戏的权利属于它们的作者和发行方：请只载入公开可得、并且在你所在地可以合法使用的文件。",
+    agree: "我明白这些文件来自步步 BUBU 无法控制的第三方公开来源，使用它们的责任由我自己承担。",
     needAgree: "勾选上面的方框后，才能通过链接载入游戏。",
     sourcesLabel: "一个公开合集",
     sourceBy: (owner: string) => `${owner} 在 GitHub 上整理`,

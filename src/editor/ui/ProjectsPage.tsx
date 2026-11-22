@@ -11,7 +11,7 @@ import "./authoring.css";
 
 const HOME = {
   en: {
-    kicker: "Editor",
+    kicker: "BBK Maker",
     title: "Make your own game",
     lead: "Paint maps, write the story, draw sprites and playtest in one click. Export it as a .gam or a .lib and play it here, or share it.",
     startTitle: "Start a project",

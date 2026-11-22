@@ -75,7 +75,7 @@ const GUIDE = {
     ] as Row[],
     makeTitle: "Make your own",
     make: "The editor paints maps, writes the story, draws sprites and playtests in one click. Export the game as a .lib, or as a .gam that opens on FMJ React by default.",
-    makeCta: "Open the editor",
+    makeCta: "Open BBK Maker",
   },
   zh: {
     kicker: "指南",
@@ -132,7 +132,7 @@ const GUIDE = {
     ] as Row[],
     makeTitle: "做你自己的游戏",
     make: "编辑器可以画地图、写剧情、画角色，一键试玩。可以把游戏导出为 .lib，或导出为默认用 FMJ React 打开的 .gam。",
-    makeCta: "打开编辑器",
+    makeCta: "打开 BBK Maker",
   },
 };
 
@@ -140,7 +140,7 @@ const ABOUT = {
   en: {
     kicker: "About",
     title: "A pocket RPG engine, rebuilt for the web",
-    lead: "In the 2000s, BBK's electronic dictionaries came with a small role-playing game engine. 伏魔记 was its best-known game, and fans went on to make many more. FMJ React brings them to the browser.",
+    lead: "In the 2000s, BBK's electronic dictionaries came with a small role-playing game engine. 伏魔记 was its best-known game, and fans went on to make many more. BUBU (BUBU's Unofficial BBK Universe) brings them to the browser: a fan project, not affiliated with BBK.",
     facts: [
       ["TS", "TypeScript and React, no plugins"],
       ["GPL-2.0", "the licence, like fmj.kt"],
@@ -149,7 +149,7 @@ const ABOUT = {
     ],
     storyTitle: "What it is",
     story: [
-      "FMJ React's own engine is a TypeScript port of fmj.kt, the open-source re-implementation, checked against a reconstruction of the original engine so that battles, scripts and items behave as they did on the device. On top it adds HD text, an LCD look, wider maps, more text per page, a phone layout and a complete game editor.",
+      "The site's own engine, FMJ React, is a TypeScript port of fmj.kt, the open-source re-implementation, checked against a reconstruction of the original engine so that battles, scripts and items behave as they did on the device. On top it adds HD text, an LCD look, wider maps, more text per page, a phone layout and a complete game editor, BBK Maker.",
       "For the games as they were, it also emulates the Longman 4988 handheld, with either BBK's own firmware or Fulu, an operating system written for this site so the games run without it.",
     ],
     enginesTitle: "Three engines",
@@ -175,7 +175,7 @@ const ABOUT = {
   zh: {
     kicker: "关于",
     title: "掌上 RPG 引擎，为网页重建",
-    lead: "2000 年代，步步高电子词典自带一个小型角色扮演游戏引擎。伏魔记是其中最有名的游戏，玩家们后来又做了许多。FMJ React 把它们带到浏览器里。",
+    lead: "2000 年代，步步高电子词典自带一个小型角色扮演游戏引擎。伏魔记是其中最有名的游戏，玩家们后来又做了许多。步步 BUBU（步步的步步高游戏世界）把它们带到浏览器里：一个爱好者项目，与步步高公司无关。",
     facts: [
       ["TS", "TypeScript 和 React，无需插件"],
       ["GPL-2.0", "许可证，与 fmj.kt 相同"],
@@ -184,7 +184,7 @@ const ABOUT = {
     ],
     storyTitle: "这是什么",
     story: [
-      "FMJ React 自己的引擎是开源重实现 fmj.kt 的 TypeScript 移植，并与原版引擎的还原代码逐项对照，让战斗、脚本和物品的表现和掌机上一样。在此之上，它增加了高清文字、液晶效果、更宽的地图、每页更多文字、手机布局和完整的游戏编辑器。",
+      "本站自己的引擎 FMJ React 是开源重实现 fmj.kt 的 TypeScript 移植，并与原版引擎的还原代码逐项对照，让战斗、脚本和物品的表现和掌机上一样。在此之上，它增加了高清文字、液晶效果、更宽的地图、每页更多文字、手机布局和完整的游戏编辑器 BBK Maker。",
       "为了原汁原味地玩，它还模拟了朗文 4988 掌机，可以使用步步高自己的固件，或使用符箓：一个为本站编写的操作系统，让游戏不需要固件也能运行。",
     ],
     enginesTitle: "三种引擎",
