@@ -3,10 +3,10 @@
 // (a choice, a battle, an if, a menu) with their arms nested and indented;
 // labels as small markers; lines the model cannot read as editable text.
 import { useState, type DragEvent, type ReactNode } from "react";
-import { commandInfo, sentence, type SentencePart } from "../format/commands";
+import { commandInfo, sentence } from "../format/commands";
 import type { Arm, InstructionStep, OutlineNode, Position, Step } from "../format/scriptModel";
 import { OperandControl, useSv } from "./ScriptVisualControls";
-import { controlFor } from "./scriptVisualLogic";
+import { controlFor, sentenceLayout } from "./scriptVisualLogic";
 
 export interface StepProblem {
   level: "error" | "warning";
@@ -48,34 +48,7 @@ export interface StepsApi {
 /** "Ask: …" with the text operands as fields and everything else as inline controls. */
 function SentenceLine({ step, header }: { step: InstructionStep; header?: boolean }) {
   const sv = useSv();
-  let parts: (SentencePart | { text: string; operand?: undefined; monsters: true })[] = sentence(step.op.name, step.values, sv.names).parts.map((p) => ({ ...p }));
-  // a battle's monsters: every one as a picker, and an empty slot to add one
-  const isMonster = (p: (typeof parts)[number]) => (p.operand !== undefined && p.kind === "monster") || p.text === "no monsters";
-  const m0 = parts.findIndex(isMonster);
-  if (m0 >= 0) {
-    let m1 = m0;
-    while (m1 + 1 < parts.length && (isMonster(parts[m1 + 1]) || (parts[m1 + 1].text === ", " && m1 + 2 < parts.length && isMonster(parts[m1 + 2])))) m1++;
-    parts = [...parts.slice(0, m0), { text: "", monsters: true }, ...parts.slice(m1 + 1)];
-  }
-  if (header) {
-    // a block's instruction: what it jumps to is shown as its arms below, so the
-    // sentence stops before its first "go to" clause ("Ask: “Yes” or “No”")
-    const firstLabel = parts.findIndex((p) => p.operand !== undefined && "kind" in p && p.kind === "label");
-    if (firstLabel >= 0) {
-      let cut = firstLabel;
-      for (let i = 0; i < firstLabel; i++) {
-        const p = parts[i];
-        if (p.operand !== undefined) continue;
-        const m = /;|,\s*go to/.exec(p.text);
-        if (m) {
-          parts = [...parts.slice(0, i), { text: p.text.slice(0, m.index) }];
-          cut = -1;
-          break;
-        }
-      }
-      if (cut >= 0) parts = parts.slice(0, cut);
-    }
-  }
+  const { parts, zero: zk } = sentenceLayout(step.command, step.values, sv.names, header);
   const multiline = (k: number | undefined) => {
     if (k === undefined) return false;
     const c = controlFor(step.command, k);
@@ -94,9 +67,7 @@ function SentenceLine({ step, header }: { step: InstructionStep; header?: boolea
   let inline: ReactNode[] = [];
   // an operand the sentence leaves out when it is 0 ("Say: …" without a portrait):
   // its control at the end of the first line
-  const zero = step.command.sentenceIfZero;
-  const zk = zero && !header ? step.command.operands.findIndex((o) => o.key === zero.operand) : -1;
-  let zeroPending = zk >= 0 && !parts.some((p) => p.operand === zk);
+  let zeroPending = zk >= 0;
   const flush = () => {
     if (zeroPending) {
       inline.push(<OperandControl key={`z${zk}`} step={step} k={zk} />);
@@ -136,28 +107,51 @@ function SentenceLine({ step, header }: { step: InstructionStep; header?: boolea
   return <div className="sv-sentence">{rows}</div>;
 }
 
-/** Every operand, labelled (the card's details). */
-function Details({ step }: { step: InstructionStep }) {
+/**
+ * The card's details: what the instruction does, a field for each setting
+ * its sentence does not edit (a block's jumps, empty monster slots, values
+ * the sentence leaves out), what the settings edited above mean, and the
+ * line as written. A value is edited in one place only, so two fields can
+ * never disagree.
+ */
+function Details({ step, header, idBase }: { step: InstructionStep; header?: boolean; idBase: string }) {
+  const sv = useSv();
   const c = step.command;
+  const { shown } = sentenceLayout(c, step.values, sv.names, header);
+  const visible = c.operands.map((o, k) => ({ o, k, ctl: controlFor(c, k) })).filter((x) => x.ctl.kind !== "hidden");
+  const more = visible.filter((x) => !shown.has(x.k));
+  const above = visible.filter((x) => shown.has(x.k));
+  const base = `${idBase}-f`;
   return (
     <div className="sv-details">
       <p className="small">
         <b>{c.title}.</b> <span className="muted">{c.help}</span>
       </p>
-      <div className="sv-fields">
-        {c.operands.map((o, k) => {
-          const ctl = controlFor(c, k);
-          if (ctl.kind === "hidden") return null;
-          return (
-            <label key={k} className="sv-field" onClick={(e) => ctl.kind !== "text" && e.preventDefault()}>
-              <span className="sv-field-label" title={o.help}>
+      {more.length > 0 && (
+        <div className="sv-fields" role="group" aria-label={`${c.title}: more settings`}>
+          {more.map(({ o, k, ctl }) => (
+            <div key={k} className={`sv-field${ctl.kind === "text" && ctl.multiline ? " wide" : ""}`}>
+              <span className="sv-field-label" id={`${base}${k}`}>
                 {o.label}
               </span>
-              <OperandControl step={step} k={k} control={ctl} />
-            </label>
-          );
-        })}
-      </div>
+              <div className="sv-field-control" role="group" aria-labelledby={`${base}${k}`}>
+                <OperandControl step={step} k={k} control={ctl} />
+                {o.help && <span className="sv-field-help muted small">{o.help}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {above.length > 0 && (
+        <dl className="sv-explain small">
+          {above.map(({ o, k }) => (
+            <div key={k}>
+              <dt>{o.label}</dt>
+              <dd className="muted">{o.help}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
       <p className="sv-line-text small">
         <span className="muted">Line {step.line}:</span> <code>{step.text.trim()}</code>
       </p>
@@ -217,6 +211,7 @@ function Card({ step, api, kind, children }: { step: Step; api: StepsApi; kind: 
       aria-label={step.kind === "instruction" ? `${title}: ${sentence(step.op.name, step.values, sv.names).text}` : title}
       aria-current={selected ? "true" : undefined}
       data-step={step.id}
+      data-op={step.kind === "instruction" ? step.op.name : undefined}
       onMouseDown={(e) => {
         const t = e.target as HTMLElement;
         if (t.closest(".sv-card") !== e.currentTarget) return;
@@ -293,7 +288,7 @@ function InstructionCard({ step, api, header }: { step: InstructionStep; api: St
       <SentenceLine step={step} header={header} />
       {step.comment && <p className="sv-comment small">{step.comment.replace(/^;\s*/, "")}</p>}
       {api.preview?.(step.id)}
-      {editing && <Details step={step} />}
+      {editing && <Details step={step} header={header} idBase={api.cardId(step.id)} />}
       {/* (while its text is typed the box beside it says what fits; the stored text's warnings would be stale) */}
       <Problems list={api.live?.id === step.id ? undefined : api.problems.get(step.id)} />
     </Card>

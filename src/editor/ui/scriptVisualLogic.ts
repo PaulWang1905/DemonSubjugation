@@ -6,7 +6,7 @@
 // Nothing here touches the DOM; every edit goes through the script model
 // (format/scriptModel.ts), which keeps the lines it does not change.
 import { AsmError, assemble } from "../format/gut";
-import { commandInfo, type CommandInfo, type NameResolver, type OperandInfo, type OperandValue } from "../format/commands";
+import { commandInfo, sentence, type CommandInfo, type NameResolver, type OperandInfo, type OperandValue, type SentencePart } from "../format/commands";
 import {
   deleteSteps,
   insertLines,
@@ -146,6 +146,73 @@ export function eventEntries(model: ScriptModel, ctx: EventContext): EventEntry[
     out.push({ key: `group-${g.label ?? g.from}`, group: g, kind: "start", title: g.label ? `◆ ${g.label}` : "Code", events: g.events, ...count(g) });
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// A step's sentence: which operands it edits in place
+
+/** A piece of a step's sentence: text, an operand, or the battle's monsters (all their slots as one piece). */
+export type SentenceItem = SentencePart | { text: string; operand?: undefined; monsters: true };
+
+export interface SentenceLayout {
+  parts: SentenceItem[];
+  /**
+   * An operand the sentence leaves out when it is 0 ("Say: …" without a
+   * portrait), edited at the end of the first line; -1 when none.
+   */
+  zero: number;
+  /** The operands the sentence edits (each control shown once). */
+  shown: ReadonlySet<number>;
+}
+
+/**
+ * The parts of a step's sentence as the Visual view shows them, and which
+ * operands they edit. A block's instruction (`header`) stops before its first
+ * "go to": its jumps are shown as its arms below. Everything the sentence does
+ * not edit is edited in the step's details, so no value has two editors.
+ */
+export function sentenceLayout(c: CommandInfo, values: readonly OperandValue[], names: NameResolver = {}, header = false): SentenceLayout {
+  let parts: SentenceItem[] = sentence(c.name, values, names).parts.map((p) => ({ ...p }));
+  // a battle's monsters: one piece (every used slot and an empty one to add a monster)
+  const isMonster = (p: SentenceItem) => (p.operand !== undefined && p.kind === "monster") || p.text === "no monsters";
+  const m0 = parts.findIndex(isMonster);
+  if (m0 >= 0) {
+    let m1 = m0;
+    while (m1 + 1 < parts.length && (isMonster(parts[m1 + 1]) || (parts[m1 + 1].text === ", " && m1 + 2 < parts.length && isMonster(parts[m1 + 2])))) m1++;
+    parts = [...parts.slice(0, m0), { text: "", monsters: true }, ...parts.slice(m1 + 1)];
+  }
+  if (header) {
+    // the sentence stops before its first "go to" clause ("Ask: “Yes” or “No”")
+    const firstLabel = parts.findIndex((p) => p.operand !== undefined && p.kind === "label");
+    if (firstLabel >= 0) {
+      let cut = firstLabel;
+      for (let i = 0; i < firstLabel; i++) {
+        const p = parts[i];
+        if (p.operand !== undefined) continue;
+        const m = /;|,\s*go to/.exec(p.text);
+        if (m) {
+          parts = [...parts.slice(0, i), { text: p.text.slice(0, m.index) }];
+          cut = -1;
+          break;
+        }
+      }
+      if (cut >= 0) parts = parts.slice(0, cut);
+    }
+  }
+  const shown = new Set<number>();
+  for (const p of parts) {
+    if (p.operand !== undefined) shown.add(p.operand);
+    else if ("monsters" in p) {
+      const slots = c.operands.flatMap((o, k) => (o.kind === "monster" ? [k] : []));
+      slots.filter((k) => values[k] !== 0).forEach((k) => shown.add(k));
+      const empty = slots.find((k) => values[k] === 0);
+      if (empty !== undefined) shown.add(empty);
+    }
+  }
+  const z = c.sentenceIfZero && !header ? c.operands.findIndex((o) => o.key === c.sentenceIfZero!.operand) : -1;
+  const zero = z >= 0 && !shown.has(z) ? z : -1;
+  if (zero >= 0) shown.add(zero);
+  return { parts, zero, shown };
 }
 
 // ---------------------------------------------------------------------------

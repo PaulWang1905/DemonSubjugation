@@ -562,22 +562,82 @@
 .sv-details p {
   margin: 0;
 }
+/* the settings the sentence does not edit: one row each (its own box, so a
+   control of several parts stays in its cell), the labels in one column beside
+   their fields, the fields taking the width that is left; in a narrow card the
+   label goes above its field */
+.sv-details {
+  container-type: inline-size;
+}
 .sv-fields {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 6px 12px;
-  align-items: center;
+  grid-template-columns: fit-content(10em) minmax(0, 1fr);
+  gap: 8px 14px;
+  min-width: 0;
 }
 .sv-field {
-  display: contents;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+  min-width: 0;
+}
+.sv-field.wide > .sv-field-control {
+  grid-column: 1 / -1;
 }
 .sv-field-label {
   font-size: 13px;
   color: var(--muted);
+  overflow-wrap: anywhere;
+}
+@container (max-width: 340px) {
+  .sv-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+.sv-field-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 8px;
+  min-width: 0;
+}
+.sv-field-control > * {
+  max-width: 100%;
+}
+.sv-field-control > .sv-text,
+.sv-field-control > .sv-field-help {
+  flex: 1 1 100%;
+}
+.sv-field-help {
+  overflow-wrap: anywhere;
+}
+.sv-field-control select {
+  max-width: 100%;
+}
+/* what the settings edited in the sentence above mean */
+.sv-explain {
+  margin: 0;
+  display: grid;
+  grid-template-columns: fit-content(14em) minmax(0, 1fr);
+  gap: 3px 12px;
+}
+.sv-explain > div {
+  display: contents;
+}
+.sv-explain dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+.sv-explain dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 .sv-line-text code {
-  white-space: pre-wrap;
-  word-break: break-word;
+  /* (break-spaces: the padding in a wrapped text wraps too, instead of hanging past the card) */
+  white-space: break-spaces;
+  overflow-wrap: anywhere;
 }
 
 /* blocks and their arms */
@@ -757,4 +817,12 @@
 }
 .sv-aside-help p {
   line-height: 1.5;
+}
+/* a picture's thumbnail stays beside its picker, the picker's name shortened */
+.sv-field-control > .sv-res {
+  flex-wrap: nowrap;
+}
+.sv-field-control > .sv-res > :not(img) {
+  min-width: 0;
+  flex: 0 1 auto;
 }

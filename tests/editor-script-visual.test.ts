@@ -24,6 +24,7 @@ import {
   insertionPoint,
   moveNode,
   parseOperandNumber,
+  sentenceLayout,
   startTitle,
   startingValues,
   wrapStep,
@@ -375,5 +376,66 @@ describe("committing", () => {
     expect(wrapStep(w, say.id)).toBeNull();
     // other lines untouched
     expect(toSource(w).split("\n").filter((l) => !l.includes("say "))).toEqual(toSource(m).split("\n").filter((l) => !l.includes("say ")));
+  });
+});
+
+describe("a step's sentence and its details", () => {
+  const key = (name: string, k: string) => commandInfo(name)!.operands.findIndex((o) => o.key === k);
+  /** The operands the details edit (not hidden, not in the sentence). */
+  const rest = (name: string, values: Parameters<typeof sentenceLayout>[1], header = false) => {
+    const c = commandInfo(name)!;
+    const { shown } = sentenceLayout(c, values, {}, header);
+    return c.operands.flatMap((o, k) => (controlFor(c, k).kind !== "hidden" && !shown.has(k) ? [o.key] : []));
+  };
+
+  it("edits a say's portrait and text in its sentence, so its details repeat neither", () => {
+    const say = commandInfo("say")!;
+    const plain = sentenceLayout(say, [0, "师兄，原来你在这啊"]);
+    expect(plain.zero).toBe(0); // "Say: …": the portrait picker at the end of the first line
+    expect([...plain.shown].sort()).toEqual([0, 1]);
+    const portrait = sentenceLayout(say, [1, "Hello"]);
+    expect(portrait.zero).toBe(-1);
+    expect([...portrait.shown].sort()).toEqual([0, 1]);
+    expect(rest("say", [0, "x"])).toEqual([]);
+    expect(rest("say", [3, "x"])).toEqual([]);
+  });
+
+  it("leaves a block's jumps (shown as its arms) to the details", () => {
+    expect(rest("choice", ["Yes", "No", "no"])).toEqual([]);
+    expect(rest("choice", ["Yes", "No", "no"], true)).toEqual(["ifSecond"]);
+    const header = sentenceLayout(commandInfo("choice")!, ["Yes", "No", "no"], {}, true);
+    expect(header.parts.some((p) => p.operand !== undefined && p.kind === "label")).toBe(false);
+    expect(header.parts.map((p) => p.text).join("")).toBe("Ask: “Yes” or “No”");
+    expect(rest("if", [5, "set"], true)).toEqual(["ifSet"]);
+    expect(rest("if", [5, "set"])).toEqual([]);
+  });
+
+  it("shows a battle's monsters and one empty slot; the other settings are details", () => {
+    const fight = commandInfo("enterfight")!;
+    const v = startingValues("enterfight");
+    v[key("enterfight", "monster1")] = 4;
+    v[key("enterfight", "monster2")] = 0;
+    v[key("enterfight", "monster3")] = 0;
+    const { shown, parts } = sentenceLayout(fight, v);
+    expect(parts.filter((p) => "monsters" in p)).toHaveLength(1);
+    expect(shown.has(key("enterfight", "monster1")) && shown.has(key("enterfight", "monster2"))).toBe(true);
+    const details = rest("enterfight", v);
+    expect(details).toEqual(expect.arrayContaining(["monster3", "background", "rounds", "round1", "event1"]));
+    expect(details).not.toContain("monster1");
+    expect(details).not.toContain("ifWon");
+    expect(rest("enterfight", v, true)).toEqual(expect.arrayContaining(["ifWon", "ifLost"]));
+  });
+
+  it("counts every operand its sentence names (named twice: one control) as edited there", () => {
+    for (const c of COMMANDS) {
+      const v = startingValues(c.name);
+      for (const header of [false, true]) {
+        const { shown, parts, zero } = sentenceLayout(c, v, {}, header);
+        for (const k of shown) expect(k >= 0 && k < c.operands.length, `${c.name} ${k}`).toBe(true);
+        const ops = parts.flatMap((p) => (p.operand !== undefined ? [p.operand] : []));
+        for (const k of ops) expect(shown.has(k), `${c.name} ${k}`).toBe(true);
+        if (zero >= 0) expect(ops, c.name).not.toContain(zero);
+      }
+    }
   });
 });
