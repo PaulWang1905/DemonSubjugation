@@ -348,6 +348,9 @@ export function splitWords(text: string, widths: number[]): string[] {
       while (s > 0 && word(bytes[s - 1])) s--;
       let e = at;
       while (e < bytes.length && word(bytes[e])) e++;
+      // a run of symbols is not a word: 伏魔记 curses with "#$%!#@!@#" and
+      // lets it break anywhere
+      if (!bytes.slice(s, e).some((b) => (b >= 0x30 && b <= 0x39) || ((b | 0x20) >= 0x61 && (b | 0x20) <= 0x7a))) continue;
       out.push(String.fromCharCode(...bytes.slice(s, at)) + "|" + String.fromCharCode(...bytes.slice(at, e)));
     }
   }

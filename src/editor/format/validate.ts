@@ -7,7 +7,7 @@ import { findEntry, type LibArchive, type LibEntry } from "./lib";
 import { fieldsFor, readField, readMagicChain } from "./schema";
 import { checkDialogue, checkSpeakers } from "./scriptHelp";
 import { unreachable } from "./reach";
-import { buildWorld } from "./world";
+import { buildWorld, parseKey, type WorldIndex } from "./world";
 
 export interface Problem {
   /** error: the game is likely to stop or misbehave; warning: it runs, but not as meant. */
@@ -90,16 +90,21 @@ export function checkProject(a: LibArchive, sources: Record<string, string> = {}
 
   if (!has(1, 1, 1)) out.push({ level: "error", key: "", where: "Project", message: "There is no script 1-1: the game starts with it." });
 
-  // maps loaded by each script, and the events each script handles
+  // maps loaded by each script
   const loads = new Map<string, Set<string>>(); // map key -> script keys
-  const handled = new Map<string, Set<number>>(); // script key -> events
   const key = (e: { resType: number; type: number; index: number }) => `${e.resType}-${e.type}-${e.index}`;
+  let world: WorldIndex | null = null;
+  try {
+    world = buildWorld(a, sources);
+  } catch {
+    /* the scripts' own problems are reported below */
+  }
 
   for (const e of scripts) {
     const k = key(e);
     const where = describeEntry(e);
     try {
-      handled.set(k, new Set(parseGut(e.data).events.flatMap((addr, i) => (addr ? [i + 1] : []))));
+      parseGut(e.data);
     } catch (err) {
       out.push({ level: "error", key: k, where, message: `cannot be read: ${(err as Error).message}` });
       continue;
@@ -156,19 +161,41 @@ export function checkProject(a: LibArchive, sources: Record<string, string> = {}
       } catch {
         /* reported with the tileset */
       }
-      const over = new Set(m.cells.filter((c) => c.tile >= count).map((c) => c.tile));
-      if (count && over.size) out.push({ level: "warning", key: k, where, message: `uses tile${over.size > 1 ? "s" : ""} ${[...over].sort((x, y) => x - y).join(", ")}, but tileset ${m.tileset} has tiles 0-${count - 1}` });
+      const cells = m.cells.flatMap((c, i) => (c.tile >= count ? [{ x: i % m.width, y: Math.floor(i / m.width), tile: c.tile }] : []));
+      const over = new Set(cells.map((c) => c.tile));
+      if (count && over.size) {
+        const first = cells[0];
+        const on = cells.length > 1 ? `on ${cells.length} cells (${first.x}, ${first.y} and others)` : `on cell ${first.x}, ${first.y}`;
+        out.push({
+          level: "warning",
+          key: k,
+          where,
+          tile: { x: first.x, y: first.y },
+          message: `uses tile${over.size > 1 ? "s" : ""} ${[...over].sort((x, y) => x - y).join(", ")} ${on}, but tileset ${m.tileset} has tiles 0-${count - 1} (this engine draws tile 0 there). Paint those cells with a tile of the tileset`,
+        });
+      }
     }
-    const by = loads.get(k);
-    if (!by) {
+    if (!loads.has(k)) {
       out.push({ level: "warning", key: k, where, message: "no script shows this map: no exit or start leads here" });
       continue;
     }
-    const events = [...new Set(m.cells.map((c) => c.event ?? 0).filter((v) => v > 0))].sort((x, y) => x - y);
-    for (const ev of events) {
-      if (![...by].some((s) => handled.get(s)?.has(ev + 40))) {
-        out.push({ level: "warning", key: k, where, message: `map event ${ev} does nothing: no script that shows this map says what happens there` });
-      }
+    // A map's cells run events of the script running while the player walks
+    // there, which is often not the one that shows it: a door shows the next
+    // map and switches to that map's own script (world.ts, MapInfo.runBy).
+    const info = world?.maps.get(k);
+    if (!info) continue;
+    for (const c of info.eventCells) {
+      if (c.handlers.length || !c.cells.length) continue;
+      const p = c.cells[0];
+      const tiles = c.cells.length > 1 ? `${c.cells.length} tiles (${p.x}, ${p.y} and others)` : `tile ${p.x}, ${p.y}`;
+      const runners = info.runBy.map((s) => refName(1, parseKey(s).type, parseKey(s).index));
+      const whose =
+        runners.length === 0
+          ? "no script is left running on this map once it is shown"
+          : runners.length === 1
+            ? `${runners[0]}, the script running on this map, has no event ${c.mapEvent + 40}`
+            : `none of the scripts running on this map (${runners.join(", ")}) has an event ${c.mapEvent + 40}`;
+      out.push({ level: "warning", key: k, where, tile: { x: p.x, y: p.y }, message: `map event ${c.mapEvent} on ${tiles} does nothing: ${whose}. Add what happens there, or clear the event from the tiles` });
     }
   }
 
@@ -207,8 +234,7 @@ export function checkProject(a: LibArchive, sources: Record<string, string> = {}
   }
 
   // what the player can never get to (exits at the edge, people behind walls)
-  try {
-    const world = buildWorld(a, sources);
+  if (world) {
     const grids = new Map<string, ReturnType<typeof decodeMap>>();
     const grid = (k: string) => {
       if (!grids.has(k)) {
@@ -222,14 +248,20 @@ export function checkProject(a: LibArchive, sources: Record<string, string> = {}
       }
       return grids.get(k) ?? null;
     };
-    for (const r of unreachable(world, grid)) {
+    let found: ReturnType<typeof unreachable> = [];
+    try {
+      found = unreachable(world, grid);
+    } catch {
+      /* the scripts' own problems are reported above */
+    }
+    for (const r of found) {
       const [, t, i] = r.map.split("-").map(Number);
       const e = findEntry(a, 2, t, i)!;
       const near = r.nearest ? ` The nearest tile that works is ${r.nearest.x}, ${r.nearest.y}.` : "";
-      out.push({ level: "warning", key: r.map, where: describeEntry(e), tile: { x: r.x, y: r.y }, message: `${cap(r.name)} at ${r.x}, ${r.y} can never be reached: ${r.reason}.${near}` });
+      // a start or an arrival is where a script puts the player, not somewhere to get to
+      const what = r.what === "start" || r.what === "arrival" ? "puts the player where they cannot stand" : "can never be reached";
+      out.push({ level: "warning", key: r.map, where: describeEntry(e), tile: { x: r.x, y: r.y }, message: `${cap(r.name)} at ${r.x}, ${r.y} ${what}: ${r.reason}.${near}` });
     }
-  } catch {
-    /* the scripts' own problems are reported above */
   }
 
   return out;

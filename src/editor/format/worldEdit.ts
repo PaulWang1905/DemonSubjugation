@@ -118,21 +118,32 @@ export interface MapSetup {
   loads: Where[];
 }
 
-/** The scripts that set a map up: the start's script first, then those that load it when they start. */
+/**
+ * The scripts that set a map up: those that can be running while the player
+ * walks on it (their start code places its people, their events handle its
+ * cells; MapInfo.runBy), the start's first. A script that only shows the map
+ * and switches to the map's own script (伏魔记's doors) is not one, unless it
+ * places people there too; when no script is known to run there, the scripts
+ * that show it.
+ */
 export function mapSetups(world: WorldIndex, mapKey: string): MapSetup[] {
   const map = world.maps.get(mapKey);
   if (!map) return [];
   const by = new Map<string, Where[]>();
-  for (const l of map.loadedBy) by.set(l.script, [...(by.get(l.script) ?? []), l]);
+  const runs = new Set(map.runBy);
+  for (const s of map.runBy) by.set(s, []);
+  for (const l of map.loadedBy) if (runs.has(l.script) || !runs.size) by.set(l.script, [...(by.get(l.script) ?? []), l]);
   for (const p of map.people) if (!by.has(p.script)) by.set(p.script, []);
   const out = [...by].map(([script, loads]): MapSetup => {
     const info = world.scripts.get(script);
     const name = info?.model.header.desc?.trim() || "";
     const [, type, index] = script.split("-");
     const groups = [...new Set(loads.map((l) => (l.start ? "when it starts" : l.group ? `in ◆ ${l.group}` : "")))].filter(Boolean);
-    return { script, label: `${name || "Script"} (script ${type}-${index})`, where: groups.join(", ") || "when it runs", loads };
+    const where = groups.join(", ") || (runs.has(script) ? "the script running here" : "when it runs");
+    return { script, label: `${name || "Script"} (script ${type}-${index})`, where, loads };
   });
-  const rank = (s: MapSetup) => (world.start?.load.script === s.script && world.start.map === mapKey ? 0 : s.loads.some((l) => l.start) ? 1 : 2);
+  const start = world.start?.map === mapKey ? world.start : null;
+  const rank = (s: MapSetup) => (start && (start.script === s.script || start.load.script === s.script) ? 0 : runs.has(s.script) ? (s.loads.some((l) => l.start) ? 1 : 2) : 3);
   return out.sort((a, b) => rank(a) - rank(b));
 }
 
@@ -242,8 +253,10 @@ export interface OverlayPerson {
 export interface OverlayCell {
   mapEvent: number;
   cells: { x: number; y: number }[];
-  /** This setup's handler (its label), or null when none handles it. */
+  /** The handler (its label): this setup's, else another script's that can be running on the map; null when none handles it. */
   label: string | null;
+  /** The script whose event handles it (null: none). */
+  script: string | null;
   exit?: Exit;
   phrase: string;
 }
@@ -280,11 +293,13 @@ export function mapOverlay(world: WorldIndex, archive: LibArchive, mapKey: strin
     });
   const exits = map.exits.filter((e) => mine(e.script) && e.trigger.kind === "tile");
   const name = (k: string) => world.maps.get(k)?.name || k;
+  // this setup's handler, else another script's that can be running here
+  const allExits = map.exits.filter((e) => e.trigger.kind === "tile");
   const cells = map.eventCells.map((c): OverlayCell => {
-    const h = c.handlers.find((x) => mine(x.script)) ?? null;
-    const exit = h ? exits.find((e) => e.script === h.script && e.event === c.mapEvent + 40) : undefined;
+    const h = c.handlers.find((x) => mine(x.script)) ?? c.handlers[0] ?? null;
+    const exit = h ? allExits.find((e) => e.script === h.script && e.event === c.mapEvent + 40) : undefined;
     const m = h ? world.scripts.get(h.script)?.model : model;
-    return { mapEvent: c.mapEvent, cells: c.cells, label: h?.label ?? null, exit, phrase: h && m ? handlerPhrase(m, h.label, exit, name) : "nothing handles it" };
+    return { mapEvent: c.mapEvent, cells: c.cells, label: h?.label ?? null, script: h?.script ?? null, exit, phrase: h && m ? handlerPhrase(m, h.label, exit, name) : "nothing handles it" };
   });
   const arrivals: Arrival[] = [];
   for (const e of map.entrances) for (const t of e.targets) if (t.map === mapKey && t.x !== null && t.y !== null && !arrivals.some((a) => a.x === t.x && a.y === t.y && a.from === e.from)) arrivals.push({ x: t.x, y: t.y!, from: e.from, exit: e, certain: t.certain });

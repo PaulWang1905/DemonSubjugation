@@ -55,13 +55,17 @@ export interface Reach {
 
 /**
  * The tiles the leader can walk to from `seeds` (where it enters the map). The
- * seeds themselves count when they are standable; without any standable seed
- * every standable tile counts (only the band and walls decide then).
+ * seeds themselves count when they are standable, else the tiles beside them
+ * that are (the leader is put on a blocked seed, a doorway say, and steps
+ * off it); without any such tile every standable tile counts (only the band
+ * and walls decide then).
  */
 export function reachArea(m: MapGrid, seeds: readonly Point[] = []): Reach {
   const { width: w, height: h } = m;
   const area = new Uint8Array(w * h);
-  const stack = seeds.filter((p) => standable(m, p.x, p.y)).map((p) => p.y * w + p.x);
+  // the leader stands on a seed even when it is blocked (a script put it
+  // there) and walks off it onto a tile beside it it can stand on
+  const stack = seeds.flatMap((p) => (standable(m, p.x, p.y) ? [p] : NEIGHBOURS.map(([dx, dy]) => ({ x: p.x + dx, y: p.y + dy })).filter((q) => standable(m, q.x, q.y)))).map((p) => p.y * w + p.x);
   const seeded = stack.length > 0;
   if (!seeded) {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (standable(m, x, y)) area[y * w + x] = 1;
@@ -156,6 +160,20 @@ export function standProblem(m: MapGrid, r: Reach | null, x: number, y: number):
   return null;
 }
 
+/**
+ * What is wrong with putting the leader on x, y (a start, an arrival), or
+ * null. Outside the band the view shows past the map's edge and the leader
+ * cannot walk along it; a blocked tile is fine (伏魔记 puts the player on
+ * doorways and wall tiles all the time), unless no tile beside it can be
+ * stood on: then the player cannot move.
+ */
+export function arrivalProblem(m: MapGrid, x: number, y: number): string | null {
+  if (!inBand(x, y, m.width, m.height)) return edgeReason(m, x, y);
+  if (m.cells[y * m.width + x].walkable) return null;
+  if (NEIGHBOURS.some(([dx, dy]) => standable(m, x + dx, y + dy))) return null;
+  return "it is a blocked tile and so is every tile beside it: the player cannot move from there";
+}
+
 /** Why the leader can never get next to x, y (null when it can). */
 export function touchProblem(m: MapGrid, r: Reach, x: number, y: number): string | null {
   if (canTouch(r, x, y)) return null;
@@ -164,7 +182,13 @@ export function touchProblem(m: MapGrid, r: Reach, x: number, y: number): string
   return r.seeded ? "blocked tiles wall it off from where the player enters this map" : "only blocked tiles are around it";
 }
 
+/** Whether talking to (or opening) a placed person / object runs an event of the script placing it or one running on the map. */
+function talksTo(world: WorldIndex, runBy: readonly string[], p: { script: string; id: number }): boolean {
+  return [p.script, ...runBy].some((s) => world.scripts.get(s)?.model.events.some((e) => e.number === p.id && e.label !== null));
+}
+
 function edgeReason(m: MapGrid, x: number, y: number): string {
+  if (x < 0 || y < 0 || x >= m.width || y >= m.height) return `it is outside the map, which is ${m.width} × ${m.height} tiles`;
   const { left, right, top, bottom } = PLAYER_MARGIN;
   const sides: string[] = [];
   if (x < left) sides.push(`${left} tiles from the left edge`);
@@ -213,18 +237,22 @@ export function unreachable(world: WorldIndex, grids: (mapKey: string) => MapGri
     }
     for (const p of info.people) {
       if (canTouch(r, p.x, p.y)) continue;
+      // nobody to talk to: a shopkeeper behind the counter (the counter's
+      // tile runs the shop), a sign on a wall; only report those whose talk
+      // or chest event something handles
+      if (!talksTo(world, info.runBy, p)) continue;
       out.push({ map: key, what: p.kind, x: p.x, y: p.y, name: p.name || `${p.kind} #${p.id}`, reason: touchProblem(m, r, p.x, p.y)!, nearest: nearestTouchable(r, p.x, p.y), script: p.script, line: p.line });
     }
     // the start and arrivals: checked against the band and walls only (they are the seeds)
     const own = reachArea(m);
     if (world.start?.map === key) {
-      const why = standProblem(m, null, world.start.x, world.start.y);
+      const why = arrivalProblem(m, world.start.x, world.start.y);
       if (why) out.push({ map: key, what: "start", x: world.start.x, y: world.start.y, name: "the start", reason: why, nearest: nearestTile(m.width, m.height, world.start.x, world.start.y, (a, b) => canStand(own, a, b)), script: world.start.load.script, line: world.start.load.line });
     }
     for (const e of info.entrances)
       for (const t of e.targets) {
         if (t.map !== key || t.x === null || t.y === null) continue;
-        const why = standProblem(m, null, t.x, t.y);
+        const why = arrivalProblem(m, t.x, t.y);
         if (why) out.push({ map: key, what: "arrival", x: t.x, y: t.y, name: `the arrival from ${mapName(e.from)}`, reason: why, nearest: nearestTile(m.width, m.height, t.x, t.y, (a, b) => canStand(own, a, b)), script: t.load.script, line: t.load.line });
       }
   }

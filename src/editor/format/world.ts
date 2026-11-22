@@ -14,8 +14,9 @@
 //   variables 200-239.
 // - Talking to (or pressing OK facing) person / object n runs event n of the
 //   running script; walking into, or facing, a map cell with event number n
-//   runs event 40 + n — whichever script is running, so a map's cells are
-//   handled by the script that showed it.
+//   runs event 40 + n of whichever script is running, which is often not the
+//   one that showed the map: 伏魔记's doors show the next map and switch to
+//   that map's own script (runningMaps, MapInfo.runBy).
 // - The leader keeps its place on the screen: loadmap moves the view, and the
 //   view follows the leader, so the leader stands on map tile view + its
 //   screen place, set by the first createactor of the game (usually 4, 3).
@@ -74,6 +75,8 @@ export interface ScriptInfo {
   authored: boolean;
   /** The maps this script shows (loadmap). */
   maps: string[];
+  /** The maps it can be the running script on (its events run there; see MapInfo.runBy). */
+  runsOn: string[];
 }
 
 /** Someone a script puts on a map. */
@@ -139,7 +142,7 @@ export interface Exit {
 export interface CellEvent {
   mapEvent: number;
   cells: { x: number; y: number }[];
-  /** Scripts that show the map and handle event 40 + n. */
+  /** Scripts that can be running on the map (runBy) and handle event 40 + n. */
   handlers: { script: string; label: string | null; line: number }[];
 }
 
@@ -152,6 +155,13 @@ export interface MapInfo {
   height: number;
   tileset: number;
   loadedBy: MapLoad[];
+  /**
+   * The scripts that can be the running one while the player walks here: those
+   * whose code ends with the map shown (often not the one that loads it: a door
+   * loads the map and switches to the map's own script). Their events handle
+   * the map's cells.
+   */
+  runBy: string[];
   people: Placement[];
   /** deletenpc / deletebox lines while the map is shown. */
   removals: (Where & { id: number })[];
@@ -274,7 +284,8 @@ function mapsAtSteps(model: ScriptModel, inherited?: ReadonlySet<string>): Map<n
     }
   };
   const entry = entryStep(model);
-  if (entry >= 0) run(entry, new Set([null]));
+  // the start code runs on the map the script is started on (unknown: null)
+  if (entry >= 0) run(entry, new Set([null, ...(inherited ?? [])]));
   // events run on the map the start code left (or, failing that, any map the script shows)
   const ends = new Set<string | null>();
   for (const [i, set] of at) if (successors(model, i).length === 0) for (const m of set) ends.add(m);
@@ -331,6 +342,47 @@ function runningMaps(scripts: Map<string, ScriptInfo>): { inherited: Map<string,
   }
   return { inherited, mapsAt };
 }
+
+/**
+ * The maps a script can leave the player in control on, while it is the
+ * running script (so its events handle those maps' cells): where its start
+ * code ends (callback, return, the end; not a switch to another script), and
+ * then where its events end, run from those maps, until nothing new turns up.
+ * `inherited`: the maps it is started on (runningMaps).
+ */
+function controlMaps(model: ScriptModel, inherited: ReadonlySet<string>): Set<string> {
+  const out = new Set<string>();
+  const seen = new Set<string>();
+  const work: [number, string | null][] = [];
+  const enter = (i: number, m: string | null) => {
+    const k = `${i}|${m}`;
+    if (i < 0 || seen.has(k)) return;
+    seen.add(k);
+    work.push([i, m]);
+  };
+  const entry = entryStep(model);
+  for (const m of [null, ...inherited]) enter(entry, m);
+  const targets = model.events.flatMap((e) => (e.label ? [labelTarget(model, e.label)] : []));
+  while (work.length) {
+    const [i, m] = work.pop()!;
+    const s = model.steps[i];
+    const next = successors(model, i);
+    const here = s.kind === "instruction" && s.op.name === "loadmap" ? resKey(2, num(s.values[0]), num(s.values[1])) : m;
+    for (const n of next) enter(n, here);
+    if (next.length || (s.kind === "instruction" && (s.op.name === "startchapter" || s.op.name === "gameover")) || here === null || out.has(here)) continue;
+    // the player has control on `here`: any of the script's events can run there
+    out.add(here);
+    for (const t of targets) enter(t, here);
+  }
+  return out;
+}
+
+/** Scripts in number order ("1-1-2" before "1-1-10"). */
+const byScript = (a: string, b: string) => {
+  const x = parseKey(a);
+  const y = parseKey(b);
+  return x.type - y.type || x.index - y.index;
+};
 
 /** Whether some path from `entry` to an end avoids step `avoid`. */
 function avoidable(model: ScriptModel, entry: number, avoid: number): boolean {
@@ -631,7 +683,7 @@ export function buildWorld(archive: LibArchive, sources: Record<string, string> 
     const model = parseScript(source);
     const maps = new Set<string>();
     for (const s of model.steps) if (s.kind === "instruction" && s.op.name === "loadmap") maps.add(resKey(2, num(s.values[0]), num(s.values[1])));
-    scripts.set(key, { key, entry: e, source, model, authored: source === sources[key], maps: [...maps] });
+    scripts.set(key, { key, entry: e, source, model, authored: source === sources[key], maps: [...maps], runsOn: [] });
   }
 
   const maps = new Map<string, MapInfo>();
@@ -653,7 +705,7 @@ export function buildWorld(archive: LibArchive, sources: Record<string, string> 
       cells.set(c.event, list);
     });
     cellsOf.set(key, cells);
-    maps.set(key, { key, type: e.type, index: e.index, name: m.name, width: m.width, height: m.height, tileset: m.tileset, loadedBy: [], people: [], removals: [], eventCells: [], exits: [], entrances: [] });
+    maps.set(key, { key, type: e.type, index: e.index, name: m.name, width: m.width, height: m.height, tileset: m.tileset, loadedBy: [], runBy: [], people: [], removals: [], eventCells: [], exits: [], entrances: [] });
   }
 
   const placements: Placement[] = [];
@@ -677,10 +729,16 @@ export function buildWorld(archive: LibArchive, sources: Record<string, string> 
     return e ? resourceName(resType, type, e.data) : "";
   };
 
+  // the maps each script runs on (a hub script on the map it is started on)
+  const running = runningMaps(scripts);
+  const runsOn = new Map<string, Set<string>>();
+  for (const [key, inherited] of running.inherited) {
+    for (const m of controlMaps(scripts.get(key)!.model, inherited)) runsOn.set(m, new Set([...(runsOn.get(m) ?? []), key]));
+  }
   const mapsAtOf = new Map<string, Map<number, Set<string | null>>>();
   for (const info of scripts.values()) {
     const { model, key } = info;
-    const mapsAt = mapsAtSteps(model);
+    const mapsAt = running.mapsAt.get(key) ?? new Map<number, Set<string | null>>();
     mapsAtOf.set(key, mapsAt);
     const entries = new Map(model.groups.map((g) => [g, groupEntry(model, g)]));
     model.steps.forEach((s, i) => {
@@ -796,7 +854,6 @@ export function buildWorld(archive: LibArchive, sources: Record<string, string> 
   // cell events and exits
   const exits: Exit[] = [];
   const memo = new Map<string, PathEnd[]>();
-  const running = runningMaps(scripts);
   for (const info of scripts.values()) {
     const { model, key } = info;
     const mapsAt = running.mapsAt.get(key)!;
@@ -853,9 +910,11 @@ export function buildWorld(archive: LibArchive, sources: Record<string, string> 
   }
   for (const [mk, map] of maps) {
     const cells = cellsOf.get(mk) ?? new Map();
-    const loaders = [...new Set(map.loadedBy.map((l) => l.script))];
+    // the scripts that can be running while the player walks here handle its cells
+    map.runBy = [...(runsOn.get(mk) ?? [])].sort(byScript);
+    for (const s of map.runBy) scripts.get(s)?.runsOn.push(mk);
     for (const [n, list] of [...cells].sort((a, b) => a[0] - b[0])) {
-      const handlers = loaders.flatMap((s) => {
+      const handlers = map.runBy.flatMap((s) => {
         const m = scripts.get(s)!.model;
         const e = m.events.find((x) => x.number === n + 40);
         if (!e) return [];

@@ -200,9 +200,9 @@ describe("project check", () => {
     const cells = Array.from({ length: 20 * 14 }, (_, i) => ({ tile: i === 0 ? 120 : 0, walkable: true, event: i === 30 ? 2 : 0 }));
     putEntry(a, { resType: 2, type: 1, index: 1, data: encodeMap({ type: 1, index: 1, tileset: 1, name: "START", width: 20, height: 14, cells }) });
     let p = checkProject(a).map((x) => x.message);
-    expect(p).toContain("map event 2 does nothing: no script that shows this map says what happens there");
+    expect(p).toContain("map event 2 on tile 10, 1 does nothing: script 1-1, the script running on this map, has no event 42. Add what happens there, or clear the event from the tiles");
     const tiles = decodeImage(findEntry(a, 7, 1, 1)!.data).frames.length;
-    expect(p).toContain(`uses tile 120, but tileset 1 has tiles 0-${tiles - 1}`);
+    expect(p).toContain(`uses tile 120 on cell 0, 0, but tileset 1 has tiles 0-${tiles - 1} (this engine draws tile 0 there). Paint those cells with a tile of the tileset`);
     withScript(a, ".gut 1 1\n.events 42\n.event 42 @door\n@start:\n  loadmap 1, 1, 4, 4\n  callback\n@door:\n  callback\n");
     p = checkProject(a).map((x) => x.message);
     expect(p.some((m) => m.startsWith("map event"))).toBe(false);

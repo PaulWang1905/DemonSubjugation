@@ -83,10 +83,11 @@ export function eventTitle(n: number, ctx: EventContext): { kind: "person" | "ob
   return { kind: "person", title: `Talking to ${name} (#${n})` };
 }
 
-/** Where map event m is painted on the maps this script shows. */
+/** Where map event m is painted on the maps this script runs on (its events run there), else on those it shows. */
 function tileWhere(m: number, ctx: EventContext): { text: string; detail?: string } {
   const info = ctx.world?.scripts.get(ctx.script);
-  const maps = (info?.maps ?? []).map((k) => ctx.world!.maps.get(k)).filter((x): x is NonNullable<typeof x> => !!x);
+  const keys = info?.runsOn.length ? info.runsOn : (info?.maps ?? []);
+  const maps = keys.map((k) => ctx.world!.maps.get(k)).filter((x): x is NonNullable<typeof x> => !!x);
   for (const map of maps) {
     const ce = map.eventCells.find((c) => c.mapEvent === m);
     if (!ce || !ce.cells.length) continue;

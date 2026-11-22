@@ -112,11 +112,11 @@ describe("1. what the player can reach", () => {
     putEntry(a, { resType: 2, type: 1, index: 1, data: withCellEvent(findEntry(a, 2, 1, 1)!.data, 19, 7, 1) });
     putEntry(a, { resType: 3, type: 2, index: 1, data: encodeNpc({ index: 1, name: "Hermit", sprite: 1, facing: 3, step: 1 }) });
     store(a, r.texts);
-    const found = checkProject(a, r.texts).filter((x) => /never be reached/.test(x.message));
+    const found = checkProject(a, r.texts).filter((x) => /never be reached|cannot stand/.test(x.message));
     expect(found.map((x) => [x.key, x.tile, x.message])).toEqual([
       ["2-1-1", { x: 19, y: 7 }, "The exit to FOREST at 19, 7 can never be reached: it is too close to the edge: the player always keeps 4 tiles from the right edge. The nearest tile that works is 16, 7."],
       ["2-1-1", { x: 2, y: 1 }, expect.stringMatching(/^Hermit at 2, 1 can never be reached: it is too close to the edge: the player always keeps 4 tiles from the left edge and 3 tiles from the top edge\. The nearest tile that works is 4, 2\.$/)],
-      ["2-1-2", { x: 18, y: 7 }, "The arrival from START at 18, 7 can never be reached: it is too close to the edge: the player always keeps 4 tiles from the right edge. The nearest tile that works is 15, 7."],
+      ["2-1-2", { x: 18, y: 7 }, "The arrival from START at 18, 7 puts the player where they cannot stand: it is too close to the edge: the player always keeps 4 tiles from the right edge. The nearest tile that works is 15, 7."],
     ]);
     expect(unreachable(buildWorld(a, r.texts), (k) => decodeMap(findEntry(a, 2, 1, Number(k.split("-")[2]))!.data))).toHaveLength(3);
   });

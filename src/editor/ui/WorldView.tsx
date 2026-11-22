@@ -1064,7 +1064,9 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     const cell = map.cells[y * map.width + x];
     const n = cell.event;
     const c = n ? overlayCell(n) : undefined;
-    const m = setup ? modelOf(setup.script) : undefined;
+    // the script whose event handles the tile (this setup's, or another that runs on the map)
+    const hs = c?.script ?? setup?.script ?? null;
+    const m = hs ? modelOf(hs) : undefined;
     const here = overlay.people.filter((p) => p.placement.x === x && p.placement.y === y);
     return (
       <div className="w-panel-body">
@@ -1110,7 +1112,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
           <>
             <p className="small">
               Event {n}: walking into this tile, or facing it and pressing OK, runs{" "}
-              {scriptLink(setup!.script, labelLine(modelOf(setup!.script)!, c.label), `its steps`)} in {scriptLabel(setup!.script)}.
+              {scriptLink(hs!, labelLine(m, c.label), `its steps`)} in {scriptLabel(hs!)}.
             </p>
             {c.exit && <ul className="w-steps small">{exitTargets(c)}</ul>}
             <ol className="w-steps small">
@@ -1119,7 +1121,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
               ))}
             </ol>
             <div className="row">
-              <button onClick={() => open(setup!.script, labelLine(m, c.label))}>Edit →</button>
+              <button onClick={() => open(hs!, labelLine(m, c.label))}>Edit →</button>
               <button className="ghost" onClick={() => commit(`Clear the event of tile ${at(x, y)}`, { map: withCellEvent(bytes, x, y, 0) })}>
                 Clear this tile
               </button>
@@ -1128,7 +1130,7 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
         ) : (
           <>
             <p className="small w-note">
-              Event {n} is painted here, but no event handles this tile{setup ? ` in ${scriptLabel(setup.script)}` : ""}: nothing happens.
+              Event {n} is painted here, but {(world.maps.get(mapKey)?.runBy.length ?? 0) > 1 ? `none of the scripts that run on this map has an event ${n + 40}` : setup ? `${scriptLabel(setup.script)} has no event ${n + 40}` : `no script has an event ${n + 40}`} for it: nothing happens.
             </p>
             <div className="row">
               <button onClick={() => addHandlerHere(n)} disabled={!setup}>
