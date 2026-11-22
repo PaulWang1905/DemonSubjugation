@@ -121,8 +121,10 @@ export function useScreenFit(
       const quarter = (fitted: number) => Math.max(1, Math.floor(fitted * dpr * 4) / 4) / dpr;
       let w = stage.clientWidth;
       let h: number;
+      // (the row of the device's other keys under the keypad, DeviceKeys.tsx, when shown)
+      const more = size(".kp-more", false);
       if (touch) {
-        h = stage.clientHeight;
+        h = stage.clientHeight - more;
         if (sideways) {
           // the widest control column, measured by its contents (grid cells stretch)
           w -= 2 * (Math.max(size(".kp-pad", true), size(".kp-ab", true), size(".kp-pages", true)) + 10);
@@ -136,14 +138,14 @@ export function useScreenFit(
       const kp = stage.querySelector(".kp") as HTMLElement | null;
       if (document.fullscreenElement) {
         // fullscreen: the game takes the whole screen (above the keypad, if shown)
-        h = window.innerHeight - (kp ? kp.offsetHeight + 10 : 0);
+        h = window.innerHeight - (kp ? kp.offsetHeight + 10 : 0) - more;
         w = window.innerWidth;
         setScale(quarter(Math.min((w - frame) / frameW, (h - frame) / frameH, 16)));
         return;
       }
       const top = stage.getBoundingClientRect().top + window.scrollY;
       h = window.innerHeight - top - 6;
-      if (kp) h -= kp.offsetHeight + 10;
+      if (kp) h -= kp.offsetHeight + 10 + more;
       else h -= 60; // leave the options bar in view
       const winW = document.documentElement.clientWidth - 32;
       const steps = (width: number) => Math.floor(Math.min((width - frame) / frameW, (h - frame) / frameH) * dpr);

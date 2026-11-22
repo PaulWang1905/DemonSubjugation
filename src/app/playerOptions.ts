@@ -2,7 +2,7 @@
 // texts (siteText.ts, playerText.ts) can state them without the player's
 // React code (playerShell.tsx re-exports them).
 
-export const SPEEDS = [1, 2, 4];
+export const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 3, 4];
 
 /** The map view: the device's 9 × 6 tiles, or `mx` more tile columns on each side and `my` rows above and below. */
 export type MapView = "normal" | "wide" | "widest";

@@ -1314,6 +1314,11 @@ footer {
   .player.with-pad .kp-pages {
     flex-direction: row;
   }
+  .player.with-pad .kp-more {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    max-width: none;
+  }
   .player.with-pad .toolbar {
     flex-wrap: nowrap;
   }

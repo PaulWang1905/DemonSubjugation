@@ -779,7 +779,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
         )}
         {showPad && <Keypad onDown={(k) => keyDown(PAD_KEYS.get(k)!)} onUp={(k) => keyUp(PAD_KEYS.get(k)!)} labels={pt.keys} />}
         {/* (the device's other keys some programs need: R, Space, 帮助, 删除, 查找, 插入) */}
-        {showPad && touch && <DeviceKeys keys={deviceKeys(lang)} onDown={keyDown} onUp={keyUp} label={pt.keys.more} names={lang === "en"} />}
+        {showPad && <DeviceKeys keys={deviceKeys(lang)} onDown={keyDown} onUp={keyUp} label={pt.keys.more} names={lang === "en"} />}
       </div>
 
       {notice && (
