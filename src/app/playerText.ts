@@ -137,6 +137,7 @@ const en = {
     back: "Back",
     confirm: "Confirm",
     ok: "OK",
+    more: "More device keys",
   },
 };
 
@@ -272,6 +273,7 @@ const zh: PlayerText = {
     back: "返回",
     confirm: "确认",
     ok: "确定",
+    more: "更多按键",
   },
 };
 
