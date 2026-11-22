@@ -8,6 +8,8 @@ import { fieldsFor, readField, readMagicChain } from "./schema";
 import { checkDialogue, checkSpeakers } from "./scriptHelp";
 import { unreachable } from "./reach";
 import { buildWorld, parseKey, type WorldIndex } from "./world";
+import { scriptLabel } from "./naming";
+import type { ProjectNotes } from "./notes";
 
 export interface Problem {
   /** error: the game is likely to stop or misbehave; warning: it runs, but not as meant. */
@@ -81,9 +83,11 @@ export const SCRIPT_REFS: Record<string, RefSpec[]> = {
 
 /**
  * Check a project. `sources` are the authors' script texts (by key); line
- * numbers refer to the text the script editor shows.
+ * numbers refer to the text the script editor shows. Scripts are named as the
+ * lists name them (format/naming.ts: "Script 2-3 三清宫药房 · 游戏开始" when
+ * other scripts share its own name; the author's name from `notes` first).
  */
-export function checkProject(a: LibArchive, sources: Record<string, string> = {}): Problem[] {
+export function checkProject(a: LibArchive, sources: Record<string, string> = {}, notes?: ProjectNotes): Problem[] {
   const out: Problem[] = [];
   const has = (resType: number, type: number, index: number) => !!findEntry(a, resType, type, index);
   const scripts = a.entries.filter((e) => e.resType === 1);
@@ -100,9 +104,14 @@ export function checkProject(a: LibArchive, sources: Record<string, string> = {}
     /* the scripts' own problems are reported below */
   }
 
+  const scriptWhere = (e: LibEntry) => {
+    const n = `Script ${e.type}-${e.index}`;
+    const l = scriptLabel(world, key(e), notes);
+    return l && l !== n ? `${n} ${l}` : describeEntry(e);
+  };
   for (const e of scripts) {
     const k = key(e);
-    const where = describeEntry(e);
+    const where = scriptWhere(e);
     try {
       parseGut(e.data);
     } catch (err) {

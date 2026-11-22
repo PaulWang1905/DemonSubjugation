@@ -55,6 +55,8 @@ import {
 import { findEntry, type LibArchive } from "./lib";
 import { nearestTile } from "./reach";
 import { resKey, type Exit, type MapInfo, type Placement, type PlayerStart, type Where, type WorldIndex } from "./world";
+import { scriptLabel } from "./naming";
+import type { ProjectNotes } from "./notes";
 import { SAY_PLAIN, SAY_WITH_PORTRAIT, wrapForBox, wrapMessage } from "./text";
 
 // ---------------------------------------------------------------------------
@@ -126,7 +128,7 @@ export interface MapSetup {
  * places people there too; when no script is known to run there, the scripts
  * that show it.
  */
-export function mapSetups(world: WorldIndex, mapKey: string): MapSetup[] {
+export function mapSetups(world: WorldIndex, mapKey: string, notes?: ProjectNotes): MapSetup[] {
   const map = world.maps.get(mapKey);
   if (!map) return [];
   const by = new Map<string, Where[]>();
@@ -136,8 +138,10 @@ export function mapSetups(world: WorldIndex, mapKey: string): MapSetup[] {
   for (const p of map.people) if (!by.has(p.script)) by.set(p.script, []);
   const out = [...by].map(([script, loads]): MapSetup => {
     const info = world.scripts.get(script);
-    const name = info?.model.header.desc?.trim() || "";
     const [, type, index] = script.split("-");
+    // (its name, or what it is for when other scripts share it: format/naming.ts)
+    const named = info ? scriptLabel(world, script, notes) : "";
+    const name = named === `Script ${type}-${index}` ? "" : named;
     const groups = [...new Set(loads.map((l) => (l.start ? "when it starts" : l.group ? `in ◆ ${l.group}` : "")))].filter(Boolean);
     const where = groups.join(", ") || (runs.has(script) ? "the script running here" : "when it runs");
     return { script, label: `${name || "Script"} (script ${type}-${index})`, where, loads };

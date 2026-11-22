@@ -32,6 +32,7 @@ import {
   type ScriptModel,
 } from "../format/scriptModel";
 import { buildWorld, projectNames, resKey, scriptNames, type WorldIndex } from "../format/world";
+import { withScriptLabels } from "../format/naming";
 import { DialoguePreview } from "./DialoguePreview";
 import { Sv, type SvContext } from "./ScriptVisualControls";
 import { EventList } from "./ScriptVisualEvents";
@@ -126,7 +127,7 @@ export function ScriptVisual({ archive, entry, onChange, services }: ViewProps) 
     // (services.version counts every change to the project)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [archive, services.version, text, key]);
-  const names = useMemo(() => (world ? scriptNames(world, archive, key, services.notes) : projectNames(archive, services.notes)), [world, archive, key, services.notes]);
+  const names = useMemo(() => (world ? withScriptLabels(scriptNames(world, archive, key, services.notes), world, services.notes) : projectNames(archive, services.notes)), [world, archive, key, services.notes]);
   const placed = useMemo(() => {
     const m = new Map<number, { name: string; kind: "person" | "object" }>();
     for (const p of world?.placements ?? []) if (p.script === key && !m.has(p.id)) m.set(p.id, { name: p.name.trim() || `${p.kind} ${p.resource.split("-")[2]}`, kind: p.kind });

@@ -11,6 +11,10 @@ import { WIZARDS } from "./Wizards";
 import { AddMenu } from "./AddMenu";
 import { entryTitle, groupEntries, groupOf, keyOf, kindLabel, parseKey, type GroupId } from "./workspace";
 import type { LibEntry } from "../format/lib";
+import { chapterPlaces, ownScriptName, scriptAbout } from "../format/naming";
+import type { ProjectNotes } from "../format/notes";
+import type { WorldIndex } from "../format/world";
+import "./scriptNames.css";
 
 interface Props {
   archive: LibArchive;
@@ -25,6 +29,9 @@ interface Props {
   marks?: ReadonlyMap<string, "error" | "warning">;
   /** Names for resources the game stores without one (the author's, else from what uses them; format/naming.ts). */
   labels?: ReadonlyMap<string, string>;
+  /** The world index: the scripts' chapters and what each is for (tooltips). */
+  world?: WorldIndex | null;
+  notes?: ProjectNotes;
   /** The groups shown open. */
   open: ReadonlySet<GroupId>;
   onToggle: (g: GroupId, open: boolean) => void;
@@ -44,12 +51,24 @@ export function sideLabel(e: LibEntry, labels?: ReadonlyMap<string, string>): st
   return `${k[0].toUpperCase()}${k.slice(1)}`;
 }
 
-export function Sidebar({ archive, active, onOpen, onCreate, dirty, marks, labels, open, onToggle }: Props) {
+/**
+ * A script shown with what it is for ("三清宫 · 游戏开始"): the part that tells
+ * it apart, and its own name (shown quieter: other scripts share it).
+ */
+export function labelParts(e: LibEntry, label: string): [string, string] {
+  if (e.resType !== 1) return [label, ""];
+  const own = ownScriptName(e);
+  const tail = ` · ${own}`;
+  return own && label !== own && label.endsWith(tail) ? [label.slice(0, -tail.length), tail] : [label, ""];
+}
+
+export function Sidebar({ archive, active, onOpen, onCreate, dirty, marks, labels, world, notes, open, onToggle }: Props) {
   const [q, setQ] = useState("");
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const chapters = useMemo(() => (world ? chapterPlaces(world) : undefined), [world]);
   const groups = useMemo(
-    () => groupEntries(archive.entries, words.length ? (e) => words.every((w) => `${filterLabel(e)} ${entryTitle(e).toLowerCase()} ${sideLabel(e, labels).toLowerCase()}`.includes(w)) : undefined),
-    [archive, archive.entries, q, labels],
+    () => groupEntries(archive.entries, words.length ? (e) => words.every((w) => `${filterLabel(e)} ${entryTitle(e).toLowerCase()} ${sideLabel(e, labels).toLowerCase()}`.includes(w)) : undefined, chapters),
+    [archive, archive.entries, q, labels, chapters],
   );
   const list = useRef<HTMLElement>(null);
 
@@ -125,6 +144,9 @@ export function Sidebar({ archive, active, onOpen, onCreate, dirty, marks, label
                       const k = keyOf(e);
                       const mark = marks?.get(k);
                       const start = k === "1-1-1";
+                      const label = sideLabel(e, labels);
+                      const [main, quiet] = labelParts(e, label);
+                      const about = e.resType === 1 && world ? scriptAbout(world, k, notes) : "";
                       return (
                         <li key={k}>
                           <button
@@ -139,8 +161,9 @@ export function Sidebar({ archive, active, onOpen, onCreate, dirty, marks, label
                                 <Thumb archive={archive} entry={e} />
                               </span>
                             )}
-                            <span className="label" title={`${sideLabel(e, labels)} (${kindLabel(e)} ${e.type}-${e.index})`}>
-                              {sideLabel(e, labels)}
+                            <span className="label" title={`${label} (${kindLabel(e)} ${e.type}-${e.index})${about ? `\n${about}` : ""}`}>
+                              {main}
+                              {quiet && <span className="sn-own">{quiet}</span>}
                             </span>
                             {start && (
                               <span className="badge" title="The game starts with this script">

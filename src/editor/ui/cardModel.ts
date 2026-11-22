@@ -11,6 +11,7 @@ import { findEntry, type LibArchive, type LibEntry } from "../format/lib";
 import { resourceNote, type ProjectNotes } from "../format/notes";
 import { fieldsFor, readField, readMagicChain, writeField, type Field } from "../format/schema";
 import { describeKey, parseKey, projectNames, referencesTo, renumberResource, resKey, scriptNames, type Reference, type RenumberResult, type WorldIndex } from "../format/world";
+import { withScriptLabels } from "../format/naming";
 
 type Ref3 = { resType: number; type: number; index: number };
 
@@ -579,7 +580,7 @@ export function usedBy(world: WorldIndex, archive: LibArchive, key: string, note
   const refs = referencesTo(world, key);
   const rows = new Map<string, UsedBy>();
   const names = new Map<string, ReturnType<typeof scriptNames>>();
-  const project = projectNames(archive, notes);
+  const project = withScriptLabels(projectNames(archive, notes), world, notes);
   for (const r of refs) {
     const id = rowId(r);
     const had = rows.get(id);
@@ -605,7 +606,7 @@ function describeRef(world: WorldIndex, archive: LibArchive, r: Reference, cache
   if (r.via === "script" && r.where) {
     const w = r.where;
     let names = cache.get(w.script);
-    if (!names) cache.set(w.script, (names = scriptNames(world, archive, w.script, notes)));
+    if (!names) cache.set(w.script, (names = withScriptLabels(scriptNames(world, archive, w.script, notes), world, notes)));
     const info = world.scripts.get(w.script);
     const { type, index } = parseKey(w.script);
     const scriptName = (project.resource?.(1, type, index) || "").trim() || `Script ${type}-${index}`;

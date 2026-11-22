@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import type { LibArchive } from "../format/lib";
 import { setFlagNote, setVariableNote, type Note, type ProjectNotes } from "../format/notes";
 import type { FlagUse, VariableUse, WorldIndex } from "../format/world";
+import { scriptLabel } from "../format/naming";
 import { projectWorld } from "../format/wizards";
 import type { Texts } from "../format/worldEdit";
 import "./starter.css";
@@ -24,10 +25,14 @@ type Use = (FlagUse | VariableUse) & { access: string };
 const VERB: Record<string, string> = { set: "set", clear: "cleared", read: "checked", write: "set", modify: "changed" };
 
 /** Where a flag or variable is used, as short links ("set in start, line 12"). */
-function Uses({ uses, world, onOpen }: { uses: Use[]; world: WorldIndex; onOpen: Props["onOpen"] }) {
+function Uses({ uses, world, notes, onOpen }: { uses: Use[]; world: WorldIndex; notes?: ProjectNotes; onOpen: Props["onOpen"] }) {
   const by = new Map<string, Use[]>();
   for (const u of uses) by.set(u.access, [...(by.get(u.access) ?? []), u]);
-  const name = (k: string) => world.scripts.get(k)?.model.header.desc?.trim() || `script ${k.split("-").slice(1).join("-")}`;
+  const name = (k: string) => {
+    const n = scriptLabel(world, k, notes);
+    const number = k.split("-").slice(1).join("-");
+    return n === `Script ${number}` ? `script ${number}` : n;
+  };
   return (
     <span className="sf-uses small">
       {[...by].map(([access, list]) => (
@@ -127,7 +132,7 @@ export function StoryFlags({ archive, texts, notes, setNotes, onOpen }: Props) {
                   value={note}
                   onSave={(v) => setNotes((prev) => (tab === "flags" ? setFlagNote(prev, n, v) : setVariableNote(prev, n, v)))}
                 />
-                {uses.length ? <Uses uses={uses} world={world} onOpen={onOpen} /> : <span className="muted small">not used by any script</span>}
+                {uses.length ? <Uses uses={uses} world={world} notes={notes} onOpen={onOpen} /> : <span className="muted small">not used by any script</span>}
               </li>
             );
           })}

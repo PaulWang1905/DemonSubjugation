@@ -3,6 +3,7 @@
 // set and checked, and the next free number for a new one.
 import type { ProjectNotes } from "./notes";
 import type { WorldIndex } from "./world";
+import { scriptShortLabel } from "./naming";
 
 export interface FlagChoice {
   flag: number;
@@ -15,7 +16,11 @@ export interface FlagChoice {
 /** The flags in use: named ones and used ones (plus `extra`, e.g. this script's), by number. */
 export function flagChoices(notes: ProjectNotes | undefined, world?: WorldIndex, extra: Iterable<number> = []): FlagChoice[] {
   const nums = new Set<number>([...Object.keys(notes?.flags ?? {}).map(Number), ...(world?.flags.keys() ?? []), ...extra]);
-  const scriptName = (k: string) => world?.scripts.get(k)?.model.header.desc?.trim() || `script ${k.split("-").slice(1).join("-")}`;
+  const scriptName = (k: string) => {
+    const number = k.split("-").slice(1).join("-");
+    const n = world ? scriptShortLabel(world, k, notes) : "";
+    return n && n !== `Script ${number}` ? n : `script ${number}`;
+  };
   return [...nums]
     .filter((n) => Number.isInteger(n) && n >= 1 && n <= 2400)
     .sort((a, b) => a - b)

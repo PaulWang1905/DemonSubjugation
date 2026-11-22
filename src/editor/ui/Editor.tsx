@@ -389,7 +389,7 @@ export function Editor({ onPlaytest }: Props) {
   };
 
   // (re-checked after every change; `version` counts them)
-  const problems = useMemo(() => (cur ? checkProject(cur.archive, cur.sources) : []), [cur, version]);
+  const problems = useMemo(() => (cur ? checkProject(cur.archive, cur.sources, cur.notes) : []), [cur, version]);
   // the world as saved (names for art in the lists, the map a script shows)
   const world = useMemo(() => {
     if (!cur) return null;
@@ -524,7 +524,7 @@ export function Editor({ onPlaytest }: Props) {
   const playtestAt = (map: string, x: number, y: number): string | null => {
     if (!cur) return null;
     const { next, failed } = applyDrafts(cur);
-    const found = [...failed, ...checkProject(next.archive, next.sources)];
+    const found = [...failed, ...checkProject(next.archive, next.sources, next.notes)];
     if (found.some((p) => p.level === "error")) {
       pendingHere.current = { map, x, y };
       setChecking({ action: "playtest", problems: found });
@@ -565,7 +565,7 @@ export function Editor({ onPlaytest }: Props) {
   const guarded = (action: "playtest" | "export") => {
     if (!cur) return;
     const { next, failed } = applyDrafts(cur);
-    const found = [...failed, ...checkProject(next.archive, next.sources)];
+    const found = [...failed, ...checkProject(next.archive, next.sources, next.notes)];
     if (found.some((p) => p.level === "error")) {
       setChecking({ action, problems: found });
       return;
@@ -862,6 +862,8 @@ export function Editor({ onPlaytest }: Props) {
         <Sidebar
           archive={cur.archive}
           labels={labels}
+          world={world}
+          notes={cur.notes}
           active={activeKey}
           onOpen={(key, pinIt) => openResource(key, { preview: !pinIt })}
           onCreate={create}

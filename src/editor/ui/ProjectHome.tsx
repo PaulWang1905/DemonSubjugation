@@ -7,6 +7,8 @@ import { problemSummary, type Problem } from "../format/validate";
 import { entryOf, entryTitle, findStart, GROUPS, groupCounts, type GroupId } from "./workspace";
 import { WorldMapCard } from "./WorldMap";
 import { plainProblem } from "./plainWords";
+import { useContext } from "react";
+import { LabelsContext } from "./names";
 
 interface Props {
   archive: LibArchive;
@@ -45,6 +47,7 @@ function titleBytes(s: string): Uint8Array | null {
 
 export function ProjectHome(p: Props) {
   const { archive, problems } = p;
+  const labels = useContext(LabelsContext);
   const start = findStart(archive, p.sources);
   const counts = groupCounts(archive.entries);
   const errors = problems.filter((x) => x.level === "error");
@@ -58,7 +61,7 @@ export function ProjectHome(p: Props) {
     if (!e || !key) return null;
     return (
       <button className="link" onClick={() => p.onOpen(key, line)}>
-        {e.resType === 1 ? "script" : "map"} {e.type}-{e.index} <strong>{entryTitle(e)}</strong>
+        {e.resType === 1 ? "script" : "map"} {e.type}-{e.index} <strong>{labels?.get(key) ?? entryTitle(e)}</strong>
       </button>
     );
   };

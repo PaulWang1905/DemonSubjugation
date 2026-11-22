@@ -104,17 +104,31 @@ const byNumber = (a: Ref, b: Ref) => a.resType - b.resType || a.type - b.type ||
 /**
  * The sidebar's groups, every one of them (an empty group still offers "+"),
  * each with its non-empty sections in order. `match` filters the entries.
+ * Scripts of more than one type (a game's chapters: 伏魔记 has 14) come in a
+ * section per chapter, "Chapter 3 · 忘忧村" with `chapters` (format/naming.ts
+ * chapterPlaces).
  */
-export function groupEntries(entries: readonly LibEntry[], match?: (e: LibEntry) => boolean): SidebarGroup[] {
+export function groupEntries(entries: readonly LibEntry[], match?: (e: LibEntry) => boolean, chapters?: ReadonlyMap<number, string>): SidebarGroup[] {
   const sections = new Map<string, LibEntry[]>();
+  const chaptered = new Set(entries.filter((e) => e.resType === 1).map((e) => e.type)).size > 1;
   for (const e of [...entries].sort(byNumber)) {
     if (match && !match(e)) continue;
-    const s = sectionOf(e).id;
+    const s = chaptered && e.resType === 1 ? `1-${e.type}` : sectionOf(e).id;
     if (!sections.has(s)) sections.set(s, []);
     sections.get(s)!.push(e);
   }
+  const chapterSections = [...sections.keys()]
+    .filter((id) => /^1-\d+$/.test(id))
+    .map((id) => {
+      const t = Number(id.slice(2));
+      const place = chapters?.get(t);
+      return { id, label: `Chapter ${t}${place ? ` · ${place}` : ""}`, entries: sections.get(id)! };
+    });
   return GROUPS.map((g) => {
-    const list = SECTIONS.filter((s) => s.group === g.id && sections.has(s.id)).map((s) => ({ id: s.id, label: s.label, entries: sections.get(s.id)! }));
+    const list = [
+      ...(g.id === "story" ? chapterSections : []),
+      ...SECTIONS.filter((s) => s.group === g.id && sections.has(s.id)).map((s) => ({ id: s.id, label: s.label, entries: sections.get(s.id)! })),
+    ];
     return { ...g, sections: list, count: list.reduce((n, s) => n + s.entries.length, 0) };
   });
 }

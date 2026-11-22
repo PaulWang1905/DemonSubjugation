@@ -20,6 +20,7 @@ import { assemble } from "../format/gut";
 import { findEntry, type LibArchive, type LibEntry } from "../format/lib";
 import { parseScript, setOperand, toSource, type ScriptModel } from "../format/scriptModel";
 import { buildWorld, describeKey, resKey, scriptNames, withCellEvent, type Placement, type WorldIndex } from "../format/world";
+import { scriptLabel as scriptName, withScriptLabels } from "../format/naming";
 import {
   addCellHandler,
   addChest,
@@ -209,10 +210,10 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
   // --- the world index ---------------------------------------------------------
   const input = useMemo(() => indexInput(archive, services.scriptText), [archive, services.version]); // eslint-disable-line react-hooks/exhaustive-deps
   const world: WorldIndex = useMemo(() => buildWorld(input.archive, input.texts), [input]);
-  const setups = useMemo(() => mapSetups(world, mapKey), [world, mapKey]);
+  const setups = useMemo(() => mapSetups(world, mapKey, services.notes), [world, mapKey, services.notes]);
   const setup = setups.find((x) => x.script === setupPick) ?? setups[0] ?? null;
   const overlay = useMemo(() => mapOverlay(world, input.archive, mapKey, setup?.script ?? null), [world, input, mapKey, setup?.script]);
-  const names = useMemo(() => (setup ? scriptNames(world, archive, setup.script, services.notes) : {}), [world, archive, setup?.script, services.notes]); // eslint-disable-line react-hooks/exhaustive-deps
+  const names = useMemo(() => (setup ? withScriptLabels(scriptNames(world, archive, setup.script, services.notes), world, services.notes) : {}), [world, archive, setup?.script, services.notes]); // eslint-disable-line react-hooks/exhaustive-deps
   const modelOf = (k: string): ScriptModel | undefined => world.scripts.get(k)?.model;
   const textOf = (k: string) => input.texts[k] ?? services.scriptText(k);
   const mapName = (k: string) => world.maps.get(k)?.name || describeKey(archive, k);
@@ -944,10 +945,11 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
       {text ?? `${scriptLabel(script)}, line ${line}`}
     </button>
   );
+  // (by its name, or by what it is for when other scripts share its name: format/naming.ts)
   const scriptLabel = (k: string) => {
-    const m = modelOf(k);
     const [, t, i] = k.split("-");
-    return `${m?.header.desc?.trim() || "script"} (${t}-${i})`;
+    const n = scriptName(world, k, services.notes);
+    return `${n === `Script ${t}-${i}` ? "script" : n} (${t}-${i})`;
   };
 
   const placementPanel = (p: Placement) => {

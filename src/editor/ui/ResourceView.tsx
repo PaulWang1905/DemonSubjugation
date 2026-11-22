@@ -8,6 +8,7 @@ import { useRenumber, type RenumberActions } from "./RenumberControl";
 import { pickView, viewsFor, type EditorServices } from "./views";
 import { entryTitle, keyOf, kindLabel } from "./workspace";
 import { LabelsContext } from "./names";
+import { ScriptNameNote } from "./ScriptNameNote";
 
 interface Props {
   archive: LibArchive;
@@ -95,6 +96,7 @@ export function ResourceView({ archive, entry, mode, onMode, onChange, services,
         )}
       </header>
       {renumber.panel}
+      <ScriptNameNote archive={archive} entry={entry} services={services} />
       <div id={`${idBase}-body`} role={views.length > 1 ? "tabpanel" : undefined} aria-labelledby={views.length > 1 && view ? `${idBase}-${view.id}` : undefined}>
         <Guard key={view?.id}>{View ? <View archive={archive} entry={entry} onChange={onChange} services={services} /> : <p className="muted">No view for this resource.</p>}</Guard>
       </div>

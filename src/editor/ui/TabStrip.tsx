@@ -26,6 +26,14 @@ interface Props {
   onClose: (key: string) => void;
 }
 
+/** The names more than one of `names` has. */
+export function twinNames(names: readonly string[]): Set<string> {
+  const seen = new Set<string>();
+  const twins = new Set<string>();
+  for (const n of names) (seen.has(n) ? twins : seen).add(n);
+  return twins;
+}
+
 export const tabId = (key: string) => `tab-${key}`;
 export const panelId = (key: string) => `panel-${key}`;
 
@@ -44,6 +52,11 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, lab
   // (when they do not all fit, the project home shows only its icon first)
   const [{ cap, tight }, setFit] = useState<{ cap: number | null; tight: boolean }>({ cap: null, tight: false });
   const shown = tabs.map((t) => `${t.key}:${labels?.get(t.key) ?? ""}:${marks.get(t.key) ?? ""}:${dirty.has(t.key)}`).join("|");
+  const nameOf = (key: string) => {
+    const e = entryOf(archive, key);
+    return e ? (labels?.get(key) ?? entryTitle(e)) : key;
+  };
+  const twins = twinNames(tabs.filter((t) => t.key !== HOME_TAB).map((t) => nameOf(t.key)));
   useLayoutEffect(() => {
     const el = strip.current;
     if (!el) return;
@@ -102,7 +115,9 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, lab
       {tabs.map((t, i) => {
         const home = t.key === HOME_TAB;
         const e = home ? undefined : entryOf(archive, t.key);
-        const label = home ? "Project" : e ? (labels?.get(t.key) ?? entryTitle(e)) : t.key;
+        const named = home ? "Project" : e ? nameOf(t.key) : t.key;
+        // (two open tabs with one name, as scripts of one map can be, show their numbers)
+        const label = e && twins.has(named) ? `${named} ${e.type}-${e.index}` : named;
         const kind = home ? "home" : e ? kindLabel(e) : "";
         const selected = t.key === active;
         const isDirty = dirty.has(t.key);
