@@ -8,7 +8,8 @@ import { BOOT_FRAMES, Device, FPS } from "../bbk/device";
 import { findLib } from "../bbk/gam";
 import { KitCheats } from "../bbk/kitCheats";
 import { missingRegions } from "../bbk/firmware";
-import { Key, KEYBOARD } from "../bbk/keys";
+import { Key, KEYBOARD, type Press } from "../bbk/keys";
+import { DeviceInput } from "./deviceInput";
 import { decodeLcd, LCD_HEIGHT, LCD_STRIDE, LCD_WIDTH } from "../bbk/lcd";
 import { WideView } from "../bbk/wideView";
 import { CPU_HZ } from "../bbk/machine";
@@ -23,7 +24,7 @@ import { HiresText, outputScale, type ScreenEffect, type TextStyle } from "./hir
 import { Keypad } from "./Keypad";
 import { DeviceKeys, deviceKeys } from "./DeviceKeys";
 import { useLongPress } from "./longPress";
-import { applyPalette, PALETTES } from "./palettes";
+import { PALETTES, type Palette } from "./palettes";
 import { PLAYER_TEXT } from "./playerText";
 import { effectOf, MAP_VIEWS, mapViewOf, type MapView, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
 import { useSiteLang } from "./siteLang";
@@ -40,10 +41,38 @@ interface Props {
 }
 
 const FRAME_MS = 1000 / FPS;
-/** Held keys repeat after this long, then every REPEAT_RATE ms. */
-const REPEAT_DELAY = 300;
-const REPEAT_RATE = 90;
-const REPEATS = new Set<number>([Key.up, Key.down, Key.left, Key.right, Key.pageUp, Key.pageDown, Key.del]);
+/**
+ * How long a frame of the page may spend emulating (ms), and how much device
+ * time may wait to be emulated: on a phone too slow for real time the device
+ * runs slower, a frame at a time, instead of catching up in bursts while
+ * presses wait behind the backlog.
+ */
+const FRAME_BUDGET_MS = 10;
+const MAX_LAG_MS = 6 * FRAME_MS;
+/** The LCD's memory (with $1000, which stands for row 0's first byte). */
+const LCD_RAM = 0x400, LCD_BYTES = 0x1001 - LCD_RAM;
+
+/** Whether the LCD's memory is as `shown`. */
+function sameLcd(ram: Uint8Array, shown: Uint8Array): boolean {
+  for (let i = 0; i < LCD_BYTES; i++) if (ram[LCD_RAM + i] !== shown[i]) return false;
+  return true;
+}
+
+/** Native-endian RGBA as one 32-bit word. */
+const word = (() => {
+  const w = new Uint32Array(1), b = new Uint8Array(w.buffer);
+  return (c: readonly [number, number, number]) => {
+    b.set([c[0], c[1], c[2], 255]);
+    return w[0];
+  };
+})();
+
+/** The device's pixels (1 dark) in the palette's colours, into `image`: what applyPalette makes of them. */
+function paint(frame: Uint8Array, stride: number, fw: number, fh: number, image: ImageData, pal: Palette): void {
+  const out = new Uint32Array(image.data.buffer, image.data.byteOffset, fw * fh);
+  const dark = word(pal.dark), light = word(pal.light);
+  for (let y = 0, i = 0; y < fh; y++) for (let x = 0, j = y * stride; x < fw; x++, i++, j++) out[i] = frame[j] ? dark : light;
+}
 /** Power, the menu and the two dictionaries: they leave the program. */
 const SYSTEM_KEYS = new Set<number>([Key.power, Key.home, Key.dualDict, Key.modern]);
 /** The on-screen keypad's keys on the device. */
@@ -300,17 +329,27 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
     let rgba = new Uint8ClampedArray(0), image = new ImageData(1, 1), wide = new Uint8Array(0);
     const hires = new Map<TextStyle | "pixel", HiresText>();
     let raf = 0, last = performance.now(), acc = 0;
+    // what was drawn last: the LCD's memory and the settings it was drawn with (a still screen is not drawn again)
+    const lcdShown = new Uint8Array(LCD_BYTES);
+    let drawnWith = "";
     const loop = (now: number) => {
       const d = deviceRef.current?.device;
       const o = live.current;
       acc = o.paused ? 0 : acc + Math.min(now - last, 250) * o.speed;
       last = now;
       if (d) {
-        for (let steps = 0; acc >= FRAME_MS && steps < 16; steps++, acc -= FRAME_MS) {
+        // Emulate the frames due, within a budget of the frame's time; when a slow phone cannot keep
+        // up, the device runs slower than real time rather than falling behind: at most MAX_LAG of
+        // its time waits to be emulated, so a key pressed is read soon whatever the backlog was.
+        for (const start = performance.now(); acc >= FRAME_MS; acc -= FRAME_MS) {
           d.machine.run(CPU_HZ / FPS);
           kitRef.current?.tick();
-          if (d instanceof FuluDevice && d.stopped) break;
+          if ((d instanceof FuluDevice && d.stopped) || performance.now() - start > FRAME_BUDGET_MS) {
+            acc -= FRAME_MS;
+            break;
+          }
         }
+        acc = Math.min(Math.max(acc, 0), MAX_LAG_MS);
         // on Fulu, Chinese input: the box for the computer's own input method
         const zh = d instanceof FuluDevice && d.chineseInput;
         if (zh !== chineseRef.current) setChinese((chineseRef.current = zh));
@@ -332,8 +371,19 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
             setStatus({ kind: "error", message: canGoOn ? text.fuluCannot(why) : text.ended, canGoOn });
           }
         }
-        decodeLcd(d.machine.ram, pixels);
         const { mx, my } = o.view, w = wideRef.current;
+        const wideNow = !!w && (mx || my) !== 0;
+        // nothing new to show: the same screen with the same settings (the wider view moves the map's people besides)
+        const hiresNow = o.effect !== "none" || !!o.hd ? hires.get(o.hd ?? "pixel") : undefined;
+        const settings = `${o.paletteId}:${o.effect}:${o.hd}:${o.letters}:${o.scale}:${mx}:${my}`;
+        const ram = d.machine.ram;
+        if (!wideNow && !hiresNow?.stale && settings === drawnWith && sameLcd(ram, lcdShown)) {
+          raf = requestAnimationFrame(loop);
+          return;
+        }
+        drawnWith = settings;
+        lcdShown.set(ram.subarray(LCD_RAM, LCD_RAM + LCD_BYTES));
+        decodeLcd(ram, pixels);
         const [ww, wh] = w && (mx || my) ? WideView.size(mx, my) : [LCD_WIDTH, LCD_HEIGHT];
         if (ww !== fw || wh !== fh) {
           [fw, fh] = [ww, wh];
@@ -346,22 +396,23 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
           at = w.compose(pixels, kitRef.current?.mapView() ?? null, mx, my, wide);
           [frame, stride] = [wide, fw];
         } else [frame, stride] = [pixels, LCD_STRIDE];
-        for (let y = 0, i = 0; y < fh; y++) {
-          for (let x = 0; x < fw; x++, i += 4) {
-            const v = frame[y * stride + x] ? 0 : 255;
-            rgba[i] = rgba[i + 1] = rgba[i + 2] = v;
-            rgba[i + 3] = 255;
-          }
-        }
         const pal = PALETTES.find((p) => p.id === o.paletteId) ?? PALETTES[0];
         if (o.effect === "none" && !o.hd) {
           if (cv.width !== fw || cv.height !== fh) {
             cv.width = fw;
             cv.height = fh;
           }
-          applyPalette(rgba, image.data, pal);
+          // the palette's two colours straight into the picture (as applyPalette gives them)
+          paint(frame, stride, fw, fh, image, pal);
           ctx.putImageData(image, 0, 0);
         } else {
+          for (let y = 0, i = 0; y < fh; y++) {
+            for (let x = 0; x < fw; x++, i += 4) {
+              const v = frame[y * stride + x] ? 0 : 255;
+              rgba[i] = rgba[i + 1] = rgba[i + 2] = v;
+              rgba[i + 3] = 255;
+            }
+          }
           const key = o.hd ?? "pixel";
           let h = hires.get(key);
           if (!h) hires.set(key, (h = new HiresText(o.hd)));
@@ -377,39 +428,19 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
     return () => cancelAnimationFrame(raf);
   }, [status.kind]);
 
-  // Keys: a press goes to the device; held direction keys repeat.
-  const held = useRef(new Map<number, number>());
-  /** Held keys that have repeated. */
-  const repeated = useRef(new Set<number>());
-  const keyDown = useCallback((k: number) => {
-    if (held.current.has(k) || live.current.paused) return;
-    // On Fulu the system keys would only end the program (they lead to the
-    // power-off, the OS's menu and the dictionaries, which Fulu does not
-    // have), so a stray press is ignored.
-    if (deviceRef.current?.device instanceof FuluDevice && SYSTEM_KEYS.has(k)) return;
-    deviceRef.current?.device.press(k);
-    // A held key repeats only once the program has read the last one, so
-    // that repeats do not pile up while it is busy (a walk would go on after
-    // the key is let go).
-    const repeat = () => {
-      const d = deviceRef.current?.device;
-      if (d && !d.machine.keysWaiting()) {
-        d.press(k);
-        repeated.current.add(k);
-      }
-      held.current.set(k, window.setTimeout(repeat, REPEAT_RATE));
-    };
-    held.current.set(k, REPEATS.has(k) ? window.setTimeout(repeat, REPEAT_DELAY) : 0);
-  }, []);
-  const keyUp = useCallback((k: number) => {
-    window.clearTimeout(held.current.get(k));
-    held.current.delete(k);
-    // a held key's repeats not read yet are taken back, so the walk stops when the key is let go (a tap's one press stays)
-    if (repeated.current.delete(k)) deviceRef.current?.device.machine.dropKey(k);
-  }, []);
-  const releaseKeys = useCallback(() => {
-    for (const k of [...held.current.keys()]) keyUp(k);
-  }, [keyUp]);
+  // Keys: a press goes to the device (deviceInput.ts: held arrows repeat;
+  // 删除, 修改, 查找, 插入 and 帮助 are Shift and a key, as on the device). On
+  // Fulu the system keys would only end the program (they lead to the
+  // power-off, the OS's menu and the dictionaries, which Fulu does not have),
+  // so a stray press is ignored.
+  const input = useRef<DeviceInput | null>(null);
+  input.current ??= new DeviceInput(
+    () => deviceRef.current?.device,
+    (k) => !live.current.paused && !(deviceRef.current?.device instanceof FuluDevice && SYSTEM_KEYS.has(k)),
+  );
+  const keyDown = useCallback((p: Press) => input.current!.down(p), []);
+  const keyUp = useCallback((p: Press) => input.current!.up(p), []);
+  const releaseKeys = useCallback(() => input.current!.releaseAll(), []);
   const hold = useLongPress(
     useCallback(() => {
       releaseKeys();
@@ -419,7 +450,6 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const debugRef = useRef(debugOpen);
   debugRef.current = debugOpen;
   useEffect(() => {
-    const keys = held.current;
     const down = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       // (from the empty Chinese box, the device's keys that do not type go to the device)
@@ -442,10 +472,9 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
-      for (const t of keys.values()) window.clearTimeout(t);
-      keys.clear();
+      releaseKeys();
     };
-  }, [keyDown, keyUp]);
+  }, [keyDown, keyUp, releaseKeys]);
 
   // The phone layout covers the page; stop the page behind it scrolling.
   useEffect(() => {

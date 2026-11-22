@@ -29,10 +29,43 @@ async function pipe(data: BufferSource, stream: CompressionStream | Decompressio
 
 const gunzip = async (data: ArrayBuffer) => new Uint8Array(await pipe(data, new DecompressionStream("gzip")));
 
+/**
+ * The last flash compressed, for each device's flash: a running device is put
+ * away every 30 seconds, and its 2 MB flash seldom changes (only when the
+ * program saves), so it is compressed again only when it has.
+ */
+const packed = new WeakMap<Uint8Array, { copy: Uint8Array; gz: ArrayBuffer }>();
+
+/** Whether two byte arrays of the same length hold the same bytes (a word at a time where they line up). */
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  const n = a.length >> 2;
+  if (a.byteOffset % 4 === 0 && b.byteOffset % 4 === 0) {
+    const x = new Uint32Array(a.buffer, a.byteOffset, n), y = new Uint32Array(b.buffer, b.byteOffset, n);
+    for (let i = 0; i < n; i++) if (x[i] !== y[i]) return false;
+    for (let i = n * 4; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** A device's flash, gzipped. */
+async function gzipFlash(data: Uint8Array): Promise<ArrayBuffer> {
+  const last = packed.get(data);
+  if (last && sameBytes(last.copy, data)) return last.gz;
+  const copy = data.slice();
+  const gz = await pipe(copy as BufferSource, new CompressionStream("gzip"));
+  packed.set(data, { copy, gz });
+  return gz;
+}
+
 /** A device as stored: its state and its gzipped flash. */
 async function pack(id: string, os: string, device: Kept): Promise<StoredDevice> {
-  const flash = await pipe(device.machine.flash.data as BufferSource, new CompressionStream("gzip"));
-  return { id, os, state: device.machine.saveState(), flash, savedAt: Date.now() };
+  // (the state and the flash at the same moment: the flash is copied before it is compressed)
+  const state = device.machine.saveState();
+  const flash = await gzipFlash(device.machine.flash.data);
+  return { id, os, state, flash, savedAt: Date.now() };
 }
 
 /** Put a stored device's state and flash into `device`; false if it is for another OS. */

@@ -104,9 +104,9 @@ interface Nested {
  * while it waits (the CPU halted until the next interrupt), and the rest
  * after its answer.
  */
-/** The keys the scripts press: the play keys, and with them the keys a keyboard has (characters, shift, delete, the input key). */
+/** The keys the scripts press: the play keys, and with them the keys a keyboard has (characters, 中英符, Shift, the input key). */
 const PLAY_KEYS: number[] = [Key.enter, Key.enter, Key.enter, Key.up, Key.down, Key.left, Key.right, Key.enter, Key.down, Key.right, Key.exit];
-const TYPING_KEYS = [...PLAY_KEYS, ...[..."az09m"].map(keyCode), Key.space, Key.shift, Key.del, Key.del, Key.input];
+const TYPING_KEYS = [...PLAY_KEYS, ...[..."az09m"].map(keyCode), Key.space, Key.lang, Key.shift, Key.shift, Key.input];
 
 /**
  * A key script: E Enter, X Exit, U D L R the arrows, each pressed with 0.6 s
@@ -660,8 +660,8 @@ describe.skipIf(!FW || !existsSync(FW))("Fulu against the OS", () => {
       m.ram[0x2b27] = (rand(4) ? 0 : rand(256) & 0xc0) | (rand(2) << 4) | (chinese ? 0 : rand(2) << 5) | mode;
       m.ram[0x2b28] = rand(256);
       m.ram.set([rand(8), rand(8), rand(10)], 0x2b09);
-      // a key message (now and then another type): mostly Shift, else any key
-      const key = rand(2) || chinese ? Key.shift : rand(64);
+      // a key message (now and then another type): mostly 中英符 (Key.lang, the GUI's "shift" between input modes), else any key
+      const key = rand(2) || chinese ? Key.lang : rand(64);
       const msg = 0x3000 + rand(0x100);
       m.ram.set([rand(16) ? 1 : rand(256), key, rand(256)], msg);
       const state = `state ${hex(m.ram[0x2b27])} ${hex(m.ram[0x2b28])}, queue ${[...m.ram.subarray(0x2b09, 0x2b0c)].map((v) => hex(v)).join(" ")}, message ${hex(m.ram[msg])} ${hex(key)}`;

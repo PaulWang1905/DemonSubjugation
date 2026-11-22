@@ -12,7 +12,7 @@ import { Fulu } from "../../src/fulu/fulu";
 import { Key } from "../../src/bbk/keys";
 import { CPU_HZ } from "../../src/bbk/machine";
 const [dir, shard, shards, seconds, noShift] = process.argv.slice(2);
-const all = Object.values(Key).filter((k) => k > 3 && (!noShift || k !== Key.shift));
+const all = Object.values(Key).filter((k) => k > 3 && (!noShift || k !== Key.lang));
 const letters = [0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,0x30,0x31,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x32,0x33,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f,0x34,0x21,0x22,0x23,0x24,0x25,0x26,0x27];
 const nav = [Key.enter, Key.up, Key.down, Key.left, Key.right, Key.space];
 const files = readdirSync(dir).filter((x) => x.endsWith(".gam")).sort().filter((_, i) => i % +shards === +shard);

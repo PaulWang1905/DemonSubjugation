@@ -215,6 +215,10 @@ export class HiresText {
   private last: { frame: Uint8ClampedArray; key: string; out: HTMLCanvasElement } | null = null;
   /** A glyph in the last draw used a stand-in font (its own was still loading). */
   private incomplete = false;
+  /** Whether the last draw is to be drawn again (a font it needed was still loading). */
+  get stale(): boolean {
+    return this.incomplete;
+  }
 
   /** `style` null: keep the game's own pixel text (only the picture effect applies). */
   private letters: LetterFont = "auto";

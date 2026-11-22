@@ -210,7 +210,7 @@ its size in instructions (with the resident code it uses), what it does.
 | $E932 | (GUI start-up) | 8:$5000 | 164 | clears $2B09-$2B0B, memset($2B0F, 0, $18), $2B27 = 2, $2B28 = $0F; far-calls $E9A1($FFFF), $E91C, $E848(0), $E8D7(0), $E845(0); returns 1 |
 | $E935 | GuiGetMsg | 8:$5093 | 2075 | (msg): the message pump (below) |
 | $E93B | (input mode) | 8:$5FF3 | 118 | (mode): switch the keyboard state's low 4 bits (modes 2, 4, 8, 1) with a routine per change (in Fulu without the input bar) |
-| $E93E | GuiTranslateMsg | 8:$6111 | 1269 | (msg): a key message becomes (class, code) by the key-class table 8:$8C36 (the second half while the shift latch is set; in src/fulu/gui.ts). $2B27 is the keyboard state: low 4 bits the input mode (1, 2, 4, 8), bits 2, 3 input methods, 4 caps, 5 the shift latch; $2B28 what characters are accepted (bit 0 digits, 1 letters, 2, 3 input methods). Characters: a-z upper case with caps or the latch (which they release), the parameter's high byte = the latch, returns $6973's verdict (letters by $2B28 bit 1, digits bit 0, space and '.' either). Delete ($34) toggles the latch ($695A, and its icon $E845); shift ($29) is a switch on the mode ($67CC, table 8:$8BAC): modes 1, 2 with $2B28 bits 2, 3 clear make it the command $29, else the mode changes (in Fulu: below, "The Shift key"); the latched input key ($36) toggles caps (icon $E848) in mode 2; other commands release the latch. Input methods ($E919, $E925, ...) are not in Fulu |
+| $E93E | GuiTranslateMsg | 8:$6111 | 1269 | (msg): a key message becomes (class, code) by the key-class table 8:$8C36 (the second half while the shift latch is set; in src/fulu/gui.ts). $2B27 is the keyboard state: low 4 bits the input mode (1, 2, 4, 8), bits 2, 3 input methods, 4 caps, 5 the shift latch; $2B28 what characters are accepted (bit 0 digits, 1 letters, 2, 3 input methods). Characters: a-z upper case with caps or the latch (which they release), the parameter's high byte = the latch, returns $6973's verdict (letters by $2B28 bit 1, digits bit 0, space and '.' either). The Shift key ($2D, the command $34) toggles the latch ($695A, and its icon $E845); 中英符 ($28, the command $29, which these notes and gui.ts call "shift") is a switch on the mode ($67CC, table 8:$8BAC): modes 1, 2 with $2B28 bits 2, 3 clear make it the command $29, else the mode changes (in Fulu: below, "The Shift key"); the latched input key ($36) toggles caps (icon $E848) in mode 2; other commands release the latch. Input methods ($E919, $E925, ...) are not in Fulu |
 | $E944 | (heap set-up) | 8:$7D92 | 508 | (start, size, x): the heap (below); its memset is a JSR $5000 in segment 8, which is the GUI start-up $E932, run instead |
 | $E947 | SysMemAllocate | 8:$8515 | 1120 | (n): first fit (below) |
 | $E94A | SysMemFree | 8:$88DD | 1013 | (p): free and join (below) |
@@ -651,6 +651,21 @@ When the key is let go, the repeats it queued are dropped (Machine.dropKey:
 from the machine's queue, and the OS's buffer when it holds only that key),
 so a step does not go on after the release.
 
+The player's frame loop (DevicePlayer) emulates the frames due within 10 ms
+of each page frame; when a phone is too slow for real time the device runs
+slower, at most six frames (100 ms) of its time waiting (a brief stall is
+caught up over the next frames), instead of running
+up to 16 frames at once in bursts while presses wait behind them. A frame
+whose LCD memory ($0400-$1000) and settings are as last drawn is not drawn
+again, and the device's flash is compressed for the 30-second keeping only
+when it has changed. Measured with 异世大陆 in Chromium with the CPU slowed
+4x, 6x and 20x (an iPhone 13's screen): the device keeps real time on both
+OSes, a tap on the map shows on the screen in 50-90 ms (6x; the game's own
+step), 120-330 ms at 20x, and the row's 删除 修改 查找 插入 in 60-120 ms (6x);
+at 6x Fulu spends 0.5 ms a frame emulating on average (2 ms at most for 95% of
+frames), the firmware 1.3 ms (6 ms); a still screen costs no drawing (1.1 ms
+a frame before, 4 ms at 20x). On both OSes holding ↓ walks 14 steps in 1.5 s.
+
 The clocks: the CPU runs at 8 MHz and the timer counts at 9 kHz (90 counts,
 the OS's reload of $A6, make the games' 10 ms unit: SysTimer1Open(50) is the
 map's half-second tick). The reference emulators' 4 MHz with 400 cycles a
@@ -669,6 +684,31 @@ least every 250 ms; scenes, notices (真气不足!, 340 ms) and loading take
 longer. Waiting in GuiGetMsg is asking, so the key that ends a wait, however
 long, is kept; a held key's next repeat comes within 90 ms. Only on Fulu's own
 machine (not in the shadow run); the firmware keeps the device's behaviour.
+
+## The keys printed beside others (异世大陆)
+
+The 4988 has no keys of its own for 删除, 修改, 查找, 插入, 帮助 or Caps: they
+are printed beside ←, ↑, ↓, →, 中英符 and 输入法, and are those keys after
+Shift ($2D), which the GUI keeps as a latch: GuiTranslateMsg's second table
+makes the arrows 删除 $31, 修改 $32, 查找 $33, 插入 $30, 中英符 帮助 $26. The
+key codes $29-$2C (帮助, 查找, 插入, 修改 on other BBK dictionaries) have no
+class in the 4988's table (8:$8C36) and its keyboard never sends them. The
+player's row of device keys sent $29, $2A, $2B (nothing happened, on the
+firmware as on Fulu) and $2D for 删除 (Shift alone: nothing showed, and the
+next arrow gave a second meaning, so the game reacted a key later); now each
+sends Shift and its key (src/app/deviceInput.ts; just the key when the latch
+is already set and nothing waits to be read), and so do the computer's F1,
+F2, F3, Insert and Backspace.
+
+The RPG kit's engine (the C reconstruction's _00214347_readKeyBuffer) runs
+the game's scripts 0-6 to 0-9 for 查找, 插入, 修改 and 删除 on the map. In
+异世大陆: 查找 views the belief, the year, the age and hunger; 插入 the
+training of 上古秘法 ("可以通过此键来进行修炼"); 修改 switches 一般模式 /
+战斗模式; 删除 opens 开关坐标 / 开关MISS / 踢除人物. Space (a character)
+turns continuous walking on and off (an arrow then walks until pressed
+again); typing V, E, R shows the engine's version; in a battle R ends the
+choosing of commands (the last round's are used again). 帮助 ($26) is not
+read by the engine. tests/yishi-keys.test.ts presses each on both OSes.
 
 ## Not Fulu: 伏魔记 1.3's RunErr:12
 

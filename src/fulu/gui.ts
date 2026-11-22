@@ -78,7 +78,7 @@ const KEYBOARD = 0x2b27;
 export const KEY_CLASSES: [number, number][][] = [false, true].map((shift) => {
   const commands: Record<number, number> = {
     [Key.power]: 0x04, [Key.home]: 0x07, [Key.dualDict]: 0x01, [Key.modern]: 0x02,
-    [Key.input]: shift ? 0x36 : 0x2a, [Key.shift]: shift ? 0x26 : 0x29, [Key.del]: 0x34, [Key.exit]: 0x28,
+    [Key.input]: shift ? 0x36 : 0x2a, [Key.lang]: shift ? 0x26 : 0x29, [Key.shift]: 0x34, [Key.exit]: 0x28,
     [Key.enter]: 0x27, [Key.up]: shift ? 0x32 : 0x22, [Key.left]: shift ? 0x31 : 0x24,
     [Key.down]: shift ? 0x33 : 0x23, [Key.right]: shift ? 0x30 : 0x25, [Key.pageUp]: 0x20, [Key.pageDown]: 0x21,
   };
