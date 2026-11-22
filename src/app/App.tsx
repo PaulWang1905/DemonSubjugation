@@ -81,6 +81,15 @@ export function App() {
     void refresh();
   }, [refresh]);
 
+  // The Silent Bell's archive is built from its template the first time it
+  // is played (a moment on a slow phone): build it while the page is idle, so
+  // Play starts at once.
+  useEffect(() => {
+    if (typeof requestIdleCallback !== "function") return;
+    const id = requestIdleCallback(() => void bellGame(), { timeout: 8000 });
+    return () => cancelIdleCallback(id);
+  }, []);
+
   const onImport = useCallback(
     async (files: File[]): Promise<StoredGame[]> => {
       if (files.length === 0) return [];

@@ -467,3 +467,19 @@ export function linkLength(layout: WorldMapLayout, graph: MapGraph): number {
   }
   return s;
 }
+
+const laidOut = new WeakMap<WorldIndex, { graph: MapGraph; layout: WorldMapLayout }>();
+
+/**
+ * The world map's graph and layout for an index, remembered per index (the
+ * same project gives the same index, format/world.ts; neither is changed by
+ * its readers).
+ */
+export function worldMapOf(world: WorldIndex): { graph: MapGraph; layout: WorldMapLayout } {
+  let hit = laidOut.get(world);
+  if (!hit) {
+    const graph = mapGraph(world);
+    laidOut.set(world, (hit = { graph, layout: layoutWorldMap(world, graph) }));
+  }
+  return hit;
+}

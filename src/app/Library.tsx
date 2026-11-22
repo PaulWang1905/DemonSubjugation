@@ -9,6 +9,7 @@ import { GAMES_TEXT, type GamesText } from "./gamesText";
 import { useSiteLang, type SiteLang } from "./siteLang";
 import { Arrow, Tile } from "./Tile";
 import { Link } from "./router";
+import { LoadingMark } from "./Loading";
 
 interface Props {
   games: StoredGame[];
@@ -105,7 +106,7 @@ export function Library({ games, fonts, persistent, busy, messages, firmware, on
 
       {(busy || news.length > 0) && (
         <div className="g-status" role="status">
-          <span className="g-dot" aria-hidden="true" />
+          {busy ? <LoadingMark small /> : <span className="g-dot" aria-hidden="true" />}
           <div>{busy ? <p>{t.reading}</p> : news.map((m, i) => <p key={i}>{m}</p>)}</div>
           {!busy && (
             <button className="g-close" onClick={() => setSeen(messages)} aria-label="✕">

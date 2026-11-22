@@ -1,0 +1,212 @@
+/* The loading screens (Loading.tsx): the editor's project loading (a card in
+   the page) and the players' (a chip over the game screen). Everything that
+   moves animates opacity or transform only, so it keeps moving while the
+   page is busy; with reduced motion nothing moves. */
+
+.ld-page {
+  display: grid;
+  place-items: center;
+  min-height: min(70vh, 640px);
+  padding: 32px 0;
+}
+.ld-card {
+  width: min(540px, 100%);
+  padding: 26px 28px 22px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  color: var(--ink);
+}
+.ld-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.ld-kicker {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font: 500 12px/1.2 var(--h-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ld-title {
+  margin: 0;
+  font: 640 clamp(22px, 3vw, 28px)/1.15 var(--h-sans);
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+/* the bar: how far along, and a sweep that shows it is working */
+.ld-bar {
+  position: relative;
+  height: 12px;
+  margin: 22px 0 16px;
+  overflow: hidden;
+  border: 1px solid var(--ink);
+  background: color-mix(in srgb, var(--h-lcd) 16%, var(--bg));
+}
+.ld-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--h-lcd);
+  transform-origin: left center;
+  transition: transform 0.25s ease-out;
+}
+.ld-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent);
+  transform: translateX(-100%);
+  animation: ld-sweep 1.4s linear infinite;
+}
+@keyframes ld-sweep {
+  to {
+    transform: translateX(380%);
+  }
+}
+
+.ld-steps {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 13px/1.6 var(--h-mono);
+}
+.ld-steps li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 8px;
+  color: var(--muted);
+}
+.ld-steps li.next {
+  opacity: 0.6;
+}
+.ld-steps li.now {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ld-steps li.done .ld-tick {
+  color: var(--accent);
+}
+.ld-count {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* the mark: eight LCD cells in a ring, lit in turn */
+.ld-mark {
+  display: grid;
+  flex: none;
+  grid-template: repeat(3, 8px) / repeat(3, 8px);
+  gap: 3px;
+}
+.ld-mark.small {
+  grid-template: repeat(3, 5px) / repeat(3, 5px);
+  gap: 2px;
+}
+.ld-mark i {
+  background: var(--h-lcd);
+  outline: 1px solid var(--ink);
+  opacity: 0.2;
+  animation: ld-cell 0.96s linear infinite;
+  animation-delay: calc(var(--i) * 0.12s - 0.96s);
+}
+.ld-mark i:nth-child(1) { grid-area: 1 / 1; }
+.ld-mark i:nth-child(2) { grid-area: 1 / 2; }
+.ld-mark i:nth-child(3) { grid-area: 1 / 3; }
+.ld-mark i:nth-child(4) { grid-area: 2 / 3; }
+.ld-mark i:nth-child(5) { grid-area: 3 / 3; }
+.ld-mark i:nth-child(6) { grid-area: 3 / 2; }
+.ld-mark i:nth-child(7) { grid-area: 3 / 1; }
+.ld-mark i:nth-child(8) { grid-area: 2 / 1; }
+@keyframes ld-cell {
+  0% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0.2;
+  }
+}
+
+/* over a game screen */
+.ld-compact {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  pointer-events: none;
+}
+.ld-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(100%, 360px);
+  padding: 10px 14px;
+  border: 1px solid rgb(201 226 101 / 0.45);
+  background: rgb(10 10 12 / 0.88);
+  color: #ecebe3;
+  font: 12px/1.45 var(--h-mono);
+}
+.ld-chip .ld-mark i {
+  outline-color: #0b0c0a;
+}
+.ld-chip-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ld-chip-text strong {
+  overflow: hidden;
+  font: 600 13px/1.3 var(--h-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ld-chip-text > span {
+  color: #b9bcae;
+}
+.ld-chip .ld-bar {
+  height: 6px;
+  margin: 5px 0 0;
+  border-color: rgb(201 226 101 / 0.6);
+  background: rgb(201 226 101 / 0.12);
+}
+
+/* (a softer sweep on a dark page) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ld-page .ld-bar::after {
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.22), transparent);
+  }
+}
+:root[data-theme="dark"] .ld-page .ld-bar::after {
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.22), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ld-mark i {
+    animation: none;
+    opacity: 0.35;
+  }
+  .ld-mark i:nth-child(1),
+  .ld-mark i:nth-child(2) {
+    opacity: 1;
+  }
+  .ld-bar::after {
+    display: none;
+  }
+  .ld-fill {
+    transition: none;
+  }
+}
+
+/* (the editor) The project home's story flags card can hold thousands of
+   rows (伏魔记's flags and variables): it is laid out when it scrolls into
+   view, so opening a big game does not wait for it. */
+.p-home .sf {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}

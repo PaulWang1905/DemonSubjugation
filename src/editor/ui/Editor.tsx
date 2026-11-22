@@ -43,6 +43,10 @@ import { LabelsContext, NotesContext } from "./names";
 import { HomeQuickActions } from "./HomeStarter";
 import { StoryFlags } from "./StoryFlags";
 import { WIZARDS, WizardDialog, WizardToast, type WizardInit, type WizardKind } from "./Wizards";
+// (opening a project behind a loading screen)
+import { LoadingScreen } from "../../app/Loading";
+import { Cancelled, nextFrame } from "../../app/slices";
+import { loadSteps, prepareProject, type LoadState } from "./prepareProject";
 import {
   closeTab, cycleTab, entryOf, groupOf, HOME_TAB, initialTabs, keyOf, kindLabel, openTab, parseKey, pinTab, pushRecent, renameTab, resourceItem,
   retainTabs, setTabMode, type GroupId, type TabState,
@@ -168,6 +172,9 @@ export function Editor({ onPlaytest }: Props) {
   const pendingHere = useRef<{ map: string; x: number; y: number } | null>(null);
   // Resources changed from outside their own view: their views are re-created.
   const [revs, setRevs] = useState<Record<string, number>>({});
+  // a project being opened (the loading screen shows its steps), and which opening is the latest
+  const [loading, setLoading] = useState<LoadState | null>(null);
+  const loadRun = useRef(0);
 
   const refresh = useCallback(async () => setProjects(await listProjects()), []);
   useEffect(() => {
@@ -217,46 +224,91 @@ export function Editor({ onPlaytest }: Props) {
     setCur(o);
   };
 
-  const openArchive = (name: string, archive: LibArchive, sources: Record<string, string> = {}, notes = emptyNotes()) => {
-    const o = { id: newId(), name, archive, sources, notes };
-    show(o);
-    persist(o, true);
+  const newOpen = (name: string, archive: LibArchive, sources: Record<string, string> = {}, notes = emptyNotes()): Open => ({ id: newId(), name, archive, sources, notes });
+
+  /**
+   * Open a project behind the loading screen: `make` reads or makes it (the
+   * steps `first` names), then the slow work the workspace needs is done a
+   * slice at a time (prepareProject) before the workspace shows it. A new
+   * project (`fresh`) is saved at once.
+   */
+  const load = async (
+    title: string,
+    first: string[],
+    make: () => Open | Promise<Open>,
+    opts: { fresh: boolean; failed: (message: string) => string; titleOf?: (o: Open) => string },
+  ) => {
+    const run = ++loadRun.current;
+    const alive = () => loadRun.current === run;
+    setLoading({ title, steps: first.map((label) => ({ label })), current: 0 });
+    try {
+      await nextFrame();
+      const o = await make();
+      if (!alive()) return;
+      const named = opts.titleOf?.(o) ?? title;
+      const steps = loadSteps(o.archive, first);
+      setLoading({ title: named, steps, current: first.length });
+      await prepareProject(
+        o.archive,
+        o.sources,
+        (step, done) => {
+          if (!alive()) return;
+          if (done !== undefined) steps[step] = { ...steps[step], done };
+          setLoading({ title: named, steps: [...steps], current: step });
+        },
+        { from: first.length, alive, notes: o.notes },
+      );
+      if (!alive()) return;
+      setLoading(null);
+      show(o);
+      if (opts.fresh) persist(o, true);
+      else setStatus(null);
+    } catch (e) {
+      if (e instanceof Cancelled || !alive()) return;
+      setLoading(null);
+      alert(opts.failed((e as Error).message));
+    }
   };
 
   const start = (kind: StartKind, name?: string) => {
-    if (kind === "demo") openArchive("Lantern Path", lanternPath(), lanternPathSources());
-    else if (kind === "bell") openArchive("The Silent Bell", silentBell(), silentBellSources());
+    const make = (label: string, build: () => Open) =>
+      void load(`Making ${label}…`, ["Building the game from its template"], build, { fresh: true, failed: (m) => `Could not make ${label}: ${m}` });
+    if (kind === "demo") make("Lantern Path", () => newOpen("Lantern Path", lanternPath(), lanternPathSources()));
+    else if (kind === "bell") make("The Silent Bell", () => newOpen("The Silent Bell", silentBell(), silentBellSources()));
     // (a new blank game starts the guided first game)
     // (the project keeps the full name; the game file's title is cut to 9 bytes; the title screen shows the full name)
-    else if (name) openArchive(name, blankProject(fileTitle(name, (t) => gbkBytes(t).length), name), blankSources(), setFlagNote(startGuide(emptyNotes()), 1, { name: "welcomed" }));
+    else if (name)
+      make(name, () => newOpen(name, blankProject(fileTitle(name, (t) => gbkBytes(t).length), name), blankSources(), setFlagNote(startGuide(emptyNotes()), 1, { name: "welcomed" })));
   };
 
-  const openFile = async (f: File | undefined) => {
+  const openFile = (f: File | undefined) => {
     if (!f) return;
-    try {
-      let bytes = new Uint8Array(await f.arrayBuffer());
-      // a .gam made with the RPG kit (or exported here): its game library
-      if (isGam(bytes)) {
-        const at = findLib(bytes);
-        if (at < 0) throw new Error("this .gam was not made with the RPG kit (it has no game library)");
-        bytes = bytes.slice(at);
-      }
-      if (!inspectDatLib(bytes).playable) throw new Error("this archive has no starting script (GUT 1-1)");
-      openArchive(f.name.replace(/\.(lib|gam)$/i, ""), readLib(bytes));
-    } catch (e) {
-      alert(`Could not open ${f.name}: ${(e as Error).message}`);
-    }
+    void load(
+      `Opening ${f.name}…`,
+      ["Reading the file"],
+      async () => {
+        let bytes = new Uint8Array(await f.arrayBuffer());
+        // a .gam made with the RPG kit (or exported here): its game library
+        if (isGam(bytes)) {
+          const at = findLib(bytes);
+          if (at < 0) throw new Error("this .gam was not made with the RPG kit (it has no game library)");
+          bytes = bytes.slice(at);
+        }
+        if (!inspectDatLib(bytes).playable) throw new Error("this archive has no starting script (GUT 1-1)");
+        return newOpen(f.name.replace(/\.(lib|gam)$/i, ""), readLib(bytes));
+      },
+      // (the game's own title, from the file: 伏魔记 rather than DAT)
+      { fresh: true, failed: (m) => `Could not open ${f.name}: ${m}`, titleOf: (o) => `Opening ${sysGbkDecode(o.archive.titleBytes).trim() || o.name}…` },
+    );
   };
 
-  const openStored = (p: StoredProject) => {
-    try {
-      const a = readLib(new Uint8Array(p.data));
-      show({ id: p.id, name: p.name, archive: a, sources: p.sources ?? {}, notes: normalizeNotes(p.notes) });
-      setStatus(null);
-    } catch (e) {
-      alert(`Could not open project: ${(e as Error).message}`);
-    }
-  };
+  const openStored = (p: StoredProject) =>
+    void load(
+      `Opening ${p.name}…`,
+      ["Reading the project from this browser"],
+      () => ({ id: p.id, name: p.name, archive: readLib(new Uint8Array(p.data)), sources: p.sources ?? {}, notes: normalizeNotes(p.notes) }),
+      { fresh: false, failed: (m) => `Could not open project: ${m}` },
+    );
 
   const removeProject = async (p: StoredProject) => {
     try {
@@ -731,7 +783,13 @@ export function Editor({ onPlaytest }: Props) {
     return () => window.removeEventListener("resize", fit);
   }, [cur?.id]);
 
-  if (!cur) return <ProjectsPage projects={projects} onStart={start} onOpenFile={(f) => void openFile(f)} onOpen={openStored} onDelete={(p) => void removeProject(p)} />;
+  if (loading)
+    return (
+      <div className="e-loading">
+        <LoadingScreen kicker="BBK Maker" title={loading.title} steps={loading.steps} current={loading.current} />
+      </div>
+    );
+  if (!cur) return <ProjectsPage projects={projects} onStart={start} onOpenFile={openFile} onOpen={openStored} onDelete={(p) => void removeProject(p)} />;
 
   const errors = problems.filter((p) => p.level === "error").length;
   const activeKey = ws.active === HOME_TAB ? null : ws.active;

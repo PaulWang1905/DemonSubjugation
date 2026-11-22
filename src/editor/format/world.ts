@@ -37,6 +37,7 @@ import {
   type Span,
 } from "./scriptModel";
 import { flagName, moveResourceNote, resourceNote, variableName, type ProjectNotes } from "./notes";
+import { Lru, projectMemo } from "./memo";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -675,12 +676,29 @@ function findStart(scripts: Map<string, ScriptInfo>): PlayerStart | null {
  * else a disassembly).
  */
 export function buildWorld(archive: LibArchive, sources: Record<string, string> = {}): WorldIndex {
+  return worldMemo(archive, sources);
+}
+
+// (the editor asks for the same project's index from many places: it is
+// built once per content, memo.ts; its readers never change it)
+const worldMemo = projectMemo(buildWorldUncached, 6);
+// (and each script's model by its text: the index with the authors' texts
+// and the one with every script's text read the same scripts; models are
+// never changed, edits make new ones)
+const models = new Lru<string, ScriptModel>(2000);
+function modelOf(source: string): ScriptModel {
+  let m = models.get(source);
+  if (!m) models.set(source, (m = parseScript(source)));
+  return m;
+}
+
+function buildWorldUncached(archive: LibArchive, sources: Record<string, string>): WorldIndex {
   const scripts = new Map<string, ScriptInfo>();
   for (const e of archive.entries) {
     if (e.resType !== 1) continue;
     const key = resKey(1, e.type, e.index);
     const source = scriptSource(e.data, sources[key]);
-    const model = parseScript(source);
+    const model = modelOf(source);
     const maps = new Set<string>();
     for (const s of model.steps) if (s.kind === "instruction" && s.op.name === "loadmap") maps.add(resKey(2, num(s.values[0]), num(s.values[1])));
     scripts.set(key, { key, entry: e, source, model, authored: source === sources[key], maps: [...maps], runsOn: [] });

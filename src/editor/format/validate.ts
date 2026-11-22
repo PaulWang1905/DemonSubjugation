@@ -10,6 +10,7 @@ import { unreachable } from "./reach";
 import { buildWorld, parseKey, type WorldIndex } from "./world";
 import { scriptLabel } from "./naming";
 import type { ProjectNotes } from "./notes";
+import { projectMemo } from "./memo";
 
 export interface Problem {
   /** error: the game is likely to stop or misbehave; warning: it runs, but not as meant. */
@@ -88,6 +89,18 @@ export const SCRIPT_REFS: Record<string, RefSpec[]> = {
  * other scripts share its own name; the author's name from `notes` first).
  */
 export function checkProject(a: LibArchive, sources: Record<string, string> = {}, notes?: ProjectNotes): Problem[] {
+  // (per content, and per the author's names in the notes, which only change how scripts are named)
+  const byNotes = checkMemo(a, sources);
+  const k = notes ? JSON.stringify(notes.resources ?? null) : "";
+  let r = byNotes.get(k);
+  if (!r) byNotes.set(k, (r = checkUncached(a, sources, notes)));
+  return r;
+}
+
+// (checked once per content, memo.ts; its readers never change the list)
+const checkMemo = projectMemo((): Map<string, Problem[]> => new Map(), 3);
+
+function checkUncached(a: LibArchive, sources: Record<string, string>, notes?: ProjectNotes): Problem[] {
   const out: Problem[] = [];
   const has = (resType: number, type: number, index: number) => !!findEntry(a, resType, type, index);
   const scripts = a.entries.filter((e) => e.resType === 1);

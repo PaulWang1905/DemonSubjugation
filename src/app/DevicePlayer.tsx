@@ -4,7 +4,7 @@
 // site's stand-in for the OS. Like the real device it stays as it was left
 // between visits.
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { Device, FPS } from "../bbk/device";
+import { BOOT_FRAMES, Device, FPS } from "../bbk/device";
 import { findLib } from "../bbk/gam";
 import { KitCheats } from "../bbk/kitCheats";
 import { missingRegions } from "../bbk/firmware";
@@ -26,6 +26,8 @@ import { applyPalette, PALETTES } from "./palettes";
 import { PLAYER_TEXT } from "./playerText";
 import { effectOf, MAP_VIEWS, mapViewOf, type MapView, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
 import { useSiteLang } from "./siteLang";
+import { LoadingScreen, type LoadingStepView } from "./Loading";
+import { inSlices, nextFrame } from "./slices";
 import { HD_CHINESE, readTextChoice, type TextChoice } from "./textChoice";
 
 interface Props {
@@ -137,6 +139,10 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   live.current = { speed, paletteId, effect, scale, paused: optionsOpen || debugOpen, hd, letters: text.hdEnglish, view };
   const textRef = useRef(dt);
   textRef.current = dt;
+  const loadText = useRef(pt.loading);
+  loadText.current = pt.loading;
+  /** While it turns on: the steps the loading screen lists, and the one under way. */
+  const [phase, setPhase] = useState<{ steps: LoadingStepView[]; current: number }>({ steps: [], current: 0 });
 
   // Turn the device on: resume it as it was left, or install the program and
   // open it, on the OS asked for: the original (its files are needed) or
@@ -146,6 +152,12 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
     const restartNow = nextStart.current === "restart";
     nextStart.current = "resume";
     setStatus({ kind: "loading" });
+    // what the loading screen lists (the steps change once it is known whether the device resumes)
+    const lt = loadText.current;
+    const name = game?.name ?? "";
+    let steps: LoadingStepView[] = [{ label: onFuluOs ? lt.fuluFont : lt.firmware }];
+    const show = (current: number) => alive && setPhase({ steps: [...steps], current });
+    show(0);
     (async () => {
       const text = textRef.current;
       const fw = { regions: await getFirmware() };
@@ -169,20 +181,55 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
       }
       if (!restored && !flash) flash = await savedFlash(id);
       if (restored && device instanceof FuluDevice) device.resumed();
-      if (!restored) {
+      if (restored) {
+        steps = [steps[0], { label: lt.resume }];
+        show(1);
+      } else {
         setStatus({ kind: "starting" });
-        await new Promise((r) => setTimeout(r, 30)); // let "Turning on…" show
-        if (!alive) return;
-        if (flash) device.machine.flash.data.set(flash);
+        // The original OS starts up for many seconds of device time: emulated
+        // a slice at a time (device.ts), so the screen says how far it is.
+        const counted = (label: string, frames: number): LoadingStepView => ({ label, done: 0, total: frames, percent: true });
+        const slices = <T,>(run: Generator<void, T>, at: number) =>
+          inSlices(run, {
+            alive: () => alive,
+            // (long slices: the emulation is the slow part, and the loading mark moves by itself)
+            budget: 90,
+            progress: (n) => {
+              steps[at] = { ...steps[at], done: n };
+              show(at);
+            },
+          });
         if (game) {
           const gam = new Uint8Array(game.data);
+          if (flash) device.machine.flash.data.set(flash);
           let file = flash ? installedProgram(device.machine.flash.data, gam) : null;
-          if (file && device instanceof Device) device.boot();
-          file ??= device.install(gam);
-          if (!file) return setStatus({ kind: "error", message: text.tooBig });
-          if (!device.launch(file)) setNotice(text.notStarted);
+          if (device instanceof Device) {
+            const d = device;
+            steps = [steps[0], file ? counted(lt.boot, BOOT_FRAMES) : counted(lt.install(name), d.installBoots() * BOOT_FRAMES), { label: lt.open(name) }];
+            show(1);
+            await nextFrame();
+            if (!alive) return;
+            if (file) await slices(d.booting(), 1);
+            else file = await slices(d.installing(gam), 1);
+            if (!file) return setStatus({ kind: "error", message: text.tooBig });
+            show(2);
+            if (!(await slices(d.launching(file), 2))) setNotice(text.notStarted);
+          } else {
+            steps = [steps[0], { label: lt.openFulu(name) }];
+            show(1);
+            await nextFrame();
+            if (!alive) return;
+            file ??= device.install(gam);
+            if (!file) return setStatus({ kind: "error", message: text.tooBig });
+            if (!device.launch(file)) setNotice(text.notStarted);
+          }
         } else if (device instanceof Device) {
-          device.boot();
+          if (flash) device.machine.flash.data.set(flash);
+          steps = [steps[0], counted(lt.boot, BOOT_FRAMES)];
+          show(1);
+          await nextFrame();
+          if (!alive) return;
+          await slices(device.booting(), 1);
         }
       }
       void slotTimes(id).then((t) => alive && setSlotTimes(t));
@@ -678,30 +725,34 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
               {...hold.bind}
             />
             {hold.ring}
-            {status.kind !== "running" && (
-              <div className={status.kind === "error" ? "crash" : "screen-note"} role={status.kind === "error" ? "alert" : "status"}>
-                {status.kind === "error" ? (
-                  <>
-                    <p>{status.message}</p>
-                    <div className="row">
-                      {status.canGoOn && (
-                        <button onClick={goOn} title={dt.goOnTitle}>
-                          {dt.goOn}
-                        </button>
-                      )}
-                      {status.canGoOn && (
-                        <button className="ghost" onClick={restart} title={dt.restartTitle}>
-                          {dt.restart}
-                        </button>
-                      )}
-                      <button className="ghost" onClick={onExit}>
-                        {pt.backToLibrary}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  status.kind === "starting" && <p>{dt.starting}</p>
-                )}
+            {status.kind !== "running" && status.kind !== "error" && (
+              <LoadingScreen
+                compact
+                title={game ? pt.loading.starting(game.name) : pt.loading.deviceOn}
+                steps={phase.steps}
+                current={phase.current}
+                of={pt.loading.of}
+                progressLabel={pt.loading.progress}
+              />
+            )}
+            {status.kind === "error" && (
+              <div className="crash" role="alert">
+                <p>{status.message}</p>
+                <div className="row">
+                  {status.canGoOn && (
+                    <button onClick={goOn} title={dt.goOnTitle}>
+                      {dt.goOn}
+                    </button>
+                  )}
+                  {status.canGoOn && (
+                    <button className="ghost" onClick={restart} title={dt.restartTitle}>
+                      {dt.restart}
+                    </button>
+                  )}
+                  <button className="ghost" onClick={onExit}>
+                    {pt.backToLibrary}
+                  </button>
+                </div>
               </div>
             )}
           </div>

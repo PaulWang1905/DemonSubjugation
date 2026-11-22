@@ -14,7 +14,7 @@ import { decodeMap } from "../format/decode";
 import { findEntry, type LibArchive } from "../format/lib";
 import { buildWorld, type WorldIndex } from "../format/world";
 import { mapCanvas, mapThumb } from "./worldArt";
-import { clampZoom, fitZoom, layoutWorldMap, linkLine, mapGraph, neighbours, ZOOM_MAX, type Box } from "./worldMapLayout";
+import { clampZoom, fitZoom, linkLine, neighbours, worldMapOf, ZOOM_MAX, type Box } from "./worldMapLayout";
 import "./world.css";
 import "./worldmap.css";
 
@@ -78,8 +78,8 @@ interface MapProps {
 
 export function WorldMap({ archive, world: given, sources, onOpen, projectId }: MapProps) {
   const world = useMemo(() => given ?? buildWorld(archive, sources ?? {}), [given, archive, sources]);
-  const graph = useMemo(() => mapGraph(world), [world]);
-  const layout = useMemo(() => layoutWorldMap(world, graph), [world, graph]);
+  // (laid out once per index: worldMapLayout.ts worldMapOf)
+  const { graph, layout } = useMemo(() => worldMapOf(world), [world]);
 
   // the heading over the maps no exit joins (none for a lone map)
   const aloneHeading = layout.aloneRow === null ? null : layout.nodes.some((n) => n.group >= 0) ? "On their own: no exit joins these maps to another" : layout.nodes.length > 1 ? "No exit joins these maps yet" : null;
@@ -660,7 +660,7 @@ function LinkList({ title, items, world, onPick }: { title: string; items: { key
 /** The project home's world map section. */
 export function WorldMapCard({ archive, sources, onOpen, projectId }: { archive: LibArchive; sources: Record<string, string>; onOpen: (key: string) => void; projectId?: string }) {
   const world = useMemo(() => buildWorld(archive, sources), [archive, sources]);
-  const graph = useMemo(() => mapGraph(world), [world]);
+  const graph = useMemo(() => worldMapOf(world).graph, [world]);
   const alone = graph.keys.filter((k) => !graph.links.some((l) => l.a === k || l.b === k)).length;
   return (
     <section className="p-card wm-card">

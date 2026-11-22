@@ -19,6 +19,7 @@
 // Bytes the disassembler cannot decode are kept with `.raw x"..."`, so
 // disassemble -> assemble reproduces the original bytes exactly.
 import { gbkBytes } from "../../engine/java";
+import { bytesHash, Lru, sameBytes } from "./memo";
 
 export type Operand = "u8" | "u16" | "u32" | "str" | "addr" | "buy";
 
@@ -244,7 +245,7 @@ function decodeAt(code: Uint8Array, offset: number): Decoded | null {
   return { offset, op, args, size: p - offset };
 }
 
-export function disassemble(data: Uint8Array): string {
+function disassembleUncached(data: Uint8Array): string {
   const g = parseGut(data);
   const headerCnt = g.events.length * 2 + 3;
   const code = g.code;
@@ -431,7 +432,7 @@ function argSize(kind: Operand, t: Tok | undefined, line: number): number {
   }
 }
 
-export function assemble(src: string): Uint8Array {
+function assembleUncached(src: string): Uint8Array {
   let type = 1;
   let index = 1;
   let header: Uint8Array = new Uint8Array(22);
@@ -672,6 +673,39 @@ export function statements(src: string): SourceStatement[] {
     }
   });
   return out;
+}
+
+// Both are pure and slow on a big game (伏魔记's 185 scripts), and the
+// editor asks for the same scripts again and again (the world index, the
+// project check, each view): the last few thousand results are remembered,
+// by the bytes or the text given (memo.ts).
+const disassembled = new Lru<string, { data: Uint8Array; text: string }[]>(4000);
+const assembled = new Lru<string, { bin: Uint8Array } | { error: unknown }>(4000);
+
+/** A script's text (the same text for the same bytes). */
+export function disassemble(data: Uint8Array): string {
+  const key = `${data.length}:${bytesHash(data)}`;
+  const list = disassembled.get(key);
+  const hit = list?.find((x) => sameBytes(x.data, data));
+  if (hit) return hit.text;
+  const text = disassembleUncached(data);
+  disassembled.set(key, [...(list ?? []), { data: data.slice(), text }]);
+  return text;
+}
+
+/** A script's bytes (a new array each time: the caller may keep or change it). */
+export function assemble(src: string): Uint8Array {
+  let hit = assembled.get(src);
+  if (!hit) {
+    try {
+      hit = { bin: assembleUncached(src) };
+    } catch (error) {
+      hit = { error };
+    }
+    assembled.set(src, hit);
+  }
+  if ("error" in hit) throw hit.error;
+  return hit.bin.slice();
 }
 
 /**

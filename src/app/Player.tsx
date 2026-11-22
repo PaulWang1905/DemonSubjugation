@@ -15,6 +15,8 @@ import { effectOf, MAP_VIEWS, mapViewOf, type MapView, pref, ScreenOptions, setP
 import { PLAYER_TEXT } from "./playerText";
 import { SITE_TEXT } from "./siteText";
 import { useSiteLang } from "./siteLang";
+import { LoadingScreen } from "./Loading";
+import { afterPaint } from "./slices";
 import { HD_CHINESE, HD_ENGLISH, ORIGINAL_LABEL, PIXEL_CHINESE, PIXEL_ENGLISH, readTextChoice, textChoiceEntries, type TextChoice } from "./textChoice";
 
 interface Props {
@@ -50,6 +52,8 @@ export function Player({ game, fonts, onExit, backTo = "library", names }: Props
   const engineRef = useRef<Engine | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
+  // the engine has drawn its first picture (until then the loading screen shows)
+  const [running, setRunning] = useState(false);
   const [speed, setSpeed] = useState(() => Number(pref("speed", "1")) || 1);
   const [paletteId, setPaletteId] = useState<string>(() => pref<string>("palette", "lcd"));
   // How the picture is drawn at the display's resolution (LCD cells, smoothed).
@@ -138,10 +142,21 @@ export function Player({ game, fonts, onExit, backTo = "library", names }: Props
   const playerFonts = usePlayerFonts({ text, uploaded: fonts, textSize, engine: engineRef, onError: setNotice });
   const fontPickRef = playerFonts.pick, smallRef = playerFonts.small, canStart = playerFonts.canStart;
 
-  // Boot the engine and run the fixed-step loop (the original ticks every 40 ms).
+  // Boot the engine and run the fixed-step loop (the original ticks every 40 ms),
+  // once the loading screen has been painted (reading a big game takes a moment).
   useEffect(() => {
     if (!canStart) return;
     setError(null);
+    setRunning(false);
+    let stop: (() => void) | undefined;
+    const cancel = afterPaint(() => (stop = boot()));
+    return () => {
+      cancel();
+      stop?.();
+    };
+  }, [game, fonts, onExit, generation, uiLang, canStart]);
+
+  function boot(): (() => void) | undefined {
     let engine: Engine;
     try {
       engine = createEngine({
@@ -213,15 +228,20 @@ export function Player({ game, fonts, onExit, backTo = "library", names }: Props
         const k = outputScale(scaleRef.current, fw);
         h.draw(cv, frame, style || fx === "smooth" ? engine.textLayer() : [], pal, k, fw, fh, fx);
       }
+      if (!drawn) {
+        drawn = true;
+        setRunning(true);
+      }
       raf = requestAnimationFrame(loop);
     };
+    let drawn = false;
     raf = requestAnimationFrame(loop);
     return () => {
       stopped = true;
       cancelAnimationFrame(raf);
       engineRef.current = null;
     };
-  }, [game, fonts, onExit, generation, uiLang, canStart]);
+  }
 
   // Change the map view while playing.
   useEffect(() => {
@@ -515,6 +535,16 @@ export function Player({ game, fonts, onExit, backTo = "library", names }: Props
               {...hold.bind}
             />
             {hold.ring}
+            {!running && !error && (
+              <LoadingScreen
+                compact
+                title={pt.loading.starting(game.name)}
+                steps={[{ label: pt.loading.fonts }, { label: pt.loading.engine }]}
+                current={canStart ? 1 : 0}
+                of={pt.loading.of}
+                progressLabel={pt.loading.progress}
+              />
+            )}
             {error && (
               <div className="crash" role="alert">
                 <strong>{pt.crashTitle}</strong>
