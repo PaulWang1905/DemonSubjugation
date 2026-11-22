@@ -19,7 +19,77 @@ interface Props {
   onOpen: (key: string) => void;
 }
 
-/** The logo's first frame on a 160×96 screen. */
+/**
+ * The title animation's clearest moment on a 160×96 screen (0 light, 1 dark,
+ * 2 nothing drawn): it is played as the engine plays it (each frame stays
+ * `show` ticks, the next starts after `next`), and kept at the tick where its
+ * largest picture (the logo itself) is on screen and least covered. A game's
+ * title often starts empty and wipes in and out (伏魔记's), so its first
+ * frame alone can be blank, and the moment with the most ink can be a curtain.
+ */
+export function logoStill(data: Uint8Array, maxTicks = 600): Uint8Array | null {
+  const srs = decodeSrs(data);
+  if (!srs.frames.length) return null;
+  const imgs = srs.images.map((b) => {
+    try {
+      return decodeImage(b).frames[0];
+    } catch {
+      return undefined;
+    }
+  });
+  const area = (i: number) => {
+    const im = imgs[srs.frames[i].image];
+    return im ? im.width * im.height : 0;
+  };
+  let big = 0;
+  for (let i = 1; i < srs.frames.length; i++) if (area(i) > area(big)) big = i;
+  const bf = srs.frames[big];
+  const bim = imgs[bf.image];
+  let keys = [{ i: 0, show: srs.frames[0].show, next: srs.frames[0].next }];
+  let best: Uint8Array | null = null;
+  let bestScore = -1;
+  for (let t = 0; t < maxTicks && keys.length; t++) {
+    const px = new Uint8Array(160 * 96).fill(2);
+    for (const k of keys) {
+      const f = srs.frames[k.i];
+      const im = imgs[f.image];
+      if (!im) continue;
+      for (let y = 0; y < im.height; y++)
+        for (let x = 0; x < im.width; x++) {
+          const v = im.pixels[y * im.width + x];
+          const X = f.x + x;
+          const Y = f.y + y;
+          if (v === 2 || X < 0 || Y < 0 || X >= 160 || Y >= 96) continue;
+          px[Y * 160 + X] = v;
+        }
+    }
+    // (how much of the largest picture shows as itself; the first such moment)
+    let score = 0;
+    if (bim && keys.some((k) => k.i === big))
+      for (let y = 0; y < bim.height; y++)
+        for (let x = 0; x < bim.width; x++) {
+          const X = bf.x + x;
+          const Y = bf.y + y;
+          if (X >= 0 && Y >= 0 && X < 160 && Y < 96 && bim.pixels[y * bim.width + x] !== 2 && px[Y * 160 + X] === bim.pixels[y * bim.width + x]) score++;
+        }
+    if (!bim) for (let i = 0; i < px.length; i++) if (px[i] === 1) score++;
+    if (score > bestScore) (bestScore = score), (best = px);
+    const after: typeof keys = [];
+    for (const k of keys) {
+      k.show--;
+      k.next--;
+      after.push(k);
+      if (k.next === 0 && k.i + 1 < srs.frames.length) {
+        const f = srs.frames[k.i + 1];
+        after.push({ i: k.i + 1, show: f.show, next: f.next });
+      }
+    }
+    keys = after.filter((k) => k.show > 0);
+  }
+  return best;
+}
+
+/** The title animation on a 160×96 screen, at its fullest moment. */
 function LogoPreview({ data }: { data: Uint8Array | null }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -32,11 +102,8 @@ function LogoPreview({ data }: { data: Uint8Array | null }) {
     ctx.fillRect(0, 0, 160, 96);
     if (!data) return;
     try {
-      const srs = decodeSrs(data);
-      const f = srs.frames[0];
-      const img = f ? srs.images[f.image] : undefined;
-      const frame = img ? decodeImage(img).frames[0] : undefined;
-      if (f && frame) blitFrame(ctx, frame, f.x, f.y, 1);
+      const px = logoStill(data);
+      if (px) blitFrame(ctx, { width: 160, height: 96, pixels: px } as Parameters<typeof blitFrame>[1], 0, 0, 1);
     } catch {
       /* a damaged picture: the empty screen */
     }
