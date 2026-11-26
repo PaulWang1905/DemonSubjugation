@@ -26,6 +26,8 @@ const ACTORS = 0x1988;
 const FLAGS_PTR = 0x1aa9, RAM = 0x2100, RAM_END = 0x8000;
 /** The current map, its name, and the view's top left on it (the hero stands at (4, 3) in the view). */
 const MAP_TYPE = 0x1979, MAP_INDEX = 0x197a, MAP_NAME = 0x1942, VIEW_X = 0x197c, VIEW_Y = 0x197d;
+/** Whether the game shows the hero's position (map x, y) at the top left of the map: the first variable from LATE, which 1.0 and 1.2 lack. */
+const SHOW_POSITION = 0x197b;
 /** 40 pointers to the characters on the map (NPCs, scene objects): $1A-byte records. */
 const NPCS = 0x19d3, NPC_SLOTS = 40;
 /** Random battles: 0 off, 1 on. */
@@ -78,6 +80,12 @@ export interface KitMapView {
   viewY: number;
   /** The characters on the map: type (2 an NPC, 4 a scene object), picture, facing (1-4), step (0-3), tile. */
   actors: { type: number; res: number; facing: number; step: number; x: number; y: number }[];
+  /**
+   * Whether the game shows the hero's position over the map's top left tiles
+   * (a script's enableshowpos turns it on: 怀旧终曲 and 异世大陆 do with a
+   * key, and draw it in a box; 完美版 and 1.3 draw the figures alone).
+   */
+  position?: boolean;
 }
 
 export class KitCheats implements Cheats {
@@ -139,6 +147,8 @@ export class KitCheats implements Cheats {
       viewX: this.byte(this.at(VIEW_X)),
       viewY: this.byte(this.at(VIEW_Y)),
       actors,
+      // (in builds that have the variable: those whose variables from it on are where those before it are)
+      position: this.shift![0] === this.shift![1] && this.byte(this.at(SHOW_POSITION)) !== 0,
     };
   }
 

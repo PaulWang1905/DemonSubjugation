@@ -6,12 +6,15 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { findLib } from "../src/bbk/gam";
+import { buildGam } from "../src/bbk/gamBuild";
 import { Key } from "../src/bbk/keys";
 import { KitCheats } from "../src/bbk/kitCheats";
 import { decodeLcd, LCD_HEIGHT, LCD_STRIDE } from "../src/bbk/lcd";
 import { CPU_HZ } from "../src/bbk/machine";
 import { WideView } from "../src/bbk/wideView";
 import { readLibrary } from "../src/engine";
+import { assemble } from "../src/editor/format/gut";
+import { findEntry, readLib, writeLib } from "../src/editor/format/lib";
 import { FuluDevice } from "../src/fulu/device";
 
 const GAMES = process.env.BBK_GAMES ?? "", FONTS = process.env.FMJ_DATA_DIR ?? "";
@@ -199,5 +202,56 @@ describe.each(["伏魔记-1.3.gam"])("%s, a popup over most of the map", (file) 
     expect(wide.showing).toBe(true);
     for (let i = 0; i < 3; i++) wide.compose(new Uint8Array(lcd.length), view, 4, 2, frame);
     expect(wide.showing).toBe(false);
+  }, 300_000);
+});
+
+// Where the owner saw no border: 怀旧终曲's 伏魔洞 with the hero at 15, 26
+// and the map's position shown (enableshowpos, which 查找 runs there: a box
+// over the top left tiles, the only patterned ones in sight besides three),
+// and plain ground (完美版's 摩天顶, every tile in sight plain). The game
+// starts there: its first script is replaced by one that loads that map.
+describe.each([
+  ["伏魔记怀旧终曲v1.0(原版精修).gam", 3, 1, 11, 23, true],
+  ["伏魔记怀旧终曲v1.0(原版精修).gam", 3, 1, 11, 23, false],
+  ["伏魔记完美版1.0.gam", 1, 9, 6, 4, false],
+] as const)("%s, map %i-%i at %i, %i, position %s", (file, type, index, vx, vy, position) => {
+  it.skipIf(!have(file))("shows the border there, and not on a page over the whole screen", () => {
+    const d = new FuluDevice({ hzk16: new Uint8Array(readFileSync(join(FONTS, "HZK16"))), asc16: new Uint8Array(readFileSync(join(FONTS, "ASC16"))) });
+    const original = new Uint8Array(readFileSync(join(GAMES, file)));
+    const archive = readLib(original.subarray(findLib(original)));
+    findEntry(archive, 1, 1, 1)!.data = assemble(`.gut 1 1\n.events 0\n  loadmap ${type}, ${index}, ${vx}, ${vy}\n  createactor 1, 4, 3\n${position ? "  enableshowpos\n" : ""}  callback\n`);
+    const gam = buildGam(writeLib(archive), "wide", "fulu", original);
+    d.launch(d.install(gam)!);
+    const library = gam.subarray(findLib(gam));
+    const kit = new KitCheats(d.machine, readLibrary(library)), wide = new WideView(library);
+    const run = (s: number) => {
+      for (let n = Math.round(s * 60); n > 0; n--) d.machine.run(CPU_HZ / 60);
+    };
+    run(3);
+    for (let i = 0; i < 2; i++) (d.press(Key.enter), run(2));
+    for (let i = 0; i < 30 && !kit.ready(); i++) (d.press(Key.enter), run(1));
+    expect(kit.mapView()).toMatchObject({ mapType: type, mapIndex: index, viewX: vx, viewY: vy, position });
+    const lcd = new Uint8Array(LCD_STRIDE * LCD_HEIGHT), [w, h] = WideView.size(4, 2), frame = new Uint8Array(w * h);
+    const showing = (s: number) => {
+      for (let n = Math.round(s * 60); n > 0; n--) {
+        d.machine.run(CPU_HZ / 60);
+        decodeLcd(d.machine.ram, lcd);
+        wide.compose(lcd, kit.mapView(), 4, 2, frame);
+      }
+      return wide.showing;
+    };
+    expect(showing(0.5)).toBe(true);
+    expect(kit.mapView()!.position).toBe(position);
+    if (position) expect(lcd[5 * LCD_STRIDE + 20] && !lcd[10 * LCD_STRIDE + 14]).toBeTruthy(); // (the box: its frame, white inside)
+    // a step away and back
+    for (const k of [Key.right, Key.left]) (d.press(k), expect(showing(1)).toBe(true));
+    // the game's menu, then its status page over the whole screen (完美版) or a popup (怀旧终曲)
+    d.press(Key.exit);
+    expect(showing(1)).toBe(true);
+    d.press(Key.down);
+    d.press(Key.enter);
+    if (file.startsWith("伏魔记完美版")) expect(showing(1.5)).toBe(false); // (魔法: a page over the whole screen)
+    for (let i = 0; i < 2; i++) (d.press(Key.exit), showing(1));
+    expect(showing(1)).toBe(true);
   }, 300_000);
 });

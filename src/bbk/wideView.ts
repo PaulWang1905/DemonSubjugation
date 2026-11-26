@@ -7,8 +7,11 @@
 // shows the map's other tiles and the characters on them. The border is
 // shown only while the game's screen confirms it: the tiles the game shows
 // must be the library's for that place (most of them; sprites and boxes
-// cover some). Once shown, it stays while the view is the same and some of
-// the map still shows (a popup menu over most of it). Battles, menus over
+// cover some, and the box with the hero's position some games show at the
+// top left is left out). On plain ground, with hardly a patterned tile in
+// sight, the plain tiles must be and the hero must stand in his place. Once
+// shown, it stays while the view is the same and some of the map still
+// shows (a popup menu over most of it, the hero beside it). Battles, menus over
 // the whole screen, scene pictures, or a build whose memory is not as
 // expected fail the check, and the frame then shows the device's whole
 // screen with a blank border.
@@ -30,6 +33,8 @@ const TILE = 16, COLS = 9, ROWS = 6;
 const LEFTS = [8, 7];
 /** How many of the screen's map tiles must be the library's, at least (see confirms()). */
 const MIN_MATCH = 9;
+/** The hero's position the game can show at the top left (KitMapView.position): the box's left, top, right and bottom on the screen. */
+const POSITION = [12, 4, 47, 17];
 /** A dialogue box (SAY's, or More text's taller one): its frame's sides at x 9 and 149, its bottom at y 95. */
 const BOX_LEFT = 9, BOX_RIGHT = 149, BOX_BOTTOM = 95, BOX_MIN = 20;
 /** A failed check blanks the border from the second frame in a row (the first shows the last frame again: a frame caught mid-draw is not a scene change). */
@@ -51,7 +56,7 @@ export interface Pic {
   plain: boolean[];
 }
 
-/** Of the screen's map tiles not under a dialogue box: how many, how many are the library's, how many of those have a pattern, how many have one. */
+/** Of the screen's map tiles not under a dialogue box or the hero's position: how many, how many are the library's, how many of those have a pattern, how many have one. */
 interface Count {
   seen: number;
   same: number;
@@ -59,14 +64,22 @@ interface Count {
   patterns: number;
 }
 
+/** The hero's tile in the view, and how many black pixels a picture of it must have to tell (not a blank screen). */
+const HERO_X = 4, HERO_Y = 3, MIN_INK = 24;
 /** Patterned tiles at their places that prove the map whatever covers the rest (a popup menu over half the screen). */
 const PROOF = 6;
 /**
  * Whether a count confirms the view: PROOF patterned tiles where the map has
  * them (no battle or picture shows that), or, on maps with few patterns, half
  * the tiles seen (and 9) and of the patterned ones at least half (and 3).
+ * Where fewer than 3 patterned tiles are in sight (plain ground), the plain
+ * ones and the hero must do: three quarters of the tiles seen (and 9), every
+ * patterned one, and the hero in its place (`hero`, asked only then).
  */
-const confirms = (c: Count) => c.patterned >= PROOF || (c.same >= Math.max(MIN_MATCH, c.seen / 2) && c.patterned >= Math.max(3, c.patterns / 2));
+const confirms = (c: Count, hero: () => boolean) =>
+  c.patterned >= PROOF ||
+  (c.same >= Math.max(MIN_MATCH, c.seen / 2) && c.patterned >= Math.max(3, c.patterns / 2)) ||
+  (c.patterns < 3 && c.patterned === c.patterns && c.same >= Math.max(MIN_MATCH, (c.seen * 3) / 4) && hero());
 
 /** Whether two views are the same place on the same map. */
 const samePlace = (a: KitMapView, b: KitMapView) => a.mapType === b.mapType && a.mapIndex === b.mapIndex && a.viewX === b.viewX && a.viewY === b.viewY;
@@ -85,8 +98,9 @@ export class WideView {
   private fails = GRACE;
   /** Whether the last frame showed the border. */
   showing = false;
-  /** Where this game's map area starts on the screen, once seen. */
+  /** Where this game's map area starts on the screen, once seen; and where the last border was drawn from (meanwhile a guess). */
   private left: number | null = null;
+  private edge: number = LEFTS[0];
   /** The view the screen last showed, with the characters at that moment (a copy). */
   private good: KitMapView | null = null;
   /** The last frame composed with the border, and its size: shown again while the screen is mid-redraw. */
@@ -117,20 +131,21 @@ export class WideView {
     const [w, h] = WideView.size(mx, my), ox = TILE * mx, oy = TILE * my, size = `${w}x${h}`;
     let at: KitMapView | null = null, torn = false;
     if (view && this.map(view.mapType, view.mapIndex)) {
-      if (this.left === null) this.find(lcd, view);
-      if (this.left !== null) {
-        const r = this.pick(lcd, view, this.left);
+      const left = this.left ?? this.find(lcd, view);
+      if (left !== null) {
+        this.edge = left;
+        const r = this.pick(lcd, view, left);
         if (r === "torn") torn = true;
         else at = r;
       }
       // A popup menu can leave too little of the map in view to prove it. The
       // border stays while the view is the one it showed and the screen still
-      // shows the map somewhere (one of its tiles in place); a battle, a page
-      // over the whole screen or a picture shows none.
+      // shows the map somewhere (one of its patterned tiles in place, or the
+      // hero); a battle, a page over the whole screen or a picture shows none.
       const good = this.good;
-      if (!at && !torn && this.showing && this.left !== null && good && samePlace(good, view)) {
-        const c = this.count(lcd, this.map(good.mapType, good.mapIndex)!, good, this.left);
-        if (c.patterned >= 1 || (c.patterns === 0 && c.same >= 1)) at = good;
+      if (!at && !torn && this.showing && good && samePlace(good, view)) {
+        const c = this.count(lcd, this.map(good.mapType, good.mapIndex)!, good, this.edge);
+        if (c.patterned >= 1 || this.hero(lcd, this.edge)) at = good;
       }
     }
     if (at && at !== this.good) this.good = { ...at, actors: at.actors.map((a) => ({ ...a })) };
@@ -145,7 +160,7 @@ export class WideView {
     this.showing = !!at || (this.showing && this.fails < GRACE && !torn);
     const v = this.showing ? (at ?? this.good) : null;
     const map = v && this.map(v.mapType, v.mapIndex);
-    const LEFT = this.left ?? LEFTS[0];
+    const LEFT = this.edge;
     out.fill(0, 0, w * h);
     this.drawn = null;
     if (v && map) {
@@ -198,10 +213,10 @@ export class WideView {
     if (counts[best]!.patterned >= TORN)
       for (let i = 0; i < views.length; i++)
         if (i !== best && maps[i] === maps[best] && this.count(lcd, maps[i]!, views[i], left, views[best]).patterned >= TORN) return "torn";
-    return confirms(counts[best]!) ? views[best] : null;
+    return confirms(counts[best]!, () => this.hero(lcd, left)) ? views[best] : null;
   }
 
-  /** The views pick() looks at, with their maps and counts, and which most of the screen's tiles are (the first of equals; -1 for none). */
+  /** The views pick() looks at, with their maps and counts, and which most of the screen's patterned tiles are (-1 for none). */
   private best(lcd: Uint8Array, view: KitMapView, left: number) {
     const good = this.good, views = [view];
     if (good && this.fails < STALE && !samePlace(good, view)) views.push(good);
@@ -214,18 +229,60 @@ export class WideView {
     const maps = views.map((v) => this.map(v.mapType, v.mapIndex));
     const counts = views.map((v, i) => (maps[i] ? this.count(lcd, maps[i]!, v, left) : null));
     let best = -1;
-    counts.forEach((c, i) => c && (best < 0 || c.patterned > counts[best]!.patterned) && (best = i));
+    // (of equals, the one with fewer of its patterned tiles not on the screen: on plain ground, where the screen still shows the last view)
+    const better = (c: Count, b: Count) => c.patterned > b.patterned || (c.patterned === b.patterned && c.patterns - c.patterned < b.patterns - b.patterned);
+    counts.forEach((c, i) => c && (best < 0 || better(c, counts[best]!)) && (best = i));
     return { views, maps, counts, best };
   }
 
-  /** The map area's left edge, found from the first screen that shows the map: the edge where the most of its patterned tiles show. */
-  private find(lcd: Uint8Array, view: KitMapView): void {
+  /**
+   * The map area's left edge on a screen that shows the map, or null: of the
+   * edges where it is confirmed, the one where the most of its patterned
+   * tiles show (of equals, the most tiles). Kept once patterned tiles tell
+   * the edges apart (plain ground cannot: there the hero's place tells).
+   */
+  private find(lcd: Uint8Array, view: KitMapView): number | null {
     const counts = LEFTS.map((l) => {
       const b = this.best(lcd, view, l);
       return b.best < 0 ? null : b.counts[b.best]!;
     });
-    const best = counts.reduce((b, c, i) => ((c?.patterned ?? -1) > (counts[b]?.patterned ?? -1) ? i : b), 0);
-    if (counts[best] && confirms(counts[best]!)) this.left = LEFTS[best];
+    const score = (i: number) => (counts[i] ? counts[i]!.patterned * 100 + counts[i]!.same : -1);
+    for (const i of LEFTS.map((_, i) => i).sort((a, b) => score(b) - score(a))) {
+      const c = counts[i];
+      if (!c || !confirms(c, () => this.hero(lcd, LEFTS[i]))) continue;
+      if (c.patterned >= 3 && counts.every((o, j) => j === i || (o?.patterned ?? -1) < c.patterned)) this.left = LEFTS[i];
+      return LEFTS[i];
+    }
+    return null;
+  }
+
+  /**
+   * Whether the hero stands in its place on the screen (the view's tile
+   * (HERO_X, HERO_Y), the map area from x = `left`): one of the frames of a
+   * party member's walking picture, every one of its pixels.
+   */
+  private hero(lcd: Uint8Array, left: number): boolean {
+    for (let i = 1; i < 256; i++) {
+      const pic = this.pic(ResType.ACP, 1, i);
+      if (!pic) {
+        if (i > 8) break; // (the pictures are numbered from 1, perhaps with gaps)
+        continue;
+      }
+      const x0 = left + HERO_X * TILE, y0 = (HERO_Y + 1) * TILE - pic.h;
+      if (y0 < 0 || x0 + pic.w > LCD_STRIDE) continue;
+      next: for (const f of pic.frames) {
+        let ink = 0;
+        for (let y = 0; y < pic.h; y++)
+          for (let x = 0; x < pic.w; x++) {
+            const v = f[y * pic.w + x];
+            if (v === 2) continue;
+            if ((lcd[(y0 + y) * LCD_STRIDE + x0 + x] ? 1 : 0) !== v) continue next;
+            ink += v;
+          }
+        if (ink >= MIN_INK) return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -238,10 +295,14 @@ export class WideView {
     const c: Count = { seen: 0, same: 0, patterned: 0, patterns: 0 };
     // (the tiles a dialogue box covers say nothing)
     const box = boxTop(lcd), rows = box === null ? ROWS : Math.min(ROWS, Math.floor(box / TILE));
+    const [pl, pt, pr, pb] = POSITION;
     for (let ty = 0; ty < rows; ty++) {
       for (let tx = 0; tx < COLS; tx++) {
         const t = map.tile(view.viewX + tx, view.viewY + ty);
+        if (t === MISSING) continue; // (what the game draws there is not known)
         if (t < 0) return { seen: 0, same: 0, patterned: 0, patterns: 0 }; // (the view is always on the map)
+        // (nor those the hero's position covers)
+        if (view.position && left + tx * TILE <= pr && left + tx * TILE + TILE > pl && ty * TILE <= pb && ty * TILE + TILE > pt) continue;
         const px = map.tiles.frames[t], plain = map.tiles.plain[t];
         if (not) {
           const o = map.tile(not.viewX + tx, not.viewY + ty);
@@ -289,6 +350,9 @@ export class WideView {
   }
 }
 
+/** A map cell whose tile the tile set lacks. */
+const MISSING = -2;
+
 class MapData {
   readonly width: number;
   readonly height: number;
@@ -301,13 +365,13 @@ class MapData {
     this.height = b[0x11] & 0xff;
   }
 
-  /** The tile at (x, y), or -1 past the map's edges or for a tile the set lacks. */
+  /** The tile at (x, y), or -1 past the map's edges, or MISSING for a tile the set lacks (异世大陆's 异族之地 has some). */
   tile(x: number, y: number): number {
     if (x < 0 || y < 0 || x >= this.width || y >= this.height) return -1;
     const i = 0x12 + (y * this.width + x) * 2;
-    if (i >= this.b.length) return -1;
+    if (i >= this.b.length) return MISSING;
     const t = this.b[i] & 0x7f;
-    return t < this.tiles.frames.length ? t : -1;
+    return t < this.tiles.frames.length ? t : MISSING;
   }
 }
 
