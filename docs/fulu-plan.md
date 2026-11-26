@@ -364,6 +364,26 @@ left so by the owner's choice (the code reads the same RAM and screen).
 tests/wide-view-gam.test.ts checks the six games on their first map, in
 dialogues and around popup menus.
 
+*In step while walking (2026-11-26).* The owner saw the border out of step
+with the middle now and then. The games move their view in memory before
+they draw it: 伏魔记 eight frames before, 英雄坛说 and 异世大陆 two or three;
+and on the firmware the drawing itself spans two or three frames. Drawn at
+the memory's view, the border ran a tile ahead of the middle for those
+frames (headless walks of 7,364 frames: 690-1,790 frames out of step per
+game and OS), and on the firmware the middle showed half of each view for a
+frame at each step (90-520 frames). Now the border is drawn at the view the
+screen shows: of the memory's, the one shown last (with that moment's
+characters) and those around it, the one most of the screen's tiles are (on
+grass a view a tile off matches too, so not just the first that confirms);
+a screen part one view and part another shows the last frame again, at
+most four frames. The same walks now give none of either (and none in the
+browser, on a computer and a phone). A screen that is not the map drops the border by its
+second frame, as before (its first frame now shows the last frame again
+rather than the border beside the new screen). The device player composes
+only when the device has run a frame, so a display faster than 60 Hz does
+not count a frame twice. tests/wide-view-walk.test.ts walks three games on
+both OSes; tests/wide-view-sync.test.ts checks the rules on drawn screens.
+
 ## 13. F6: More text for `.gam` games (plan)
 
 **Goal.** The JS engine's More text option for `.gam` games on Fulu: Normal

@@ -12,6 +12,14 @@
 // the whole screen, scene pictures, or a build whose memory is not as
 // expected fail the check, and the frame then shows the device's whole
 // screen with a blank border.
+//
+// The border and the middle show the same moment. The game moves its view
+// in memory first and draws its screen some frames later (伏魔记 eight, 异世大陆
+// two or three), and on the firmware the drawing itself takes two or three
+// frames. So the border is drawn at the view the screen shows: the memory's,
+// or the one it showed last (with that moment's characters), or one between
+// them; a screen caught mid-redraw, part one view and part another, shows
+// the last frame again (border and middle) for at most HOLD frames.
 
 import { DatLib, ResType } from "../engine/fmj/lib/DatLib";
 import type { KitMapView } from "./kitCheats";
@@ -24,8 +32,16 @@ const LEFTS = [8, 7];
 const MIN_MATCH = 9;
 /** A dialogue box (SAY's, or More text's taller one): its frame's sides at x 9 and 149, its bottom at y 95. */
 const BOX_LEFT = 9, BOX_RIGHT = 149, BOX_BOTTOM = 95, BOX_MIN = 20;
-/** A failed check blanks the border only from the second frame in a row (a frame caught mid-draw is not a scene change). */
+/** A failed check blanks the border from the second frame in a row (the first shows the last frame again: a frame caught mid-draw is not a scene change). */
 const GRACE = 2;
+/** A screen caught mid-redraw between two views shows the last frame again, for at most this many frames in a row. */
+const HOLD = 4;
+/** Patterned tiles of each of two views, where the other has other tiles, that make a screen mid-redraw. */
+const TORN = 2;
+/** How far around the game's view the screen's is looked for, in tiles each way (it walks on before it draws, and can turn back). */
+const MAX_BEHIND = 2;
+/** For how many frames without the map the view shown last is still a candidate (past a battle, the memory's view is the screen's). */
+const STALE = 30;
 
 /** An image's frames as pixels: 0 white, 1 black, 2 transparent; and which frames are one colour. */
 export interface Pic {
@@ -52,6 +68,9 @@ const PROOF = 6;
  */
 const confirms = (c: Count) => c.patterned >= PROOF || (c.same >= Math.max(MIN_MATCH, c.seen / 2) && c.patterned >= Math.max(3, c.patterns / 2));
 
+/** Whether two views are the same place on the same map. */
+const samePlace = (a: KitMapView, b: KitMapView) => a.mapType === b.mapType && a.mapIndex === b.mapIndex && a.viewX === b.viewX && a.viewY === b.viewY;
+
 /** The top of a dialogue box on the screen, or null: its frame's two sides run up from its bottom line. */
 function boxTop(lcd: Uint8Array): number | null {
   for (let x = BOX_LEFT; x <= BOX_RIGHT; x++) if (!lcd[BOX_BOTTOM * LCD_STRIDE + x]) return null;
@@ -68,8 +87,15 @@ export class WideView {
   showing = false;
   /** Where this game's map area starts on the screen, once seen. */
   private left: number | null = null;
-  /** The map and view the border last showed. */
-  private shownView = "";
+  /** The view the screen last showed, with the characters at that moment (a copy). */
+  private good: KitMapView | null = null;
+  /** The last frame composed with the border, and its size: shown again while the screen is mid-redraw. */
+  private last: Uint8Array | null = null;
+  private lastSize = "";
+  /** Frames in a row shown again from `last`. */
+  private held = 0;
+  /** The view (and characters) the last frame's border was drawn at, or null for a blank border. */
+  drawn: KitMapView | null = null;
 
   /** `library`: the fmj library in the .gam (from findLib). */
   constructor(library: Uint8Array) {
@@ -84,30 +110,49 @@ export class WideView {
   /**
    * Compose the frame (0 white, 1 black, `w` × `h` from size()) from the
    * device's screen (`lcd`, LCD_STRIDE wide) and the game's map view.
-   * Returns where the device's screen is in the frame.
+   * Returns where the device's screen is in the frame. Call it once for
+   * each new screen (its holds and grace count calls).
    */
   compose(lcd: Uint8Array, view: KitMapView | null, mx: number, my: number, out: Uint8Array): [number, number] {
-    const [w, h] = WideView.size(mx, my), ox = TILE * mx, oy = TILE * my;
-    const map = view && this.map(view.mapType, view.mapIndex);
-    const at = view ? `${view.mapType}-${view.mapIndex}-${view.viewX}-${view.viewY}` : "";
-    let shown = !!map && (this.left !== null ? this.matches(lcd, map, view!, this.left) : this.find(lcd, map, view!));
-    // A popup menu can leave too little of the map in view to prove it. The
-    // border stays while the view is the one it showed and the screen still
-    // shows the map somewhere (one of its tiles in place); a battle, a page
-    // over the whole screen or a picture shows none.
-    if (!shown && this.showing && map && this.left !== null && at === this.shownView) {
-      const c = this.count(lcd, map, view!, this.left);
-      shown = c.patterned >= 1 || (c.patterns === 0 && c.same >= 1);
+    const [w, h] = WideView.size(mx, my), ox = TILE * mx, oy = TILE * my, size = `${w}x${h}`;
+    let at: KitMapView | null = null, torn = false;
+    if (view && this.map(view.mapType, view.mapIndex)) {
+      if (this.left === null) this.find(lcd, view);
+      if (this.left !== null) {
+        const r = this.pick(lcd, view, this.left);
+        if (r === "torn") torn = true;
+        else at = r;
+      }
+      // A popup menu can leave too little of the map in view to prove it. The
+      // border stays while the view is the one it showed and the screen still
+      // shows the map somewhere (one of its tiles in place); a battle, a page
+      // over the whole screen or a picture shows none.
+      const good = this.good;
+      if (!at && !torn && this.showing && this.left !== null && good && samePlace(good, view)) {
+        const c = this.count(lcd, this.map(good.mapType, good.mapIndex)!, good, this.left);
+        if (c.patterned >= 1 || (c.patterns === 0 && c.same >= 1)) at = good;
+      }
     }
-    if (shown) this.shownView = at;
+    if (at && at !== this.good) this.good = { ...at, actors: at.actors.map((a) => ({ ...a })) };
+    this.fails = at ? 0 : this.fails + 1;
+    // a screen mid-redraw, or the first frame of a failed check: the last frame again
+    if (!at && this.showing && this.last && this.lastSize === size && (torn ? this.held < HOLD : this.fails < GRACE)) {
+      this.held++;
+      out.set(this.last.subarray(0, w * h));
+      return [ox, oy];
+    }
+    this.held = 0;
+    this.showing = !!at || (this.showing && this.fails < GRACE && !torn);
+    const v = this.showing ? (at ?? this.good) : null;
+    const map = v && this.map(v.mapType, v.mapIndex);
     const LEFT = this.left ?? LEFTS[0];
-    this.fails = shown ? 0 : this.fails + 1;
-    this.showing = this.showing ? this.fails < GRACE : shown;
     out.fill(0, 0, w * h);
-    if (this.showing && map && view) {
+    this.drawn = null;
+    if (v && map) {
+      this.drawn = v;
       // the map's tiles, on the device's grid (blank past the map's edges)
-      const left = view.viewX - Math.ceil((ox + LEFT) / TILE), top = view.viewY - Math.ceil(oy / TILE);
-      const x0 = ox + LEFT - (view.viewX - left) * TILE, y0 = oy - (view.viewY - top) * TILE;
+      const left = v.viewX - Math.ceil((ox + LEFT) / TILE), top = v.viewY - Math.ceil(oy / TILE);
+      const x0 = ox + LEFT - (v.viewX - left) * TILE, y0 = oy - (v.viewY - top) * TILE;
       for (let ty = top, y = y0; y < h; ty++, y += TILE) {
         for (let tx = left, x = x0; x < w; tx++, x += TILE) {
           const t = map.tile(tx, ty);
@@ -115,40 +160,81 @@ export class WideView {
         }
       }
       // the characters, the lower ones over the higher (the game draws its own on its screen)
-      for (const a of [...view.actors].sort((p, q) => p.y - q.y)) {
+      for (const a of [...v.actors].sort((p, q) => p.y - q.y)) {
         const pic = this.pic(ResType.ACP, a.type, a.res);
         if (!pic || pic.w < 8) continue; // (1 × 1 pictures mark events)
         const frame = a.type === 2 ? (a.facing - 1) * 3 + (a.step === 3 ? 1 : a.step) : 0;
         if (frame < 0 || frame >= pic.frames.length) continue;
-        const x = ox + LEFT + (a.x - view.viewX) * TILE, y = oy + (a.y - view.viewY + 1) * TILE - pic.h;
+        const x = ox + LEFT + (a.x - v.viewX) * TILE, y = oy + (a.y - v.viewY + 1) * TILE - pic.h;
         this.blit(out, w, h, pic.frames[frame], pic.w, pic.h, x, y);
       }
       // the game's own map area on top
       for (let y = 0; y < LCD_HEIGHT; y++) out.set(lcd.subarray(y * LCD_STRIDE + LEFT, y * LCD_STRIDE + LEFT + COLS * TILE), (oy + y) * w + ox + LEFT);
     } else {
+      this.showing = false;
       for (let y = 0; y < LCD_HEIGHT; y++) out.set(lcd.subarray(y * LCD_STRIDE, y * LCD_STRIDE + LCD_WIDTH), (oy + y) * w + ox);
     }
     for (let i = 0, n = w * h; i < n; i++) out[i] = out[i] ? 1 : 0;
+    if (this.showing) {
+      if (!this.last || this.last.length < w * h) this.last = new Uint8Array(w * h);
+      this.last.set(out.subarray(0, w * h));
+      this.lastSize = size;
+    }
     return [ox, oy];
   }
 
-  /** The map area's left edge, found from the first screen that shows the view. */
-  private find(lcd: Uint8Array, map: MapData, view: KitMapView): boolean {
-    // (the edge where the screen shows the most of the library's patterned tiles)
-    const counts = LEFTS.map((l) => this.count(lcd, map, view, l));
-    const best = counts.reduce((b, c, i) => (c.patterned > counts[b].patterned ? i : b), 0);
-    if (!confirms(counts[best])) return false;
-    this.left = LEFTS[best];
-    return true;
+  /**
+   * The view the screen shows: of the memory's (`view`), the one it showed
+   * last (the game has moved on and not drawn it yet) and those around the
+   * memory's, the one most of the screen's tiles are, if they confirm it
+   * (a view a tile off can confirm too on a map of repeating tiles); "torn"
+   * when the screen is part that view and part another (caught mid-redraw);
+   * null for none.
+   */
+  private pick(lcd: Uint8Array, view: KitMapView, left: number): KitMapView | "torn" | null {
+    const { views, maps, counts, best } = this.best(lcd, view, left);
+    if (best < 0) return null;
+    // part another view: tiles of one on the same map where it has others (a whole screen of one view has none)
+    if (counts[best]!.patterned >= TORN)
+      for (let i = 0; i < views.length; i++)
+        if (i !== best && maps[i] === maps[best] && this.count(lcd, maps[i]!, views[i], left, views[best]).patterned >= TORN) return "torn";
+    return confirms(counts[best]!) ? views[best] : null;
   }
 
-  /** Whether the device's screen shows the library's tiles for this view, with the map area from x = `left`. */
-  private matches(lcd: Uint8Array, map: MapData, view: KitMapView, left: number): boolean {
-    return confirms(this.count(lcd, map, view, left));
+  /** The views pick() looks at, with their maps and counts, and which most of the screen's tiles are (the first of equals; -1 for none). */
+  private best(lcd: Uint8Array, view: KitMapView, left: number) {
+    const good = this.good, views = [view];
+    if (good && this.fails < STALE && !samePlace(good, view)) views.push(good);
+    // (around the memory's: with the memory's characters)
+    for (let y = -MAX_BEHIND; y <= MAX_BEHIND; y++)
+      for (let x = -MAX_BEHIND; x <= MAX_BEHIND; x++) {
+        const v = { ...view, viewX: view.viewX + x, viewY: view.viewY + y };
+        if ((x || y) && v.viewX >= 0 && v.viewY >= 0 && !(views[1] === good && samePlace(good, v))) views.push(v);
+      }
+    const maps = views.map((v) => this.map(v.mapType, v.mapIndex));
+    const counts = views.map((v, i) => (maps[i] ? this.count(lcd, maps[i]!, v, left) : null));
+    let best = -1;
+    counts.forEach((c, i) => c && (best < 0 || c.patterned > counts[best]!.patterned) && (best = i));
+    return { views, maps, counts, best };
   }
 
-  /** How many of the screen's map tiles are the library's: all, and those with a pattern (a plain tile proves little). */
-  private count(lcd: Uint8Array, map: MapData, view: KitMapView, left: number): Count {
+  /** The map area's left edge, found from the first screen that shows the map: the edge where the most of its patterned tiles show. */
+  private find(lcd: Uint8Array, view: KitMapView): void {
+    const counts = LEFTS.map((l) => {
+      const b = this.best(lcd, view, l);
+      return b.best < 0 ? null : b.counts[b.best]!;
+    });
+    const best = counts.reduce((b, c, i) => ((c?.patterned ?? -1) > (counts[b]?.patterned ?? -1) ? i : b), 0);
+    if (counts[best] && confirms(counts[best]!)) this.left = LEFTS[best];
+  }
+
+  /**
+   * How many of the screen's map tiles (the map area from x = `left`) are the
+   * library's: all, and those with a pattern (a plain tile proves little).
+   * With `not` (a view on the same map), only where that view's tile looks
+   * otherwise.
+   */
+  private count(lcd: Uint8Array, map: MapData, view: KitMapView, left: number, not?: KitMapView): Count {
     const c: Count = { seen: 0, same: 0, patterned: 0, patterns: 0 };
     // (the tiles a dialogue box covers say nothing)
     const box = boxTop(lcd), rows = box === null ? ROWS : Math.min(ROWS, Math.floor(box / TILE));
@@ -157,6 +243,10 @@ export class WideView {
         const t = map.tile(view.viewX + tx, view.viewY + ty);
         if (t < 0) return { seen: 0, same: 0, patterned: 0, patterns: 0 }; // (the view is always on the map)
         const px = map.tiles.frames[t], plain = map.tiles.plain[t];
+        if (not) {
+          const o = map.tile(not.viewX + tx, not.viewY + ty);
+          if (o === t || (o >= 0 && map.tiles.frames[o].every((v, i) => v === px[i]))) continue;
+        }
         let same = true;
         for (let y = 0; y < TILE && same; y++) {
           const row = (ty * TILE + y) * LCD_STRIDE + left + tx * TILE;

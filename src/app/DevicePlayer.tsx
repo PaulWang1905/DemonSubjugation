@@ -341,9 +341,11 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
         // Emulate the frames due, within a budget of the frame's time; when a slow phone cannot keep
         // up, the device runs slower than real time rather than falling behind: at most MAX_LAG of
         // its time waits to be emulated, so a key pressed is read soon whatever the backlog was.
+        let ran = 0;
         for (const start = performance.now(); acc >= FRAME_MS; acc -= FRAME_MS) {
           d.machine.run(CPU_HZ / FPS);
           kitRef.current?.tick();
+          ran++;
           if ((d instanceof FuluDevice && d.stopped) || performance.now() - start > FRAME_BUDGET_MS) {
             acc -= FRAME_MS;
             break;
@@ -373,11 +375,13 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
         }
         const { mx, my } = o.view, w = wideRef.current;
         const wideNow = !!w && (mx || my) !== 0;
-        // nothing new to show: the same screen with the same settings (the wider view moves the map's people besides)
+        // nothing new to show: the same screen with the same settings; with the wider view, also no
+        // frame run (it moves the map's people besides, and counts the frames it holds a screen
+        // caught mid-redraw: a display faster than the device's 60 frames must not count twice)
         const hiresNow = o.effect !== "none" || !!o.hd ? hires.get(o.hd ?? "pixel") : undefined;
         const settings = `${o.paletteId}:${o.effect}:${o.hd}:${o.letters}:${o.scale}:${mx}:${my}`;
         const ram = d.machine.ram;
-        if (!wideNow && !hiresNow?.stale && settings === drawnWith && sameLcd(ram, lcdShown)) {
+        if ((!wideNow || ran === 0) && !hiresNow?.stale && settings === drawnWith && sameLcd(ram, lcdShown)) {
           raf = requestAnimationFrame(loop);
           return;
         }
