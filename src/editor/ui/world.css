@@ -39,9 +39,6 @@
   gap: 8px 14px;
   align-items: center;
 }
-.w-tools .seg button {
-  padding: 4px 9px;
-}
 .w-tools kbd {
   font-size: 10px;
   opacity: 0.7;
@@ -86,7 +83,7 @@
   max-height: calc(100vh - var(--e-top, 120px) - 330px);
   min-height: 240px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--panel);
 }
 .w-stage {
@@ -161,9 +158,9 @@
 .w-chip {
   position: absolute;
   white-space: nowrap;
-  font: 600 11px/1.3 var(--h-sans, system-ui), system-ui, sans-serif;
+  font: 600 11px/1.3 var(--font-sans);
   padding: 0 4px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   pointer-events: none;
 }
 .w-name {
@@ -190,7 +187,7 @@
   position: absolute;
   inset: 0;
   border: 2px solid var(--w-start);
-  border-radius: 3px;
+  border-radius: var(--radius);
 }
 .w-dot {
   position: absolute;
@@ -200,7 +197,7 @@
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-ink);
-  font: 700 11px/1 system-ui, sans-serif;
+  font: 700 11px/1 var(--font-sans);
 }
 .w-cell {
   z-index: 1;
@@ -212,10 +209,10 @@
   top: 1px;
   min-width: 14px;
   padding: 0 3px;
-  border-radius: 3px;
+  border-radius: var(--radius);
   background: rgba(20, 60, 200, 0.85);
   color: #fff;
-  font: 700 10px/1.4 system-ui, sans-serif;
+  font: 700 10px/1.4 var(--font-sans);
   text-align: center;
   pointer-events: none;
 }
@@ -231,7 +228,7 @@
   background: var(--panel);
   color: var(--ink);
   border: 1px solid var(--line);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-sm);
 }
 .w-chip.right {
   left: 100%;
@@ -286,7 +283,7 @@
   position: sticky;
   top: 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--panel);
   padding: 12px 14px;
   max-height: calc(100vh - var(--e-top, 120px) - 250px);
@@ -322,7 +319,7 @@
   width: 40px;
   height: 48px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: rgb(167, 186, 130);
   overflow: hidden;
 }
@@ -346,14 +343,14 @@
 }
 .w-note {
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--w-none-bg);
   color: var(--w-none);
 }
 .w-msg {
   margin: 0 0 10px;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   border: 1px solid currentColor;
 }
 .w-msg.ok {
@@ -370,13 +367,7 @@
 }
 .w-field input,
 .w-field textarea {
-  font: inherit;
   font-size: 14px;
-  padding: 5px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--ink);
   resize: vertical;
 }
 .w-actions {
@@ -388,11 +379,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-button.danger-solid {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
 }
 .w-howto {
   margin: 0;
@@ -415,26 +401,24 @@ button.danger-solid {
   margin-top: 6px;
 }
 .w-pickwhat button {
-  padding: 3px 8px;
-  font-size: 13px;
+  min-height: var(--control-h-sm);
+  padding: 0 10px;
+  font-size: var(--fs-sm);
 }
 .w-mini {
   display: block;
   max-width: 100%;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   cursor: crosshair;
   image-rendering: pixelated;
 }
-.w-palette {
-  max-height: 260px;
-  overflow: auto;
-}
+
 .w-new {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 8px;
   border: 1px dashed var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
 }

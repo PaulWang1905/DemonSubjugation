@@ -1,0 +1,485 @@
+/* ======================================================================
+   BUBU's design system: the tokens and the shared controls every page,
+   the editor and the players use. The look is the home page's: Geist and
+   Geist Mono, square edges, hairline rules, ink for what you press or
+   chose, the LCD green as the one signal colour.
+
+   Controls (use these, not one-off styles):
+     button / .button            primary: inked (filled with the text colour)
+     .ghost                      secondary: an outline
+     .quiet                      no frame until hovered (toolbars, lists)
+     .link                       a button that reads as a link
+     .danger / .danger-solid     destructive: red text / red fill
+     .small, .icon               28 px high / square
+     .seg                        segmented choice: square cells, the chosen one inked
+     .chip                       a small toggle or filter (aria-pressed / .on)
+     .badge                      a small mono label
+     .card                       a panel with a hairline frame
+     dialog, .menu               floating surfaces
+     input, select, textarea     one height, one frame, one focus ring
+   A chosen toggle (aria-pressed / aria-checked / aria-selected = true, or
+   .on) is inked; where you are (the site menu, the editor's list, tabs) is
+   tinted green. Base rules use :where() so they have no specificity: any
+   component class can refine them.
+   ====================================================================== */
+
+:root {
+  /* colours */
+  --bg: #f3f1ec;
+  --panel: #ffffff;
+  --ink: #1d1f23;
+  --muted: #6b6f78;
+  --line: #dedad2;
+  --line-strong: #b9b4aa; /* control frames */
+  --accent: #3f6b3a;
+  --accent-ink: #ffffff;
+  --danger: #a3382f;
+  --danger-ink: #ffffff;
+  --warn: #a8661c;
+  --tint: color-mix(in srgb, var(--accent) 13%, transparent); /* where you are */
+  --hover: color-mix(in srgb, var(--ink) 6%, transparent);
+  --focus: var(--accent);
+  --bezel: #2a2d33;
+  --bezel-edge: #3a3e46;
+  --key: #e9e6df;
+  --key-ink: #2a2d33;
+  --key-a: #3f6b3a;
+  --key-b: #8a5a2b;
+  /* the home page's dark bands */
+  --h-ink: #0b0c0a;
+  --h-ink-2: #15170f;
+  --h-paper: #ecebe3;
+  --h-dim: #8d9083;
+  --h-rule: rgb(236 235 227 / 0.14);
+  --h-lcd: #c9e265;
+  --h-lcd-deep: #a7ba82;
+  --lcd: var(--h-lcd);
+  --lcd-ink: var(--h-ink);
+
+  /* type */
+  --h-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --h-sans: "Geist Variable", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --h-pixel: "Silkscreen", "Geist Mono Variable", monospace;
+  --font-sans: var(--h-sans);
+  --font-mono: var(--h-mono);
+  --fs-xs: 11px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-base: 15px;
+  --fs-lg: 17px;
+
+  /* shape and size */
+  --radius: 0px; /* controls, cards, dialogs, menus: square, as the home page */
+  --radius-round: 999px; /* only what is round on purpose: dots, keys */
+  --control-h: 36px;
+  --control-h-sm: 28px;
+  --control-h-lg: 52px;
+  --touch: 40px; /* the least a finger gets on a touch screen */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* depth */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.08);
+  --shadow-md: 0 10px 28px rgb(0 0 0 / 0.16);
+  --shadow-lg: 0 24px 64px rgb(0 0 0 / 0.3);
+  --backdrop: rgb(11 12 10 / 0.5);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a;
+    --panel: #1c1f24;
+    --ink: #e8e6e1;
+    --muted: #9aa0aa;
+    --line: #30343b;
+    --line-strong: #4a4f58;
+    --accent: #7fae6e;
+    --accent-ink: #10130f;
+    --danger: #e0786c;
+    --danger-ink: #10130f;
+    --warn: #e0a060;
+    --bezel: #0d0e11;
+    --bezel-edge: #24272d;
+    --key: #2a2e35;
+    --key-ink: #e8e6e1;
+    --key-a: #5f8f52;
+    --key-b: #a6713d;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 10px 28px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 24px 64px rgb(0 0 0 / 0.6);
+    --backdrop: rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #14161a;
+  --panel: #1c1f24;
+  --ink: #e8e6e1;
+  --muted: #9aa0aa;
+  --line: #30343b;
+  --line-strong: #4a4f58;
+  --accent: #7fae6e;
+  --accent-ink: #10130f;
+  --danger: #e0786c;
+  --danger-ink: #10130f;
+  --warn: #e0a060;
+  --bezel: #0d0e11;
+  --bezel-edge: #24272d;
+  --key: #2a2e35;
+  --key-ink: #e8e6e1;
+  --key-a: #5f8f52;
+  --key-b: #a6713d;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 10px 28px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 24px 64px rgb(0 0 0 / 0.6);
+  --backdrop: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+/* ---------- text ---------- */
+
+:where(a) {
+  color: var(--accent);
+}
+:where(code, kbd, samp) {
+  font-family: var(--font-mono);
+}
+:where(code) {
+  font-size: 0.92em;
+  padding: 0 4px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--line) 50%, transparent);
+}
+
+/* ---------- keyboard focus: one ring everywhere ---------- */
+
+:where(a, button, summary, select, input, textarea, [tabindex], [role="button"], [role="tab"], [role="radio"], [role="option"], .button):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---------- buttons ---------- */
+
+:where(button, .button) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--control-h);
+  padding: 0 14px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--bg);
+  font: 500 var(--fs-md) / 1.2 var(--font-sans);
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+:where(button, .button):where(:hover:not(:disabled)) {
+  background: var(--lcd);
+  border-color: var(--lcd);
+  color: var(--lcd-ink);
+}
+:where(button, .button):where(:active:not(:disabled)) {
+  transform: translateY(1px);
+}
+:where(button):disabled,
+.button[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* secondary: an outline */
+.ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+.ghost:where(:hover:not(:disabled)) {
+  background: var(--hover);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+/* a chosen toggle is inked, whatever its variant */
+:where(button, .button):where([aria-pressed="true"], [aria-checked="true"], [aria-selected="true"], .on),
+.ghost:where([aria-pressed="true"], [aria-checked="true"], [aria-selected="true"], .on) {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+/* no frame until hovered */
+.quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink);
+}
+.quiet:where(:hover:not(:disabled)) {
+  background: var(--hover);
+  border-color: transparent;
+  color: var(--ink);
+}
+
+/* reads as a link */
+.link {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-align: left;
+}
+.link:where(:hover:not(:disabled)) {
+  background: none;
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+.link:where(:active) {
+  transform: none;
+}
+
+.danger {
+  color: var(--danger);
+}
+.ghost.danger {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line-strong));
+}
+.ghost.danger:where(:hover:not(:disabled)) {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.danger-solid {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--danger-ink);
+}
+.danger-solid:where(:hover:not(:disabled)) {
+  background: color-mix(in srgb, var(--danger) 85%, var(--ink));
+  border-color: color-mix(in srgb, var(--danger) 85%, var(--ink));
+  color: var(--danger-ink);
+}
+
+:where(button, .button).small {
+  min-height: var(--control-h-sm);
+  padding: 0 10px;
+  font-size: var(--fs-sm);
+}
+:where(button, .button).icon {
+  justify-content: center;
+  min-width: var(--control-h);
+  padding: 0;
+}
+:where(button, .button).icon.small {
+  min-width: var(--control-h-sm);
+}
+:where(button, .button).big {
+  min-height: var(--control-h-lg);
+  padding: 0 20px;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+/* ---------- fields ---------- */
+
+:where(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="image"]), select, textarea) {
+  box-sizing: border-box;
+  min-height: var(--control-h);
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background-color: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-md);
+  min-width: 0;
+}
+:where(textarea) {
+  padding: 8px 10px;
+  line-height: 1.45;
+}
+:where(input, select, textarea):where(:hover:not(:disabled, :focus)) {
+  border-color: color-mix(in srgb, var(--ink) 55%, var(--line-strong));
+}
+:where(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]), select, textarea):focus-visible {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
+}
+:where(input, select, textarea):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+:where(input, textarea)::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+:where(select) {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+:where(input[type="checkbox"], input[type="radio"]) {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+:where(input[type="range"]) {
+  accent-color: var(--accent);
+}
+
+/* ---------- segmented choice ---------- */
+
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+}
+.seg > :is(button, .button, label) {
+  justify-content: center;
+  min-height: calc(var(--control-h) - 2px);
+  margin: 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.seg > * + * {
+  border-left: 1px solid var(--line-strong);
+}
+.seg > :not(button, .button, label) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.seg > :is(button, .button):where(:hover:not(:disabled)) {
+  background: var(--hover);
+  color: var(--ink);
+}
+/* chosen: by its aria state, or .on, or (older markup) being the one cell
+   that is not .ghost */
+.seg > :is(button, .button):is([aria-pressed="true"], [aria-checked="true"], [aria-selected="true"], .on, :not(.ghost, .quiet, [aria-pressed], [aria-checked], [aria-selected])) {
+  background: var(--ink);
+  color: var(--bg);
+}
+.seg.small > :is(button, .button, label) {
+  min-height: calc(var(--control-h-sm) - 2px);
+  padding: 0 10px;
+  font-size: var(--fs-sm);
+}
+
+/* ---------- chips, badges ---------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--control-h-sm);
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: 500 var(--fs-sm) / 1.2 var(--font-sans);
+}
+button.chip:where(:hover:not(:disabled)) {
+  background: var(--hover);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.chip:is([aria-pressed="true"], [aria-checked="true"], [aria-selected="true"], .on) {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  font: 600 10px/1.6 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ---------- surfaces ---------- */
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+:where(dialog) {
+  max-width: calc(100vw - 32px);
+  padding: 22px 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+}
+:where(dialog)::backdrop {
+  background: var(--backdrop);
+}
+
+.menu {
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow-md);
+}
+
+/* ---------- touch: every control a finger can hit ---------- */
+
+@media (pointer: coarse) {
+  :where(button, .button, select, input:not([type="checkbox"], [type="radio"], [type="range"])) {
+    min-height: var(--touch);
+  }
+  :where(button, .button).icon {
+    min-width: var(--touch);
+  }
+  .seg > :is(button, .button, label) {
+    min-height: calc(var(--touch) - 2px);
+  }
+  .chip {
+    min-height: 36px;
+  }
+}

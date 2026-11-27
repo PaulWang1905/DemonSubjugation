@@ -56,7 +56,7 @@ export function ResourceView({ archive, entry, mode, onMode, onChange, services,
           </span>
         </h2>
         {views.length > 1 && (
-          <div className="view-switch" role="tablist" aria-label="View">
+          <div className="view-switch seg small" role="tablist" aria-label="View">
             {views.map((v) => (
               <button
                 key={v.id}

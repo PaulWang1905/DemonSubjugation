@@ -1,3 +1,4 @@
+import "./ui.css"; // the design system first: tokens and shared controls
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App";

@@ -553,7 +553,7 @@ export function FuluProgressPage() {
       <Section id="problems" title={t.sections.problems}>
         <div className="fp-chips" role="group" aria-label={t.sections.problems}>
           {(["all", "open", "decided", "fixed"] as ProblemFilter[]).map((f) => (
-            <button key={f} type="button" className="fp-chip" aria-pressed={problemFilter === f} onClick={() => setProblemFilter(f)}>
+            <button key={f} type="button" className="chip fp-chip" aria-pressed={problemFilter === f} onClick={() => setProblemFilter(f)}>
               {t.problemFilters[f]}
               <span className="fp-dim"> {f === "all" ? PROBLEMS.length : PROBLEMS.filter((p) => p.status === f).length}</span>
             </button>
@@ -621,7 +621,7 @@ export function FuluProgressPage() {
       <Section id="programs" title={t.sections.programs} lead={t.programsText(n)}>
         <div className="fp-chips" role="group" aria-label={t.sections.programs}>
           {(Object.keys(keep) as Filter[]).map((f) => (
-            <button key={f} type="button" className="fp-chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
+            <button key={f} type="button" className="chip fp-chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
               {t.filters[f]}
               <span className="fp-dim"> {GAMES.filter(keep[f]).length}</span>
             </button>

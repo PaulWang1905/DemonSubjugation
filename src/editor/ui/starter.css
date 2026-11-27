@@ -32,7 +32,7 @@
   outline-offset: 2px;
   box-shadow: 0 0 0 7px var(--g-ring-soft) !important;
   animation: guide-pulse 1.6s ease-in-out infinite;
-  border-radius: 6px;
+  border-radius: var(--radius);
 }
 @keyframes guide-pulse {
   50% {
@@ -55,10 +55,10 @@
   max-width: calc(100vw - 32px);
   border: 1px solid var(--line);
   border-left: 4px solid var(--g-ring);
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--panel);
   color: var(--ink);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+  box-shadow: var(--shadow-md);
   font-size: 14px;
 }
 .guide.folded {
@@ -71,9 +71,9 @@
 .guide-pill {
   background: var(--panel);
   border: 1px solid var(--g-ring) !important;
-  border-radius: 999px;
+  border-radius: var(--radius);
   padding: 6px 14px;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.15);
+  box-shadow: var(--shadow-md);
 }
 .guide-head {
   display: flex;
@@ -98,7 +98,7 @@
 .guide-steps li {
   flex: 1;
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--radius);
   background: var(--line);
 }
 .guide-steps li.done {
@@ -124,7 +124,9 @@
   align-items: center;
 }
 .guide-buttons button {
-  padding: 4px 10px;
+  min-height: var(--control-h-sm);
+  padding: 0 10px;
+  font-size: var(--fs-sm);
 }
 .guide-buttons .spacer {
   flex: 1;
@@ -135,7 +137,7 @@
 }
 .guide-progress {
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--g-note-bg);
   color: var(--g-note);
 }
@@ -177,24 +179,16 @@
   border: 0;
   min-width: 0;
 }
+/* (its legends read as its other field labels, not as the export dialog's) */
 .wz-field > span:first-child,
-.wz-field > legend {
-  font-weight: 600;
-  font-size: 13px;
+.export-dialog .wz-field > legend {
+  font: 600 13px/1.4 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
 }
 .wz-field legend {
   margin-bottom: 4px;
-}
-.wz input:not([type="checkbox"]):not([type="radio"]),
-.wz textarea,
-.sf input {
-  font: inherit;
-  font-size: 14px;
-  padding: 5px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--ink);
 }
 .wz-field > input:not([type="checkbox"]):not([type="radio"]),
 .wz-field > textarea,
@@ -229,7 +223,7 @@
   flex-wrap: wrap;
   padding: 6px 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   cursor: pointer;
 }
 .wz-choice.on {
@@ -262,7 +256,7 @@ fieldset.wz-field > .wz-choice {
   padding: 2px;
   line-height: 0;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--panel);
 }
 .wz-tile canvas {
@@ -285,7 +279,7 @@ fieldset.wz-field > .wz-choice {
   gap: 2px;
   padding: 6px 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--panel);
 }
 .wz-sprite .thumb {
@@ -313,7 +307,7 @@ fieldset.wz-field > .wz-choice {
   gap: 8px;
   padding: 4px 8px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
 }
 .wz-item.on {
@@ -341,7 +335,7 @@ fieldset.wz-field > .wz-choice {
   gap: 10px;
   padding: 10px;
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 .wz-join .check {
   display: flex;
@@ -359,7 +353,7 @@ fieldset.wz-field > .wz-choice {
 .wz-note {
   margin: 0;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--g-note-bg);
   color: var(--g-note);
 }
@@ -379,15 +373,16 @@ fieldset.wz-field > .wz-choice {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-left: 4px solid var(--accent);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--panel);
   color: var(--ink);
-  box-shadow: 0 12px 30px rgb(0 0 0 / 0.18);
+  box-shadow: var(--shadow-md);
   font-size: 14px;
   line-height: 1.45;
 }
 .wz-toast button {
-  padding: 0 6px;
+  min-height: var(--control-h-sm);
+  padding: 0 8px;
 }
 
 /* --- the project home: quick actions --- */
@@ -407,7 +402,7 @@ fieldset.wz-field > .wz-choice {
   height: 100%;
   text-align: left;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 .qa strong {
   font-size: 14px;
@@ -451,7 +446,7 @@ fieldset.wz-field > .wz-choice {
   border-bottom: 1px solid var(--line);
 }
 .sf-num {
-  font: 12px var(--h-mono, ui-monospace, monospace);
+  font: 12px var(--font-mono);
   color: var(--muted);
 }
 .sf-name,
@@ -484,7 +479,7 @@ fieldset.wz-field > .wz-choice {
   justify-items: start;
   padding: 12px 14px;
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 .empty-state p {
   margin: 0;
@@ -495,8 +490,9 @@ fieldset.wz-field > .wz-choice {
 }
 .group-empty-add {
   margin: 2px 0 6px 22px;
-  font-size: 12px;
-  padding: 2px 8px;
+  min-height: var(--control-h-sm);
+  padding: 0 10px;
+  font-size: var(--fs-sm);
 }
 
 /* room under the sidebar's last items for the guide (fixed at the bottom left) */

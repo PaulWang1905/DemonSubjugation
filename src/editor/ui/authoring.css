@@ -2,7 +2,7 @@
    flag pickers, popovers that escape their panels, tool names. */
 
 .name-dialog .name-input {
-  font: 600 22px/1.2 var(--h-mono, ui-monospace, monospace);
+  font: 600 22px/1.2 var(--font-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 10px 12px;
@@ -186,7 +186,7 @@
   min-height: 68px;
   padding: 6px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg);
 }
 .tp-preview canvas {
@@ -201,7 +201,7 @@
   font-weight: 600;
 }
 .tp-solid {
-  color: #b3412e;
+  color: var(--danger);
   font-weight: 600;
 }
 .tp-grid {
@@ -218,8 +218,8 @@
   right: 1px;
   bottom: 1px;
   border: 5px solid transparent;
-  border-right-color: #c0392b;
-  border-bottom-color: #c0392b;
+  border-right-color: var(--danger);
+  border-bottom-color: var(--danger);
   pointer-events: none;
 }
 .tp-btn:hover canvas,
@@ -243,11 +243,4 @@
 .tp-paintwalk {
   line-height: 1.35;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .tp-solid {
-    color: #f08c75;
-  }
-}
-:root[data-theme="dark"] .tp-solid {
-  color: #f08c75;
-}
+

@@ -171,7 +171,7 @@ export function Library({ games, fonts, persistent, busy, messages, firmware, on
                 meta={[g.format === "gam" ? t.kind.gam : t.kind.lib, size(g.size), g.playedAt ? t.played(added(g.playedAt, lang)) : g.addedAt ? added(g.addedAt, lang) : ""].filter(Boolean).join(" · ")}
               >
                 {options.length > 1 ? (
-                  <div className="g-engine" role="radiogroup" aria-label={t.engines.label}>
+                  <div className="g-engine seg small" role="radiogroup" aria-label={t.engines.label}>
                     {options.map((o) => (
                       <button
                         key={o.id}

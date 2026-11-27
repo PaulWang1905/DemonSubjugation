@@ -51,15 +51,13 @@
 }
 .wmap-bar .seg button {
   min-width: 30px;
-  padding: 3px 8px;
   font-size: 15px;
-  line-height: 1;
 }
 .wmap-zoom {
   min-width: 46px;
   padding: 0 4px;
   text-align: center;
-  font-family: var(--h-mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
@@ -108,7 +106,7 @@
   overflow: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background-color: var(--wm-bg);
   background-image: radial-gradient(var(--wm-dot) 1px, transparent 1.2px);
   background-size: 18px 18px;
@@ -172,7 +170,7 @@
 }
 .wmap-stub text {
   fill: var(--wm-q);
-  font: 700 10px var(--h-sans, system-ui, sans-serif);
+  font: 700 10px var(--font-sans);
 }
 .wmap-stub.missing line,
 .wmap-stub.missing circle {
@@ -194,13 +192,13 @@
   gap: 2px;
   padding: 5px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--panel);
   color: var(--ink);
   text-align: left;
   font-weight: 400;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-sm);
   transition:
     opacity 0.12s,
     border-color 0.12s;
@@ -234,7 +232,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: rgb(167, 186, 130);
   pointer-events: none;
 }
@@ -300,11 +298,11 @@
   max-width: min(600px, calc(100% - 20px));
   max-height: calc(100% - 20px);
   overflow: auto;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+  box-shadow: var(--shadow-md);
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--wm-sel);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--panel);
 }
 .wmap-detail p {

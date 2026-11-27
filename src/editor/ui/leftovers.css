@@ -31,7 +31,7 @@
 .wz-difficulty {
   margin: 0;
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   border-left: 3px solid var(--wz-diff, var(--line));
   background: color-mix(in srgb, var(--wz-diff, var(--line)) 10%, transparent);
   font-size: 13px;
@@ -50,7 +50,7 @@
 }
 .wz-difficulty.too-hard,
 .wz-diff.too-hard {
-  --wz-diff: var(--danger, #c0392b);
+  --wz-diff: var(--danger);
 }
 .wz-diff {
   color: var(--wz-diff);

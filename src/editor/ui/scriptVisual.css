@@ -1,7 +1,7 @@
 /* The Visual script view (ScriptVisual.tsx and its parts). */
 .sv {
-  --sv-warn: var(--e-warn, #a8661c);
-  --sv-error: var(--danger, #a3382f);
+  --sv-warn: var(--warn);
+  --sv-error: var(--danger);
   --sv-soft: color-mix(in srgb, var(--line) 45%, transparent);
   --sv-sel: color-mix(in srgb, var(--accent) 14%, var(--panel));
   --sv-arm: color-mix(in srgb, var(--accent) 45%, var(--line));
@@ -11,23 +11,11 @@
   min-width: 0;
 }
 .sv kbd {
-  font: 500 11px/1 var(--h-mono, ui-monospace, monospace);
+  font: 500 11px/1 var(--font-mono);
   padding: 2px 4px;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--panel);
-}
-.sv button.small {
-  padding: 2px 8px;
-  font-size: 13px;
-}
-.sv button.on {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-.sv :focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 /* the draft banner, the bar */
@@ -38,7 +26,7 @@
   flex-wrap: wrap;
   padding: 10px 14px;
   border: 1px solid var(--sv-warn);
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: color-mix(in srgb, var(--sv-warn) 12%, var(--panel));
 }
 .sv-banner span {
@@ -77,7 +65,7 @@
   margin: 0;
   padding: 8px 12px 8px 28px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--panel);
   font-size: 13px;
 }
@@ -151,7 +139,7 @@
   gap: 2px;
   padding: 7px 10px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--ink);
   text-align: left;
@@ -187,7 +175,7 @@
   gap: 8px;
   padding: 10px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--panel);
 }
 .sv-add-form fieldset {
@@ -238,7 +226,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border-radius: 10px;
+  border-radius: var(--radius);
 }
 .sv-list {
   display: flex;
@@ -254,7 +242,7 @@
   padding: 6px 6px 6px 3px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--sv-cat, var(--line));
-  border-radius: 9px;
+  border-radius: var(--radius);
   background: var(--panel);
   min-width: 0;
 }
@@ -262,10 +250,6 @@
   background: var(--sv-sel);
   border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
   border-left-color: var(--sv-cat, var(--accent));
-}
-.sv-card:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 .sv-card.has-error {
   border-color: color-mix(in srgb, var(--sv-error) 60%, var(--line));
@@ -280,7 +264,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--radius);
   background: var(--accent);
 }
 .sv-card.drop-before::before {
@@ -349,9 +333,9 @@
   color: var(--muted);
 }
 .sv-tag {
-  font: 500 11px/1.4 var(--h-mono, ui-monospace, monospace);
+  font: 500 11px/1.4 var(--font-mono);
   padding: 0 5px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--sv-soft);
   color: var(--muted);
 }
@@ -403,18 +387,21 @@
   gap: 2px;
   padding: 1px;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--radius);
   background: var(--panel);
-  box-shadow: 0 2px 6px rgb(0 0 0 / 0.08);
+  box-shadow: var(--shadow-sm);
 }
 .sv-tools button.icon {
-  padding: 1px 7px;
-  border: 0;
   font-size: 13px;
-  line-height: 1.4;
+  min-height: var(--control-h-sm);
+  min-width: var(--control-h-sm);
+  padding: 0 6px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink);
 }
 .sv-tools button.icon:hover {
-  background: var(--sv-soft);
+  background: var(--hover);
 }
 .sv-comment {
   margin: 0;
@@ -435,18 +422,11 @@
 }
 
 /* inline controls */
-.sv select,
-.sv input:not([type="radio"]),
-.sv textarea {
-  font: inherit;
-  color: var(--ink);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-}
 .sv-inline select {
-  padding: 2px 4px;
   max-width: 100%;
+  min-height: var(--control-h-sm);
+  padding: 0 26px 0 8px;
+  font-size: var(--fs-sm);
 }
 .sv-num {
   padding: 2px 5px;
@@ -454,8 +434,9 @@
   text-align: right;
 }
 .sv-text-input {
-  padding: 2px 6px;
   max-width: 100%;
+  min-height: var(--control-h-sm);
+  padding: 0 8px;
 }
 .sv-text {
   width: 100%;
@@ -489,17 +470,18 @@
   opacity: 0.8;
 }
 .sv-name-input {
-  padding: 2px 6px;
   width: 16ch;
+  min-height: var(--control-h-sm);
+  padding: 0 8px;
 }
 .sv-thumb {
   image-rendering: pixelated;
-  border-radius: 3px;
+  border-radius: var(--radius);
   background: var(--sv-soft);
 }
 .sv .rp-btn {
-  min-height: 28px;
   padding: 1px 7px;
+  min-height: var(--control-h-sm);
 }
 .sv-shop {
   display: flex;
@@ -513,13 +495,13 @@
 }
 .sv-raw-addr,
 .sv-mono {
-  font: 13px/1.4 var(--h-mono, ui-monospace, monospace);
+  font: 13px/1.4 var(--font-mono);
 }
 .sv-raw {
   width: 100%;
   box-sizing: border-box;
   padding: 4px 8px;
-  font: 13px/1.4 var(--h-mono, ui-monospace, monospace);
+  font: 13px/1.4 var(--font-mono);
 }
 .sv-comment .sv-raw,
 .sv-card.sv-comment .sv-raw {
@@ -545,7 +527,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font: 13px/1.4 var(--h-mono, ui-monospace, monospace);
+  font: 13px/1.4 var(--font-mono);
   color: var(--accent);
 }
 .sv-label button.link {
@@ -681,19 +663,10 @@
   margin: 0;
 }
 .sv-goto button.link {
-  font-family: var(--h-mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
 }
 .sv-add-here {
   align-self: flex-start;
-  padding: 2px 8px;
-  border: 1px dashed var(--line);
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-}
-.sv-add-here:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent);
 }
 .sv-add-here.end {
   margin-top: 4px;
@@ -710,10 +683,10 @@
   left: 0;
   right: 0;
   max-width: 640px;
-  border: 1px solid var(--ink);
-  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
   background: var(--panel);
-  box-shadow: 0 16px 40px rgb(0 0 0 / 0.2);
+  box-shadow: var(--shadow-md);
   overflow: hidden;
 }
 .sv-palette-head {
@@ -748,7 +721,7 @@
   grid-template-columns: 1fr auto;
   gap: 0 10px;
   padding: 6px 10px;
-  border-radius: 7px;
+  border-radius: var(--radius);
   cursor: pointer;
 }
 .sv-palette-list li.at {
@@ -791,7 +764,7 @@
   height: 192px;
   image-rendering: pixelated;
   border: 6px solid var(--bezel, #2a2d33);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: #a7ba82;
 }
 .sv-preview figcaption {

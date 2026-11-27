@@ -4,13 +4,14 @@
 
 /* "+ Add a step here": a clear button at the end of each branch */
 button.sv-add-here {
-  padding: 4px 10px;
+  min-height: var(--control-h-sm);
+  padding: 0 10px;
   border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--line));
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: color-mix(in srgb, var(--accent) 85%, var(--ink));
   background: color-mix(in srgb, var(--accent) 6%, transparent);
-  font-size: 13px;
-  font-weight: 550;
+  font-size: var(--fs-sm);
+  font-weight: 500;
 }
 button.sv-add-here:hover:not(:disabled),
 button.sv-add-here:focus-visible {

@@ -285,7 +285,7 @@ export function RemoteAdd({ busy, onImport }: Props) {
                   {done.has(e.url) ? (
                     <span className="remote-added small">✓ {t.added}</span>
                   ) : (
-                    <button className="remote-add" onClick={() => void add([e.url])} disabled={locked}>
+                    <button className="ghost remote-add" onClick={() => void add([e.url])} disabled={locked}>
                       {t.add}
                     </button>
                   )}

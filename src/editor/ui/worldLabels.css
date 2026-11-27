@@ -25,7 +25,7 @@
   display: inline-block;
   min-width: 1.4em;
   text-align: center;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: rgba(20, 24, 22, 0.72);
   color: #fff;
   margin-right: 4px;
