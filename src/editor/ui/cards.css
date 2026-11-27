@@ -384,7 +384,7 @@
   background: transparent;
   color: var(--ink);
   text-align: left;
-  font-size: 13.5px;
+  font-size: var(--fs-sm);
   line-height: 1.4;
 }
 .cv-link:hover {

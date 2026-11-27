@@ -387,9 +387,10 @@
   background: var(--hover);
   color: var(--ink);
 }
-/* chosen: by its aria state, or .on, or (older markup) being the one cell
-   that is not .ghost */
-.seg > :is(button, .button):is([aria-pressed="true"], [aria-checked="true"], [aria-selected="true"], .on, :not(.ghost, .quiet, [aria-pressed], [aria-checked], [aria-selected])) {
+/* chosen: by its aria state, or .on, or (older markup: the others are
+   .ghost) being the one cell that is not .ghost */
+.seg > :is(button, .button):is([aria-pressed="true"], [aria-checked="true"], [aria-selected="true"], .on),
+.seg:has(> .ghost) > :is(button, .button):not(.ghost, .quiet, [aria-pressed], [aria-checked], [aria-selected]) {
   background: var(--ink);
   color: var(--bg);
 }

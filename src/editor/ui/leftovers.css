@@ -119,7 +119,7 @@
 .e-tabs-wrap .e-tab-main {
   padding-left: 9px;
   gap: 5px;
-  font-size: 13.5px;
+  font-size: var(--fs-sm);
 }
 .e-tabs-wrap .e-tab:not(.on):not(.home) .e-tab-main {
   padding-right: 9px;
