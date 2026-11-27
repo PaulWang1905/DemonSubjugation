@@ -11,6 +11,7 @@
 import { SCREEN_HEIGHT, SCREEN_WIDTH, type TextMark } from "../engine";
 import { applyPalette, type Palette } from "./palettes";
 import { LETTER_FONTS, loadSharpFont, type LetterFont } from "./sharpFonts";
+import { SmoothCpu, SmoothGL } from "./smoothScale";
 
 /** Sharp text: the device's fonts (sans, serif) or fonts that come with the player. */
 export type TextStyle = "sans" | "serif" | "kai" | "hei" | "song";
@@ -89,80 +90,6 @@ function lcdGap(k: number): number {
 
 const css = (c: [number, number, number]) => `rgb(${c[0]},${c[1]},${c[2]})`;
 
-/**
- * Scale2x (EPX) on 32-bit pixels: each pixel becomes four, rounding off
- * diagonal edges but leaving lone pixels and checkerboard dithering as they are.
- * Pixels marked in `keep` (index y * w + x) are only enlarged.
- */
-export function scale2x(src: Uint32Array, w: number, h: number, dst: Uint32Array, keep?: Uint8Array): void {
-  const W = w * 2;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const p = src[y * w + x];
-      let e0 = p, e1 = p, e2 = p, e3 = p;
-      // (the outermost pixels are only enlarged: nothing is known beyond them)
-      if (x > 0 && y > 0 && x < w - 1 && y < h - 1 && !keep?.[y * w + x]) {
-        const a = src[(y - 1) * w + x]; // up
-        const b = src[y * w + x + 1]; // right
-        const c = src[y * w + x - 1]; // left
-        const d = src[(y + 1) * w + x]; // down
-        if (a !== d && c !== b) {
-          if (c === a) e0 = a;
-          if (a === b) e1 = b;
-          if (c === d) e2 = c;
-          if (d === b) e3 = b;
-        }
-      }
-      const o = y * 2 * W + x * 2;
-      dst[o] = e0;
-      dst[o + 1] = e1;
-      dst[o + W] = e2;
-      dst[o + W + 1] = e3;
-    }
-  }
-}
-
-/**
- * The pixels of fine texture (grass, dithering): where more than `limit` of
- * the neighbouring pairs in the 7 x 7 square around a pixel differ (a
- * lone diagonal line differs in about a third of them, grass and dithering
- * in half or more). Smoothing
- * would turn such texture into a different pattern, so it is kept as drawn.
- */
-export function busyPixels(src: Uint32Array, w: number, h: number, out: Uint8Array, limit = 0.4): void {
-  // running sums of the "differs from the right / lower neighbour" maps
-  const S = w + 1;
-  const hs = new Int32Array(S * (h + 1));
-  const vs = new Int32Array(S * (h + 1));
-  for (let y = 0; y < h; y++) {
-    let rh = 0;
-    let rv = 0;
-    for (let x = 0; x < w; x++) {
-      const p = src[y * w + x];
-      rh += x < w - 1 && src[y * w + x + 1] !== p ? 1 : 0;
-      rv += y < h - 1 && src[(y + 1) * w + x] !== p ? 1 : 0;
-      hs[(y + 1) * S + x + 1] = hs[y * S + x + 1] + rh;
-      vs[(y + 1) * S + x + 1] = vs[y * S + x + 1] + rv;
-    }
-  }
-  const sum = (t: Int32Array, x0: number, y0: number, x1: number, y1: number) =>
-    x1 <= x0 || y1 <= y0 ? 0 : t[y1 * S + x1] - t[y0 * S + x1] - t[y1 * S + x0] + t[y0 * S + x0];
-  for (let y = 0; y < h; y++) {
-    const y0 = Math.max(0, y - 3);
-    const y1 = Math.min(h, y + 4);
-    for (let x = 0; x < w; x++) {
-      const x0 = Math.max(0, x - 3);
-      const x1 = Math.min(w, x + 4);
-      // pairs (x, x+1) with both in the square, and (y, y+1) likewise
-      const hx1 = Math.min(x1, w - 1);
-      const vy1 = Math.min(y1, h - 1);
-      const pairs = Math.max(0, hx1 - x0) * (y1 - y0) + (x1 - x0) * Math.max(0, vy1 - y0);
-      const diff = sum(hs, x0, y0, hx1, y1) + sum(vs, x0, y0, x1, vy1);
-      out[y * w + x] = pairs && diff > limit * pairs ? 1 : 0;
-    }
-  }
-}
-
 /** Which renderer drew each canvas last (another one may have drawn over it since). */
 const drawnBy = new WeakMap<HTMLCanvasElement, HiresText>();
 
@@ -200,16 +127,10 @@ export class HiresText {
   private mask: { surface: Surface; ctx: Ctx2D; image: ImageData } | null = null;
   private grid: { key: string; surface: Surface } | null = null;
   private glass: { key: string; surface: Surface } | null = null;
-  private smoothBig: { surface: Surface; ctx: Ctx2D } | null = null;
-  private smooth: {
-    surface: Surface;
-    ctx: Ctx2D;
-    image: ImageData;
-    mid: Uint32Array;
-    out: Uint32Array;
-    keep: Uint8Array;
-    keep2: Uint8Array;
-  } | null = null;
+  /** Smooth on the GPU (null: not tried yet; false: not to be had, drawn on the CPU). */
+  private smoothGL: SmoothGL | null | false = null;
+  /** Smooth without WebGL: the picture at 4x. */
+  private smooth: { surface: Surface; ctx: Ctx2D; image: ImageData; src: Uint8Array; cpu: SmoothCpu } | null = null;
   private readonly pending = new Set<string>();
   /** What the last draw showed, so an unchanged frame is not drawn again. */
   private last: { frame: Uint8ClampedArray; key: string; out: HTMLCanvasElement } | null = null;
@@ -248,7 +169,6 @@ export class HiresText {
     this.grid = null;
     this.glass = null;
     this.smooth = null;
-    this.smoothBig = null;
   }
 
   /** Draw `frame` (engine RGBA, `fw` x `fh`) with `marks` onto `out` at `scale` x. */
@@ -262,8 +182,7 @@ export class HiresText {
     fh = SCREEN_HEIGHT,
     effect: ScreenEffect = "none",
   ): void {
-    // (with the game's own pixel text, the characters' cells are only kept unsmoothed)
-    const cells = marks;
+    // (the game's own pixel text is part of the picture)
     if (!this.style) marks = [];
     this.size(fw, fh);
     const W = Math.round(fw * scale);
@@ -277,7 +196,7 @@ export class HiresText {
     const ctx = out.getContext("2d")!;
 
     // nothing changed since this drew the canvas last (a still scene, a menu): keep it
-    const key = `${scale}:${effect}:${palette.id}:${cells.map((m) => `${m.x},${m.y},${m.w},${m.h},${m.fg},${m.bg},${m.text},${m.hidden}`).join(";")}`;
+    const key = `${scale}:${effect}:${palette.id}:${marks.map((m) => `${m.x},${m.y},${m.w},${m.h},${m.fg},${m.bg},${m.text},${m.hidden}`).join(";")}`;
     const last = this.last;
     const mine = drawnBy.get(out) === this;
     drawnBy.set(out, this);
@@ -309,7 +228,7 @@ export class HiresText {
     applyPalette(work, this.image.data, palette);
     const lcd = effect === "lcd" || effect === "lcd-shadow";
     if (lcd) this.drawLcd(ctx, palette, W, H, effect === "lcd-shadow");
-    else if (effect === "smooth") this.drawSmooth(ctx, W, H, cells);
+    else if (effect === "smooth") this.drawSmooth(ctx, palette, W, H);
     else {
       this.smallCtx.putImageData(this.image, 0, 0);
       ctx.imageSmoothingEnabled = false;
@@ -464,65 +383,50 @@ export class HiresText {
   }
 
   /**
-   * Smoothed pixels: Scale2x twice (4x), enlarged by whole pixels and then
-   * resampled smoothly to the output size. Fine texture and the text cells
-   * are left as drawn: smoothing would change the pattern of the one and
-   * break up the strokes of the pixel font in the other.
+   * Smoothed pixels (src/app/smoothScale.ts): edges found at 4x and drawn as
+   * smooth contours at the output size, on the GPU. Without a GPU, the same
+   * at 4x on the CPU, enlarged smoothly by the browser.
    */
-  private drawSmooth(ctx: Ctx2D, W: number, H: number, cells: TextMark[]): void {
+  private drawSmooth(ctx: Ctx2D, palette: Palette, W: number, H: number): void {
     const fw = this.fw;
     const fh = this.fh;
-    if (!this.smooth) {
-      const s = surface(fw * 4, fh * 4);
-      const image = new ImageData(fw * 4, fh * 4);
-      this.smooth = {
-        surface: s,
-        ctx: s.getContext("2d") as Ctx2D,
-        image,
-        mid: new Uint32Array(fw * 2 * fh * 2),
-        out: new Uint32Array(image.data.buffer),
-        keep: new Uint8Array(fw * fh),
-        keep2: new Uint8Array(fw * 2 * fh * 2),
-      };
-    }
-    const sm = this.smooth;
-    const src = new Uint32Array(this.image.data.buffer);
-    const keep = sm.keep;
-    busyPixels(src, fw, fh, keep);
-    for (const m of cells) {
-      for (const [cx, cy, cw, ch] of visibleRects(m)) {
-        for (let y = Math.max(0, m.y + cy); y < Math.min(fh, m.y + cy + ch); y++) {
-          keep.fill(1, y * fw + Math.max(0, m.x + cx), y * fw + Math.min(fw, m.x + cx + cw));
-        }
+    if (this.smoothGL === null) this.smoothGL = SmoothGL.create() ?? false;
+    if (this.smoothGL && this.smoothGL.lost) this.smoothGL = false;
+    if (this.smoothGL) {
+      try {
+        ctx.drawImage(this.smoothGL.draw(this.work, fw, fh, W, H, palette.light, palette.dark), 0, 0);
+        return;
+      } catch (e) {
+        console.warn("Smooth: drawing without WebGL", e);
+        this.smoothGL = false;
       }
     }
-    const keep2 = sm.keep2;
-    for (let y = 0; y < fh * 2; y++) {
-      for (let x = 0; x < fw * 2; x++) keep2[y * fw * 2 + x] = keep[(y >> 1) * fw + (x >> 1)];
+    if (!this.smooth) {
+      const s = surface(fw * 4, fh * 4);
+      this.smooth = { surface: s, ctx: s.getContext("2d") as Ctx2D, image: new ImageData(fw * 4, fh * 4), src: new Uint8Array(fw * fh), cpu: new SmoothCpu() };
     }
-    scale2x(src, fw, fh, sm.mid, keep);
-    scale2x(sm.mid, fw * 2, fh * 2, sm.out, keep2);
+    const sm = this.smooth;
+    const work = this.work;
+    let red = false;
+    for (let i = 0; i < fw * fh; i++) {
+      sm.src[i] = work[i * 4] === 0 && work[i * 4 + 1] === 0 ? 1 : 0;
+      if (work[i * 4] === 255 && work[i * 4 + 1] === 0) red = true;
+    }
+    const word = ([r, g, b]: readonly number[]) => ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
+    const out = new Uint32Array(sm.image.data.buffer);
+    sm.cpu.draw(sm.src, fw, fh, word(palette.dark), word(palette.light), out);
+    // (red pixels, as they are)
+    if (red) {
+      for (let i = 0; i < fw * fh; i++) {
+        if (work[i * 4] !== 255 || work[i * 4 + 1] !== 0) continue;
+        const o = Math.floor(i / fw) * 16 * fw + (i % fw) * 4;
+        for (let k = 0; k < 16; k++) out[o + (k >> 2) * fw * 4 + (k & 3)] = 0xff0000ff;
+      }
+    }
     sm.ctx.putImageData(sm.image, 0, 0);
-    // (to the next whole multiple above the output size, then down to it)
-    const n = Math.ceil(W / (fw * 4));
-    if (n * fw * 4 === W || n < 2) {
-      ctx.imageSmoothingEnabled = n * fw * 4 !== W;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(sm.surface, 0, 0, W, H);
-      return;
-    }
-    // whole pixels first, so the last smooth step only softens the edges a little
-    const bw = fw * 4 * n;
-    const bh = fh * 4 * n;
-    if (!this.smoothBig || this.smoothBig.surface.width !== bw || this.smoothBig.surface.height !== bh) {
-      const b = surface(bw, bh);
-      this.smoothBig = { surface: b, ctx: b.getContext("2d") as Ctx2D };
-    }
-    this.smoothBig.ctx.imageSmoothingEnabled = false;
-    this.smoothBig.ctx.drawImage(sm.surface, 0, 0, bw, bh);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(this.smoothBig.surface, 0, 0, W, H);
+    ctx.drawImage(sm.surface, 0, 0, W, H);
   }
 
   private glyph(text: string, w: number, h: number, color: string, scale: number): Surface {

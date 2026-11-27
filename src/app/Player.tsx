@@ -226,7 +226,7 @@ export function Player({ game, fonts, onExit, backTo = "library", names }: Props
         const h = (hires[key] ??= new HiresText(style));
         h.setLetters(tc.hdEnglish);
         const k = outputScale(scaleRef.current, fw);
-        h.draw(cv, frame, style || fx === "smooth" ? engine.textLayer() : [], pal, k, fw, fh, fx);
+        h.draw(cv, frame, style ? engine.textLayer() : [], pal, k, fw, fh, fx);
       }
       if (!drawn) {
         drawn = true;

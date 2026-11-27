@@ -82,8 +82,10 @@ the right to use.
 - **Effect**: LCD (each lit pixel a cell of a handheld screen, with a fine
   gap between lit cells and a clean background; HD text gets the same
   cells), LCD + shadow (lit cells and text also cast a soft shadow on the
-  glass) and Smooth (experimental: Scale2x twice on shapes, outlines and
-  portraits, while grass, dithering and text are kept exactly as drawn).
+  glass) and Smooth (the edges found with xBR's rules at 4x, reduced to the
+  two colours, and drawn as smooth contours anti-aliased at the display's
+  resolution, on the GPU; dithering, stripes and lone pixels keep their
+  pattern, and the game's pixel text is smoothed like the rest).
   Effects draw at the display's resolution and work with every Text choice
   and Map view.
 - **Bundled pixel fonts** in the device's 16-pixel layout, so games look
