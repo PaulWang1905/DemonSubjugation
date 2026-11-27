@@ -2,7 +2,7 @@
 
 The site now has three engines, and the Games page hides them: a `.gam`
 plays on the original OS if its files were added, on Fulu otherwise, and in
-FMJ React ("Remastered") when it carries a library. There is no choice, the
+FMJ React (then called "Remastered") when it carries a library. There is no choice, the
 cards overflow (a `.gam` card's buttons do not fit), firmware and fonts are
 two lines of small print, and the page is in the site's older style (rounded
 cards) while the home page is editorial: square edges, hairline rules,
@@ -16,7 +16,9 @@ monospaced labels and numbers, Geist, one signal colour (the LCD's lime).
   lists the ones a game can use, each ready or not and why.
 - **A choice per game**, remembered in the browser. The default is what Play
   did before: the original OS when its files are there, Fulu otherwise; a
-  `.lib` has only FMJ React.
+  `.lib` has only FMJ React. (Since: a `.gam` exported by BBK Maker says
+  which engine it asks for, and one with no BBK code in it plays on FMJ
+  React alone.)
 - **Fulu and the original OS keep separate saved devices** (a device saved on
   one does not resume on the other): the original keeps `gam:<id>`, Fulu
   `gam:<id>:fulu`; a Fulu device saved under the old key resumes once and

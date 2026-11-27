@@ -10,15 +10,18 @@ and what is next.
 Run every program the real device runs, in the browser, including programs
 not seen yet. Two ways to get there:
 
-1. **Firmware mode (done).** Emulate the hardware faithfully and let the real
-   OS (from a dump the user supplies) do everything. Complete by construction.
-2. **JS OS mode (next, "like WSL").** Replace the OS with JavaScript that
-   answers the programs' OS calls, so no firmware is needed, with text drawn
-   by the site (HD text, translations). Firmware mode is the reference every
-   JS function is checked against.
+1. **Firmware mode (done), the "Original OS".** Emulate the hardware
+   faithfully and let the real OS (from a dump the user supplies) do
+   everything. Complete by construction.
+2. **JS OS mode (done): Fulu** (`src/fulu`). TypeScript answers the
+   programs' OS calls, so no firmware is needed, with text drawn by the site
+   (HD text, More text). Firmware mode is the reference every function is
+   checked against. Its own documents: docs/fulu-plan.md, fulu-report.md,
+   fulu-notes.md, fulu-games.md.
 
-The fmj engine in `src/engine` stays: it plays `.lib` archives, powers the
-editor, and is offered as **Remastered** for `.gam` programs built on it.
+The fmj engine in `src/engine` (FMJ React) stays: it plays `.lib` archives,
+powers BBK Maker, and is offered as **FMJ React** for `.gam` programs built
+on the RPG kit (the Games page's engine switch).
 
 ## Status
 
@@ -27,12 +30,12 @@ editor, and is offered as **Remastered** for `.gam` programs built on it.
 | 1 | 65C02 core (`cpu.ts`) | done: SingleStepTests wdc65c02 (first ~450 cases of every opcode, cycles included) and both Dormann functional tests pass; ~45× real time in Node |
 | 2 | 4988 hardware + firmware mode (`machine.ts`, `flash.ts`, `lcd.ts`, `keys.ts`) | done: the full dictionary boots and works (menus, Longman dictionaries in the channel ROMs, tools) |
 | 2b | Programs (`flashfs.ts`, `gam.ts`, `device.ts`) | done: 138 of 138 programs of the bbk-games collection install and start from the OS's game menu |
-| 3 | Site (`DevicePlayer.tsx`, `deviceStore.ts`, `playerShell.tsx`, import, library) | done: on branch `bbk-emulator`, preview deployed |
-| 4 | Referee tools: API catalogue, call recorder, per-call diff | next |
-| 5 | JS OS core: boot without firmware, far call, C runtime, interrupts | planned |
-| 6 | JS OS wave 1: the ~52 functions every program uses (covers 100 of 138) | planned |
-| 7 | JS OS wave 2: the whole API table | planned |
-| 8 | Sound, HD text for all programs, input method, debugger | planned |
+| 3 | Site (`DevicePlayer.tsx`, `deviceStore.ts`, `playerShell.tsx`, import, library) | done, on `main` |
+| 4 | Referee tools: API catalogue, call recorder, per-call diff | done differently: Fulu's shadow run compares every entry into the OS live (docs/fulu-plan.md §4) |
+| 5 | JS OS core: boot without firmware, far call, C runtime, interrupts | done: Fulu F1 |
+| 6 | JS OS wave 1: the functions the seven main games use | done: Fulu F2, F3 |
+| 7 | JS OS wave 2: every function the collection calls | done: Fulu F8, F9 (all 138 programs run) |
+| 8 | HD text, More text, wider map view, debug menu, input method | done: Fulu F4-F7, Chinese typed with the computer's own input method. Sound: kept off (the owner's decision) |
 
 ## The hardware (as implemented in `machine.ts`)
 
@@ -93,15 +96,26 @@ buffer and fakes the timer tick); here nothing is faked.
 halts, i.e. a fatal error. (Inferred from the handler; gam4980 treats BRK as
 "program exit", BA4988 as an unknown instruction.)
 
-**Timers.** One count every 400 CPU cycles at 4 MHz (both emulators agree).
-ST1-4 count up and reload from STnLD on overflow; CT is 12-bit and reloads
-from CTLD. The RTC ticks once per emulated second. Events set their flag only
-when enabled (as both emulators do) and wake the CPU from halt.
+**Timers.** The CPU runs at 8 MHz and the timers count at 9 kHz
+(`CPU_HZ`, `TIMER_HZ` in `machine.ts`). Both emulators use 4 MHz and one
+count every 400 cycles; neither was measured, and games then played at half
+the pace players remember (the OS's timer-1 reload of $A6 makes 伏魔记's
+500 ms map tick at 9 kHz). ST1-4 count up and reload from STnLD on overflow;
+CT is 12-bit and reloads from CTLD. The RTC ticks once per emulated second.
+Events set their flag only when enabled (as both emulators do) and wake the
+CPU from halt.
 
 **Keyboard.** One latched key: `KEYCODE = code | $80`, ISR bit 7. The next
 queued key is delivered only after the firmware has cleared ISR bit 7
 (overwriting lost keys in the 游戏 menu during testing). No key-release
-events (none in either emulator); the player repeats held arrow keys.
+events (none in either emulator). The player (`src/app/deviceInput.ts`, for
+the keyboard and the on-screen keys alike) repeats a held arrow or page key
+every 90 ms after 300 ms, only once the program has read the last press
+(`Machine.keysWaiting`), and takes back the unread repeats when the key is
+let go (`Machine.dropKey`). The keys printed beside others (删除 ←, 修改 ↑,
+查找 ↓, 插入 →, 帮助 中英符) are sent as the device's Shift ($2D) and that key,
+or the key alone when the OS's Shift latch ($2B27 bit 5) is already set; the
+codes $29-$2C other BBK dictionaries use for them mean nothing to the 4988.
 
 **LCD.** RAM $0400-$0FFF, 96 rows of 32 bytes, MSB left. RAM rows 0-65 are
 display rows 65-0, rows 66-95 follow; bytes 0-18 are display bytes 1-19;
@@ -153,9 +167,10 @@ page in $2029/$202A). The segment is swapped into $5000-$8FFF for the call.
 Banks D-F ($D000-$FFFF) are the OS's resident code: the C runtime and the
 far-call machinery.
 
-**OS API used by the 138 programs:** 107 distinct functions, all through the
-table at $E700-$EA64 (one program also reaches one through its own table). About
-50 are linked into nearly every program:
+**OS API used by the 138 programs:** 107 distinct functions: 106 through the
+table at $E700-$EA64 and one (`902D`) that one program reaches through its own
+table. About 50 are linked into nearly every program. (The table below is
+from before Fulu; how far Fulu answers them is in docs/fulu-games.md.)
 
 | Functions implemented | Programs fully covered |
 |---|---|
@@ -293,8 +308,14 @@ or not at all):
   request) and Dormann's `6502_functional_test.bin` / `65C02_extended_opcodes_test.bin`.
 - `tests/bbk-device.test.ts` with `BBK_FIRMWARE` (+ `BBK_GAMES`): boots, starts
   every `.gam`, and boots from the OS and font alone.
+- `tests/device-input.test.ts` (always runs): the player's key presses,
+  repeats, releases and the Shift keys; `tests/wide-view-*.test.ts`: the
+  wider map view (synthetic screens always; walks of the games with
+  `BBK_GAMES`, `BBK_FIRMWARE` and `BBK_YISHI`); `tests/yishi-keys.test.ts`
+  with `BBK_YISHI` (异世大陆's .gam): 查找, 插入, 修改, 删除, Space and R on
+  both OSes. Fulu's own tests are listed in docs/fulu-report.md §9.
 - In the browser (Playwright): import of firmware and programs, Play, resume
-  after leaving, Remastered, the device itself, LCD effects, the phone layout.
+  after leaving, FMJ React, the device itself, LCD effects, the phone layout.
   (Playwright's `setInputFiles` drops files with non-ASCII names: copy them to
   ASCII names for tests.)
 
@@ -308,15 +329,18 @@ blocks them.
   peripheral (speech chip? serial EEPROM?) is not there. Harmless, but unknown.
 - **Sound.** `AUDCON` ($23F) and the melody hardware are not emulated (neither
   reference emulator does). Programs run silently.
-- **CPU clock.** 4 MHz is gam4980's figure; the real clock is not confirmed.
-  Speed feels right in the games tried.
-- **Key release / held keys.** The keyboard controller is modelled as press-only.
-  Action games that poll held keys may want more; to be checked with the
-  firmware's keyboard handler.
+- **CPU clock.** 8 MHz (and the timers' 9 kHz) is chosen from the games'
+  pace, not measured on a device.
+- **Key release / held keys.** The keyboard controller is modelled as
+  press-only; the player repeats held keys and takes back unread repeats.
+  Action games that poll held keys may want more.
 - **D flag on interrupts.** Cleared (65C02 behaviour); neither emulator does.
 - **Interrupt sources never raised:** MT, GTL, GTH, serial (RXD), MMC.
 
-## Next steps (phase 4 onwards)
+## Next steps (phase 4 onwards): done
+
+These were the plan before Fulu; all of it was done in Fulu's way (the
+shadow run instead of a recorder), see docs/fulu-plan.md.
 
 1. **API catalogue** from the firmware: walk the whole table at $E700-$EA64
    (about 290 slots, 204 pointing at code), name what middle.c and the
@@ -341,11 +365,15 @@ src/bbk/machine.ts    hardware, state save/restore
 src/bbk/flash.ts      NOR flash chip
 src/bbk/flashfs.ts    the OS's flash file system
 src/bbk/lcd.ts        screen decoding
-src/bbk/keys.ts       device keys, keyboard map
+src/bbk/keys.ts       device keys, their second meanings after Shift, keyboard map
 src/bbk/gam.ts        .gam header, embedded fmj library
 src/bbk/firmware.ts   firmware dumps by region
-src/bbk/device.ts     boot, install, launch
-src/app/DevicePlayer.tsx   the player for device programs
+src/bbk/device.ts     boot, install, launch (in slices, for the loading screen)
+src/bbk/kitCheats.ts  RPG-kit games: the debug menu, and the map view the wider view draws
+src/bbk/wideView.ts   RPG-kit games: the wider map view around the device's screen
+src/app/DevicePlayer.tsx   the player for device programs (the frame loop, effects, options)
+src/app/deviceInput.ts     key presses for the device, from the keyboard and the on-screen keys
+src/app/DeviceKeys.tsx     the row of other device keys under the on-screen keypad
 src/app/deviceStore.ts     keeping a device between visits (IndexedDB, gzip)
 src/app/playerShell.tsx    what both players share
 scripts/bbk/d65.mjs        65C02 disassembler (for reading the firmware)

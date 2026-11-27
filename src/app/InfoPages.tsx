@@ -4,7 +4,7 @@ import { fuluSummary } from "./fuluGames";
 import { REPO_URL } from "./links";
 import { LOCKED_GAMES } from "./lockedGame";
 import { SLOTS } from "./deviceStore";
-import { mapTiles } from "./playerOptions";
+import { mapTiles, SPEEDS } from "./playerOptions";
 import { Link } from "./router";
 import { PLAYER_TEXT } from "./playerText";
 import { useSiteLang } from "./siteLang";
@@ -18,6 +18,8 @@ const FULU = fuluSummary();
 const FULU_RUN = FULU.plays + FULU.ends;
 const FULU_EN = `${FULU_RUN === FULU.total ? "All" : `${FULU_RUN} of the`} ${FULU.total} programs of the 4988 game collection run on it.`;
 const FULU_ZH = `4988 游戏合集的 ${FULU.total} 个程序${FULU_RUN === FULU.total ? "全部" : `中有 ${FULU_RUN} 个`}能在上面运行。`;
+// The player's speeds, slowest and fastest.
+const SPEED_MIN = Math.min(...SPEEDS), SPEED_MAX = Math.max(...SPEEDS);
 
 const GUIDE = {
   en: {
@@ -54,9 +56,9 @@ const GUIDE = {
       ["Keys that do nothing", "The power, 目录 and dictionary keys open the device's own menus and dictionaries, which Fulu does not have."],
     ] as Row[],
     controlsTitle: "Controls",
-    controlsText: "On a phone the keypad appears by itself: slide your thumb on the d-pad to turn, and hold a direction with A.",
+    controlsText: "On a phone the keypad appears by itself (on a computer, turn it on under Controls & options): slide your thumb on the d-pad to turn, and hold a direction with A.",
     deviceKeysTitle: "4988 games",
-    deviceKeysText: "On Fulu or the original OS, the device's own keys are on your keyboard. On a phone, the keypad gives the arrows, the page keys, 输入 Enter (A) and 跳出 Exit (B).",
+    deviceKeysText: "On Fulu or the original OS, the device's own keys are on your keyboard. The on-screen keypad gives the arrows, the page keys, 输入 Enter (A) and 跳出 Exit (B), and a row under it the other keys some games need: R, Space, 帮助, 删除, 修改, 查找 and 插入. The 4988 prints those five beside the arrows and 中英符 and has you press Shift first; the player does that for you.",
     deviceKeysHead: ["Device key", "Keyboard"],
     savesTitle: "Keeping your progress",
     saves: [
@@ -67,10 +69,10 @@ const GUIDE = {
     lookTitle: "Make it look your way",
     look: [
       ["Pixel or HD text", "The handheld's 16-pixel bitmap text, or the same characters redrawn sharp in a real font."],
-      ["Screen and effect", "Colour themes, an LCD look with or without a shadow, or smoothed pixels."],
-      ["Wider map", `More of the map around the screen, ${mapTiles("wide")} or ${mapTiles("widest")} tiles. Dialogues and menus stay where the game draws them.`],
-      ["More text", "Smaller 12 or 10-pixel text in dialogues and message boxes, so a page holds more."],
-      ["Size and full screen", "Zoom in whole-pixel steps; ⛶ shows only the game. On an iPhone, add the site to the home screen to play without the browser bars."],
+      ["Screen and effect", "Colour themes, an LCD look with or without a shadow, or Smooth: the pixels' edges redrawn as smooth, sharp lines at any size."],
+      ["Wider map", `More of the map around the screen, ${mapTiles("wide")} or ${mapTiles("widest")} tiles, on FMJ React and, for RPG-kit games, on Fulu and the original OS. Menus and battles stay in the middle.`],
+      ["More text", "Smaller 12 or 10-pixel text in dialogues and message boxes, so a page holds more (FMJ React, and RPG-kit games on Fulu)."],
+      ["Size, speed and full screen", `Zoom in whole-pixel steps; play at ${SPEED_MIN}× to ${SPEED_MAX}× speed; ⛶ shows only the game. On an iPhone, add the site to the home screen to play without the browser bars.`],
       ["Debug menu", "Hold the screen to open it: the party's stats, money, items, story flags and random battles, changed in the running game."],
     ] as Row[],
     makeTitle: "Make your own",
@@ -111,9 +113,9 @@ const GUIDE = {
       ["不起作用的键", "开关、目录和词典键会打开设备自己的菜单和词典，符箓没有这些。"],
     ] as Row[],
     controlsTitle: "操作",
-    controlsText: "在手机上按键会自动出现：用拇指在方向键上滑动来转向，按住 A 可以持续走。",
+    controlsText: "在手机上按键会自动出现（在电脑上可在“操作和选项”里打开）：用拇指在方向键上滑动来转向，按住 A 可以持续走。",
     deviceKeysTitle: "4988 游戏",
-    deviceKeysText: "在符箓或原版系统上，掌机自己的按键都在键盘上。在手机上，屏幕按键提供方向键、翻页键、输入（A）和跳出（B）。",
+    deviceKeysText: "在符箓或原版系统上，掌机自己的按键都在键盘上。屏幕按键提供方向键、翻页键、输入（A）和跳出（B），下面一排是有些游戏要用的其他按键：R、空格、帮助、删除、修改、查找和插入。4988 把后五个印在方向键和中英符旁边，要先按 Shift；播放器会替你按。",
     deviceKeysHead: ["掌机按键", "键盘"],
     savesTitle: "保存进度",
     saves: [
@@ -124,10 +126,10 @@ const GUIDE = {
     lookTitle: "按你的喜好显示",
     look: [
       ["像素或高清文字", "掌机的 16 像素点阵文字，或用真实字体清晰重绘的同样文字。"],
-      ["画面与效果", "配色主题、带或不带阴影的液晶效果，或平滑像素。"],
-      ["更宽的地图", `在画面周围显示更多地图，${mapTiles("wide")} 或 ${mapTiles("widest")} 格。对话和菜单仍在游戏绘制的位置。`],
-      ["更多文字", "对话和消息框使用 12 或 10 像素的小字，一页能放下更多内容。"],
-      ["大小与全屏", "按整像素缩放；⛶ 只显示游戏。在 iPhone 上把本站添加到主屏幕，可以去掉浏览器栏。"],
+      ["画面与效果", "配色主题、带或不带阴影的液晶效果，或平滑：把像素的锯齿重画成任意大小都清晰的平滑线条。"],
+      ["更宽的地图", `在画面周围显示更多地图，${mapTiles("wide")} 或 ${mapTiles("widest")} 格：FMJ React 上都可以，RPG 工具制作的游戏在符箓和原版系统上也可以。菜单和战斗仍在中间。`],
+      ["更多文字", "对话和消息框使用 12 或 10 像素的小字，一页能放下更多内容（FMJ React，以及符箓上用 RPG 工具制作的游戏）。"],
+      ["大小、速度与全屏", `按整像素缩放；以 ${SPEED_MIN} 到 ${SPEED_MAX} 倍速游玩；⛶ 只显示游戏。在 iPhone 上把本站添加到主屏幕，可以去掉浏览器栏。`],
       ["调试菜单", "按住画面打开：在运行中的游戏里修改队伍属性、金钱、物品、剧情标志和随机战斗。"],
     ] as Row[],
     makeTitle: "做你自己的游戏",

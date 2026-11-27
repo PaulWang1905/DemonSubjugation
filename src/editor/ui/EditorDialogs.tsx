@@ -88,6 +88,7 @@ export const SHORTCUTS: [string, string][] = [
   ["[ ]", "Previous / next tile (map) or frame (pictures)"],
   ["B G I · X", "Pixel tools: pen, fill, pick · swap black and white"],
   ["Tab", "In a script: indent"],
+  ["+ − 0 · arrows", "World map: zoom in, zoom out, show every map · move between maps (Ctrl + wheel or pinch zooms too)"],
   ["?", "This help"],
 ];
 
@@ -130,9 +131,10 @@ export function GettingStarted() {
   return (
     <ol className="getting-started">
       <li>
-        <strong>Start on the project home.</strong> It shows where the game starts and what to do next; <em>Guide me</em> makes a
-        first game step by step. The <em>+</em> beside each group of the sidebar, and <em>Ctrl+P</em>, have wizards for a new map, a
-        person who talks, a shop, and a monster or a battle.
+        <strong>Start on the project home.</strong> It shows where the game starts, what to do next and the world map (every map,
+        joined by its exits); <em>Guide me</em> makes a first game step by step. The <em>+</em> beside each group of the sidebar, and{" "}
+        <em>Ctrl+P</em>, have wizards for a new map, a person who talks, a companion who joins, a shop, an inn, and a monster or a
+        battle.
       </li>
       <li>
         <strong>Maps</strong> open in their <em>World</em> view: paint tiles (painting also sets where the party can walk), and add

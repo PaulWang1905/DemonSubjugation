@@ -1058,8 +1058,8 @@ export const GUI: Record<number, OsFunction> = {
    * - a character (class 2): a-z upper case with caps on (bit 4) or the
    *   latch (bit 5), which it releases; the parameter's high byte = whether
    *   the latch was set; returns whether $2B28 accepts it (classify);
-   * - delete ($34): toggles the latch; returns 1;
-   * - shift ($29, with the latch clear: latched it is $26): by the input
+   * - the Shift key ($34, key $2D): toggles the latch; returns 1;
+   * - 中英符 ($29, key $28, here called shift; latched it is 帮助 $26): by the input
    *   mode (the state's low 4 bits) and $2B28, the command $29 or a change
    *   into or out of Chinese input (shiftKey);
    * - the input key with the latch ($36): caps toggled (in mode 2); returns 0;

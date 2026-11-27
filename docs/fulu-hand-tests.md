@@ -17,6 +17,13 @@ They share one engine, so a few of them, played far, stand for the rest:
 - Battles: magic, items, running away, a boss; losing one.
 - Level up; a new member joining.
 - Many map changes in a row; a long dialogue (More text on and off).
+- The wider map view while walking: across plain ground, with the map
+  position shown, around popup menus (the border should move with the middle
+  and never show a wrong tile).
+- The keys printed beside others, from the row under the on-screen keypad
+  and from the keyboard (Backspace, F3, F2, Insert): in 异世大陆 on the map,
+  查找, 插入, 修改 and 删除 open the game's own screens; Space turns
+  continuous walking on and off.
 - If you can: the ending.
 
 ## The others, each for what only it does

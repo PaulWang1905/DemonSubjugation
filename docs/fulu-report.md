@@ -137,7 +137,9 @@ clear, the next key is latched into KEYCODE (`$024E`) with bit 7 set and
 ISR bit 7 is raised. The OS's keyboard handler takes it, clears KEYCODE and
 acknowledges, which lets the next key through. Key codes are 6 bits: 0-3
 are the system keys (power, 目录, 双解, 现代), and the arrows, Enter, Exit
-and the letters follow (`src/bbk/keys.ts`).
+and the letters follow (`src/bbk/keys.ts`). 删除, 修改, 查找, 插入 and 帮助
+have no keys of their own: they are ←, ↑, ↓, → and 中英符 after the Shift
+key (`$2D`), whose latch the GUI keeps (§7.4).
 
 ### 2.4 The LCD
 
@@ -543,8 +545,11 @@ The keyboard state is at `$2B27`: low 4 bits the input mode (1, 2, 4, 8),
 bits 2-3 input methods, bit 4 caps, bit 5 the shift latch. `$2B28` says
 what characters are accepted (bit 0 digits, bit 1 letters, bits 2-3 input
 methods). Letters are made upper case under caps or the latch, which they
-release. Delete (`$34`) toggles the latch and its icon. Shift (`$29`) is
-the command `$29` in modes 1 and 2. In mode 2 the input key (`$36`)
+release. The Shift key (key `$2D`, the command `$34`) toggles the latch
+and its icon; latched, the arrows become 删除 `$31`, 修改 `$32`, 查找 `$33`
+and 插入 `$30`, and 中英符 帮助 `$26`. 中英符 (key `$28`, the command `$29`;
+the computer's Shift in the player) is the command `$29` in modes 1 and 2,
+else it changes the input mode. In mode 2 the latched input key (`$36`)
 toggles caps. **GuiSetKbdState** (`$E968`), `$E965` (returns
 `$2B28 << 8 | $2B27`), `$E938`, `$E93B` (only "no change") and the GUI's
 start-up `$E932` complete the set.
@@ -881,9 +886,10 @@ Holding a direction for 3 s now walks 23 steps, where it walked 12 before.
 Three rules, two in the player and one in Fulu, make input feel right
 without changing what a program sees.
 
-1. **Repeat only when read.** The player repeats a held key every 90 ms
-   (after 300 ms) only while `Machine.keysWaiting()` is false: the
-   machine's queue is empty and the OS's ring is empty (`$2003` = `$2004`).
+1. **Repeat only when read.** The player (`src/app/deviceInput.ts`)
+   repeats a held arrow or page key every 90 ms (after 300 ms) only while
+   `Machine.keysWaiting()` is false: the machine's queue is empty and the
+   OS's ring is empty (`$2003` = `$2004`).
    Before this, repeats filled the 15-key ring while a walking step took
    longer than 90 ms, and the hero walked on for seconds after the key was
    released.
@@ -962,6 +968,16 @@ games draw as pictures (the title, the big 穿 / 戴) stays pixels.
 - **System keys** (power, 目录, the dictionaries) would end the program on
   Fulu, which has no menu or dictionaries to go to. The player ignores them
   there.
+- **The keys printed beside others** (删除, 修改, 查找, 插入, 帮助): each of
+  the row's buttons under the on-screen keypad, and the computer's
+  Backspace, F3, F2, Insert and F1, sends the Shift key and its key, as a
+  person presses them on the device (just the key when the latch is already
+  set and nothing waits to be read). The row also has R and Space.
+- **The frame loop.** The player emulates the frames due within 10 ms of
+  each page frame (a phone too slow for real time runs the device slower,
+  with at most 100 ms of its time waiting), draws only when the LCD's
+  memory or a setting changed, and recompresses the flash for the
+  30-second keeping only when it changed (docs/fulu-notes.md, "Pace").
 - **The debug menu** (§14.3) uses `Fulu.recentCalls`, the last 40 API
   entries called, for its Device tab. It works on both OSes for everything
   else.

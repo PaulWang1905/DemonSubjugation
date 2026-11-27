@@ -1,14 +1,14 @@
 # Alignment with the original engine
 
-The engine started as a port of [fmj.kt](https://gitee.com/bgwp/fmj.kt), a
+FMJ React, the site's engine, started as a port of [fmj.kt](https://gitee.com/bgwp/fmj.kt), a
 re-implementation of the BBK RPG engine. [fmj-engine](https://gitee.com/BA4988/fmj-engine)
 is a C reconstruction of the original `RpgA100.eng` from its disassembly, so
 it shows what the device really did. This file records how this engine
 compares with it, area by area. Function names such as `_0022726A` refer
 to fmj-engine's sources.
 
-The player option **Original battle rules** (on by default) uses the
-original's logic. Turning it off restores fmj.kt's behaviour.
+The player option **Original engine rules** (on by default, under
+*Controls & options*) uses the original's logic. Turning it off restores fmj.kt's behaviour.
 
 ## Same in both
 

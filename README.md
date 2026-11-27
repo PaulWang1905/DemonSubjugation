@@ -60,7 +60,9 @@ the right to use.
   frame keeps the pixels where the game's screen differs from its plain map),
   and battles and full-screen pictures get plain margins. Frames the game
   does not redraw keep the view as it was, so nothing flickers.
-  `engine.setView(mx, my)` sets it while playing.
+  `engine.setView(mx, my)` sets it while playing. RPG-kit `.gam` games get
+  the same choice on Fulu and the original OS (see
+  [Device emulator](#device-emulator-longman-4988)).
 - **Text**: three menus. **Text** is the look: **Pixel** (the device's
   16×16 bitmap fonts, enlarged with hard edges) or **HD** (characters redrawn
   at the display's full resolution while the rest of the picture stays
@@ -84,8 +86,10 @@ the right to use.
   cells), LCD + shadow (lit cells and text also cast a soft shadow on the
   glass) and Smooth (the edges found with xBR's rules at 4x, reduced to the
   two colours, and drawn as smooth contours anti-aliased at the display's
-  resolution, on the GPU; dithering, stripes and lone pixels keep their
-  pattern, and the game's pixel text is smoothed like the rest).
+  resolution; dithering, stripes and lone pixels keep their pattern, and the
+  game's pixel text is smoothed like the rest). Smooth runs on the GPU
+  (WebGL); without one, the same is done at 4x on the CPU and enlarged by the
+  browser (`src/app/smoothScale.ts`).
   Effects draw at the display's resolution and work with every Text choice
   and Map view.
 - **Bundled pixel fonts** in the device's 16-pixel layout, so games look
@@ -99,8 +103,19 @@ the right to use.
 - **Site language**: the front page, Games, Guide, About, the Fulu pages, the page-not-found page, the
   top bar and the footer are in Simplified Chinese or English, following the browser's
   languages, with a 中文 / EN switch in the top bar (the player's toolbar,
-  options and keypad too; the debug menu and the editor are still English).
-- Keyboard controls, and a full-screen phone layout: the screen as large as it goes, a big on-screen keypad (slide the thumb on the d-pad to turn, hold a direction and A together), controls either side of the screen when held sideways, options in a sheet that pauses the game. Add it to the home screen to play without the browser bars. Held keys repeat at one rate on every device; 1×/2×/4× speed.
+  options, keypad and loading screens too; the debug menu and BBK Maker are
+  still English).
+- Keyboard controls, and a full-screen phone layout: the screen as large as
+  it goes, a big on-screen keypad (slide the thumb on the d-pad to turn, hold
+  a direction and A together), controls either side of the screen when held
+  sideways, options in a sheet that pauses the game. The keypad can be turned
+  on on a computer too (*Controls & options*). Add it to the home screen to
+  play without the browser bars. Held keys repeat at one rate on every
+  device. **Speed**: 1×, 1.25×, 1.5×, 1.75×, 2×, 3× or 4×.
+- **Loading screens**: a game says what it is doing until its first picture
+  ("Starting 伏魔记…": the fonts, reading the game; on the original OS, the
+  4988's power-on in percent), and opening a big game no longer freezes the
+  page.
 - **More text (experimental, off by default)**: dialogue, message boxes,
   script menus, descriptions and scrolling story text can use 12- or 10-pixel
   text instead of the device's 16, so more fits on a page (the first
@@ -178,9 +193,9 @@ OS (`tests/fulu-shadow.test.ts`, with `BBK_FIRMWARE` and `BBK_GAMES`).
   returns as if done) so the game plays on, and the same stop again is
   skipped by itself. The checks above find nothing missing, so this is for
   what they cannot reach.
-- **Shift and the clock**: the Shift (中英) key changes input mode as the OS
-  does, programs start in the state BBK's launcher leaves, and the device's
-  clock is set to the computer's date and time.
+- **Input mode and the clock**: 中英符 (the computer's Shift) changes the
+  input mode as the OS does, programs start in the state BBK's launcher
+  leaves, and the device's clock is set to the computer's date and time.
 - **The link cable** acts as on a device with no cable plugged in: each game
   shows its own "could not connect".
 - **Typing Chinese**: when a program asks for Chinese input, the player shows
@@ -195,61 +210,104 @@ written from `src/app/fuluGames.ts`) lists every program and every known
 problem. docs/fulu-report.md, docs/fulu-plan.md and docs/fulu-notes.md have
 the technical report, the plan and what is known of the OS.
 
-In the player, a device program installs, boots and opens in about a second.
-The device is kept as it was left (memory and flash, so the game's own saves
-too) and resumes there next time; **Restart the device** starts afresh.
+In the player, a device program installs, boots and opens in about a second
+(a loading screen shows each step). The device is kept as it was left (memory
+and flash, so the game's own saves too) and resumes there next time;
+**Restart the device** starts afresh. The player emulates the frames due
+within 10 ms of each page frame (a phone too slow for real time runs the
+device slower instead of falling behind: at most 100 ms of the device's time
+waits, so a key is read soon), draws a frame only when the screen or a
+setting changed, and puts the device away every 30 seconds and when the page
+is hidden, compressing the 2 MB flash again only when it changed.
+
 Each game's tile on the Games page offers the engines it can run on and
 remembers the choice: **Original OS** (once the firmware's files are added),
 **Fulu**, and, for programs built on the fmj engine, **FMJ React**: the same
 game in this site's engine, with HD text, the wider map views and English menus.
 **Longman 4988** on the Games page turns on the dictionary itself.
 
+For the RPG kit's games (a `.gam` that carries an fmj library), the device
+player also has, on both OSes, the **wider map view** (13×8 or 17×10, drawn
+from the game's library at the place its memory gives; `src/bbk/wideView.ts`)
+and the debug menu's party, items and story flags (`src/bbk/kitCheats.ts`),
+and on Fulu **More text** (dialogues and message boxes in 12 or 10 px). On
+Fulu any program can have **HD text** (Fulu knows where it drew each
+character), and the debug menu's device tools work for any program. The wider view's
+border is shown only while the screen confirms it: most of the screen's map
+tiles must be the library's for that place (the box with the hero's position
+some games show is left out; on plain ground, with hardly a patterned tile in
+sight, the hero must stand in his place; a cell whose tile the tile set lacks
+is left out). It is drawn at the view the screen shows, not the one in memory,
+so the border and the middle move together while walking. Battles, menus over
+the whole screen and pictures get a blank border.
+
 On a 138-program collection (RPGs, card and board games, puzzles, action
 games, the dictionary's built-in programs) every program installs and starts.
 
-## Editor (work in progress)
+## BBK Maker (the editor)
 
-The **Editor** tab builds games in the same format:
+**BBK Maker** (the site's editor, `src/editor`) builds games in the same
+format, for authors who do not know the script language. The scripts and
+resources stay the single source of truth: every view reads them and writes
+them back as script text, and what the engine does not store (names for
+flags and variables, notes) is kept beside the project. The plan and its
+status are in [docs/editor-plan.md](docs/editor-plan.md).
 
-- **New project** from the original *Lantern Path* demo or a blank starter game.
-  Both ship original system graphics, tiles, sprites, sample monsters, items and
-  spells, so a new game needs nobody else's files. You can also open a `.lib`
-  you have the right to modify.
-- **Resource browser** grouped by kind, with previews of images, sprites,
-  tilesets and animations.
-- **Map editor**: paint and fill tiles, mark walkable/blocked tiles, place map
-  events, rename and resize maps, with undo/redo (Ctrl+Z / Ctrl+Y). The dashed
-  box shows where the player can stand; the tile under the pointer shows its
-  position and the `loadmap` / `createactor` / `createnpc` lines that use it.
-- **Script editor**: the story scripts as readable text with labels and line
-  numbers. The built-in reference lists every instruction by purpose with its
-  operands (click one to insert it), the line under the text names the
-  operand at the caret, and *Insert…* adds a dialogue, a choice, a battle, a
-  shop, a chest, an NPC or a map exit (with its `.event` line). Errors point at
-  the line; *Wrap dialogue* fits text to the dialogue boxes. Your own text and
-  labels are kept with the project, and unapplied text survives opening
-  another resource.
-- **Forms** for party members, NPCs, objects, monsters, all item and magic
-  kinds, spell lists and level tables (only the edited bytes change).
-- **Pixel editor** for tiles, sprites, portraits, icons and pictures: pen,
-  fill, picker, undo/redo, frames, resize, PNG import (also slicing a sheet
-  into frames) and export.
-- **Animation editor** for spell, item and cut-scene effects: a preview played
-  by the engine's own animation code, a frame list (image, position, timing),
-  dragging frames on the screen, warnings for timings that cut an animation
-  short, and the pixel editor for each image.
-- **Add** blank tilesets, sprites, portraits, battle sprites, backgrounds,
-  pictures, item icons and animations (sized like the game's others); a new
-  party member also gets a portrait and battle sprite. Any resource can be
-  duplicated, given another number or deleted.
-- **Check** lists what would break the game (scripts, maps and forms that
-  refer to resources that do not exist, map events no script handles, NPC ids
-  out of range, dialogue split across lines); **Playtest** and **Export** run
-  it first and show any error, each a click away from its resource and line.
-- **Playtest** runs the project in the engine; **Export…** downloads a .gam or
-  a .lib.
-- Projects are saved automatically in the browser (IndexedDB); Ctrl+S saves at
-  once. **?** shows a getting-started guide and the keyboard shortcuts.
+- **New project** from a template: *The Silent Bell*, *Lantern Path* or a
+  *Blank game*. All ship original system graphics, tiles, sprites, sample
+  monsters, items and spells, so a new game needs nobody else's files. You
+  can also open a `.lib` or a `.gam` you have the right to modify. A loading
+  card shows the work while a big game opens ("Opening 伏魔记…": its
+  scripts, the world, the check, the maps).
+- **Workspace**: a sidebar by topic (Story, World, Characters & items, Art,
+  Advanced) whose **+** is a menu of wizards and blank kinds, tabs, a
+  command palette (Ctrl+P), and a project home with the start, the title
+  screen (the picture follows the game's name until you draw your own; an
+  animated one is previewed at its clearest frame), the project check and a
+  **world map**: the maps joined by their exits, laid out near each other,
+  with zoom (buttons, + − 0, Ctrl + wheel or pinch) and pan, a map's exits
+  listed when it is selected, and exits to a map chosen at run time (?) or a
+  missing one (!) marked.
+- **World view** of a map: the people, chests, exits, the start and event
+  tiles the scripts put there; click to see what it does, drag to move it;
+  paint tiles (painting also sets walkability); **Play from here**.
+- **Visual view** of a script: each event as steps in plain words with
+  pickers (maps, people, items by icon, story flags by name), added from a
+  searchable palette, branches shown as blocks, and the text box drawn as
+  the player sees it. The **Text** view shows the same script as the
+  assembler reads it, with labels, the instruction reference and *Wrap
+  dialogue*.
+- **Wizards**: a map joined to another, a person who talks, a companion who
+  joins the party, a shop, an inn, a monster or a battle (random battles
+  with how common each monster is, and how hard a fight will be); a guided
+  first game (*Guide me*).
+- **Cards** for party members, monsters, items and spells: pictures, key
+  numbers, pickers, *Used by*, who learns a spell, and renumbering that
+  updates every reference; a gallery compares a kind side by side. Every
+  record's **Fields** show its numbers as stored.
+- **Pixel editor** for tiles, sprites, portraits, icons and pictures (pen,
+  fill, picker, frames, resize, PNG import and export); an **animation
+  editor** for spell, item and cut-scene effects, played by the engine's own
+  code.
+- **Script names**: scripts that share a name (伏魔记's 185 are all 游戏开始)
+  are shown with what they are for ("三清宫 · 游戏开始", "battle · 游戏开始"),
+  and an author can give one a name of their own.
+- **Check** lists what would break the game or show something other than
+  meant: references to resources that do not exist, map events no script
+  running on that map handles, people who can be talked to but not reached,
+  arrivals where the player cannot stand, dialogue split across lines or
+  hidden behind the text box, bare Yes / No answers. It follows the scripts
+  as the engine runs them (a door's `loadmap` then `startchapter`), so a
+  finished game reports what is really wrong (伏魔记: 20 warnings).
+  **Playtest** and **Export** run it first, each problem a click away.
+- **Playtest** runs the project in FMJ React (with test tools: random
+  battles off, walking through walls, story flags); **Export…** downloads a
+  `.lib`, or a `.gam`: with no BBK code in it (it plays on FMJ React), or
+  with the RPG kit's engine taken from a `.gam` you own (it also runs on Fulu
+  and the original OS, with English menus if wanted).
+- Projects are saved automatically in the browser (IndexedDB); Ctrl+S saves
+  at once. **?** shows a getting-started guide and the keyboard shortcuts.
+  BBK Maker is in English and made for a computer; a phone gets a note.
 
 Script example:
 
@@ -285,10 +343,11 @@ game title by default and can be changed in the player's options.
 | -------------- | ---------------------------- |
 | Move / select  | Arrow keys, WASD             |
 | Confirm        | Enter, J, Z                  |
-| Back / menu    | Esc, Space, K, X             |
+| Back / menu    | Esc, Space, Backspace, K, X  |
 | Page up / down | `[` `]`, Q E, PgUp PgDn      |
 
-A 4988 program (on Fulu or the original OS) gets the device's own keys:
+A 4988 program (on Fulu or the original OS) gets the device's own keys
+(`src/bbk/keys.ts`, `src/app/deviceInput.ts`):
 
 | Device key                  | Keys                      |
 | --------------------------- | ------------------------- |
@@ -296,13 +355,25 @@ A 4988 program (on Fulu or the original OS) gets the device's own keys:
 | 输入 Enter · 跳出 Exit       | Enter, Esc                |
 | Letters, digits, space      | A–Z, 0–9, Space           |
 | 上页 / 下页                  | PgUp, PgDn                |
-| 目录 Home · 删除 Delete      | Home, Backspace           |
+| 目录 Home                    | Home                      |
+| 删除 · 插入                  | Backspace or Delete, Insert |
 | 帮助 · 查找 · 修改 · 发音    | F1, F2, F3, F4            |
-| 输入法 · 中英                | Tab, Shift                |
+| 输入法 · 中英符              | Tab, Shift                |
 | 开关 Power                   | F12                       |
 
-On a phone the on-screen keypad gives the arrows, the page keys, Enter (A) and
-Exit (B).
+The 4988 has no keys of their own for 删除, 修改, 查找, 插入 and 帮助: they are
+printed beside ←, ↑, ↓, → and 中英符 and are those keys pressed after the
+device's Shift, which its OS keeps as a latch. The player presses them the
+same way (Shift, then the key; the key alone when the latch is already set).
+In the RPG kit's games they run the game's own map scripts (in 异世大陆:
+查找 the hero's state, 插入 training, 修改 the walking mode, 删除 a menu);
+Space turns continuous walking on and off.
+
+On a phone (or wherever the on-screen keypad is on) the keypad gives the
+arrows, the page keys, 输入 Enter (A) and 跳出 Exit (B), with a row of the
+other keys some programs need under it: R, Space, 帮助, 删除, 修改, 查找, 插入.
+On Fulu the power, 目录 and dictionary keys do nothing (Fulu has no menu or
+dictionaries to go to).
 
 ## Development
 
@@ -374,12 +445,17 @@ src/
       scene/           map screen, save/load
       combat/          battle controller, actions, battle UI
       characters/ goods/ magic/ gamemenu/ views/ graphics/
-  editor/
-    format/            LIB reader/writer, script assembler, encoders, decoders
-    template/          original starter art, blank project and the demo game
-    ui/                editor screens (resource list, map and script editors)
-  bbk/                 the Longman 4988: 65C02, hardware, flash, LCD, file system, device
-  app/                 React shell: library/importer, players, keypad
+  editor/              BBK Maker
+    format/            LIB reader/writer, script assembler, the instruction
+                       catalog, script model, world index, project check
+    template/          original starter art, blank project and the demo games
+    ui/                the workspace and its views (World, Visual, cards, ...)
+  bbk/                 the Longman 4988: 65C02, hardware, flash, LCD, file
+                       system, device, keys; the wider view and debug menu
+                       for RPG-kit games
+  fulu/                Fulu, the stand-in for the 4988's OS
+  app/                 React shell: pages, library/importer, players, keypad,
+                       screen effects
   storage/             IndexedDB (archives, fonts) and localStorage (saves)
 tests/                 vitest: unit tests + optional real-data tests
 ```

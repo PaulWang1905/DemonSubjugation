@@ -359,8 +359,9 @@ What the games taught:
 The check refused the screens that are not the map while the game's memory
 still names one (a run error, a blank screen); a battle was not reached in
 the automated runs, but the owner played battles with it on the site and
-the border goes as it should (2026-11-19). Not tried with the firmware, and
-left so by the owner's choice (the code reads the same RAM and screen).
+the border goes as it should (2026-11-19). It was not tried with the
+firmware at first (the code reads the same RAM and screen); the walks below
+cover both OSes.
 tests/wide-view-gam.test.ts checks the six games on their first map, in
 dialogues and around popup menus.
 
@@ -383,6 +384,22 @@ rather than the border beside the new screen). The device player composes
 only when the device has run a frame, so a display faster than 60 Hz does
 not count a frame twice. tests/wide-view-walk.test.ts walks three games on
 both OSes; tests/wide-view-sync.test.ts checks the rules on drawn screens.
+
+*Plain ground and the position box.* The border was missing where the
+screen shows few patterned tiles: in 怀旧终曲's 伏魔洞 with the map position
+on, its box covered six of the nine patterned tiles in sight, and plain
+floors and snowfields never confirmed at all. Now `KitCheats.mapView` says
+whether the game shows the hero's position (the engine's enableshowpos), and
+the tiles under its box (x 12-47, y 4-17) are left out of the count, as a
+dialogue box's are. With fewer than three patterned tiles in sight, the view
+is confirmed by three quarters of the tiles, every patterned one, and the
+hero standing in his place (a frame of a party member's walking picture at
+the view's tile 4, 3). A popup menu keeps the border while a patterned tile
+or the hero still shows; a map cell whose tile the tile set lacks (异世大陆's
+异族之地 and 精灵界) is left out instead of voiding the count. Walking every
+map of each game (about 1,900 frames a map, position off and on), map frames
+with no border went from 688-4,687 per game to 0 (异世大陆: 9 of 172,776).
+tests/wide-view-plain.test.ts and tests/wide-view-gam.test.ts (伏魔洞, 摩天顶).
 
 ## 13. F6: More text for `.gam` games (plan)
 

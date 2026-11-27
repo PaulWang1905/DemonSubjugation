@@ -125,7 +125,7 @@ const en = {
     keys: [
       ["Move / select", "Arrow keys · WASD", "D-pad"],
       ["Confirm", "Enter · J · Z", "A (OK)"],
-      ["Back / menu", "Esc · Space · K · X", "B (Back)"],
+      ["Back / menu", "Esc · Space · Backspace · K · X", "B (Back)"],
       ["Page up / down", "[ ] · Q E · PgUp PgDn", "PgUp / PgDn"],
     ],
   },
@@ -245,7 +245,7 @@ const zh: SiteText = {
     keys: [
       ["移动 / 选择", "方向键 · WASD", "方向键"],
       ["确认", "Enter · J · Z", "A（确定）"],
-      ["返回 / 菜单", "Esc · 空格 · K · X", "B（返回）"],
+      ["返回 / 菜单", "Esc · 空格 · Backspace · K · X", "B（返回）"],
       ["上一页 / 下一页", "[ ] · Q E · PgUp PgDn", "PgUp / PgDn"],
     ],
   },

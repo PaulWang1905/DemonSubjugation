@@ -1,4 +1,6 @@
-# The editor, version 2: a plan
+# The editor (BBK Maker), version 2: a plan
+
+(The editor is called **BBK Maker** on the site. Status: done, see the end.)
 
 **Goal.** Anyone who can describe a scene ("the old man in the square says
 hello, gives you a lantern, and the gate opens") can make it, without
@@ -164,3 +166,33 @@ findings are fixed:
   marks explained; "no darkness in this engine" where an author looks;
   "Delete frame" vs "Delete sprite…"; export says what was saved; the
   sidebar "+" is a menu of buttons.
+
+Then, opening a finished game (伏魔记's DAT.LIB: 185 scripts, 83 maps) in
+BBK Maker:
+
+- **A world map for big games** (`WorldMap.tsx`, `worldMapLayout.ts`): zoom
+  (buttons, + − 0, Ctrl/Cmd + wheel or pinch) and pan, kept per project; maps
+  joined by exits laid out near each other, one line per pair of maps with
+  arrows; a selected map lists where its exits go and come from; exits to a
+  map set at run time (?) or a missing one (!) marked on the map they leave.
+  Exits follow the scripts as the engine runs them: a script started by
+  `startchapter` / `callchapter` runs on the map shown when it started
+  (`runningMaps`), so a town's doors are on the town (伏魔记: 1,726 exits
+  before, 373 now).
+- **The project check on a finished game** (伏魔记: 247 warnings, now 20, all
+  true): a map's cells are handled by the script running there (`runBy`),
+  not the one that showed the map; a blocked arrival is fine when the player
+  can step off it; people out of reach are reported only when talking to
+  them does something.
+- **Script names**: scripts that share a name (伏魔记's are all 游戏开始) are
+  shown with what they are for ("start · 游戏开始", "三清宫 · 游戏开始",
+  "battle · 游戏开始"; `format/naming.ts`), in the sidebar by chapter, tabs,
+  pickers, links and the check; the author can give one a name of their own.
+- **The title screen preview** shows an animated title at its clearest
+  frame (伏魔记's first frame is blank).
+- **A step's details** edit only what its sentence does not, each field in
+  its own row, so none is squeezed.
+- **Loading**: opening a file, a project or a template shows a loading card
+  with what is being done (scripts, the world, the check, the maps) and does
+  the work in slices, so the page never freezes; the assembler, world index
+  and check remember their last results by content (`format/memo.ts`).

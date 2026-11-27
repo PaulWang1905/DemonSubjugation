@@ -30,7 +30,10 @@ BBK_GAMES=<folder of .gam> FMJ_DATA_DIR=<folder with HZK16, ASC16> BBK_FIRMWARE=
 
 - `BBK_FIRMWARE` (the firmware dumps) turns on the comparisons with BBK's
   OS (`tests/fulu-shadow.test.ts`); `BBK_GAMES` adds the games' shadow runs
-  (`BBK_SECONDS` of play each, 30 by default).
+  (`BBK_SECONDS` of play each, 30 by default). `BBK_YISHI` (异世大陆's
+  .gam, else it is looked for in `BBK_GAMES`) adds the keys test
+  (`tests/yishi-keys.test.ts`) and a walk of the wider map view;
+  `FMJ_COMPAT_DIR` (a folder of `.lib`) the FMJ React compatibility sweep.
 - In the random-argument tests, `FULU_ONLY=E9AD,E791` runs only those
   functions' cases and `FULU_TRIALS` sets the trials; `FULU_COUNTS=1` prints
   which OS functions the menu test reached.

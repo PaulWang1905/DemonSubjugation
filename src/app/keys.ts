@@ -30,6 +30,6 @@ export const KEYMAP: Record<string, EngineKey> = {
 export const KEY_HELP: [string, string][] = [
   ["Move / select", "Arrow keys · WASD"],
   ["Confirm", "Enter · J · Z"],
-  ["Back / menu", "Esc · Space · K · X"],
+  ["Back / menu", "Esc · Space · Backspace · K · X"],
   ["Page up / down", "[ ] · Q E · PgUp PgDn"],
 ];
