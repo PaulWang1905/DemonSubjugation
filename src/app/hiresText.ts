@@ -18,7 +18,8 @@ export type TextStyle = "sans" | "serif" | "kai" | "hei" | "song";
 export const SHARP_STYLES: readonly TextStyle[] = ["sans", "serif", "kai", "hei", "song"];
 
 /** How the picture is scaled up. */
-export type ScreenEffect = "none" | "lcd" | "lcd-shadow" | "smooth";
+/** ("smooth-keep": Smooth, with dithering and texture kept as their pixels) */
+export type ScreenEffect = "none" | "lcd" | "lcd-shadow" | "smooth" | "smooth-keep";
 
 const FONTS: Record<TextStyle, { cjk: string; latin: string }> = {
   sans: {
@@ -228,7 +229,7 @@ export class HiresText {
     applyPalette(work, this.image.data, palette);
     const lcd = effect === "lcd" || effect === "lcd-shadow";
     if (lcd) this.drawLcd(ctx, palette, W, H, effect === "lcd-shadow");
-    else if (effect === "smooth") this.drawSmooth(ctx, palette, W, H);
+    else if (effect === "smooth" || effect === "smooth-keep") this.drawSmooth(ctx, palette, W, H, effect === "smooth-keep");
     else {
       this.smallCtx.putImageData(this.image, 0, 0);
       ctx.imageSmoothingEnabled = false;
@@ -385,16 +386,17 @@ export class HiresText {
   /**
    * Smoothed pixels (src/app/smoothScale.ts): edges found at 4x and drawn as
    * smooth contours at the output size, on the GPU. Without a GPU, the same
-   * at 4x on the CPU, enlarged smoothly by the browser.
+   * at 4x on the CPU, enlarged smoothly by the browser. With `keep`, dithering
+   * and texture keep their pixels.
    */
-  private drawSmooth(ctx: Ctx2D, palette: Palette, W: number, H: number): void {
+  private drawSmooth(ctx: Ctx2D, palette: Palette, W: number, H: number, keep: boolean): void {
     const fw = this.fw;
     const fh = this.fh;
     if (this.smoothGL === null) this.smoothGL = SmoothGL.create() ?? false;
     if (this.smoothGL && this.smoothGL.lost) this.smoothGL = false;
     if (this.smoothGL) {
       try {
-        ctx.drawImage(this.smoothGL.draw(this.work, fw, fh, W, H, palette.light, palette.dark), 0, 0);
+        ctx.drawImage(this.smoothGL.draw(this.work, fw, fh, W, H, palette.light, palette.dark, keep), 0, 0);
         return;
       } catch (e) {
         console.warn("Smooth: drawing without WebGL", e);
@@ -414,7 +416,7 @@ export class HiresText {
     }
     const word = ([r, g, b]: readonly number[]) => ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
     const out = new Uint32Array(sm.image.data.buffer);
-    sm.cpu.draw(sm.src, fw, fh, word(palette.dark), word(palette.light), out);
+    sm.cpu.draw(sm.src, fw, fh, word(palette.dark), word(palette.light), out, keep);
     // (red pixels, as they are)
     if (red) {
       for (let i = 0; i < fw * fh; i++) {

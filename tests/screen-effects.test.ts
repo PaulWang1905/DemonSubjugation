@@ -1,7 +1,7 @@
 // The Smooth picture effect (src/app/smoothScale.ts): xBR at 4x on the two
 // colours, a small blur and a contour cut at the output size.
 import { describe, expect, it } from "vitest";
-import { SmoothCpu, smoothContour, smoothCpu, smoothField, xbr4 } from "../src/app/smoothScale";
+import { patternFlags, patternWeights, SmoothCpu, smoothContour, smoothCpu, smoothField, xbr4 } from "../src/app/smoothScale";
 
 const grid = (rows: string[]) => Uint8Array.from(rows.join("").split(""), (c) => (c === "#" ? 1 : 0));
 const size = (rows: string[]) => [rows[0].length, rows.length] as const;
@@ -206,6 +206,112 @@ describe("the smoothed picture", () => {
       // (only the two colours where nothing is near an edge)
       const words = new Set(out);
       expect(words.has(ink >>> 0) && words.has(paper >>> 0)).toBe(true);
+    }
+  });
+});
+
+describe("Smooth, keep patterns", () => {
+  const s = 8;
+  const keep = (rows: string[], k = s) => smoothCpu(grid(rows), ...size(rows), k, true);
+  /** A grass-like tile, repeated. */
+  const tile = ["#..#.##.", ".##..#..", "#..##..#", "..#..#.#", ".#.#..#.", "##..#...", "..#.##.#", "#....#.."];
+  const grass = (w: number, h: number) => Array.from({ length: h }, (_, y) => tile[y % 8].repeat(Math.ceil(w / 8)).slice(0, w));
+  /** Sparse dots on plain ground (a dot dither, as behind 伏魔记's battles). */
+  const dots = (n: number) => Array.from({ length: n }, (_, y) => (y % 2 ? ".".repeat(n) : Array.from({ length: n }, (_, x) => (x % 4 === 1 ? "#" : ".")).join("")));
+  /** Whether output pixel (X, Y) is more than an output pixel away from every pixel edge. */
+  const awayFromEdges = (X: number, Y: number, k: number) => {
+    const fx = ((X + 0.5) / k) % 1, fy = ((Y + 0.5) / k) % 1, m = 1 / k;
+    return fx > m && fx < 1 - m && fy > m && fy < 1 - m;
+  };
+  const weights = (rows: string[]) => patternWeights(grid(rows), ...size(rows));
+  const lone = [".......", ".......", ".......", "...#...", ".......", ".......", "......."];
+
+  it("finds dithering, grass and fields of dots, but not strokes, outlines, stripes or a lone pixel", () => {
+    for (const rows of [checker(12), grass(24, 16), dots(16)]) {
+      const [w, h] = size(rows);
+      const wt = weights(rows);
+      // (away from the picture's edge, where the square holds fewer)
+      for (let y = 5; y < h - 5; y++) for (let x = 5; x < w - 5; x++) expect(wt[y * w + x]).toBe(1);
+    }
+    for (const rows of [glyph, disc(16, 6), diagonal(12), lone, ["#.#.#.#.", "#.#.#.#.", "#.#.#.#.", "#.#.#.#."]]) {
+      expect(Array.from(weights(rows)).every((v) => v === 0)).toBe(true);
+    }
+    // (a pixel's flags: 1 fine, 2 lone; the screen's edge is not part of a run, and never lone)
+    const f = patternFlags(grid(lone), 7, 7);
+    expect(f[3 * 7 + 3]).toBe(3);
+    expect(f[0]).toBe(0);
+    expect(patternFlags(grid(["#.#"]), 3, 1)[0]).toBe(1);
+  });
+
+  it("keeps a pattern's pixels exactly: square, in place, with a hard edge", () => {
+    for (const rows of [checker(12), grass(24, 16), dots(16)]) {
+      const [w, h] = size(rows);
+      const src = grid(rows);
+      for (const k of [s, 5.5]) {
+        const cov = keep(rows, k);
+        const W = Math.round(w * k);
+        for (let Y = Math.ceil(4 * k); Y < (h - 4) * k; Y++) {
+          for (let X = Math.ceil(4 * k); X < (w - 4) * k; X++) {
+            if (awayFromEdges(X, Y, k)) expect(Math.abs(cov[Y * W + X] - src[Math.floor((Y + 0.5) / k) * w + Math.floor((X + 0.5) / k)])).toBeLessThan(1e-3);
+          }
+        }
+      }
+    }
+  });
+
+  it("draws text, outlines and shapes exactly as Smooth does", () => {
+    for (const rows of [glyph, disc(20, 7), diagonal(16), lone]) expect(Array.from(keep(rows))).toEqual(Array.from(smooth(rows, s)));
+  });
+
+  it("goes from the smooth look to the pixels gradually, without a seam", () => {
+    // grass on the left, glyphs on plain ground on the right, and a stroke running from one into the other
+    const rows = grass(48, 16).map((r, y) => r.slice(0, 20) + (glyph[y] + glyph[y]).slice(0, 28));
+    for (let y = 5; y < 11; y++) rows[y] = rows[y].slice(0, 12) + (y === 7 || y === 8 ? "#" : ".").repeat(24) + rows[y].slice(36);
+    const [w, h] = size(rows);
+    const src = grid(rows);
+    const wt = weights(rows);
+    // the weight changes by half at most from one pixel to the next
+    for (let y = 0; y < h; y++) for (let x = 0; x + 1 < w; x++) expect(Math.abs(wt[y * w + x + 1] - wt[y * w + x])).toBeLessThanOrEqual(0.5);
+    for (let y = 0; y + 1 < h; y++) for (let x = 0; x < w; x++) expect(Math.abs(wt[(y + 1) * w + x] - wt[y * w + x])).toBeLessThanOrEqual(0.5);
+    expect(wt[3 * w + 4]).toBe(1);
+    expect(wt[3 * w + 44]).toBe(0);
+    // along the stroke, its top edge moves by at most an output pixel from one column to the next
+    const cov = keep(rows);
+    const W = w * s;
+    let last = -1;
+    for (let X = 14 * s; X < 34 * s; X++) {
+      let Y = 6 * s;
+      while (cov[Y * W + X] < 0.5) Y++;
+      if (last >= 0) expect(Math.abs(Y - last)).toBeLessThanOrEqual(1);
+      last = Y;
+    }
+    // and every output pixel is between the smooth look and the pixel's own colour (a mix of the two, nothing else)
+    const sm = smooth(rows, s);
+    for (let Y = 0; Y < h * s; Y++) {
+      for (let X = 0; X < W; X++) {
+        if (!awayFromEdges(X, Y, s)) continue;
+        const px = src[Math.floor(Y / s) * w + Math.floor(X / s)];
+        expect(cov[Y * W + X]).toBeGreaterThanOrEqual(Math.min(sm[Y * W + X], px) - 1e-6);
+        expect(cov[Y * W + X]).toBeLessThanOrEqual(Math.max(sm[Y * W + X], px) + 1e-6);
+      }
+    }
+  });
+
+  it("is drawn the same without WebGL: patterns as their pixels, the rest as Smooth draws it", () => {
+    const ink = 0xff000000, paper = 0xffffffff;
+    for (const rows of [checker(12), grass(24, 16), dots(16)]) {
+      const [w, h] = size(rows);
+      const src = grid(rows);
+      const out = new Uint32Array(w * h * 16);
+      new SmoothCpu().draw(src, w, h, ink, paper, out, true);
+      for (let y = 16; y < (h - 4) * 4; y++) for (let x = 16; x < (w - 4) * 4; x++) expect(out[y * w * 4 + x]).toBe(src[(y >> 2) * w + (x >> 2)] ? ink >>> 0 : paper >>> 0);
+    }
+    for (const rows of [glyph, disc(16, 6)]) {
+      const [w, h] = size(rows);
+      const a = new Uint32Array(w * h * 16), b = new Uint32Array(w * h * 16);
+      new SmoothCpu().draw(grid(rows), w, h, ink, paper, a, true);
+      new SmoothCpu().draw(grid(rows), w, h, ink, paper, b);
+      expect(Array.from(a)).toEqual(Array.from(b));
     }
   });
 });

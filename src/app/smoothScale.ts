@@ -21,6 +21,9 @@
 // the frame). Without a GPU, SmoothCpu does them at 4x (with a ramp of one 4x
 // pixel) for the browser to enlarge smoothly. smoothField / smoothContour are
 // the steps exactly as the GPU does them, on the CPU (tests, comparisons).
+//
+// "Smooth, keep patterns" (below: patternWeights) draws dithering and texture
+// as their own pixels and the rest as above, mixed without a seam.
 
 /** Cells of the 4 x 4 block (bit y * 4 + x) a corner's edge turns: [corner, either slope, shallow, steep]. */
 const CELLS = {
@@ -161,8 +164,30 @@ export function smoothField(src: Uint8Array, w: number, h: number): Float32Array
  */
 export const rampHalf = (s: number) => Math.min(0.5, 0.75 / s);
 
-/** Step 3 on the CPU: ink coverage (0..1) of each output pixel, round(w * s) x round(h * s). */
-export function smoothContour(field: Float32Array, w: number, h: number, s: number): Float32Array {
+/** Bilinear sample of a w x h grid of values at (x, y) in its pixels (centres at +0.5), edges repeated. */
+function bilinear(a: ArrayLike<number>, w: number, h: number, x: number, y: number): number {
+  const fx = Math.min(w - 1, Math.max(0, x - 0.5)), fy = Math.min(h - 1, Math.max(0, y - 0.5));
+  const x0 = Math.floor(fx), y0 = Math.floor(fy), x1 = Math.min(w - 1, x0 + 1), y1 = Math.min(h - 1, y0 + 1);
+  const tx = fx - x0, ty = fy - y0;
+  return (a[y0 * w + x0] * (1 - tx) + a[y0 * w + x1] * tx) * (1 - ty) + (a[y1 * w + x0] * (1 - tx) + a[y1 * w + x1] * tx) * ty;
+}
+
+/**
+ * The picture's own pixels at the output size, with an edge about one output
+ * pixel wide ("sharp bilinear"): the four nearest pixels mixed with weights
+ * pushed to 0 or 1 except within half an output pixel of a pixel's edge.
+ * (x, y) in game pixels, `s` output pixels per game pixel.
+ */
+function sharpPixels(src: Uint8Array, w: number, h: number, x: number, y: number, s: number): number {
+  const gx = x - 0.5, gy = y - 0.5;
+  const ix = Math.floor(gx), iy = Math.floor(gy);
+  const tx = Math.min(1, Math.max(0, (gx - ix - 0.5) * s + 0.5)), ty = Math.min(1, Math.max(0, (gy - iy - 0.5) * s + 0.5));
+  const at = (px: number, py: number) => src[Math.min(h - 1, Math.max(0, py)) * w + Math.min(w - 1, Math.max(0, px))];
+  return (at(ix, iy) * (1 - tx) + at(ix + 1, iy) * tx) * (1 - ty) + (at(ix, iy + 1) * (1 - tx) + at(ix + 1, iy + 1) * tx) * ty;
+}
+
+/** Step 3 on the CPU: ink coverage (0..1) of each output pixel, round(w * s) x round(h * s); with `keep`, patterns kept (below). */
+export function smoothContour(field: Float32Array, w: number, h: number, s: number, keep?: { src: Uint8Array; weights: Float32Array }): Float32Array {
   const W = Math.round(w * s), H = Math.round(h * s), FW = w * 4, FH = h * 4;
   const out = new Float32Array(W * H);
   const half = rampHalf(s);
@@ -172,18 +197,136 @@ export function smoothContour(field: Float32Array, w: number, h: number, s: numb
     for (let X = 0; X < W; X++) {
       const fx = Math.min(FW - 1, Math.max(0, ((X + 0.5) * w * 4) / W - 0.5));
       const x0 = Math.floor(fx), x1 = Math.min(FW - 1, x0 + 1), tx = fx - x0;
-      const v =
+      let v =
         (field[y0 * FW + x0] * (1 - tx) + field[y0 * FW + x1] * tx) * (1 - ty) + (field[y1 * FW + x0] * (1 - tx) + field[y1 * FW + x1] * tx) * ty;
-      const t = Math.min(1, Math.max(0, (v - 0.5 + half) / (2 * half)));
+      let r = half;
+      if (keep) {
+        // (as the GPU: the smoothed edge and the pixels' own, mixed by how much of a pattern is here, before the cut)
+        const gx = ((X + 0.5) * w) / W, gy = ((Y + 0.5) * h) / H;
+        const a = bilinear(keep.weights, w, h, gx, gy);
+        if (a > 0) {
+          v += (sharpPixels(keep.src, w, h, gx, gy, W / w) - v) * a;
+          r += (0.5 - r) * a;
+        }
+      }
+      const t = Math.min(1, Math.max(0, (v - 0.5 + r) / (2 * r)));
       out[Y * W + X] = t * t * (3 - 2 * t);
     }
   }
   return out;
 }
 
-/** The whole effect on the CPU, as coverage at `s` output pixels per game pixel. */
-export function smoothCpu(src: Uint8Array, w: number, h: number, s: number): Float32Array {
-  return smoothContour(smoothField(src, w, h), w, h, s);
+/** The whole effect on the CPU, as coverage at `s` output pixels per game pixel (patterns kept with `keepPatterns`). */
+export function smoothCpu(src: Uint8Array, w: number, h: number, s: number, keepPatterns = false): Float32Array {
+  return smoothContour(smoothField(src, w, h), w, h, s, keepPatterns ? { src, weights: patternWeights(src, w, h) } : undefined);
+}
+
+// ------------------------------------------------- Smooth, keep patterns
+//
+// The same, but dithering and texture (grass, checkerboards, fields of dots)
+// keep their pixels exactly, while outlines, sprites and text are smoothed.
+// Not a switch per pixel (the old Smooth kept texture that way, and showed a
+// seam wherever a smoothed edge met a kept pixel): each pixel gets a weight,
+// 0 (smooth) to 1 (a pattern), that changes gradually over a few pixels, and
+// at the output size the smoothed edge and the pixels' own edge are mixed by
+// that weight before the contour is cut. Where the weight is between, the
+// edge lies between the two, so it moves continuously from a smooth curve to
+// the pixels' steps: there is no line where one look stops and the other
+// starts. Where both agree (inside a plain area) the weight changes nothing.
+//
+// The weight: a pixel is "fine" when no run of four of its colour passes
+// through it, across or down (in grass, checkerboards and dither nearly every
+// pixel is; along a glyph's strokes, an outline or a box, few are). The
+// share of fine pixels in the 7 x 7 square around a pixel, from PATTERN_LOW
+// to PATTERN_HIGH (smoothly), is its weight; text stays below PATTERN_LOW
+// (measured on 伏魔记's and 异世大陆's screens: grass has a share of 0.3 to
+// 0.8, mostly over 0.5; dialogue text at most 0.33). Fields of lone pixels
+// (a dot dither on plain ground: a pixel unlike all eight around it, three
+// or more in the square) count as well; one or two, such as eyes, do not.
+// The weights are then softened ([1 2 1] each way), so that they change by
+// at most a half from one pixel to the next.
+
+/** The share of fine pixels at which patterns start to be kept, and are kept fully. */
+export const PATTERN_LOW = 0.3, PATTERN_HIGH = 0.45;
+/** The share of lone pixels at which a field of dots starts to be kept, and is kept fully. */
+export const DOTS_LOW = 2 / 49, DOTS_HIGH = 3 / 49;
+
+const smoothstep = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/** Per pixel: bit 0 fine (no run of four of its colour across or down), bit 1 lone (unlike all eight around it). */
+export function patternFlags(src: Uint8Array, w: number, h: number, out: Uint8Array = new Uint8Array(w * h)): Uint8Array {
+  // (runs stop at the picture's edge; a pixel on the edge is never lone: the screen's edge is neither colour)
+  out.fill(1, 0, w * h);
+  // the runs of four or more, across and down: not fine
+  for (let y = 0; y < h; y++) {
+    for (let x = 0, r = y * w; x < w; ) {
+      let e = x + 1;
+      while (e < w && src[r + e] === src[r + x]) e++;
+      if (e - x >= 4) out.fill(0, r + x, r + e);
+      x = e;
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; ) {
+      let e = y + 1;
+      while (e < h && src[e * w + x] === src[y * w + x]) e++;
+      if (e - y >= 4) for (let k = y; k < e; k++) out[k * w + x] = 0;
+      y = e;
+    }
+  }
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const o = y * w + x, e = src[o];
+      if (src[o - w - 1] !== e && src[o - w] !== e && src[o - w + 1] !== e && src[o - 1] !== e && src[o + 1] !== e && src[o + w - 1] !== e && src[o + w] !== e && src[o + w + 1] !== e) out[o] |= 2;
+    }
+  }
+  return out;
+}
+
+/**
+ * Each pixel's weight, 0 (smoothed) to 1 (a pattern: its pixels kept): from
+ * the share of fine pixels in the 7 x 7 square around it (the part inside
+ * the picture) and the number of lone pixels in it, softened by a [1 2 1] blur each way so that it
+ * changes by at most a half from one pixel to the next.
+ */
+export function patternWeights(src: Uint8Array, w: number, h: number, out: Float32Array = new Float32Array(w * h), flags: Uint8Array = new Uint8Array(w * h)): Float32Array {
+  patternFlags(src, w, h, flags);
+  // running sums of the fine and of the lone pixels, a row and a column of zeros first
+  const S = w + 1;
+  const fine = new Int32Array(S * (h + 1)), lone = new Int32Array(S * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let rf = 0, rl = 0;
+    for (let x = 0; x < w; x++) {
+      const f = flags[y * w + x];
+      rf += f & 1;
+      rl += f >> 1;
+      fine[(y + 1) * S + x + 1] = fine[y * S + x + 1] + rf;
+      lone[(y + 1) * S + x + 1] = lone[y * S + x + 1] + rl;
+    }
+  }
+  const box = (t: Int32Array, x0: number, y0: number, x1: number, y1: number) => t[y1 * S + x1] - t[y0 * S + x1] - t[y1 * S + x0] + t[y0 * S + x0];
+  const raw = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - 3), y1 = Math.min(h, y + 4);
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.max(0, x - 3), x1 = Math.min(w, x + 4);
+      const n = (x1 - x0) * (y1 - y0);
+      raw[y * w + x] = Math.max(smoothstep(PATTERN_LOW, PATTERN_HIGH, box(fine, x0, y0, x1, y1) / n), smoothstep(DOTS_LOW, DOTS_HIGH, box(lone, x0, y0, x1, y1) / 49));
+    }
+  }
+  // [1 2 1] each way, the edges repeated
+  for (let y = 0; y < h; y++) {
+    const u = (y > 0 ? y - 1 : 0) * w, c = y * w, d = (y < h - 1 ? y + 1 : y) * w;
+    for (let x = 0; x < w; x++) {
+      const l = x > 0 ? x - 1 : 0, r = x < w - 1 ? x + 1 : x;
+      const row = (o: number) => raw[o + l] + 2 * raw[o + x] + raw[o + r];
+      out[c + x] = (row(u) + 2 * row(c) + row(d)) / 16;
+    }
+  }
+  return out;
 }
 
 /** The four cells of a mask row as bytes 0 / 1 (little-endian), for each 4-bit pattern. */
@@ -201,14 +344,25 @@ export class SmoothCpu {
   private rows = new Uint32Array(0);
   private colors = new Uint32Array(257);
   private key = "";
+  /** For keeping patterns: the blurred mask (0..256 per cell), and each pixel's weight. */
+  private sums = new Uint16Array(0);
+  private weights = new Float32Array(0);
+  private flags = new Uint8Array(0);
 
-  draw(src: Uint8Array, w: number, h: number, ink: number, paper: number, out: Uint32Array): void {
+  /** With `keepPatterns`, dithering and texture keep their pixels (patternWeights). */
+  draw(src: Uint8Array, w: number, h: number, ink: number, paper: number, out: Uint32Array, keepPatterns = false): void {
     const W = w * 4, H = h * 4;
     if (this.cells.length !== w * h) {
       this.cells = new Uint16Array(w * h);
       this.mask = new Uint32Array(W * H / 4);
       this.rows = new Uint32Array((W * H) / 4);
     }
+    if (keepPatterns && this.sums.length !== W * H) {
+      this.sums = new Uint16Array(W * H);
+      this.weights = new Float32Array(w * h);
+      this.flags = new Uint8Array(w * h);
+    }
+    const sums = keepPatterns ? this.sums : null;
     if (this.key !== `${ink}:${paper}`) {
       this.key = `${ink}:${paper}`;
       const half = rampHalf(4);
@@ -265,6 +419,60 @@ export class SmoothCpu {
         out[o + 1] = colors[odd & 0xffff];
         out[o + 2] = colors[even >>> 16];
         out[o + 3] = colors[odd >>> 16];
+        if (sums) {
+          sums[o] = even & 0xffff;
+          sums[o + 1] = odd & 0xffff;
+          sums[o + 2] = even >>> 16;
+          sums[o + 3] = odd >>> 16;
+        }
+      }
+    }
+    if (sums) this.keep(src, w, h, sums, out);
+  }
+
+  /**
+   * Patterns kept: in each cell near a pattern, the blurred mask mixed with the
+   * pixel's own colour by the weight there (as the GPU mixes them, at 4x).
+   */
+  private keep(src: Uint8Array, w: number, h: number, sums: Uint16Array, out: Uint32Array): void {
+    const wt = patternWeights(src, w, h, this.weights, this.flags);
+    const colors = this.colors;
+    const W = w * 4;
+    // (a cell's weight: its pixel's, moved 1/8 or 3/8 of the way to the next pixel's on its side, each way)
+    const FAR = [0.375, 0.125, 0.125, 0.375];
+    for (let y = 0; y < h; y++) {
+      const up = y > 0 ? -w : 0, down = y < h - 1 ? w : 0;
+      for (let x = 0; x < w; x++) {
+        const o = y * w + x;
+        const left = x > 0 ? -1 : 0, right = x < w - 1 ? 1 : 0;
+        const c = wt[o];
+        const n0 = wt[o + up + left], n1 = wt[o + up], n2 = wt[o + up + right];
+        const n3 = wt[o + left], n5 = wt[o + right];
+        const n6 = wt[o + down + left], n7 = wt[o + down], n8 = wt[o + down + right];
+        const total = c + n0 + n1 + n2 + n3 + n5 + n6 + n7 + n8;
+        if (total === 0) continue;
+        const hard = src[o] ? 256 : 0;
+        if (total === 9) {
+          // (inside a pattern: the pixel as it is)
+          const col = colors[hard];
+          for (let cy = 0, i = y * 4 * W + x * 4; cy < 4; cy++, i += W) out[i] = out[i + 1] = out[i + 2] = out[i + 3] = col;
+          continue;
+        }
+        for (let cy = 0; cy < 4; cy++) {
+          const fy = FAR[cy], above = cy < 2;
+          // (the weights of the row beside, above or below)
+          const rowL = above ? n0 : n6, rowM = above ? n1 : n7, rowR = above ? n2 : n8;
+          for (let cx = 0; cx < 4; cx++) {
+            const fx = FAR[cx], before = cx < 2;
+            const mine = c + ((before ? n3 : n5) - c) * fx;
+            const beside = rowM + ((before ? rowL : rowR) - rowM) * fx;
+            const a = mine + (beside - mine) * fy;
+            if (a <= 0) continue;
+            const i = (y * 4 + cy) * W + x * 4 + cx;
+            const v = sums[i];
+            out[i] = colors[Math.round(v + (hard - v) * a)];
+          }
+        }
       }
     }
   }
@@ -343,14 +551,85 @@ void main() {
   gl_FragColor = vec4(v, v, v, 1.0);
 }`;
 
-/** Step 3: the contour at the output size, in the palette's colours (red stays red). */
+/** Keeping patterns, 1 (as patternFlags): per pixel, r = fine, g = lone. */
+const FLAGS = `${HEAD}
+uniform sampler2D src;
+uniform vec2 size;
+${INK}
+float inside(vec2 p) { return p.x >= 0.0 && p.y >= 0.0 && p.x < size.x && p.y < size.y ? 1.0 : 0.0; }
+float at(vec2 p) { return ink(texture2D(src, (p + 0.5) / size)); }
+// (1 when the pixel at p + d is inside the picture and of the colour e)
+float same(vec2 p, float dx, float dy, float e) { vec2 q = p + vec2(dx, dy); return inside(q) * (at(q) == e ? 1.0 : 0.0); }
+void main() {
+  vec2 p = floor(gl_FragCoord.xy);
+  float e = at(p);
+  float l1 = same(p, -1.0, 0.0, e), l2 = l1 * same(p, -2.0, 0.0, e), l3 = l2 * same(p, -3.0, 0.0, e);
+  float r1 = same(p, 1.0, 0.0, e), r2 = r1 * same(p, 2.0, 0.0, e), r3 = r2 * same(p, 3.0, 0.0, e);
+  float u1 = same(p, 0.0, -1.0, e), u2 = u1 * same(p, 0.0, -2.0, e), u3 = u2 * same(p, 0.0, -3.0, e);
+  float d1 = same(p, 0.0, 1.0, e), d2 = d1 * same(p, 0.0, 2.0, e), d3 = d2 * same(p, 0.0, 3.0, e);
+  float run = max(max(max(l3, r3), max(l2 * r1, l1 * r2)), max(max(u3, d3), max(u2 * d1, u1 * d2)));
+  float lone = inside(p - 1.0) * inside(p + 1.0);
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      if (i != 0 || j != 0) lone *= 1.0 - same(p, float(i), float(j), e);
+    }
+  }
+  gl_FragColor = vec4(1.0 - run, lone, 0.0, 1.0);
+}`;
+
+/** Keeping patterns, 2 (as patternWeights): each pixel's weight, from its 7 x 7 square. */
+const WEIGHTS = `${HEAD}
+uniform sampler2D flags;
+uniform vec2 size;
+uniform vec4 limits;
+void main() {
+  vec2 p = floor(gl_FragCoord.xy);
+  float fine = 0.0, lone = 0.0, n = 0.0;
+  for (int j = -3; j <= 3; j++) {
+    for (int i = -3; i <= 3; i++) {
+      vec2 q = p + vec2(float(i), float(j));
+      if (q.x >= 0.0 && q.y >= 0.0 && q.x < size.x && q.y < size.y) {
+        vec4 f = texture2D(flags, (q + 0.5) / size);
+        fine += f.r;
+        lone += f.g;
+        n += 1.0;
+      }
+    }
+  }
+  float v = max(smoothstep(limits.x, limits.y, fine / n), smoothstep(limits.z, limits.w, lone / 49.0));
+  gl_FragColor = vec4(v, v, v, 1.0);
+}`;
+
+/** Keeping patterns, 3: the weights blurred [1 2 1] each way, the edges repeated (texture clamped to its edge). */
+const SOFTEN = `${HEAD}
+uniform sampler2D raw;
+uniform vec2 size;
+void main() {
+  vec2 p = floor(gl_FragCoord.xy);
+  float v = 0.0;
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 q = clamp(p + vec2(float(i), float(j)), vec2(0.0), size - 1.0);
+      v += (i == 0 ? 2.0 : 1.0) * (j == 0 ? 2.0 : 1.0) * texture2D(raw, (q + 0.5) / size).r;
+    }
+  }
+  v /= 16.0;
+  gl_FragColor = vec4(v, v, v, 1.0);
+}`;
+
+/** Step 3: the contour at the output size, in the palette's colours (red stays red); with keep, patterns kept (smoothContour). */
 const CONTOUR = `${HEAD}
 uniform sampler2D field;
 uniform sampler2D src;
+uniform sampler2D weights;
 uniform vec2 outSize;
+uniform vec2 size;
 uniform float ramp;
+uniform float keep;
 uniform vec3 light;
 uniform vec3 dark;
+${INK}
+float at(vec2 p) { return ink(texture2D(src, (p + 0.5) / size)); }
 void main() {
   // (the canvas's rows run from the bottom; the frame's from the top)
   vec2 uv = vec2(gl_FragCoord.x, outSize.y - gl_FragCoord.y) / outSize;
@@ -359,7 +638,21 @@ void main() {
     gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
     return;
   }
-  float k = smoothstep(0.5 - ramp, 0.5 + ramp, texture2D(field, uv).r);
+  float v = texture2D(field, uv).r;
+  float r = ramp;
+  if (keep > 0.5) {
+    float a = texture2D(weights, uv).r;
+    if (a > 0.0) {
+      // the pixels' own edges, about one output pixel wide (sharpPixels), mixed in before the cut
+      vec2 g = uv * size - 0.5;
+      vec2 i = floor(g);
+      vec2 t = clamp((g - i - 0.5) * (outSize.x / size.x) + 0.5, 0.0, 1.0);
+      float hard = mix(mix(at(i), at(i + vec2(1.0, 0.0)), t.x), mix(at(i + vec2(0.0, 1.0)), at(i + vec2(1.0, 1.0)), t.x), t.y);
+      v = mix(v, hard, a);
+      r = mix(r, 0.5, a);
+    }
+  }
+  float k = smoothstep(0.5 - r, 0.5 + r, v);
   gl_FragColor = vec4(mix(light, dark, k), 1.0);
 }`;
 
@@ -402,11 +695,20 @@ export class SmoothGL {
   private readonly xbr: WebGLProgram;
   private readonly blur: WebGLProgram;
   private readonly contour: WebGLProgram;
+  private readonly flagsProgram: WebGLProgram;
+  private readonly weightsProgram: WebGLProgram;
+  private readonly softenProgram: WebGLProgram;
   private readonly src: WebGLTexture;
   private readonly mask: WebGLTexture;
   private readonly field: WebGLTexture;
+  private readonly flags: WebGLTexture;
+  private readonly raw: WebGLTexture;
+  private readonly weights: WebGLTexture;
   private readonly fbMask: WebGLFramebuffer;
   private readonly fbField: WebGLFramebuffer;
+  private readonly fbFlags: WebGLFramebuffer;
+  private readonly fbRaw: WebGLFramebuffer;
+  private readonly fbWeights: WebGLFramebuffer;
   private w = 0;
   private h = 0;
 
@@ -443,6 +745,9 @@ export class SmoothGL {
     this.xbr = program(gl, XBR);
     this.blur = program(gl, BLUR);
     this.contour = program(gl, CONTOUR);
+    this.flagsProgram = program(gl, FLAGS);
+    this.weightsProgram = program(gl, WEIGHTS);
+    this.softenProgram = program(gl, SOFTEN);
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
@@ -451,8 +756,14 @@ export class SmoothGL {
     this.src = texture(gl, gl.NEAREST);
     this.mask = texture(gl, gl.LINEAR);
     this.field = texture(gl, gl.LINEAR);
+    this.flags = texture(gl, gl.NEAREST);
+    this.raw = texture(gl, gl.NEAREST);
+    this.weights = texture(gl, gl.LINEAR);
     this.fbMask = gl.createFramebuffer()!;
     this.fbField = gl.createFramebuffer()!;
+    this.fbFlags = gl.createFramebuffer()!;
+    this.fbRaw = gl.createFramebuffer()!;
+    this.fbWeights = gl.createFramebuffer()!;
   }
 
   /** Whether the GPU took the context away (the caller then draws without it). */
@@ -460,17 +771,21 @@ export class SmoothGL {
     return this.gl.isContextLost();
   }
 
-  draw(frame: Uint8ClampedArray, w: number, h: number, W: number, H: number, light: readonly number[], dark: readonly number[]): HTMLCanvasElement {
+  /** With `keepPatterns`, dithering and texture keep their pixels (patternWeights). */
+  draw(frame: Uint8ClampedArray, w: number, h: number, W: number, H: number, light: readonly number[], dark: readonly number[], keepPatterns = false): HTMLCanvasElement {
     const gl = this.gl;
     if (w !== this.w || h !== this.h) {
       this.w = w;
       this.h = h;
-      for (const [t, fb] of [
-        [this.mask, this.fbMask],
-        [this.field, this.fbField],
+      for (const [t, fb, k] of [
+        [this.mask, this.fbMask, 4],
+        [this.field, this.fbField, 4],
+        [this.flags, this.fbFlags, 1],
+        [this.raw, this.fbRaw, 1],
+        [this.weights, this.fbWeights, 1],
       ] as const) {
         gl.bindTexture(gl.TEXTURE_2D, t);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w * 4, h * 4, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w * k, h * k, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
       }
@@ -502,6 +817,33 @@ export class SmoothGL {
     gl.uniform2f(gl.getUniformLocation(this.blur, "size"), w * 4, h * 4);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
+    if (keepPatterns) {
+      // the patterns' weights (at the frame's size)
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, this.flags);
+      gl.activeTexture(gl.TEXTURE4);
+      gl.bindTexture(gl.TEXTURE_2D, this.weights);
+      gl.activeTexture(gl.TEXTURE5);
+      gl.bindTexture(gl.TEXTURE_2D, this.raw);
+      gl.viewport(0, 0, w, h);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbFlags);
+      gl.useProgram(this.flagsProgram);
+      gl.uniform1i(gl.getUniformLocation(this.flagsProgram, "src"), 0);
+      gl.uniform2f(gl.getUniformLocation(this.flagsProgram, "size"), w, h);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbRaw);
+      gl.useProgram(this.weightsProgram);
+      gl.uniform1i(gl.getUniformLocation(this.weightsProgram, "flags"), 3);
+      gl.uniform2f(gl.getUniformLocation(this.weightsProgram, "size"), w, h);
+      gl.uniform4f(gl.getUniformLocation(this.weightsProgram, "limits"), PATTERN_LOW, PATTERN_HIGH, DOTS_LOW, DOTS_HIGH);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbWeights);
+      gl.useProgram(this.softenProgram);
+      gl.uniform1i(gl.getUniformLocation(this.softenProgram, "raw"), 5);
+      gl.uniform2f(gl.getUniformLocation(this.softenProgram, "size"), w, h);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
     // 3. the contour, onto the canvas
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
@@ -509,6 +851,9 @@ export class SmoothGL {
     const u = (n: string) => gl.getUniformLocation(this.contour, n);
     gl.uniform1i(u("field"), 2);
     gl.uniform1i(u("src"), 0);
+    gl.uniform1i(u("weights"), 4);
+    gl.uniform1f(u("keep"), keepPatterns ? 1 : 0);
+    gl.uniform2f(u("size"), w, h);
     gl.uniform2f(u("outSize"), W, H);
     gl.uniform1f(u("ramp"), rampHalf(W / w));
     gl.uniform3f(u("light"), light[0] / 255, light[1] / 255, light[2] / 255);

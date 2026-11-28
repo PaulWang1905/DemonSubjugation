@@ -25,7 +25,7 @@ export function setPref(key: string, v: string): void {
   }
 }
 
-export const effectOf = (v: string): ScreenEffect => (v === "lcd" || v === "lcd-shadow" || v === "smooth" ? v : "none");
+export const effectOf = (v: string): ScreenEffect => (v === "lcd" || v === "lcd-shadow" || v === "smooth" || v === "smooth-keep" ? v : "none");
 
 /** Where the keypad goes beside the screen instead of under it. */
 export const SIDE_PAD_QUERY = "(orientation: landscape) and (max-height: 560px)";
@@ -251,7 +251,7 @@ export function ScreenOptions(p: {
             setPref("effect", e.target.value);
           }}
         >
-          {(["none", "lcd", "lcd-shadow", "smooth"] as const).map((v) => (
+          {(["none", "lcd", "lcd-shadow", "smooth", "smooth-keep"] as const).map((v) => (
             <option key={v} value={v}>
               {pt.effects[v]}
             </option>
