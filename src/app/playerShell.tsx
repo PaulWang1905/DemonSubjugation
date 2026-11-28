@@ -68,8 +68,23 @@ export function useSheetFocus(open: boolean, close: () => void): void {
       closeRef.current();
     };
     window.addEventListener("keydown", onKey, true);
+    // The game screen stays in view above the sheet (on a phone held
+    // upright: you change its colours, effect, map and text and watch it):
+    // the sheet is told where the screen ends (--above) and is no taller
+    // than the room under it, scrolling inside (styles.css .sheet-body).
+    const screen = document.querySelector<HTMLElement>(".player .bezel");
+    const place = () => {
+      const sheet = document.querySelector<HTMLElement>(".sheet");
+      if (sheet && screen) sheet.style.setProperty("--above", `${Math.ceil(screen.getBoundingClientRect().bottom)}px`);
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    if (screen) ro.observe(screen);
+    window.addEventListener("resize", place);
     return () => {
       cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("resize", place);
       window.removeEventListener("keydown", onKey, true);
       if (opener?.isConnected) opener.focus({ preventScroll: true });
     };

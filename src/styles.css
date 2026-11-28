@@ -2271,7 +2271,10 @@ html.playing-touch body {
 .sheet-body {
   width: 100%;
   max-width: 560px;
-  max-height: 88dvh;
+  /* (upright: no higher than the bottom of the game screen, --above, set
+     by useSheetFocus, so the whole screen stays in view; the options scroll
+     inside. Sideways the sheet may cover the game: see below.) */
+  max-height: min(88dvh, calc(100dvh - var(--above, 12dvh) - 26px));
   overflow: auto;
   overscroll-behavior: contain;
   background: var(--panel);
