@@ -1,6 +1,6 @@
 # Fulu: a TypeScript stand-in for the Longman 4988's operating system
 
-*Technical report, FMJ React, November 2026.*
+*Technical report, FMJ React.*
 
 Addresses are CPU addresses (`$xxxx`) unless marked physical (`$xxxxxx`)
 or as `segment:address` in the OS ROM. Code references are to this
@@ -943,7 +943,7 @@ which the original OS never had.
   the icons. A character drawn over even partly, scrolled or cleared keeps
   its pixels, so a stale record can never show.
 - **Draw.** The report is a list of `TextMark { x, y, w, h, text, fg, bg }`.
-  The site's `HiresText` renderer, shared with the JS engine, clears the
+  The site's `HiresText` renderer, shared with FMJ React, clears the
   cell, scales the picture with the chosen effect, and paints the text in
   the chosen font. Inverted cells swap fg and bg.
 

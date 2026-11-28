@@ -1,6 +1,6 @@
 // docs/fulu-games.md, as Markdown, from src/app/fuluGames.ts (written by
 // scripts/bbk/fulu-games-doc.mts; tests/fulu-games.test.ts checks the file).
-import { COVERAGE, fuluSummary, GAMES, HAND_TESTS, MILESTONES, PLAY_HISTORY, PROBLEMS, REMAINING, remainingGames, UPDATED, type FuluGame } from "./fuluGames";
+import { COVERAGE, fuluSummary, GAMES, HAND_TESTS, MILESTONES, PLAY_HISTORY, PROBLEMS, REMAINING, remainingGames, type FuluGame } from "./fuluGames";
 
 const ON_FULU: Record<FuluGame["onFulu"], string> = { plays: "plays", ends: "ends", stops: "stops" };
 const FIRMWARE: Record<FuluGame["firmware"], string> = { full: "full", long: "30 minutes of play", play: "a minute of play", none: "—" };
@@ -22,8 +22,6 @@ export function fuluGamesMarkdown(): string {
     "collection's 138 for the Longman 4988 (`eebbk/roms`). The site's Fulu page",
     "shows the same lists, in its progress report (/fulu/progress).",
     "",
-    `Updated ${UPDATED}.`,
-    "",
     `- **On Fulu alone** (180 s each of random keys from every key a player can press, \`scripts/bbk/fulu-play.mts\`, docs/fulu-report.md §16): ${n.plays} play the whole time, ${n.ends} end as on the device (their \`main\` returns: a game-over box, a menu's quit, Exit; the test starts them again), ${n.stops} stop at something Fulu lacks.`,
     `- **Compared with BBK's firmware** (the shadow run): ${n.full} in full (their code traced, play, typing and saves compared), ${n.long} for 30 minutes of play, ${n.play} for a minute of play.`,
     `- **Tested by hand**: ${HAND_TESTS.length} report${HAND_TESTS.length === 1 ? "" : "s"} (below).`,
@@ -38,9 +36,11 @@ export function fuluGamesMarkdown(): string {
     "|---|---|---|",
     ...PLAY_HISTORY.map((h) => `| ${h.step.en} | ${h.plays} | ${h.ends} |`),
     "",
-    "| Date | Step | What |",
-    "|---|---|---|",
-    ...MILESTONES.map((m) => `| ${m.date} | ${m.step ?? ""} | **${cell(m.title.en)}**: ${cell(m.detail.en)} |`),
+    "In order, oldest first:",
+    "",
+    "| Step | What |",
+    "|---|---|",
+    ...MILESTONES.map((m) => `| ${m.step ?? ""} | **${cell(m.title.en)}**: ${cell(m.detail.en)} |`),
     "",
     "## What is left",
     "",
@@ -68,9 +68,9 @@ export function fuluGamesMarkdown(): string {
     "",
     "What the owner played and reported, as reported. Each new report is added here.",
     "",
-    "| Date | Game | Where | What | Result | Notes |",
-    "|---|---|---|---|---|---|",
-    ...HAND_TESTS.map((t) => `| ${t.date} | ${cell(t.game)} | ${t.engine} | ${cell(t.tested)} | ${t.result} | ${cell(t.notes ?? "")} |`),
+    "| Game | Where | What | Result | Notes |",
+    "|---|---|---|---|---|",
+    ...HAND_TESTS.map((t) => `| ${cell(t.game)} | ${t.engine} | ${cell(t.tested)} | ${t.result} | ${cell(t.notes ?? "")} |`),
     "",
     "## Every program",
     "",

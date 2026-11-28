@@ -185,7 +185,6 @@ export const GAMES: FuluGame[] = [
 export interface HandTest {
   /** The game, or what was tried when no game was named. */
   game: string;
-  date: string;
   /** Where: on Fulu, the original OS (firmware) or the FMJ React engine. */
   engine: "fulu" | "firmware" | "react";
   /** What was played or tried. */
@@ -197,7 +196,6 @@ export interface HandTest {
 export const HAND_TESTS: HandTest[] = [
   {
     game: "(not named)",
-    date: "2026-11-19",
     engine: "fulu",
     tested: "Battles with the wider map view",
     result: "works",
@@ -205,7 +203,6 @@ export const HAND_TESTS: HandTest[] = [
   },
   {
     game: "(not named)",
-    date: "2026-11-19",
     engine: "fulu",
     tested: "More text, past the openings",
     result: "works",
@@ -394,9 +391,6 @@ export const PROBLEMS: Problem[] = [
   },
 ];
 
-/** When this file was last brought up to date. */
-export const UPDATED = "2026-11-21";
-
 /** What Fulu answers (tests/fulu-games.test.ts checks these against src/fulu). */
 export const FULU_COUNTS = { functions: 135, routines: 77 };
 
@@ -476,7 +470,6 @@ export const PLAY_HISTORY: { step: { en: string; zh: string }; plays: number; en
 ];
 
 export interface Milestone {
-  date: string;
   /** The plan's step (docs/fulu-plan.md), if it has one. */
   step?: string;
   title: { en: string; zh: string };
@@ -486,7 +479,6 @@ export interface Milestone {
 /** What has been done, oldest first. */
 export const MILESTONES: Milestone[] = [
   {
-    date: "2026-11-08",
     step: "F1",
     title: { en: "The foundation", zh: "基础" },
     detail: {
@@ -495,7 +487,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-08",
     step: "F2",
     title: { en: "The six games' OS functions", zh: "六款游戏用到的系统函数" },
     detail: {
@@ -504,13 +495,11 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-08",
     step: "F3",
     title: { en: "Play without firmware, on the site", zh: "在网站上无需固件即可玩" },
     detail: { en: "Fulu becomes an engine on the Games page.", zh: "符箓成为游戏库页面上的一个引擎。" },
   },
   {
-    date: "2026-11-09",
     title: { en: "Saving, the Yes/No dialog, the device's pace", zh: "存档、是/否对话框、真机的节奏" },
     detail: {
       en: "The file functions (saves stay in the browser), the dialog, and a cost model that charges each call the firmware's measured time.",
@@ -518,7 +507,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-09",
     step: "F4, F7",
     title: { en: "HD text and the debug menu", zh: "高清文字和调试菜单" },
     detail: {
@@ -527,7 +515,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-19",
     step: "F5, F6",
     title: { en: "Wider map view and More text", zh: "更宽的地图视野和更多文字" },
     detail: {
@@ -536,7 +523,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-20",
     title: { en: "三国霸业, the seventh game", zh: "三国霸业，第七款游戏" },
     detail: {
       en: "三国霸业 calls 4 OS functions and 14 runtime routines that the other six games do not. Written here: the last 3 of those functions ($E7FA, $E8BF, $E9E3) and 10 runtime routines (floating point, and calls through a pointer, $D572); checked against the firmware in full.",
@@ -544,7 +530,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-20",
     step: "F8",
     title: { en: "The whole collection, in rounds", zh: "整个合集，分轮推进" },
     detail: {
@@ -553,7 +538,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-20",
     step: "F8",
     title: { en: "Round 3, first part", zh: "第 3 轮（前半）" },
     detail: {
@@ -562,7 +546,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-20",
     step: "F8",
     title: { en: "Round 3: the help screen", zh: "第 3 轮：帮助画面" },
     detail: {
@@ -571,7 +554,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-20",
     step: "F8",
     title: { en: "Round 3: the menu", zh: "第 3 轮：菜单" },
     detail: {
@@ -580,7 +562,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-20",
     title: { en: "Continue past a stop", zh: "停下后可以继续" },
     detail: {
       en: "A program that meets something Fulu lacks no longer ends there: Continue skips it (the call returns as if done) and the game plays on.",
@@ -588,7 +569,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-20",
     title: { en: "Chinese typed with the computer's own input method", zh: "用电脑自己的输入法输入中文" },
     detail: {
       en: "When a program switches to Chinese input, the player shows a box for the computer's or phone's own input method, and Fulu gives what is typed to the program as the OS's input method gives a chosen character; with $E929 and $D7F1, 宠物精灵 plays and 电子宠物 plays until it ends. Every program of the collection now plays or ends as on the device.",
@@ -596,7 +576,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-20",
     title: { en: "This progress report; sound kept off", zh: "本进展报告；声音保持关闭" },
     detail: {
       en: "The games list, the owner's hand tests and the problems in one place. The owner decided to keep the sound off for now.",
@@ -604,7 +583,6 @@ export const MILESTONES: Milestone[] = [
     },
   },
   {
-    date: "2026-11-21",
     step: "F9",
     title: { en: "Every key, and every path the scans find", zh: "每一个键，扫描找到的每一条路径" },
     detail: {

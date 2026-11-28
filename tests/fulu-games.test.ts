@@ -1,10 +1,11 @@
 // The games list (src/app/fuluGames.ts) and docs/fulu-games.md, written from it, agree.
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { COVERAGE, FIRMWARE_LOG, FULU_COUNTS, fuluSummary, GAMES, HAND_TESTS, MILESTONES, PROBLEMS, REMAINING, FULU_OTHERS } from "../src/app/fuluGames";
 import { FUNCTIONS } from "../src/fulu/os";
 import { HELPERS } from "../src/fulu/runtime";
 import { fuluGamesMarkdown } from "../src/app/fuluGamesDoc";
+import { findLib } from "../src/bbk/gam";
 
 const DOC = new URL("../docs/fulu-games.md", import.meta.url);
 
@@ -62,13 +63,23 @@ describe("the games Fulu should run", () => {
       expect(report).toContain(s);
   });
 
-  it("dates the milestones in order", () => {
-    const dates = MILESTONES.map((m) => m.date);
-    expect([...dates].sort()).toEqual(dates);
+  it("carries no dates (progress pages are undated)", () => {
+    expect(fuluGamesMarkdown()).not.toMatch(/\b\d{4}-\d{2}-\d{2}\b/);
+    expect(JSON.stringify([MILESTONES, HAND_TESTS])).not.toMatch(/\b\d{4}-\d{2}-\d{2}\b/);
   });
 
-  it("says what a stopping game stops at, and dates every hand test", () => {
+  // the collection (BBK_ROMS: all 138) or some of it (BBK_GAMES); none is committed
+  const ROMS = process.env.BBK_ROMS || process.env.BBK_GAMES || "";
+  it.skipIf(!ROMS)("marks as made with the RPG kit exactly the programs with an fmj library (findLib)", () => {
+    const files = readdirSync(ROMS).filter((f) => f.endsWith(".gam"));
+    for (const f of files) {
+      const g = GAMES.find((x) => x.name === f.slice(0, -4));
+      if (g) expect([g.name, findLib(new Uint8Array(readFileSync(`${ROMS}/${f}`))) >= 0]).toEqual([g.name, g.kit]);
+    }
+    if (files.length === GAMES.length) expect(GAMES.filter((g) => g.kit).length).toBe(86); // docs/bbk-emulator.md, docs/fulu-hand-tests.md
+  });
+
+  it("says what a stopping game stops at", () => {
     for (const g of GAMES) expect(g.onFulu === "stops").toBe(!!g.stopsAt);
-    for (const t of HAND_TESTS) expect(t.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });

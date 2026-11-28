@@ -236,7 +236,7 @@ the player which of them are still on screen.
    the list stays small.
 3. *Hand to the player.* `fulu.textMarks.marks(screen)` gives the `TextMark`
    list; DevicePlayer passes it to `HiresText.draw`. Its Text option (Pixel,
-   or HD in one of the site's fonts, the same setting as the JS engine's
+   or HD in one of the site's fonts, the same setting as FMJ React's
    player) shows on Fulu only.
 4. *Saves* keep no records: after resuming, text is sharp again when the
    game next draws it.
@@ -270,7 +270,7 @@ and in the browser, the dialogue in Kai and Hei.
 ## 12. F5: the wider map view for `.gam` games (plan)
 
 **Goal.** The player's map view option (Original 9 × 6, Wider 13 × 8, Widest
-17 × 10 tiles), which the JS engine has, for `.gam` games too: on a map, more
+17 × 10 tiles), which FMJ React has, for `.gam` games too: on a map, more
 of it is shown around what the game draws. Menus, battles and scenes stay
 the device's size, centred.
 
@@ -278,7 +278,7 @@ the device's size, centred.
 
 1. *The game's data, in a form the site reads.* All six games (the 伏魔记
    series and 英雄坛说) are made with BBK's RPG kit (RpgA100.eng) and carry an
-   fmj resource library at $48000 (`findLib`); the site's JS engine already
+   fmj resource library at $48000 (`findLib`); FMJ React already
    plays that library. So the maps, their tiles and the characters' sprites
    can be drawn by the site's own engine code. (三国霸业 has none: no wider
    view.)
@@ -301,7 +301,7 @@ firmware.
    ($1979 / $197A) and its tiles, drawn for the wider window around the
    game's view ($197C / $197D), blank past the map's edges; then the NPCs and
    party members whose positions fall in the border, with their facing, from
-   the RAM records, using the JS engine's map and sprite drawing.
+   the RAM records, using FMJ React's map and sprite drawing.
 2. *Check before showing* (the same rule as F4's text: never show what the
    screen does not confirm). Each frame, the window the game shows is drawn
    from the library too and compared with the LCD, tile by tile. The border
@@ -309,7 +309,7 @@ firmware.
    (those under sprites or a dialogue box are not counted, but most must
    match). Menus, battles, scene pictures and anything unexpected fail the
    check: the border is then blank and only the device's screen shows, as in
-   the JS engine's battles. A wrong address or a game whose engine keeps its
+   FMJ React's battles. A wrong address or a game whose engine keeps its
    view elsewhere fails it too, so a game is never shown a wrong map.
 3. *Compose.* A frame of 13 × 8 or 17 × 10 tiles: the border from step 1, the
    device's own map area (its 9 × 6 tiles, exact pixels: the hero, effects,
@@ -333,7 +333,7 @@ firmware.
   a scripted effect there can differ from what the game would draw; inside
   the device's screen everything is the game's own.
 - A dialogue box stays where the game draws it, at the bottom of the device's
-  screen, not at the bottom of the wider view (as the JS engine places it).
+  screen, not at the bottom of the wider view (as FMJ React places it).
 - Only games made with the RPG kit whose library is in the .gam.
 
 **Size.** Two to three sessions: the surroundings and the check (~250 lines,
@@ -343,7 +343,7 @@ the wider view from the start.
 
 **F5 status: done.** src/bbk/wideView.ts (`WideView`), `KitCheats.mapView()`
 (the map, the view and the characters, with each build's layout), the Map
-option in the device player (the same setting as the JS engine's player).
+option in the device player (the same setting as FMJ React's player).
 What the games taught:
 
 - The map area starts at x 8 in four of the games, at x 7 in 伏魔记 1.0 and
@@ -359,13 +359,13 @@ What the games taught:
 The check refused the screens that are not the map while the game's memory
 still names one (a run error, a blank screen); a battle was not reached in
 the automated runs, but the owner played battles with it on the site and
-the border goes as it should (2026-11-19). It was not tried with the
+the border goes as it should. It was not tried with the
 firmware at first (the code reads the same RAM and screen); the walks below
 cover both OSes.
 tests/wide-view-gam.test.ts checks the six games on their first map, in
 dialogues and around popup menus.
 
-*In step while walking (2026-11-26).* The owner saw the border out of step
+*In step while walking.* The owner saw the border out of step
 with the middle now and then. The games move their view in memory before
 they draw it: 伏魔记 eight frames before, 英雄坛说 and 异世大陆 two or three;
 and on the firmware the drawing itself spans two or three frames. Drawn at
@@ -403,10 +403,10 @@ tests/wide-view-plain.test.ts and tests/wide-view-gam.test.ts (伏魔洞, 摩天
 
 ## 13. F6: More text for `.gam` games (plan)
 
-**Goal.** The JS engine's More text option for `.gam` games on Fulu: Normal
+**Goal.** FMJ React's More text option for `.gam` games on Fulu: Normal
 (16 px), 12 px or 10 px text in dialogues and message boxes, so a page holds
 more, with the same font menus (Chinese and English pixel fonts at 12 / 10
-px, the ones the JS engine bundles; or HD, F4, at that size).
+px, the ones FMJ React bundles; or HD, F4, at that size).
 
 **Why it is not just smaller glyphs.** The game's engine (BBK's RPG kit,
 RpgA100.eng) lays its text out itself. SAY (gitee fmj-engine,
@@ -438,7 +438,7 @@ takes over the engine's text commands, as it took over the OS.
    a line of the box takes 11 Chinese characters (7 at 16 px) and the box
    three lines (two); at 10 px, 14 and four. Page breaks are recomputed for
    the new size, so a dialogue takes fewer pages.
-4. *Fonts.* The glyphs at 12 / 10 px come from the player (the JS engine's
+4. *Fonts.* The glyphs at 12 / 10 px come from the player (FMJ React's
    bundled pixel fonts, by the Chinese and English font menus), handed to
    Fulu as its 16 px font is; the characters go into the text marks (F4) with
    their size, so HD text draws them too.
@@ -468,9 +468,9 @@ the string is read from the script at the interpreter's base + PC ($1AA2 /
 $1AA0: 伏魔记 1.3 has them 2 bytes on, 1.0 8 bytes back), the game's own
 pages are worked out from it (SAY's loop) and its first line must be the one
 printed, or the dialogue is left alone. The game's lines are not printed; at
-each wait Fulu draws the JS engine's compact box (never shorter than the
+each wait Fulu draws FMJ React's compact box (never shorter than the
 game's: 3 lines at 12 px, 4 at 10; at most 4 and 5) with the portrait (PIC
-1-pos from the library) and a page of text broken as the JS engine breaks it
+1-pos from the library) and a page of text broken as FMJ React breaks it
 (TextRender.drawWrapped, which now also places glyphs for others). Once the
 reader has seen Fulu's pages, the game's remaining waits are answered with
 a key. The small glyphs go into the text marks, so HD text draws them.
@@ -488,11 +488,11 @@ code, which is riskier than what Fulu does elsewhere. They keep the device's
 size. No shadow comparison was needed, since the game's own code still runs. tests/more-text-gam.test.ts plays the six games' openings:
 every dialogue taken, its pages showing its whole string in order, never
 more pages than the game's. Past the openings, the owner played on with More
-text on the site: dialogues and message boxes work (2026-11-19).
+text on the site: dialogues and message boxes work.
 
 ## 14. F7: the debug menu for `.gam` games (plan)
 
-**Goal.** The JS engine's hidden debug menu (src/app/DebugMenu.tsx: hold
+**Goal.** FMJ React's hidden debug menu (src/app/DebugMenu.tsx: hold
 the game screen to open it, the game paused while it is open; tabs Party,
 Items, Story, Tricks) for `.gam` games too, plus a Device tab that works for
 any program.
@@ -522,8 +522,8 @@ opens the same menu with it. One menu, two games' worlds behind it.
 **The tabs.**
 
 - *Party, Items, Story*: read and written in RAM as above, names from the
-  library; the catalogue is the library's items, as in the JS engine.
-- *Tricks*: always full HP / MP (written back each frame, as the JS engine
+  library; the catalogue is the library's items, as in FMJ React.
+- *Tricks*: always full HP / MP (written back each frame, as FMJ React
   does each tick); win the battle (the enemies' HP set to 0, the engine ends
   the battle at its next check); no random battles and walk through walls
   by answering the engine's own encounter and passability tests
@@ -558,7 +558,7 @@ the RPG kit's `Cheats`), src/app/DeviceTools.tsx (the Device tab),
 src/bbk/memorySearch.ts, `readLibrary` (src/engine/index.ts: names, maps and
 magic chains from a library without the engine's global one), DebugMenu.tsx
 taking any `Cheats` and an optional Device tab, `Fulu.recentCalls`. Hold the
-screen in the device player to open it, as in the JS engine's player.
+screen in the device player to open it, as in FMJ React's player.
 
 What the games taught: the reconstruction's addresses hold for 英雄坛说,
 完美版 and 怀旧终曲; 伏魔记 1.3 has every variable 2 bytes later; 1.0 and 1.2
@@ -569,7 +569,7 @@ name before anything is used. tests/kit-cheats.test.ts plays all six to
 their first map and checks against each game's own menu (the 金钱 line read
 through F4's text marks): money read and written, the party (speed, spirit
 and luck set and seen on the game's status page: an actor's stats block is
-its library record from +$20, at the JS engine's offsets less $20, not the
+its library record from +$20, at FMJ React's offsets less $20, not the
 reconstruction's ActorStats, whose +$01-$04 are 0 in every record), HP kept full,
 items in and out, story flags, random battles kept off and restored.
 

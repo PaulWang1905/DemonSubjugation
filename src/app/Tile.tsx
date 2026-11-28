@@ -1,5 +1,7 @@
 // A tile of the Games page's library: an LCD cover with its number and the
-// name in pixel type, what it is, and what can be done with it.
+// name in pixel type, what it is, and what can be done with it. Its four parts
+// (cover, meta line, title, the rest) are rows of the grid it sits in, so the
+// titles and Play buttons of a row line up when one meta line wraps.
 import { Fragment, type ReactNode } from "react";
 
 export const Arrow = () => (
@@ -26,7 +28,7 @@ export function Tile({ no, art, meta, title, children, className }: { no: number
           ))}
         </p>
         <h3 title={title}>{title}</h3>
-        {children}
+        <div className="g-rest">{children}</div>
       </div>
     </li>
   );

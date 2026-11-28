@@ -152,8 +152,10 @@ that would mean imitating OS internals.
 
 **`.gam` header:** "GAM\0", name at 6 (10 bytes GBK), entry address at $40,
 data offset at $42. The code segment is mapped at $5000-$8FFF, data at
-$9000-$CFFF. 87 of the 138 programs embed an fmj resource library ("LIB",
-index at +$10, locations at +$2000), found by `findLib`.
+$9000-$CFFF. 86 of the 138 programs embed an fmj resource library ("LIB",
+index at +$10, locations at +$2000), found by `findLib`: the RPG-kit games.
+宠物精灵 also holds a "LIB" block, but only of pictures, with no scripts or
+maps and a resource type (13) fmj does not have, which `findLib` rejects.
 
 **Calling convention** (the BBK C compiler): a software stack at $28/$29,
 arguments pushed by runtime helpers ($DAAA pushes A, $DACA pushes $20/$21, ...),
@@ -174,7 +176,7 @@ from before Fulu; how far Fulu answers them is in docs/fulu-games.md.)
 
 | Functions implemented | Programs fully covered |
 |---|---|
-| 52 | 100 (84 of the 87 fmj-engine ones) |
+| 52 | 100 (84 of the 86 fmj-engine ones) |
 | 70 | 118 |
 | 90 | 130 |
 | 107 | 138 |

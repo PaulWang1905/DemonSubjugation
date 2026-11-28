@@ -7,8 +7,6 @@ played by hand, and the problems known. The programs are the bbk-games
 collection's 138 for the Longman 4988 (`eebbk/roms`). The site's Fulu page
 shows the same lists, in its progress report (/fulu/progress).
 
-Updated 2026-11-21.
-
 - **On Fulu alone** (180 s each of random keys from every key a player can press, `scripts/bbk/fulu-play.mts`, docs/fulu-report.md §16): 105 play the whole time, 33 end as on the device (their `main` returns: a game-over box, a menu's quit, Exit; the test starts them again), 0 stop at something Fulu lacks.
 - **Compared with BBK's firmware** (the shadow run): 7 in full (their code traced, play, typing and saves compared), 12 for 30 minutes of play, 119 for a minute of play.
 - **Tested by hand**: 2 reports (below).
@@ -30,23 +28,25 @@ Up to Chinese input the play test pressed Enter, the arrows and space; from F9, 
 | Chinese typed with the computer's input method | 132 | 6 |
 | Every key, Shift and Exit included | 105 | 33 |
 
-| Date | Step | What |
-|---|---|---|
-| 2026-11-08 | F1 | **The foundation**: The OS's memory filled with one trapping byte; the far call, the C runtime and the interrupts reach TypeScript. The shadow run compares Fulu with BBK's firmware from the same machine state. |
-| 2026-11-08 | F2 | **The six games' OS functions**: The functions the 伏魔记 series and 英雄坛说 call (51 in all; the file functions and the Yes/No dialog came next): screen, text, keys and messages, the heap, the GUI's start-up, the message box. A minute of play of each: 0 differences. |
-| 2026-11-08 | F3 | **Play without firmware, on the site**: Fulu becomes an engine on the Games page. |
-| 2026-11-09 |  | **Saving, the Yes/No dialog, the device's pace**: The file functions (saves stay in the browser), the dialog, and a cost model that charges each call the firmware's measured time. |
-| 2026-11-09 | F4, F7 | **HD text and the debug menu**: Every character Fulu draws can be redrawn in a real font; a menu reads and changes party, items and story flags. |
-| 2026-11-19 | F5, F6 | **Wider map view and More text**: For the RPG kit's games: more of the map around the device's screen, and dialogues and message boxes in smaller type, more per page. Both checked by hand by the owner. |
-| 2026-11-20 |  | **三国霸业, the seventh game**: 三国霸业 calls 4 OS functions and 14 runtime routines that the other six games do not. Written here: the last 3 of those functions ($E7FA, $E8BF, $E9E3) and 10 runtime routines (floating point, and calls through a pointer, $D572); checked against the firmware in full. |
-| 2026-11-20 | F8 | **The whole collection, in rounds**: All 138 programs played on Fulu: 103 ran the whole time. Round 1 (small OS functions, the runtime's divides) took it to 114; round 2 (bitmaps, circles, the text cursor, the status bar, the message queue) to 128, and 5 more end on their own. |
-| 2026-11-20 | F8 | **Round 3, first part**: A number drawn in a radix ($E9AD: 挖金子 plays), today's date and the calendar under it ($E99E and seven more), a whole screen from memory ($E791) and taking a message from the queue ($EA25), each compared with the firmware on random arguments. 幸运花 now gets past its date to the help screen ($E980). Measured on the way: $E94D is 5,278 instructions with its key cases, and the input methods need the OS's pinyin tables. |
-| 2026-11-20 | F8 | **Round 3: the help screen**: $E980, a text shown a page at a time and scrolled by the keys, with the screen saved and put back ($E8CB, $E8CE) and the cursor's state ($E8E9): compared with the firmware on 200 random texts and key sequences, and in 幸运花's play. 幸运花 plays; the 43 programs that can call it no longer stop there. |
-| 2026-11-20 | F8 | **Round 3: the menu**: $E94D, a menu of items in a grid with its own key loop (arrows, page keys, 1-9 and A-Z, Enter, Exit, help), with $E96B for its help key: compared with the firmware on 300 random menus and key sequences, and in 中国象棋's play. 中国象棋 plays: every program now plays but the two that type Chinese. |
-| 2026-11-20 |  | **Continue past a stop**: A program that meets something Fulu lacks no longer ends there: Continue skips it (the call returns as if done) and the game plays on. |
-| 2026-11-20 |  | **Chinese typed with the computer's own input method**: When a program switches to Chinese input, the player shows a box for the computer's or phone's own input method, and Fulu gives what is typed to the program as the OS's input method gives a chosen character; with $E929 and $D7F1, 宠物精灵 plays and 电子宠物 plays until it ends. Every program of the collection now plays or ends as on the device. |
-| 2026-11-20 |  | **This progress report; sound kept off**: The games list, the owner's hand tests and the problems in one place. The owner decided to keep the sound off for now. |
-| 2026-11-21 | F9 | **Every key, and every path the scans find**: A check of all 138 with two code scans (the byte search and a new code-flow scan), a play test pressing every key and a log of all 138 played on BBK's firmware found what random play with Enter, the arrows and space had missed. Done: the Shift key as GuiTranslateMsg has it; programs start in the state BBK's launcher leaves, with the device's clock set to the computer's date and time; $E8E0 (Exit in 华容道 and 滑雪), $E706 (atol: 宠物精灵's cheat box, 体闲麻将's high scores), $E7BE (智多星's answer field), and the link cable as the device with no cable plugged in, each compared with the firmware. Now both scans find nothing Fulu lacks in any program, the every-key play test finds no stop in any, and the firmware log found nothing a program entered that Fulu lacks: in 180 s of play each they entered 102 of the 106 OS functions in their code and 69 of the 75 runtime routines (the rest, such as $E706 and $E7BE, are on paths random keys did not reach), and nothing outside their code, so no call through a pointer leads anywhere the scans had not found. |
+In order, oldest first:
+
+| Step | What |
+|---|---|
+| F1 | **The foundation**: The OS's memory filled with one trapping byte; the far call, the C runtime and the interrupts reach TypeScript. The shadow run compares Fulu with BBK's firmware from the same machine state. |
+| F2 | **The six games' OS functions**: The functions the 伏魔记 series and 英雄坛说 call (51 in all; the file functions and the Yes/No dialog came next): screen, text, keys and messages, the heap, the GUI's start-up, the message box. A minute of play of each: 0 differences. |
+| F3 | **Play without firmware, on the site**: Fulu becomes an engine on the Games page. |
+|  | **Saving, the Yes/No dialog, the device's pace**: The file functions (saves stay in the browser), the dialog, and a cost model that charges each call the firmware's measured time. |
+| F4, F7 | **HD text and the debug menu**: Every character Fulu draws can be redrawn in a real font; a menu reads and changes party, items and story flags. |
+| F5, F6 | **Wider map view and More text**: For the RPG kit's games: more of the map around the device's screen, and dialogues and message boxes in smaller type, more per page. Both checked by hand by the owner. |
+|  | **三国霸业, the seventh game**: 三国霸业 calls 4 OS functions and 14 runtime routines that the other six games do not. Written here: the last 3 of those functions ($E7FA, $E8BF, $E9E3) and 10 runtime routines (floating point, and calls through a pointer, $D572); checked against the firmware in full. |
+| F8 | **The whole collection, in rounds**: All 138 programs played on Fulu: 103 ran the whole time. Round 1 (small OS functions, the runtime's divides) took it to 114; round 2 (bitmaps, circles, the text cursor, the status bar, the message queue) to 128, and 5 more end on their own. |
+| F8 | **Round 3, first part**: A number drawn in a radix ($E9AD: 挖金子 plays), today's date and the calendar under it ($E99E and seven more), a whole screen from memory ($E791) and taking a message from the queue ($EA25), each compared with the firmware on random arguments. 幸运花 now gets past its date to the help screen ($E980). Measured on the way: $E94D is 5,278 instructions with its key cases, and the input methods need the OS's pinyin tables. |
+| F8 | **Round 3: the help screen**: $E980, a text shown a page at a time and scrolled by the keys, with the screen saved and put back ($E8CB, $E8CE) and the cursor's state ($E8E9): compared with the firmware on 200 random texts and key sequences, and in 幸运花's play. 幸运花 plays; the 43 programs that can call it no longer stop there. |
+| F8 | **Round 3: the menu**: $E94D, a menu of items in a grid with its own key loop (arrows, page keys, 1-9 and A-Z, Enter, Exit, help), with $E96B for its help key: compared with the firmware on 300 random menus and key sequences, and in 中国象棋's play. 中国象棋 plays: every program now plays but the two that type Chinese. |
+|  | **Continue past a stop**: A program that meets something Fulu lacks no longer ends there: Continue skips it (the call returns as if done) and the game plays on. |
+|  | **Chinese typed with the computer's own input method**: When a program switches to Chinese input, the player shows a box for the computer's or phone's own input method, and Fulu gives what is typed to the program as the OS's input method gives a chosen character; with $E929 and $D7F1, 宠物精灵 plays and 电子宠物 plays until it ends. Every program of the collection now plays or ends as on the device. |
+|  | **This progress report; sound kept off**: The games list, the owner's hand tests and the problems in one place. The owner decided to keep the sound off for now. |
+| F9 | **Every key, and every path the scans find**: A check of all 138 with two code scans (the byte search and a new code-flow scan), a play test pressing every key and a log of all 138 played on BBK's firmware found what random play with Enter, the arrows and space had missed. Done: the Shift key as GuiTranslateMsg has it; programs start in the state BBK's launcher leaves, with the device's clock set to the computer's date and time; $E8E0 (Exit in 华容道 and 滑雪), $E706 (atol: 宠物精灵's cheat box, 体闲麻将's high scores), $E7BE (智多星's answer field), and the link cable as the device with no cable plugged in, each compared with the firmware. Now both scans find nothing Fulu lacks in any program, the every-key play test finds no stop in any, and the firmware log found nothing a program entered that Fulu lacks: in 180 s of play each they entered 102 of the 106 OS functions in their code and 69 of the 75 runtime routines (the rest, such as $E706 and $E7BE, are on paths random keys did not reach), and nothing outside their code, so no call through a pointer leads anywhere the scans had not found. |
 
 ## What is left
 
@@ -76,10 +76,10 @@ Nothing the checks find: both code scans find nothing Fulu lacks in any program,
 
 What the owner played and reported, as reported. Each new report is added here.
 
-| Date | Game | Where | What | Result | Notes |
-|---|---|---|---|---|---|
-| 2026-11-19 | (not named) | fulu | Battles with the wider map view | works | The border goes as it should in battles (docs/fulu-plan.md §12). |
-| 2026-11-19 | (not named) | fulu | More text, past the openings | works | Dialogues and message boxes work (docs/fulu-plan.md §13). |
+| Game | Where | What | Result | Notes |
+|---|---|---|---|---|
+| (not named) | fulu | Battles with the wider map view | works | The border goes as it should in battles (docs/fulu-plan.md §12). |
+| (not named) | fulu | More text, past the openings | works | Dialogues and message boxes work (docs/fulu-plan.md §13). |
 
 ## Every program
 
