@@ -89,7 +89,9 @@ the right to use.
   resolution; dithering, stripes and lone pixels keep their pattern, and the
   game's pixel text is smoothed like the rest). Smooth runs on the GPU
   (WebGL); without one, the same is done at 4x on the CPU and enlarged by the
-  browser (`src/app/smoothScale.ts`).
+  browser (`src/app/smoothScale.ts`). Smooth, keep patterns smooths the
+  same edges but leaves grass, checkerboards and dot dithers as their pixels,
+  the two looks mixed gradually so no seam shows where they meet.
   Effects draw at the display's resolution and work with every Text choice
   and Map view.
 - **Bundled pixel fonts** in the device's 16-pixel layout, so games look
@@ -359,6 +361,7 @@ A 4988 program (on Fulu or the original OS) gets the device's own keys
 | 删除 · 插入                  | Backspace or Delete, Insert |
 | 帮助 · 查找 · 修改 · 发音    | F1, F2, F3, F4            |
 | 输入法 · 中英符              | Tab, Shift                |
+| The device's own Shift       | ` (left of 1)             |
 | 开关 Power                   | F12                       |
 
 The 4988 has no keys of their own for 删除, 修改, 查找, 插入 and 帮助: they are
@@ -371,7 +374,9 @@ Space turns continuous walking on and off.
 
 On a phone (or wherever the on-screen keypad is on) the keypad gives the
 arrows, the page keys, 输入 Enter (A) and 跳出 Exit (B), with a row of the
-other keys some programs need under it: R, Space, 帮助, 删除, 修改, 查找, 插入.
+other keys some programs need under it: Shift (lit while the OS keeps its
+latch), R, Space, 帮助, 删除, 修改, 查找, 插入. A full-screen button sits in the
+top bar, as in FMJ React's player.
 On Fulu the power, 目录 and dictionary keys do nothing (Fulu has no menu or
 dictionaries to go to).
 
