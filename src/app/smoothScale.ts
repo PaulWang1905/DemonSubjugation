@@ -251,11 +251,6 @@ export const PATTERN_LOW = 0.3, PATTERN_HIGH = 0.45;
 /** The share of lone pixels at which a field of dots starts to be kept, and is kept fully. */
 export const DOTS_LOW = 2 / 49, DOTS_HIGH = 3 / 49;
 
-const smoothstep = (a: number, b: number, x: number) => {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-};
-
 /** Per pixel: bit 0 fine (no run of four of its colour across or down), bit 1 lone (unlike all eight around it). */
 export function patternFlags(src: Uint8Array, w: number, h: number, out: Uint8Array = new Uint8Array(w * h)): Uint8Array {
   // (runs stop at the picture's edge; a pixel on the edge is never lone: the screen's edge is neither colour)
@@ -296,25 +291,32 @@ export function patternWeights(src: Uint8Array, w: number, h: number, out: Float
   patternFlags(src, w, h, flags);
   // running sums of the fine and of the lone pixels, a row and a column of zeros first
   const S = w + 1;
-  const fine = new Int32Array(S * (h + 1)), lone = new Int32Array(S * (h + 1));
+  const sc = scratch(w, h);
+  const fine = sc.fine, lone = sc.lone, raw = sc.raw;
   for (let y = 0; y < h; y++) {
     let rf = 0, rl = 0;
-    for (let x = 0; x < w; x++) {
-      const f = flags[y * w + x];
+    for (let x = 0, o = y * w, r = (y + 1) * S + 1; x < w; x++, o++, r++) {
+      const f = flags[o];
       rf += f & 1;
       rl += f >> 1;
-      fine[(y + 1) * S + x + 1] = fine[y * S + x + 1] + rf;
-      lone[(y + 1) * S + x + 1] = lone[y * S + x + 1] + rl;
+      fine[r] = fine[r - S] + rf;
+      lone[r] = lone[r - S] + rl;
     }
   }
-  const box = (t: Int32Array, x0: number, y0: number, x1: number, y1: number) => t[y1 * S + x1] - t[y0 * S + x1] - t[y1 * S + x0] + t[y0 * S + x0];
-  const raw = new Float32Array(w * h);
+  const fineSpan = PATTERN_HIGH - PATTERN_LOW, dotSpan = DOTS_HIGH - DOTS_LOW;
   for (let y = 0; y < h; y++) {
-    const y0 = Math.max(0, y - 3), y1 = Math.min(h, y + 4);
+    const y0 = (y > 3 ? y - 3 : 0) * S, y1 = (y + 4 < h ? y + 4 : h) * S, rows = (y1 - y0) / S;
     for (let x = 0; x < w; x++) {
-      const x0 = Math.max(0, x - 3), x1 = Math.min(w, x + 4);
-      const n = (x1 - x0) * (y1 - y0);
-      raw[y * w + x] = Math.max(smoothstep(PATTERN_LOW, PATTERN_HIGH, box(fine, x0, y0, x1, y1) / n), smoothstep(DOTS_LOW, DOTS_HIGH, box(lone, x0, y0, x1, y1) / 49));
+      const x0 = x > 3 ? x - 3 : 0, x1 = x + 4 < w ? x + 4 : w;
+      const nf = fine[y1 + x1] - fine[y0 + x1] - fine[y1 + x0] + fine[y0 + x0];
+      const nl = lone[y1 + x1] - lone[y0 + x1] - lone[y1 + x0] + lone[y0 + x0];
+      // (smoothstep of the share of fine pixels, and of the number of lone ones in a square of 49)
+      let t = (nf / ((x1 - x0) * rows) - PATTERN_LOW) / fineSpan;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      let u = (nl / 49 - DOTS_LOW) / dotSpan;
+      u = u < 0 ? 0 : u > 1 ? 1 : u;
+      const a = t * t * (3 - 2 * t), b = u * u * (3 - 2 * u);
+      raw[y * w + x] = a > b ? a : b;
     }
   }
   // [1 2 1] each way, the edges repeated
@@ -322,11 +324,23 @@ export function patternWeights(src: Uint8Array, w: number, h: number, out: Float
     const u = (y > 0 ? y - 1 : 0) * w, c = y * w, d = (y < h - 1 ? y + 1 : y) * w;
     for (let x = 0; x < w; x++) {
       const l = x > 0 ? x - 1 : 0, r = x < w - 1 ? x + 1 : x;
-      const row = (o: number) => raw[o + l] + 2 * raw[o + x] + raw[o + r];
-      out[c + x] = (row(u) + 2 * row(c) + row(d)) / 16;
+      const above = raw[u + l] + 2 * raw[u + x] + raw[u + r];
+      const mid = raw[c + l] + 2 * raw[c + x] + raw[c + r];
+      const below = raw[d + l] + 2 * raw[d + x] + raw[d + r];
+      out[c + x] = (above + 2 * mid + below) / 16;
     }
   }
   return out;
+}
+
+/** patternWeights' working space, kept between frames of one size. */
+let scratchSpace: { w: number; h: number; fine: Int32Array; lone: Int32Array; raw: Float32Array } | null = null;
+function scratch(w: number, h: number) {
+  if (!scratchSpace || scratchSpace.w !== w || scratchSpace.h !== h) {
+    const n = (w + 1) * (h + 1);
+    scratchSpace = { w, h, fine: new Int32Array(n), lone: new Int32Array(n), raw: new Float32Array(w * h) };
+  }
+  return scratchSpace;
 }
 
 /** The four cells of a mask row as bytes 0 / 1 (little-endian), for each 4-bit pattern. */
@@ -348,6 +362,9 @@ export class SmoothCpu {
   private sums = new Uint16Array(0);
   private weights = new Float32Array(0);
   private flags = new Uint8Array(0);
+  private quant = new Uint8Array(0);
+  /** Per pixel, keeping patterns: 0 smoothed, 1 near a pattern (mixed), 2 inside one (its own colour). */
+  private kinds = new Uint8Array(0);
 
   /** With `keepPatterns`, dithering and texture keep their pixels (patternWeights). */
   draw(src: Uint8Array, w: number, h: number, ink: number, paper: number, out: Uint32Array, keepPatterns = false): void {
@@ -361,8 +378,11 @@ export class SmoothCpu {
       this.sums = new Uint16Array(W * H);
       this.weights = new Float32Array(w * h);
       this.flags = new Uint8Array(w * h);
+      this.quant = new Uint8Array(w * h);
+      this.kinds = new Uint8Array(w * h);
     }
     const sums = keepPatterns ? this.sums : null;
+    const kinds = keepPatterns ? this.classify(src, w, h) : null;
     if (this.key !== `${ink}:${paper}`) {
       this.key = `${ink}:${paper}`;
       const half = rampHalf(4);
@@ -410,67 +430,85 @@ export class SmoothCpu {
       const c = y * n;
       const u2 = (y > 1 ? y - 2 : 0) * n, u1 = (y > 0 ? y - 1 : 0) * n;
       const d1 = (y < H - 1 ? y + 1 : H - 1) * n, d2 = (y < H - 2 ? y + 2 : H - 1) * n;
+      const p = (y >> 2) * w; // (the row of pixels)
       for (let j = 0; j < n; j++) {
+        const kind = kinds ? kinds[p + j] : 0;
+        const o = (c + j) * 4;
+        if (kind === 2) {
+          // (inside a pattern: the pixel as it is)
+          out[o] = out[o + 1] = out[o + 2] = out[o + 3] = colors[src[p + j] ? 256 : 0];
+          continue;
+        }
         const a = rows[u2 + j], b = rows[u1 + j], m = rows[c + j], d = rows[d1 + j], e = rows[d2 + j];
         const even = (a & LO) + 4 * ((b & LO) + (d & LO)) + 6 * (m & LO) + (e & LO);
         const odd = ((a >>> 8) & LO) + 4 * (((b >>> 8) & LO) + ((d >>> 8) & LO)) + 6 * ((m >>> 8) & LO) + ((e >>> 8) & LO);
-        const o = (c + j) * 4;
         out[o] = colors[even & 0xffff];
         out[o + 1] = colors[odd & 0xffff];
         out[o + 2] = colors[even >>> 16];
         out[o + 3] = colors[odd >>> 16];
-        if (sums) {
-          sums[o] = even & 0xffff;
-          sums[o + 1] = odd & 0xffff;
-          sums[o + 2] = even >>> 16;
-          sums[o + 3] = odd >>> 16;
+        if (kind === 1) {
+          sums![o] = even & 0xffff;
+          sums![o + 1] = odd & 0xffff;
+          sums![o + 2] = even >>> 16;
+          sums![o + 3] = odd >>> 16;
         }
       }
     }
-    if (sums) this.keep(src, w, h, sums, out);
+    if (sums) this.mix(src, w, h, sums, out);
+  }
+
+  /** Each pixel's kind (kinds), from its weight and its neighbours' (in 64ths, in quant). */
+  private classify(src: Uint8Array, w: number, h: number): Uint8Array {
+    const wt = patternWeights(src, w, h, this.weights, this.flags);
+    const q = this.quant, kinds = this.kinds;
+    for (let i = 0; i < w * h; i++) q[i] = Math.round(wt[i] * 64);
+    for (let y = 0; y < h; y++) {
+      const up = y > 0 ? -w : 0, down = y < h - 1 ? w : 0;
+      for (let x = 0; x < w; x++) {
+        const o = y * w + x;
+        const left = x > 0 ? -1 : 0, right = x < w - 1 ? 1 : 0;
+        const total = q[o] + q[o + up + left] + q[o + up] + q[o + up + right] + q[o + left] + q[o + right] + q[o + down + left] + q[o + down] + q[o + down + right];
+        kinds[o] = total === 0 ? 0 : total === 9 * 64 ? 2 : 1;
+      }
+    }
+    return kinds;
   }
 
   /**
    * Patterns kept: in each cell near a pattern, the blurred mask mixed with the
    * pixel's own colour by the weight there (as the GPU mixes them, at 4x).
    */
-  private keep(src: Uint8Array, w: number, h: number, sums: Uint16Array, out: Uint32Array): void {
-    const wt = patternWeights(src, w, h, this.weights, this.flags);
+  private mix(src: Uint8Array, w: number, h: number, sums: Uint16Array, out: Uint32Array): void {
+    const q = this.quant, kinds = this.kinds;
     const colors = this.colors;
     const W = w * 4;
-    // (a cell's weight: its pixel's, moved 1/8 or 3/8 of the way to the next pixel's on its side, each way)
-    const FAR = [0.375, 0.125, 0.125, 0.375];
+    // (a cell's weight: its pixel's, moved 3/8 or 1/8 of the way to the next pixel's on its side, each way)
+    const FAR = [3, 1, 1, 3];
     for (let y = 0; y < h; y++) {
       const up = y > 0 ? -w : 0, down = y < h - 1 ? w : 0;
       for (let x = 0; x < w; x++) {
         const o = y * w + x;
+        if (kinds[o] !== 1) continue;
         const left = x > 0 ? -1 : 0, right = x < w - 1 ? 1 : 0;
-        const c = wt[o];
-        const n0 = wt[o + up + left], n1 = wt[o + up], n2 = wt[o + up + right];
-        const n3 = wt[o + left], n5 = wt[o + right];
-        const n6 = wt[o + down + left], n7 = wt[o + down], n8 = wt[o + down + right];
-        const total = c + n0 + n1 + n2 + n3 + n5 + n6 + n7 + n8;
-        if (total === 0) continue;
+        const c = q[o];
+        const n0 = q[o + up + left], n1 = q[o + up], n2 = q[o + up + right];
+        const n3 = q[o + left], n5 = q[o + right];
+        const n6 = q[o + down + left], n7 = q[o + down], n8 = q[o + down + right];
         const hard = src[o] ? 256 : 0;
-        if (total === 9) {
-          // (inside a pattern: the pixel as it is)
-          const col = colors[hard];
-          for (let cy = 0, i = y * 4 * W + x * 4; cy < 4; cy++, i += W) out[i] = out[i + 1] = out[i + 2] = out[i + 3] = col;
-          continue;
-        }
         for (let cy = 0; cy < 4; cy++) {
           const fy = FAR[cy], above = cy < 2;
           // (the weights of the row beside, above or below)
           const rowL = above ? n0 : n6, rowM = above ? n1 : n7, rowR = above ? n2 : n8;
           for (let cx = 0; cx < 4; cx++) {
             const fx = FAR[cx], before = cx < 2;
-            const mine = c + ((before ? n3 : n5) - c) * fx;
-            const beside = rowM + ((before ? rowL : rowR) - rowM) * fx;
-            const a = mine + (beside - mine) * fy;
+            // (in 64ths x 8 x 8: 0..4096)
+            const mine = c * 8 + ((before ? n3 : n5) - c) * fx;
+            const beside = rowM * 8 + ((before ? rowL : rowR) - rowM) * fx;
+            const a = mine * 8 + (beside - mine) * fy;
             if (a <= 0) continue;
             const i = (y * 4 + cy) * W + x * 4 + cx;
             const v = sums[i];
-            out[i] = colors[Math.round(v + (hard - v) * a)];
+            out[i] = colors[v + (((hard - v) * a + 2048) >> 12)];
           }
         }
       }
