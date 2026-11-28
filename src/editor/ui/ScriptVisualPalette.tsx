@@ -19,7 +19,9 @@ export function StepPalette({ where, onPick, onClose }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    input.current?.focus();
+    // (on a touch screen the sheet takes the focus, not the search: no keyboard over the list)
+    if (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches) box.current?.focus();
+    else input.current?.focus();
     const away = (e: MouseEvent) => !box.current?.contains(e.target as Node) && onClose();
     document.addEventListener("mousedown", away);
     return () => document.removeEventListener("mousedown", away);
@@ -42,7 +44,16 @@ export function StepPalette({ where, onPick, onClose }: Props) {
   useEffect(() => setAt(0), [q, cat]);
   const pick = (c: CommandInfo | undefined) => c && onPick(c.name);
   return (
-    <div className="sv-palette" ref={box} role="dialog" aria-label="Add a step">
+    <div
+      className="sv-palette"
+      ref={box}
+      role="dialog"
+      aria-label="Add a step"
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && e.target === e.currentTarget) (e.preventDefault(), e.stopPropagation(), onClose());
+      }}
+    >
       <div className="sv-palette-head">
         <input
           ref={input}
@@ -59,6 +70,10 @@ export function StepPalette({ where, onPick, onClose }: Props) {
           }}
         />
         <span className="muted small">Adds {where}.</span>
+        {/* (shown where the palette is a sheet over the page: small screens) */}
+        <button type="button" className="ghost icon sv-palette-close" aria-label="Close" onClick={onClose}>
+          ✕
+        </button>
       </div>
       {!q.trim() && (
         <div className="sv-cats" role="tablist" aria-label="Categories">

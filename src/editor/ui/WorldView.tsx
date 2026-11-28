@@ -64,6 +64,7 @@ import { labelWidth, placeLabels, type LabelPlace, type LabelRequest } from "./l
 import { noteWorldSelection, requestWorld, useWorldIntent } from "./intents";
 import { canStand, canTouch, mapEntries, mapReach, nearestTile, nearestTouchable, reachArea, standProblem, touchProblem, type Point } from "../format/reach";
 import "./world.css";
+import { useTouchMap } from "./touchMap";
 import "./worldLabels.css";
 import "./authoring.css";
 
@@ -473,6 +474,40 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     else if (tool === "chest") placeChest(p.x, p.y);
     else if (tool === "start") startHere(p.x, p.y);
     else if (tool === "exit") pickExitCell(p.x, p.y);
+  };
+
+  // fingers (touchMap.ts): two pan and pinch; one paints, or, with another tool, pans or taps
+  const touch = useTouchMap(scroller, {
+    zoom,
+    levels: [1, 2, 3, 4],
+    setZoom: setZoomPick,
+    onGesture: () => {
+      if (stroke.current) setBytes(stroke.current);
+      stroke.current = null;
+      setDrag(null);
+    },
+  });
+  const stagePointer = useRef<number | null>(null);
+  const onStagePointerDown = (e: React.PointerEvent) => {
+    if (touch.gesture() || (stagePointer.current !== null && stagePointer.current !== e.pointerId)) return;
+    stagePointer.current = e.pointerId;
+    if (e.pointerType === "touch" && !(tool === "tile" || tool === "walk" || tool === "block")) {
+      if (e.button !== 0) return;
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      touch.tapDown(e);
+      return;
+    }
+    onStageDown(e);
+  };
+  const onStagePointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType === "touch" && (touch.tapMove(e) || touch.gesture())) return;
+    onStageMove(e);
+  };
+  const onStagePointerUp = (e: React.PointerEvent) => {
+    if (stagePointer.current === e.pointerId) stagePointer.current = null;
+    const tapped = touch.tapUp(e);
+    if (tapped) onStageDown({ ...tapped, button: 0, pointerId: e.pointerId, target: e.target } as unknown as React.PointerEvent);
+    onStageUp();
   };
 
   const onStageMove = (e: React.PointerEvent) => {
@@ -1634,9 +1669,16 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
               ref={stage}
               className={stageClass}
               style={{ width: map.width * s, height: map.height * s }}
-              onPointerDown={onStageDown}
-              onPointerMove={onStageMove}
-              onPointerUp={onStageUp}
+              onPointerDown={onStagePointerDown}
+              onPointerMove={onStagePointerMove}
+              onPointerUp={onStagePointerUp}
+              onPointerCancel={(e) => {
+                if (stagePointer.current === e.pointerId) stagePointer.current = null;
+                touch.tapUp(e);
+                if (stroke.current) setBytes(stroke.current);
+                stroke.current = null;
+                setDrag(null);
+              }}
               onPointerLeave={() => setHover(null)}
               onContextMenu={(e) => {
                 const p = cellFromEvent(e);

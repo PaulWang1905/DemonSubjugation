@@ -48,7 +48,8 @@
   }
 }
 
-@media (min-width: 801px) {
+/* (on a computer: not on a small screen, where the editor is compact, below) */
+@media (min-width: 801px) and (min-height: 501px), (min-width: 801px) and (pointer: fine), (min-width: 801px) and (pointer: none) {
   .e-panel > .res-view.fill {
     box-sizing: border-box;
     height: 100%;
@@ -318,4 +319,523 @@
 .e-tabs-item-dirty {
   color: var(--e-warn);
   font-size: 10px;
+}
+
+/* ======================================================================
+   A small screen (compact.tsx: a phone held either way, a tablet upright).
+   The editor fills the window below the site's bar: a short bar (☰, the
+   name, ▶, ⋯), the tabs, and the tab's panel, which scrolls; the sidebar is
+   a drawer. A view's parts are stacked in the panel. Held sideways, the bar
+   and the tabs share one row.
+   ====================================================================== */
+.editor.compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: calc(100dvh - var(--e-top, 64px) - 8px);
+  min-height: 0;
+}
+.editor.compact > .editor-main,
+.editor.compact .e-work {
+  display: contents;
+}
+.editor.compact > .editor-bar {
+  grid-row: 1;
+  grid-column: 1;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin: 0 0 8px;
+  min-width: 0;
+}
+.editor.compact .e-tabs-wrap {
+  grid-row: 2;
+  grid-column: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: color-mix(in srgb, var(--bg) 70%, var(--panel));
+  overflow: hidden;
+}
+.editor.compact .e-panels {
+  grid-row: 3;
+  grid-column: 1;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--panel);
+  overflow: hidden;
+}
+.editor.compact .e-panel > .res-view {
+  padding: 10px 10px 16px;
+}
+.editor.compact .proj-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+.e-cbar .icon {
+  flex: none;
+  font-size: 17px;
+}
+.e-cbar-play {
+  gap: 6px;
+  padding: 0 12px;
+}
+.e-cbar-more {
+  position: relative;
+  font-size: 20px;
+  letter-spacing: 0.05em;
+}
+.e-cbar-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--e-warn);
+}
+.e-cbar-more.has-errors .e-cbar-dot {
+  background: var(--danger);
+}
+/* the ⋯ menu (the tab menu's look) */
+.e-more-menu {
+  width: min(300px, calc(100vw - 16px));
+}
+.e-more-status {
+  margin: 4px 10px 6px;
+  color: var(--muted);
+}
+.e-more-status.error {
+  color: var(--danger);
+}
+.e-more-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-height: 44px;
+  padding: 4px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.e-more-item:focus-visible {
+  outline-offset: -2px;
+  background: var(--tint);
+}
+@media (hover: hover) {
+  .e-more-item:hover {
+    background: var(--tint);
+  }
+}
+.e-more-label {
+  font-weight: 600;
+  font-size: 15px;
+}
+.e-more-item.has-errors .e-more-label {
+  color: var(--danger);
+}
+.e-more-item.has-warnings .e-more-label {
+  color: var(--e-warn);
+}
+.e-more-detail {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* the drawer */
+.e-drawer {
+  position: fixed;
+  z-index: 45;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: min(340px, 88vw);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) env(safe-area-inset-left);
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+  transform: translateX(-102%);
+  visibility: hidden;
+  transition: transform 0.2s ease, visibility 0s linear 0.2s;
+}
+.e-drawer.open {
+  transform: none;
+  visibility: visible;
+  transition: transform 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .e-drawer,
+  .e-drawer.open {
+    transition: none;
+  }
+}
+.e-drawer-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 6px 0 16px;
+}
+.e-drawer-title {
+  font-weight: 650;
+  font-size: 16px;
+}
+.editor.compact .e-drawer .e-side {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  position: static;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 8px 16px;
+}
+.e-scrim {
+  position: fixed;
+  z-index: 44;
+  inset: 0;
+  background: rgb(10 12 10 / 0.38);
+}
+
+/* the tabs */
+.editor.compact .e-tabs {
+  border-bottom: 0;
+  background: transparent;
+}
+.editor.compact .e-tabs-more {
+  border-bottom: 0;
+}
+
+/* a view's parts, stacked; the map and the text keep a good share of the window */
+.editor.compact .res-view > header {
+  gap: 8px;
+}
+.editor.compact .res-view > header h2 {
+  flex: 1 1 100%;
+}
+.editor.compact .map-body,
+.editor.compact .w-body,
+.editor.compact .script-editor {
+  grid-template-columns: minmax(0, 1fr);
+}
+.editor.compact .map-body {
+  grid-template-areas: "left" "props" "side";
+  grid-template-rows: none;
+}
+.editor.compact .map-canvas,
+.editor.compact .w-scroll {
+  max-height: 62dvh;
+  min-height: 200px;
+}
+.editor.compact .w-panel {
+  position: static;
+  max-height: none;
+}
+.editor.compact .code .gutter,
+.editor.compact .script-main .code textarea {
+  height: 55dvh;
+  min-height: 240px;
+}
+.editor.compact .script-ref {
+  max-height: 50dvh;
+}
+
+/* the script's Visual view: the events as a row to swipe, the steps under them */
+.editor.compact .sv-grid,
+.editor.compact .sv-grid.narrow {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+.editor.compact .sv-events {
+  position: static;
+  max-height: none;
+  overflow: visible;
+}
+.editor.compact .sv-events ul {
+  flex-direction: row;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+.editor.compact .sv-events li {
+  flex: none;
+  width: 168px;
+  scroll-snap-align: start;
+}
+.editor.compact .sv-event {
+  height: 100%;
+  border-color: var(--line);
+}
+.editor.compact .sv-keys {
+  display: none;
+}
+/* "Add a step": a sheet from the bottom of the window */
+.editor.compact .sv-palette {
+  position: fixed;
+  z-index: 46;
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: none;
+  max-height: min(78dvh, 640px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px 12px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 0 0 100vmax rgb(10 12 10 / 0.38), var(--shadow-md);
+}
+.editor.compact .sv-palette-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+.editor.compact .sv-palette-list li {
+  min-height: 44px;
+  align-content: center;
+}
+
+/* held sideways: the bar and the tabs on one row, the panel under them */
+@media (max-height: 500px) {
+  .editor.compact {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: calc(100dvh - var(--e-top, 64px) - 6px);
+  }
+  .editor.compact > .editor-bar {
+    margin: 0 6px 6px 0;
+  }
+  .editor.compact .e-tabs-wrap {
+    grid-row: 1;
+    grid-column: 2;
+    align-self: end;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .editor.compact .e-panels {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    border-radius: var(--radius);
+  }
+  .editor.compact .proj-name,
+  .e-cbar-play .e-cbar-play-text {
+    display: none;
+  }
+  .editor.compact .map-canvas,
+  .editor.compact .w-scroll {
+    max-height: calc(100dvh - var(--e-top, 64px) - 70px);
+  }
+  .editor.compact .sv-palette {
+    max-height: 88dvh;
+  }
+}
+
+/* fingers: every control at least 40 px */
+@media (pointer: coarse) {
+  .editor .e-side .item,
+  .editor .e-side .group-head {
+    min-height: var(--touch);
+  }
+  .editor .e-side .group-add {
+    width: var(--touch);
+    height: var(--touch);
+    min-height: var(--touch);
+  }
+  .editor .e-tab-main {
+    min-height: var(--touch);
+  }
+  .editor .e-tabs-wrap .e-tab.on .e-tab-close {
+    width: var(--touch);
+    margin-right: 0;
+  }
+  .editor .e-tabs-arrow {
+    display: none;
+  }
+  .editor .e-tabs-more {
+    min-height: var(--touch);
+  }
+  .e-tabs-item {
+    min-height: 44px;
+  }
+}
+
+@media (pointer: coarse) {
+  /* (a keyboard's letters in buttons mean nothing to a finger) */
+  .editor button kbd {
+    display: none;
+  }
+  .editor .res-view > header .view-switch.seg > button {
+    min-height: calc(var(--touch) - 2px);
+  }
+  .editor button.small:not(.link),
+  .editor .sv-inline select,
+  .editor .sv-num,
+  .editor .sv-text-input,
+  .editor .sv-name-input,
+  .editor .sv .rp-btn,
+  .editor .rp-btn,
+  .editor label.check {
+    min-height: var(--touch);
+  }
+  .editor .sv-more,
+  .editor .cv-open {
+    min-width: var(--touch);
+  }
+  .editor .e-tabs.tight .e-tab.home .e-tab-main {
+    min-width: var(--touch);
+    justify-content: center;
+  }
+  /* (an inactive tab's close button shows on hover: a finger shows the tab first) */
+  .editor .e-tabs-wrap .e-tab:not(.on) .e-tab-close:not(.dirty) {
+    display: none;
+  }
+  /* links that stand among words: a taller target, the words do not move */
+  .editor button.link {
+    padding-top: 11px;
+    padding-bottom: 11px;
+    margin-top: -11px;
+    margin-bottom: -11px;
+  }
+}
+
+/* small screens: a row of tools stays one row, and swipes sideways */
+.editor.compact :is(.map-tools, .w-tools) > .seg,
+.editor.compact .sv-cats {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.editor.compact :is(.map-tools, .w-tools) > .seg > *,
+.editor.compact .sv-cats > * {
+  flex: none;
+}
+.editor.compact dialog .seg > :is(button, label) {
+  flex: 1 1 auto;
+}
+
+/* the step palette's close button: only where it is a sheet */
+.sv-palette-close {
+  display: none;
+}
+.sv-palette:focus {
+  outline: none;
+}
+.editor.compact .sv-palette-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  align-items: center;
+}
+.editor.compact .sv-palette-head > .muted {
+  grid-column: 1 / -1;
+}
+.editor.compact .sv-palette-close {
+  display: inline-flex;
+  grid-row: 1;
+  grid-column: 2;
+}
+
+/* small screens, the map's Tiles view: the tiles to paint with as a strip
+   above the map (swipe it), the chosen tile and the rest under the map */
+.editor.compact .map-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.editor.compact .map-body .map-palette,
+.editor.compact .map-body .map-palette > .tp {
+  display: contents;
+}
+.editor.compact .map-body > :not(.map-left),
+.editor.compact .map-body .map-palette > *,
+.editor.compact .map-body .tp > * {
+  order: 1;
+}
+.editor.compact .map-body .tp-grid {
+  order: -1;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  margin: 0;
+  padding: 2px 2px 4px;
+}
+.editor.compact .map-body .tp-grid > * {
+  flex: none;
+}
+
+@media (pointer: coarse) {
+  .editor .sv-num {
+    min-width: var(--touch);
+  }
+  .editor .e-tabs-wrap .e-tab-close.dirty {
+    width: var(--touch);
+  }
+}
+
+/* held sideways: a resource's name, its views and its actions on one row */
+@media (max-height: 500px) {
+  .editor.compact .res-view > header h2 {
+    flex: 0 1 auto;
+  }
+}
+
+/* (the sheet's head and its row of categories keep their height; the list takes the rest) */
+.editor.compact .sv-palette > :not(.sv-palette-list) {
+  flex: none;
+}
+@media (pointer: coarse) {
+  .editor .e-cbar-play {
+    min-width: var(--touch);
+    justify-content: center;
+  }
+}
+@media (pointer: coarse) {
+  .editor .cv-check,
+  .editor .sv-add-here,
+  .editor input[type="range"] {
+    min-height: var(--touch);
+  }
+  .editor .script-basics summary {
+    padding: 10px 0;
+  }
+}
+
+/* small screens: the dialogue's preview screen gives way to the width */
+.editor.compact .sv-screen {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 332px;
+  height: auto;
+  aspect-ratio: 332 / 204;
+}
+
+/* small screens: the guide is a strip across the foot of the window */
+.editor.compact .guide:not(.folded) {
+  left: 8px;
+  right: 8px;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  width: auto;
+  max-width: none;
+  max-height: 46dvh;
+  overflow: auto;
+}
+.editor.compact .guide:not(.folded) .guide-body p {
+  font-size: 13.5px;
+}
+.editor.compact:has(> .guide:not(.folded)) .e-panel::after {
+  content: "";
+  display: block;
+  height: 46dvh;
 }

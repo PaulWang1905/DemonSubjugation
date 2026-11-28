@@ -1,7 +1,8 @@
 // The world map: every map of the project as a card with its picture and
 // name, maps joined by exits laid out near each other (worldMapLayout.ts),
 // one line per pair of joined maps with an arrow at each end an exit leads
-// to. It zooms (buttons, Ctrl/⌘ + wheel or pinch, "Fit all") and pans (drag,
+// to. It zooms (buttons, Ctrl/⌘ + wheel or a pinch of a trackpad or two
+// fingers, "Fit all") and pans (drag,
 // scroll); the zoom is remembered per project in this browser. Hovering,
 // focusing or selecting a map lights up its links and fades the rest; a
 // selected map shows where its exits go, and opens with a double click or
@@ -236,6 +237,37 @@ export function WorldMap({ archive, world: given, sources, onOpen, projectId }: 
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
+  }, [layout.nodes.length > 0]);
+
+  // two fingers pinch to zoom where they are (one finger pans: the view scrolls)
+  useEffect(() => {
+    const el = viewRef.current;
+    if (!el) return;
+    let g: { d0: number; z0: number } | null = null;
+    const spread = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1;
+    const start = (e: TouchEvent) => {
+      if (e.touches.length === 2) g = { d0: spread(e.touches), z0: zRef.current };
+    };
+    const move = (e: TouchEvent) => {
+      if (!g || e.touches.length !== 2) return;
+      if (e.cancelable) e.preventDefault();
+      const r = el.getBoundingClientRect();
+      const [a, b] = [e.touches[0], e.touches[1]];
+      zoomRef.current(g.z0 * (spread(e.touches) / g.d0), (a.clientX + b.clientX) / 2 - r.left, (a.clientY + b.clientY) / 2 - r.top);
+    };
+    const end = (e: TouchEvent) => {
+      if (e.touches.length < 2) g = null;
+    };
+    el.addEventListener("touchstart", start, { passive: true });
+    el.addEventListener("touchmove", move, { passive: false });
+    el.addEventListener("touchend", end);
+    el.addEventListener("touchcancel", end);
+    return () => {
+      el.removeEventListener("touchstart", start);
+      el.removeEventListener("touchmove", move);
+      el.removeEventListener("touchend", end);
+      el.removeEventListener("touchcancel", end);
+    };
   }, [layout.nodes.length > 0]);
 
   // drag anywhere to pan (a drag that starts on a card does not open it)

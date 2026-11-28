@@ -10,6 +10,7 @@ import { inBand } from "../format/reach";
 import { tileName } from "../format/tiles";
 import { PAINT_TOOLS, TilePalette } from "./TilePalette";
 import { useTileWalks } from "./tileHints";
+import { useTouchMap } from "./touchMap";
 
 type Tool = "tile" | "fill" | "walk" | "block" | "event" | "pick";
 
@@ -47,6 +48,20 @@ export function MapEditor({ archive, entry, onChange, notes, setNotes }: Props) 
   const stroke = useRef<DecodedMap | null>(null);
   const lastTag = useRef<string | null>(null);
   const [, bump] = useState(0);
+  // fingers (touchMap.ts): two pan and pinch; one paints, or, with a tap tool, pans or taps
+  const scroller = useRef<HTMLDivElement>(null);
+  const pointer = useRef<number | null>(null);
+  const touch = useTouchMap(scroller, {
+    zoom,
+    levels: [1, 2, 3, 4],
+    setZoom,
+    onGesture: () => {
+      // (the stroke the first finger began is taken back)
+      if (stroke.current) setMap(stroke.current);
+      stroke.current = null;
+      painting.current = false;
+    },
+  });
 
   // No reload on entry changes: the view is re-created when another resource
   // is selected, and reloading after our own saves would wipe the undo history.
@@ -162,7 +177,7 @@ export function MapEditor({ archive, entry, onChange, notes, setNotes }: Props) 
   });
 
   /** The tile under the pointer. */
-  const cellAt = (ev: React.PointerEvent<HTMLCanvasElement>): { x: number; y: number } | null => {
+  const cellAt = (ev: { clientX: number; clientY: number }): { x: number; y: number } | null => {
     const c = canvas.current!;
     const r = c.getBoundingClientRect();
     const s = (16 * zoom * r.width) / c.width;
@@ -191,7 +206,7 @@ export function MapEditor({ archive, entry, onChange, notes, setNotes }: Props) 
     return { ...map, cells };
   };
 
-  const apply = (ev: React.PointerEvent<HTMLCanvasElement>, commitNow: boolean) => {
+  const apply = (ev: { clientX: number; clientY: number }, commitNow: boolean) => {
     const at = cellAt(ev);
     if (!at) return;
     const { x, y } = at;
@@ -289,23 +304,43 @@ export function MapEditor({ archive, entry, onChange, notes, setNotes }: Props) 
 
       <div className="map-body">
         <div className="map-left">
-          <div className="map-canvas">
+          <div className="map-canvas" ref={scroller}>
             <canvas
               ref={canvas}
               onPointerDown={(e) => {
+                // (a second finger: the pinch takes over)
+                if (touch.gesture() || (pointer.current !== null && pointer.current !== e.pointerId)) return;
+                pointer.current = e.pointerId;
                 const drag = tool === "tile" || tool === "walk" || tool === "block";
+                (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                if (e.pointerType === "touch" && !drag) {
+                  touch.tapDown(e);
+                  return;
+                }
                 painting.current = drag;
                 stroke.current = drag ? map : null;
-                (e.target as HTMLElement).setPointerCapture(e.pointerId);
                 apply(e, !drag);
               }}
               onPointerMove={(e) => {
+                if (e.pointerType === "touch" && touch.tapMove(e)) return;
                 const at = cellAt(e);
                 if (at?.x !== hover?.x || at?.y !== hover?.y) setHover(at);
-                if (painting.current) apply(e, false);
+                if (painting.current && !touch.gesture()) apply(e, false);
               }}
               onPointerLeave={() => setHover(null)}
-              onPointerUp={() => {
+              onPointerCancel={(e) => {
+                if (e.pointerId !== pointer.current) return;
+                pointer.current = null;
+                touch.tapUp(e);
+                if (stroke.current) setMap(stroke.current);
+                stroke.current = null;
+                painting.current = false;
+              }}
+              onPointerUp={(e) => {
+                if (e.pointerId !== pointer.current) return;
+                pointer.current = null;
+                const tapped = touch.tapUp(e);
+                if (tapped) apply(tapped, true);
                 const before = stroke.current;
                 painting.current = false;
                 stroke.current = null;

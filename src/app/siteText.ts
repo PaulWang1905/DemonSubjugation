@@ -108,11 +108,11 @@ const en = {
     play: "Or play The Silent Bell →",
   },
   smallScreen: {
-    title: "The editor needs a bigger screen",
-    text: "Making a game means painting maps, editing scripts and drawing sprites, which needs more room than a phone has. Open this site on a computer or a tablet to use the editor.",
+    title: "BBK Maker works best on a computer",
+    text: "It works on a phone too: ☰ opens the project's maps, scripts and characters, and two fingers move and zoom a map. On a computer or a tablet you see the map, its tools and the steps side by side.",
     note: "Your phone is great for playing: games, saves and the built-in demos all work here.",
     back: "Back to the games",
-    anyway: "Continue anyway",
+    anyway: "Open BBK Maker",
   },
 
   footerTagline: "BUBU's Unofficial BBK Universe. A fan project, not affiliated with BBK (步步高).",
@@ -229,11 +229,11 @@ const zh: SiteText = {
     play: "或者玩 The Silent Bell →",
   },
   smallScreen: {
-    title: "编辑器需要更大的屏幕",
-    text: "制作游戏要画地图、编辑脚本、绘制角色，手机屏幕放不下。请在电脑或平板上打开本站来使用编辑器。",
+    title: "BBK Maker 在电脑上最好用",
+    text: "手机上也能用：☰ 打开项目的地图、脚本和角色，两根手指移动和缩放地图。在电脑或平板上，地图、工具和步骤能并排看到。",
     note: "手机很适合玩：游戏、存档和内置演示在这里都能用。",
     back: "返回游戏",
-    anyway: "仍然继续",
+    anyway: "打开 BBK Maker",
   },
 
   footerTagline: "步步的步步高游戏世界。爱好者项目，与步步高公司无关。",

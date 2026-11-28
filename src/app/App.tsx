@@ -307,7 +307,7 @@ export function App() {
         </header>
       )}
       <main id="main" tabIndex={-1}>
-        {/* The editor needs room: on a phone, say so instead of showing a cramped editor. */}
+        {/* The editor works best with room: on a phone, say so first (it works there too). */}
         {!showPlayer && page === "editor" && smallScreen && !editorAnyway && (
           <section className="small-screen" role="note">
             <svg className="small-screen-icon" viewBox="0 0 48 40" width="56" height="46" aria-hidden="true">
@@ -319,9 +319,9 @@ export function App() {
             <p>{t.smallScreen.text}</p>
             <p className="muted small">{t.smallScreen.note}</p>
             <div className="row">
-              <button onClick={() => navigate("games")}>{t.smallScreen.back}</button>
-              <button className="ghost" onClick={() => setEditorAnyway(true)}>
-                {t.smallScreen.anyway}
+              <button onClick={() => setEditorAnyway(true)}>{t.smallScreen.anyway}</button>
+              <button className="ghost" onClick={() => navigate("games")}>
+                {t.smallScreen.back}
               </button>
             </div>
           </section>

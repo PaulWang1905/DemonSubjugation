@@ -29,6 +29,8 @@ import { Palette, type PaletteCommand } from "./Palette";
 import { ProjectHome } from "./ProjectHome";
 import { ProjectsPage, type StartKind } from "./ProjectsPage";
 import { Sidebar } from "./Sidebar";
+// (small screens: the sidebar as a drawer, a short bar)
+import { COMPACT, CompactBar, SideDrawer, useMedia } from "./compact";
 import { panelId, tabId, TabStrip } from "./TabStrip";
 import type { EditorServices, OpenOptions } from "./views";
 // (phase 3a: the guided first game, the wizards, play from here, story flag names)
@@ -175,6 +177,19 @@ export function Editor({ onPlaytest }: Props) {
   // a project being opened (the loading screen shows its steps), and which opening is the latest
   const [loading, setLoading] = useState<LoadState | null>(null);
   const loadRun = useRef(0);
+  // a small screen: the sidebar is a drawer (open or not), the bar is short
+  const compact = useMedia(COMPACT);
+  const [drawer, setDrawer] = useState(false);
+  const drawerButton = useRef<HTMLButtonElement>(null);
+  const compactRef = useRef(compact);
+  compactRef.current = compact;
+  useEffect(() => {
+    if (!compact) setDrawer(false);
+  }, [compact]);
+  const closeDrawer = useCallback(() => {
+    setDrawer(false);
+    requestAnimationFrame(() => drawerButton.current?.focus());
+  }, []);
 
   const refresh = useCallback(async () => setProjects(await listProjects()), []);
   useEffect(() => {
@@ -650,6 +665,7 @@ export function Editor({ onPlaytest }: Props) {
 
   const showGroup = (g: GroupId) => {
     setGroups((s) => new Set([...s, g]));
+    if (compact) setDrawer(true);
     requestAnimationFrame(() => {
       const el = root.current?.querySelector<HTMLElement>(`[data-group="${g}"]`);
       el?.scrollIntoView({ block: "start" });
@@ -698,7 +714,15 @@ export function Editor({ onPlaytest }: Props) {
         })),
         { id: "save", label: "Save now", detail: "Ctrl+S", run: () => persist(cur, true) },
         { id: "close", label: "Close tab", detail: "Ctrl+W · Alt+W", run: () => close(ws.active) },
-        { id: "filter", label: "Filter the sidebar", detail: "Ctrl+K", run: () => document.getElementById("res-filter")?.focus() },
+        {
+          id: "filter",
+          label: "Filter the sidebar",
+          detail: "Ctrl+K",
+          run: () => {
+            if (compactRef.current) setDrawer(true);
+            requestAnimationFrame(() => document.getElementById("res-filter")?.focus());
+          },
+        },
         { id: "help", label: "Help and keyboard shortcuts", detail: "?", keywords: "getting started guide", run: () => setHelp(true) },
         { id: "projects", label: "Back to projects", detail: "all your projects", keywords: "close project", run: backToProjects },
       ]
@@ -746,7 +770,8 @@ export function Editor({ onPlaytest }: Props) {
         setWs((s) => cycleTab(s, back ? -1 : 1));
       } else if ((mod && k === "k") || (e.key === "/" && !typing(e))) {
         e.preventDefault();
-        document.getElementById("res-filter")?.focus();
+        if (compactRef.current) setDrawer(true);
+        requestAnimationFrame(() => document.getElementById("res-filter")?.focus());
       } else if (e.key === "?" && !typing(e)) {
         e.preventDefault();
         setHelp(true);
@@ -824,7 +849,29 @@ export function Editor({ onPlaytest }: Props) {
     // (the notes reach the pickers deep in the views: names for sprites and pictures)
     <NotesContext.Provider value={cur.notes}>
     <LabelsContext.Provider value={labels}>
-    <div className="editor" ref={root}>
+    <div className={`editor${compact ? " compact" : ""}`} ref={root}>
+      {compact ? (
+        <CompactBar
+          name={cur.name}
+          onName={(name) => {
+            const next = { ...cur, name };
+            setCur(next);
+            persist(next);
+          }}
+          status={status}
+          problems={problems.length}
+          errors={errors}
+          drawer={drawer}
+          drawerButton={drawerButton}
+          onDrawer={() => setDrawer((d) => !d)}
+          onPlaytest={playtest}
+          onGoto={() => setPalette("")}
+          onCheck={showProblems}
+          onExport={() => guarded("export")}
+          onHelp={() => setHelp(true)}
+          onProjects={backToProjects}
+        />
+      ) : (
       <div className="editor-bar">
         <button className="ghost" onClick={backToProjects}>
           ← Projects
@@ -856,7 +903,6 @@ export function Editor({ onPlaytest }: Props) {
         <button className="ghost" onClick={() => guarded("export")} title="Download the game as a .gam or a .lib">
           Export…
         </button>
-        {exporting && <ExportDialog name={cur.name} lib={() => writeLib(cur.archive)} onClose={() => setExporting(false)} />}
         <button onClick={playtest} title="Check and run this project (Ctrl+Enter)">
           ▶ Playtest
         </button>
@@ -864,6 +910,8 @@ export function Editor({ onPlaytest }: Props) {
           ?
         </button>
       </div>
+      )}
+      {exporting && <ExportDialog name={cur.name} lib={() => writeLib(cur.archive)} onClose={() => setExporting(false)} />}
       {checking && (
         <ProblemsDialog
           problems={checking.problems}
@@ -917,19 +965,30 @@ export function Editor({ onPlaytest }: Props) {
         />
       )}
       <div className="editor-main">
+        <SideDrawer compact={compact} open={drawer} onClose={closeDrawer}>
         <Sidebar
           archive={cur.archive}
           labels={labels}
           world={world}
           notes={cur.notes}
           active={activeKey}
-          onOpen={(key, pinIt) => openResource(key, { preview: !pinIt })}
-          onCreate={create}
+          onOpen={(key, pinIt) => {
+            openResource(key, { preview: !pinIt });
+            if (compact) {
+              setDrawer(false);
+              requestAnimationFrame(() => document.getElementById(tabId(key))?.focus());
+            }
+          }}
+          onCreate={(what) => {
+            setDrawer(false);
+            create(what);
+          }}
           dirty={dirty}
           marks={marks}
           open={groups}
           onToggle={(g, on) => setGroups((s) => (on ? new Set([...s, g]) : new Set([...s].filter((x) => x !== g))))}
         />
+        </SideDrawer>
         <div className="e-work">
           <TabStrip
             archive={cur.archive}
