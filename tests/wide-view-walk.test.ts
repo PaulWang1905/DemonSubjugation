@@ -331,7 +331,8 @@ describe.each(["fulu", "firmware"] as const)("%s, a battle's start", (os) => {
       // the battle (in the game's memory first): from the screen's first change, the border gone within two frames
       let first = combatAt;
       while (same(log[first - 1].lcd, log[first].lcd)) first++;
-      const off = log.findLastIndex((l) => l.showing) + 1;
+      let off = log.length;
+      while (off > 0 && !log[off - 1].showing) off--;
       expect(off - first).toBeLessThanOrEqual(2);
       expect(log.slice(off).every((l) => !l.showing)).toBe(true);
     }, 600_000);
