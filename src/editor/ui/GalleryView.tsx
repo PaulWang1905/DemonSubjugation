@@ -65,7 +65,7 @@ export function GalleryView({ archive, entry, services }: ViewProps) {
             ))}
           </select>
         </label>
-        <button type="button" className="ghost small" onClick={() => setDesc((d) => !d)} aria-label={desc ? "Highest first (click for lowest first)" : "Lowest first (click for highest first)"} title="Change the order">
+        <button type="button" className="ghost" onClick={() => setDesc((d) => !d)} aria-label={desc ? "Highest first (click for lowest first)" : "Lowest first (click for highest first)"} title="Change the order">
           {desc ? "↓ Highest first" : "↑ Lowest first"}
         </button>
         <span className="muted small gv-count" role="status">

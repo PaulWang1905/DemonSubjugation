@@ -60,6 +60,17 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
       { threshold: 0.2 },
     );
     if (copy) io.observe(copy);
+    // Keyboard focus reaching the title's buttons before they have come in
+    // (they are see-through until then): bring them in, by scrolling to the
+    // hero's end state, so that what has focus can be seen.
+    const onFocus = () => {
+      el.classList.add("h-in");
+      if (!mq.matches) return;
+      const bar = (document.querySelector(".topbar") as HTMLElement | null)?.offsetHeight ?? 0;
+      if (scrollProgress(el, bar) >= 1) return;
+      window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY + el.offsetHeight - window.innerHeight, behavior: "smooth" });
+    };
+    copy?.addEventListener("focusin", onFocus);
     let raf = 0;
     const update = () => {
       raf = 0;
@@ -106,6 +117,7 @@ export function HomePage({ onPlayDemo, onOpenGames, busy }: { onPlayDemo: PlayDe
       cancelAnimationFrame(raf);
       ro.disconnect();
       io.disconnect();
+      copy?.removeEventListener("focusin", onFocus);
       removeEventListener("scroll", queue);
       removeEventListener("resize", queue);
       mq.removeEventListener("change", queue);

@@ -22,6 +22,7 @@ const en = {
   navPlay: "▶ Play",
   menu: "Menu",
   navLabel: "Site",
+  skip: "Skip to content",
   switchTo: "中文",
   switchTitle: "切换到简体中文",
   titles: {
@@ -144,6 +145,7 @@ const zh: SiteText = {
   navPlay: "▶ 开始玩",
   menu: "菜单",
   navLabel: "网站",
+  skip: "跳到正文",
   switchTo: "EN",
   switchTitle: "Switch to English",
   titles: {

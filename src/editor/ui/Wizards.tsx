@@ -46,6 +46,7 @@ import { framesOf } from "./worldArt";
 import type { WorldIntent } from "./intents";
 import "./starter.css";
 import "./leftovers.css";
+import { useShowModal } from "./useShowModal";
 
 export type WizardKind = "map" | "person" | "shop" | "battle" | "companion" | "inn";
 export type { WizardInit } from "./wizardParts";
@@ -77,9 +78,7 @@ const SIDES: Side[] = ["east", "west", "north", "south"];
 export function WizardDialog({ kind, init, archive, texts, notes, onApply, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
+  useShowModal(dialog);
   const project = { archive, texts, namedFlags: Object.keys(notes.flags) };
   const run: Run = (make) => {
     try {

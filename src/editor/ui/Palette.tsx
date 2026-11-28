@@ -3,6 +3,7 @@
 // closes. A query starting with ">" lists commands only.
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { rankPalette, type PaletteItem } from "./workspace";
+import { useShowModal } from "./useShowModal";
 
 export interface PaletteCommand {
   id: string;
@@ -33,9 +34,7 @@ export function Palette({ resources, commands, recents, initial = "", onOpenReso
   const [q, setQ] = useState(initial);
   const [sel, setSel] = useState(0);
   const uid = useId();
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
+  useShowModal(dialog);
 
   const cmdItems = useMemo<PaletteItem[]>(
     () => commands.map((c) => ({ id: `cmd:${c.id}`, label: c.label, detail: c.detail ?? "command", keywords: `command ${c.keywords ?? ""}`, kind: "command" })),

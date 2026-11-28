@@ -1,8 +1,11 @@
 // The design system's colour tokens (src/ui.css) keep text readable: every
 // text colour meets WCAG AA (4.5:1) on the page and on panels, in light and
 // dark. And a .seg keeps its hairlines between cells (the cell reset clears
-// borders, so the divider rule must come after it).
-import { readFileSync } from "node:fs";
+// borders, so the divider rule must come after it). And two interaction
+// rules: a hover look only where there is a mouse (on a touch screen it
+// would stay on what was tapped), and every editor dialog opens through
+// useShowModal (which gives the focus back when it closes).
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("../src/ui.css", import.meta.url), "utf8");
@@ -60,5 +63,38 @@ describe("ui.css tokens", () => {
     const divider = css.search(/\.seg > \* \+ [^{]*\{\s*border-left:/);
     expect(reset).toBeGreaterThanOrEqual(0);
     expect(divider).toBeGreaterThan(reset);
+  });
+
+  it("hover looks are only for a mouse (inside @media (hover: hover)) in ui.css and styles.css", () => {
+    for (const file of ["../src/ui.css", "../src/styles.css"]) {
+      const text = readFileSync(new URL(file, import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+      // the top-level rules (a rule inside an @media block is skipped with it)
+      let depth = 0;
+      let start = 0;
+      let inMedia = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (c === "{") {
+          const head = text.slice(start, i).trim();
+          if (depth === 0) inMedia = head.startsWith("@");
+          if (depth === 0 && !inMedia) expect(head, `${file}: ${head}`).not.toMatch(/:hover/);
+          depth++;
+          start = i + 1;
+        } else if (c === "}") {
+          depth--;
+          start = i + 1;
+        } else if (c === ";" && depth === 0) start = i + 1;
+      }
+    }
+  });
+});
+
+describe("editor dialogs", () => {
+  it("open through useShowModal, which gives the focus back when they close", () => {
+    const dir = new URL("../src/editor/ui/", import.meta.url);
+    const direct = readdirSync(dir)
+      .filter((f) => /\.tsx?$/.test(f) && f !== "useShowModal.ts")
+      .filter((f) => readFileSync(new URL(f, dir), "utf8").includes(".showModal()"));
+    expect(direct).toEqual([]);
   });
 });

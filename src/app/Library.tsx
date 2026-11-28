@@ -17,6 +17,8 @@ interface Props {
   persistent: boolean;
   busy: boolean;
   messages: string[];
+  /** The messages that say something went wrong. */
+  failed: string[];
   /** The 4988 firmware: how many of its files were added; ready when it can boot. */
   firmware: { files: number; ready: boolean };
   onImport: (files: File[]) => Promise<unknown> | void;
@@ -42,7 +44,7 @@ function added(t: number, lang: SiteLang): string {
 }
 
 /** The Games page: the demos, your games and the engine each plays on, adding more, and the engines. */
-export function Library({ games, fonts, persistent, busy, messages, firmware, onImport, onPlay, onTurnOn, onPlayDemo, onDelete }: Props) {
+export function Library({ games, fonts, persistent, busy, messages, failed, firmware, onImport, onPlay, onTurnOn, onPlayDemo, onDelete }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const [seen, setSeen] = useState<string[]>([]);
@@ -105,11 +107,21 @@ export function Library({ games, fonts, persistent, busy, messages, firmware, on
       </header>
 
       {(busy || news.length > 0) && (
-        <div className="g-status" role="status">
+        <div className={`g-status${!busy && news.some((m) => failed.includes(m)) ? (news.every((m) => failed.includes(m)) ? " all-failed" : " some-failed") : ""}`} role="status">
           {busy ? <LoadingMark small /> : <span className="g-dot" aria-hidden="true" />}
-          <div>{busy ? <p>{t.reading}</p> : news.map((m, i) => <p key={i}>{m}</p>)}</div>
+          <div>
+            {busy ? (
+              <p>{t.reading}</p>
+            ) : (
+              news.map((m, i) => (
+                <p key={i} className={failed.includes(m) ? "g-failed" : undefined}>
+                  {m}
+                </p>
+              ))
+            )}
+          </div>
           {!busy && (
-            <button className="g-close" onClick={() => setSeen(messages)} aria-label="✕">
+            <button className="g-close" onClick={() => setSeen(messages)} aria-label={t.closeStatus} title={t.closeStatus}>
               ✕
             </button>
           )}

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { buildGam, donorProblem, type GamEngine } from "../../bbk/gamBuild";
 import { gamInfo } from "../../bbk/gam";
 import { ExportSaved } from "./ExportSaved";
+import { useShowModal } from "./useShowModal";
 
 interface Props {
   name: string;
@@ -38,9 +39,7 @@ export function ExportDialog({ name, lib, onClose }: Props) {
   const [saved, setSaved] = useState<{ file: string; size: number; format: Format; kit: boolean } | null>(null);
   const file = (name.replace(/[^\w一-鿿-]+/g, "_") || "game") + (format === "lib" ? ".lib" : ".gam");
 
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
+  useShowModal(dialog);
   // (Fulu needs the kit's engine)
   useEffect(() => {
     if (!kit && engine === "fulu") setEngine("react");

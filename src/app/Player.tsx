@@ -11,12 +11,13 @@ import { DebugMenu, type StoryNames } from "./DebugMenu";
 import { useLongPress } from "./longPress";
 import { applyPalette, PALETTES } from "./palettes";
 import { HiresText, outputScale, type ScreenEffect, type TextStyle } from "./hiresText";
-import { effectOf, MAP_VIEWS, mapViewOf, type MapView, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
+import { effectOf, MAP_VIEWS, mapViewOf, type MapView, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useSheetFocus, useZoom } from "./playerShell";
 import { PLAYER_TEXT } from "./playerText";
 import { SITE_TEXT } from "./siteText";
 import { useSiteLang } from "./siteLang";
 import { LoadingScreen } from "./Loading";
 import { afterPaint } from "./slices";
+import { useNotice } from "./useNotice";
 import { HD_CHINESE, HD_ENGLISH, ORIGINAL_LABEL, PIXEL_CHINESE, PIXEL_ENGLISH, readTextChoice, textChoiceEntries, type TextChoice } from "./textChoice";
 
 interface Props {
@@ -71,7 +72,7 @@ export function Player({ game, fonts, onExit, backTo = "library", names }: Props
   const frameH = SCREEN_HEIGHT + 32 * view.my;
   const [showPad, setShowPad] = useState(() => pref("keypad", matchMedia("(pointer: coarse)").matches ? "on" : "off") === "on");
   const [originalFormula, setOriginalFormula] = useState(() => pref("originalDamage", "on") === "on");
-  const [notice, setNotice] = useState<string | null>(null);
+  const { notice, show: setNotice, flash } = useNotice();
   const [uiLang, setUiLang] = useState<UiLanguage | "auto">(() => pref<string>("uiLanguage", "auto") as UiLanguage | "auto");
   // How text is drawn: the look (Pixel or HD) and a font for Chinese and one
   // for English, for each look. Pixel defaults to the original font files
@@ -99,6 +100,7 @@ export function Player({ game, fonts, onExit, backTo = "library", names }: Props
   const [debugOpen, setDebugOpen] = useState(false);
   // The options sheet of the phone layout; the game is paused while it is open.
   const [optionsOpen, setOptionsOpen] = useState(false);
+  useSheetFocus(optionsOpen, () => setOptionsOpen(false));
   // True while the game is paused (debug menu or options sheet).
   const debugRef = useRef(false);
   debugRef.current = debugOpen || optionsOpen;
@@ -257,11 +259,6 @@ export function Player({ game, fonts, onExit, backTo = "library", names }: Props
     html.classList.add("playing-touch");
     return () => html.classList.remove("playing-touch");
   }, [touch]);
-
-  const flash = (msg: string) => {
-    setNotice(msg);
-    window.setTimeout(() => setNotice(null), 2500);
-  };
 
   const downloadSaves = () => {
     const blob = new Blob([exportSaves(game.id)], { type: "application/json" });
@@ -563,7 +560,11 @@ export function Player({ game, fonts, onExit, backTo = "library", names }: Props
         {showPad && <Keypad onDown={keyDown} onUp={keyUp} labels={pt.keys} />}
       </div>
 
-      {notice && <div className="notice">{notice}</div>}
+      {notice && (
+        <div className="notice" role="status" onClick={() => setNotice(null)}>
+          {notice}
+        </div>
+      )}
 
       {debugOpen && engineRef.current && (
         <DebugMenu

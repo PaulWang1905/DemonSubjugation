@@ -1,16 +1,15 @@
 // The editor's Problems dialog (the project check, shown before a playtest or
 // an export when something would break the game) and its Help dialog
 // (getting started and the keyboard shortcuts).
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { problemSummary, type Problem } from "../format/validate";
 import { plainProblem } from "./plainWords";
+import { useShowModal } from "./useShowModal";
 
 /** A modal <dialog> that opens when mounted. */
 function Modal({ className, onClose, children }: { className: string; onClose: () => void; children: React.ReactNode }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
+  useShowModal(dialog);
   return (
     <dialog ref={dialog} className={`export-dialog ${className}`} onClose={onClose} onCancel={onClose}>
       {children}

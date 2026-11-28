@@ -1,6 +1,6 @@
 // The editor's start page: the author's projects, and the ways to start one
 // (in English and Chinese; the editor itself is in English).
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { StoredProject } from "../../storage/db";
 import { Link } from "../../app/router";
 import { useSiteLang } from "../../app/siteLang";
@@ -8,6 +8,7 @@ import { Arrow } from "../../app/Tile";
 import { fileTitle } from "../template/titleLogo";
 import { gbkBytes } from "../../engine/java";
 import "./authoring.css";
+import { useShowModal } from "./useShowModal";
 
 const HOME = {
   en: {
@@ -164,9 +165,7 @@ export function ProjectsPage({ projects, onStart, onOpenFile, onOpen, onDelete }
 function NameDialog({ h, onCreate, onCancel }: { h: (typeof HOME)["en"]; onCreate: (name: string) => void; onCancel: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState("MY GAME");
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
+  useShowModal(dialog);
   const clean = name.trim();
   return (
     <dialog ref={dialog} className="export-dialog name-dialog" onClose={onCancel} onCancel={onCancel} aria-labelledby="name-dialog-title">

@@ -67,6 +67,8 @@ export function App() {
   const [playtestFrom, setPlaytestFrom] = useState(false);
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
+  /** The messages that say something went wrong (shown as problems). */
+  const [failed, setFailed] = useState<string[]>([]);
   const [persistent, setPersistent] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -99,6 +101,7 @@ export function App() {
       try {
         const { items, errors } = await importFiles(files);
         const notes = [...errors];
+        const bad = [...errors];
         for (const it of items) {
           try {
             if (it.kind === "font") {
@@ -129,10 +132,13 @@ export function App() {
             }
           } catch (e) {
             // (the browser's storage refused it: say so, rather than show it added)
-            notes.push(gamesText().imported.notStored(it.kind === "font" ? it.font : it.kind === "firmware" ? it.fileName : it.name, String((e as Error).message ?? e)));
+            const msg = gamesText().imported.notStored(it.kind === "font" ? it.font : it.kind === "firmware" ? it.fileName : it.name, String((e as Error).message ?? e));
+            notes.push(msg);
+            bad.push(msg);
           }
         }
         setMessages(notes);
+        setFailed(bad);
         await refresh();
       } finally {
         setBusy(false);
@@ -148,7 +154,9 @@ export function App() {
       try {
         await deleteGame(g.id);
       } catch (e) {
-        setMessages([gamesText().imported.notRemoved(g.name, String((e as Error).message ?? e))]);
+        const msg = gamesText().imported.notRemoved(g.name, String((e as Error).message ?? e));
+        setMessages([msg]);
+        setFailed([msg]);
         return;
       }
       deleteSavesFor(g.id);
@@ -190,6 +198,49 @@ export function App() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
+  // The open menu (a phone's or a tablet's): Escape closes it (focus back on
+  // its button), Tab goes round the bar and the menu's links rather than to
+  // the dimmed page under it, and it closes when the window grows past the
+  // width it folds at.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const toggle = () => document.querySelector<HTMLElement>(".nav-toggle");
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        toggle()?.focus();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const bar = document.querySelector(".topbar");
+      if (!bar) return;
+      // (in the order they are seen: the bar's row, then the menu below it)
+      const stops = [...bar.querySelectorAll<HTMLElement>(".brand, .topbar-actions button, .site-nav a")].filter((el) => el.offsetParent !== null);
+      if (!stops.length) return;
+      const at = stops.indexOf(document.activeElement as HTMLElement);
+      const next = at < 0 ? (e.shiftKey ? stops.length - 1 : 0) : (at + (e.shiftKey ? -1 : 1) + stops.length) % stops.length;
+      e.preventDefault();
+      stops[next].focus();
+    };
+    // (a tap on the dimmed page closes the menu, and only that: it does not
+    // also press what is under it)
+    const onOutside = (e: MouseEvent) => {
+      if ((e.target as Element | null)?.closest?.(".topbar")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setMenuOpen(false);
+    };
+    const wide = matchMedia("(min-width: 941px)");
+    const onWide = () => wide.matches && setMenuOpen(false);
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("click", onOutside, true);
+    wide.addEventListener("change", onWide);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("click", onOutside, true);
+      wide.removeEventListener("change", onWide);
+    };
+  }, [menuOpen]);
   const playDemo = (which?: "bell" | "lantern") => setPlaying(which === "lantern" ? demoGame() : bellGame());
 
   const [playtestNames, setPlaytestNames] = useState<StoryNames | undefined>(undefined);
@@ -205,6 +256,21 @@ export function App() {
   const showPlayer = !!playing || device !== undefined;
   return (
     <>
+      {!showPlayer && (
+        // (for the keyboard: past the bar's links, straight to the page)
+        <a
+          className="skip-link"
+          href="#main"
+          onClick={(e) => {
+            e.preventDefault();
+            const main = document.getElementById("main");
+            main?.focus({ preventScroll: true });
+            main?.scrollIntoView();
+          }}
+        >
+          {t.skip}
+        </a>
+      )}
       {!showPlayer && (
         <header className="topbar">
           <Link to="home" className="brand" onClick={closeMenu}>
@@ -240,70 +306,73 @@ export function App() {
           </div>
         </header>
       )}
-      {/* The editor needs room: on a phone, say so instead of showing a cramped editor. */}
-      {!showPlayer && page === "editor" && smallScreen && !editorAnyway && (
-        <section className="small-screen" role="note">
-          <svg className="small-screen-icon" viewBox="0 0 48 40" width="56" height="46" aria-hidden="true">
-            <rect x="3" y="3" width="42" height="26" rx="3" fill="none" stroke="currentColor" strokeWidth="3" />
-            <rect x="9" y="9" width="30" height="14" fill="#a7ba82" />
-            <path d="M18 37h12M24 30v7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-          </svg>
-          <h1>{t.smallScreen.title}</h1>
-          <p>{t.smallScreen.text}</p>
-          <p className="muted small">{t.smallScreen.note}</p>
-          <div className="row">
-            <button onClick={() => navigate("games")}>{t.smallScreen.back}</button>
-            <button className="ghost" onClick={() => setEditorAnyway(true)}>
-              {t.smallScreen.anyway}
-            </button>
-          </div>
-        </section>
-      )}
-      {/* The editor stays mounted so an open project survives tab switches and playtests. */}
-      <div hidden={showPlayer || page !== "editor" || (smallScreen && !editorAnyway)}>
-        <Editor onPlaytest={onPlaytest} />
-      </div>
-      {device !== undefined ? (
-        <DevicePlayer key={`${device?.id ?? "4988"}:${deviceOs}`} game={device} os={device ? deviceOs : "original"} onExit={onExit} />
-      ) : playing ? (
-        <Player key={playing.id + (playtestFrom ? playing.addedAt : "")} game={playing} fonts={fontPair} onExit={onExit} backTo={playtestFrom ? "editor" : "library"} names={playtestFrom ? playtestNames : undefined} />
-      ) : (
-        <>
-          {page === "home" && (
-            <HomePage
-              onPlayDemo={playDemo}
-              busy={busy}
-              onOpenGames={async (files) => {
-                // one game: play it; otherwise (several, fonts, errors) show them in the library
-                const added = await onImport(files);
-                if (added.length === 1) play(added[0]);
-                else navigate("games");
-              }}
-            />
-          )}
-          {page === "games" && (
-            <Library
-              games={games}
-              fonts={{ HZK16: !!fonts.hzk16, ASC16: !!fonts.asc16 }}
-              persistent={persistent}
-              busy={busy}
-              messages={messages}
-              onImport={onImport}
-              firmware={{ files: firmware.length, ready: firmwareReady }}
-              onPlay={play}
-              onTurnOn={() => setDevice(null)}
-              onPlayDemo={playDemo}
-              onDelete={onDelete}
-            />
-          )}
-          {page === "guide" && <GuidePage onPlayDemo={() => playDemo("bell")} />}
-          {page === "fulu" && <FuluPage />}
-          {page === "fulu-progress" && <FuluProgressPage />}
-          {page === "about" && <AboutPage />}
-          {page === "notfound" && <NotFoundPage onPlayDemo={playDemo} />}
-          {page !== "editor" && <SiteFooter onPlayDemo={playDemo} />}
-        </>
-      )}
+      <main id="main" tabIndex={-1}>
+        {/* The editor needs room: on a phone, say so instead of showing a cramped editor. */}
+        {!showPlayer && page === "editor" && smallScreen && !editorAnyway && (
+          <section className="small-screen" role="note">
+            <svg className="small-screen-icon" viewBox="0 0 48 40" width="56" height="46" aria-hidden="true">
+              <rect x="3" y="3" width="42" height="26" rx="3" fill="none" stroke="currentColor" strokeWidth="3" />
+              <rect x="9" y="9" width="30" height="14" fill="#a7ba82" />
+              <path d="M18 37h12M24 30v7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+            <h1>{t.smallScreen.title}</h1>
+            <p>{t.smallScreen.text}</p>
+            <p className="muted small">{t.smallScreen.note}</p>
+            <div className="row">
+              <button onClick={() => navigate("games")}>{t.smallScreen.back}</button>
+              <button className="ghost" onClick={() => setEditorAnyway(true)}>
+                {t.smallScreen.anyway}
+              </button>
+            </div>
+          </section>
+        )}
+        {/* The editor stays mounted so an open project survives tab switches and playtests. */}
+        <div hidden={showPlayer || page !== "editor" || (smallScreen && !editorAnyway)}>
+          <Editor onPlaytest={onPlaytest} />
+        </div>
+        {device !== undefined ? (
+          <DevicePlayer key={`${device?.id ?? "4988"}:${deviceOs}`} game={device} os={device ? deviceOs : "original"} onExit={onExit} />
+        ) : playing ? (
+          <Player key={playing.id + (playtestFrom ? playing.addedAt : "")} game={playing} fonts={fontPair} onExit={onExit} backTo={playtestFrom ? "editor" : "library"} names={playtestFrom ? playtestNames : undefined} />
+        ) : (
+          <>
+            {page === "home" && (
+              <HomePage
+                onPlayDemo={playDemo}
+                busy={busy}
+                onOpenGames={async (files) => {
+                  // one game: play it; otherwise (several, fonts, errors) show them in the library
+                  const added = await onImport(files);
+                  if (added.length === 1) play(added[0]);
+                  else navigate("games");
+                }}
+              />
+            )}
+            {page === "games" && (
+              <Library
+                games={games}
+                fonts={{ HZK16: !!fonts.hzk16, ASC16: !!fonts.asc16 }}
+                persistent={persistent}
+                busy={busy}
+                messages={messages}
+              failed={failed}
+                onImport={onImport}
+                firmware={{ files: firmware.length, ready: firmwareReady }}
+                onPlay={play}
+                onTurnOn={() => setDevice(null)}
+                onPlayDemo={playDemo}
+                onDelete={onDelete}
+              />
+            )}
+            {page === "guide" && <GuidePage onPlayDemo={() => playDemo("bell")} />}
+            {page === "fulu" && <FuluPage />}
+            {page === "fulu-progress" && <FuluProgressPage />}
+            {page === "about" && <AboutPage />}
+            {page === "notfound" && <NotFoundPage onPlayDemo={playDemo} />}
+          </>
+        )}
+      </main>
+      {!showPlayer && page !== "editor" && <SiteFooter onPlayDemo={playDemo} />}
       {/* page views, one per page of the site */}
       <Analytics route={page === "notfound" ? "/404" : PAGES.find((p) => p.page === page)!.path} path={location.pathname} />
     </>

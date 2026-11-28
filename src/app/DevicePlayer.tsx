@@ -26,10 +26,11 @@ import { DeviceKeys, deviceKeys } from "./DeviceKeys";
 import { useLongPress } from "./longPress";
 import { PALETTES, type Palette } from "./palettes";
 import { PLAYER_TEXT } from "./playerText";
-import { effectOf, MAP_VIEWS, mapViewOf, type MapView, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useZoom } from "./playerShell";
+import { effectOf, MAP_VIEWS, mapViewOf, type MapView, pref, ScreenOptions, setPref, SIDE_PAD_QUERY, SpeedField, toggleFullscreen, TOUCH_QUERY, useFullscreen, useMedia, useScreenFit, useSheetFocus, useZoom } from "./playerShell";
 import { useSiteLang } from "./siteLang";
 import { LoadingScreen, type LoadingStepView } from "./Loading";
 import { inSlices, nextFrame } from "./slices";
+import { useNotice } from "./useNotice";
 import { HD_CHINESE, readTextChoice, type TextChoice } from "./textChoice";
 
 interface Props {
@@ -122,7 +123,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const slots = useRef<(Snapshot | null)[]>([null, null, null, null]);
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [onFulu, setOnFulu] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const { notice, show: setNotice, flash } = useNotice();
   /** The stops on Fulu the player chose to go on past: when one comes again, Fulu goes on by itself. */
   const goneOnPast = useRef(new Set<string>());
   /** The stop on screen (left as it is, for Continue), so that it is shown once. */
@@ -157,6 +158,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const [zoom, changeZoom] = useZoom();
   const [showPad, setShowPad] = useState(() => pref("keypad", matchMedia("(pointer: coarse)").matches ? "on" : "off") === "on");
   const [optionsOpen, setOptionsOpen] = useState(false);
+  useSheetFocus(optionsOpen, () => setOptionsOpen(false));
   const touchDevice = useMedia(TOUCH_QUERY);
   const touch = showPad && touchDevice;
   const sideways = useMedia(SIDE_PAD_QUERY);
@@ -530,7 +532,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
       return notStored(e);
     }
     setSlotTimes(await slotTimes(id));
-    setNotice(dt.saves.saved(n));
+    flash(dt.saves.saved(n));
   };
   const loadState = async (n: number) => {
     const d = deviceRef.current;
@@ -545,7 +547,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
     }
     if (status.kind !== "running") setStatus({ kind: "running" });
     setOptionsOpen(false);
-    setNotice(dt.saves.loaded(n));
+    flash(dt.saves.loaded(n));
   };
   const exportSaves = async () => {
     const d = deviceRef.current;
@@ -575,7 +577,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
       nextStart.current = "resume";
       setOptionsOpen(false);
       setGeneration((g) => g + 1);
-      setNotice(dt.saves.imported);
+      flash(dt.saves.imported);
     } catch (e) {
       notStored(e);
     }
@@ -823,7 +825,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
       </div>
 
       {notice && (
-        <div className="notice" onClick={() => setNotice(null)}>
+        <div className="notice" role="status" onClick={() => setNotice(null)}>
           {notice}
         </div>
       )}

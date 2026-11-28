@@ -1,7 +1,7 @@
 // What the two players share: remembered preferences, the layout queries,
 // fullscreen, fitting the screen into the window, and the screen menus
 // (colours, effect, size).
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { ScreenEffect } from "./hiresText";
 import { PALETTES } from "./palettes";
 import type { PlayerText } from "./playerText";
@@ -47,6 +47,33 @@ export function useMedia(query: string): boolean {
     return () => m.removeEventListener("change", ch);
   }, [query]);
   return on;
+}
+
+/**
+ * The options sheet (a phone's): while it is open, focus is in it (on its
+ * Resume button) and Escape closes it rather than reaching the game; when it
+ * closes, focus goes back to the button that opened it.
+ */
+export function useSheetFocus(open: boolean, close: () => void): void {
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  useEffect(() => {
+    if (!open) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const raf = requestAnimationFrame(() => document.querySelector<HTMLElement>(".sheet .sheet-head button")?.focus({ preventScroll: true }));
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      closeRef.current();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", onKey, true);
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [open]);
 }
 
 /** True while the page is fullscreen. */

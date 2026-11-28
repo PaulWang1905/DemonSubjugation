@@ -105,23 +105,42 @@ html:lang(zh-CN) em {
   align-items: flex-start;
 }
 
-/* import messages */
-
+/* The players' notices ("Saved to state 1.", a font that did not load...):
+   a toast over the page, so nothing under it moves when one comes or goes
+   (in the page's flow it pushed the options, and the button just pressed,
+   down). On a computer at the bottom of the window; on a phone under the
+   top bar, clear of the keys. Click or tap one to close it; the ones that
+   only confirm something close by themselves after a few seconds. */
 .notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  z-index: 60;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 16px;
   background: color-mix(in srgb, var(--accent) 10%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
   border-radius: var(--radius);
-  padding: 10px 16px;
-  margin-bottom: 18px;
+  box-shadow: var(--shadow-md);
+  color: var(--ink);
+  font-size: var(--fs-md);
+  text-align: center;
+  cursor: pointer;
+  animation: notice-in 0.18s ease-out;
 }
-
-.notice p,
-.notice ul {
-  margin: 0;
+@keyframes notice-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
 }
-
-.notice ul {
-  padding-left: 18px;
+@media (prefers-reduced-motion: reduce) {
+  .notice {
+    animation: none;
+  }
 }
 
 footer {
@@ -170,7 +189,6 @@ footer {
   max-width: none;
 }
 .player.large:not(.fs) > .toolbar,
-.player.large:not(.fs) > .notice,
 .player.large:not(.fs) > .extras {
   width: 100%;
   max-width: 1368px;
@@ -235,9 +253,13 @@ footer {
   opacity: 0.5;
   transition: opacity 0.2s;
 }
-.fs-exit:hover,
 .fs-exit:focus-visible {
   opacity: 1;
+}
+@media (hover: hover) {
+  .fs-exit:hover {
+    opacity: 1;
+  }
 }
 
 .toolbar {
@@ -376,19 +398,16 @@ footer {
   border-color: rgb(243 241 236 / 0.5);
   background: transparent;
 }
-.crash button.ghost:hover {
-  border-color: #f3f1ec;
+@media (hover: hover) {
+  .crash button.ghost:hover {
+    border-color: #f3f1ec;
+  }
 }
 
 .crash pre {
   white-space: pre-wrap;
   font-size: 11px;
   color: #e8b4ad;
-}
-
-.notice {
-  text-align: center;
-  color: var(--muted);
 }
 
 .extras {
@@ -662,10 +681,9 @@ footer {
   grid-column: 1 / -1;
   grid-row: 2;
   max-width: none;
-  padding: 4px calc(8px + env(safe-area-inset-right)) calc(2px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
-}
-.player.touch.sideways .kp-key {
-  min-height: 36px;
+  /* (the keys a finger's height, the row's gaps smaller: one pixel more
+     than with 36 px keys) */
+  padding: 2px calc(8px + env(safe-area-inset-right)) calc(1px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
 }
 
 .kp-ab {
@@ -823,6 +841,30 @@ footer {
 
 /* ---------- top bar: the site's navigation ---------- */
 
+/* "Skip to content": the first stop for the keyboard, seen only when it has
+   focus; it moves focus past the bar to the page (main#main). */
+.skip-link {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 8px;
+  z-index: 100;
+  padding: 10px 16px;
+  background: var(--ink);
+  color: var(--bg);
+  font: 600 var(--fs-md) / 1.2 var(--font-sans);
+  text-decoration: none;
+  transform: translateY(calc(-100% - 16px));
+}
+.skip-link:focus {
+  transform: none;
+}
+#main {
+  scroll-margin-top: 80px;
+}
+#main:focus {
+  outline: none;
+}
+
 .topbar {
   position: sticky;
   top: 0;
@@ -883,9 +925,11 @@ footer {
   white-space: nowrap;
 }
 
-.site-nav a:hover {
-  color: var(--ink);
-  background: var(--hover);
+@media (hover: hover) {
+  .site-nav a:hover {
+    color: var(--ink);
+    background: var(--hover);
+  }
 }
 
 .topbar-actions {
@@ -1043,8 +1087,10 @@ footer {
   white-space: nowrap;
 }
 
-.res-list .item:hover {
-  background: var(--hover);
+@media (hover: hover) {
+  .res-list .item:hover {
+    background: var(--hover);
+  }
 }
 
 .res-list .item.sel {
@@ -1589,8 +1635,10 @@ footer {
   font-size: 14px;
   cursor: pointer;
 }
-.problem:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+@media (hover: hover) {
+  .problem:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
 }
 .problem:disabled {
   cursor: default;
@@ -1732,8 +1780,10 @@ footer {
 .script-ref dt button.link code {
   color: var(--ink);
 }
-.script-ref dt button.link:hover code {
-  color: var(--accent);
+@media (hover: hover) {
+  .script-ref dt button.link:hover code {
+    color: var(--accent);
+  }
 }
 .script-basics {
   margin: 8px 0;
@@ -2195,14 +2245,13 @@ html.playing-touch body {
 }
 
 .player.touch .notice {
-  position: absolute;
-  left: 50%;
-  bottom: 12px;
-  transform: translateX(-50%);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 6px 12px;
+  top: calc(env(safe-area-inset-top) + 52px);
+  bottom: auto;
+  padding: 8px 14px;
+}
+.player.touch.sideways .notice {
+  top: calc(env(safe-area-inset-top) + 4px);
+  max-width: min(420px, calc(100vw - 120px));
 }
 
 /* the options sheet */
@@ -2260,6 +2309,23 @@ html.playing-touch body {
 
 .sheet .field .lbl {
   display: inline;
+}
+/* one option a row: the names in one column, the menus (as wide as the
+   rest) in the other, rather than pairs of different widths side by side */
+.sheet .opts-look,
+.sheet .field-group {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.sheet .field:not(.zoom) {
+  display: grid;
+  grid-template-columns: minmax(4.5em, 34%) minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+.sheet .field select {
+  width: 100%;
 }
 
 @media (orientation: landscape) {
@@ -2583,9 +2649,11 @@ a.link {
 #root:has(.h-home) .site-nav a {
   color: var(--h-dim);
 }
-#root:has(.h-home) .site-nav a:hover {
-  color: var(--h-paper);
-  background: transparent;
+@media (hover: hover) {
+  #root:has(.h-home) .site-nav a:hover {
+    color: var(--h-paper);
+    background: transparent;
+  }
 }
 #root:has(.h-home) .topbar button.ghost {
   color: var(--h-paper);
@@ -2651,10 +2719,12 @@ a.link {
   display: inline-block;
   transition: transform 0.2s ease;
 }
-a:hover > .h-arrow,
-button:hover > .h-arrow,
-a:hover .h-row-link .h-arrow {
-  transform: translateX(4px);
+@media (hover: hover) {
+  a:hover > .h-arrow,
+  button:hover > .h-arrow,
+  a:hover .h-row-link .h-arrow {
+    transform: translateX(4px);
+  }
 }
 .h-btn {
   display: inline-flex;
@@ -2676,27 +2746,33 @@ a:hover .h-row-link .h-arrow {
   border-color: var(--h-lcd);
   color: var(--h-ink);
 }
-.h-btn-primary:hover {
-  background: var(--h-paper);
-  border-color: var(--h-paper);
+@media (hover: hover) {
+  .h-btn-primary:hover {
+    background: var(--h-paper);
+    border-color: var(--h-paper);
+  }
 }
 .h-btn-line {
   background: transparent;
   color: var(--h-paper);
   border-color: var(--h-rule);
 }
-.h-btn-line:hover {
-  border-color: var(--h-paper);
+@media (hover: hover) {
+  .h-btn-line:hover {
+    border-color: var(--h-paper);
+  }
 }
 .h-btn-dark {
   background: var(--ink);
   border-color: var(--ink);
   color: var(--bg);
 }
-.h-btn-dark:hover {
-  background: var(--h-lcd);
-  border-color: var(--h-lcd);
-  color: var(--h-ink);
+@media (hover: hover) {
+  .h-btn-dark:hover {
+    background: var(--h-lcd);
+    border-color: var(--h-lcd);
+    color: var(--h-ink);
+  }
 }
 
 /* -- hero: dark, to the window's edges. On big screens it is a tall
@@ -2912,8 +2988,10 @@ html:lang(zh-CN) .h-title span + span {
   font-size: 20px;
   line-height: 0.8;
 }
-.h-link:hover {
-  color: var(--h-lcd);
+@media (hover: hover) {
+  .h-link:hover {
+    color: var(--h-lcd);
+  }
 }
 
 /* the live demo, framed like a monitor feed, as big as the window allows
@@ -3062,8 +3140,10 @@ html:lang(zh-CN) .h-sec-head h2 {
   text-align: center;
   transition: transform 0.25s ease;
 }
-.h-game-art:hover .h-game-logo {
-  transform: scale(1.04);
+@media (hover: hover) {
+  .h-game-art:hover .h-game-logo {
+    transform: scale(1.04);
+  }
 }
 .h-game-no {
   position: absolute;
@@ -3335,18 +3415,22 @@ html:lang(zh-CN) .h-show-lines h3 {
   text-decoration: none;
   transition: background 0.2s ease, padding 0.2s ease;
 }
-.h-row:hover {
-  background: var(--h-lcd);
-  color: var(--h-ink);
-  padding-left: 14px;
-  padding-right: 14px;
+@media (hover: hover) {
+  .h-row:hover {
+    background: var(--h-lcd);
+    color: var(--h-ink);
+    padding-left: 14px;
+    padding-right: 14px;
+  }
 }
 .h-row-no {
   color: var(--muted);
 }
-.h-row:hover .h-row-no,
-.h-row:hover .h-row-text {
-  color: var(--h-ink);
+@media (hover: hover) {
+  .h-row:hover .h-row-no,
+  .h-row:hover .h-row-text {
+    color: var(--h-ink);
+  }
 }
 .h-row-title {
   font-size: clamp(34px, 4.6vw, 72px);
@@ -3413,9 +3497,11 @@ html:lang(zh-CN) .h-show-lines h3 {
   text-transform: uppercase;
   text-decoration: none;
 }
-.footer-links a:hover,
-.footer-links button.link:hover {
-  color: var(--h-lcd);
+@media (hover: hover) {
+  .footer-links a:hover,
+  .footer-links button.link:hover {
+    color: var(--h-lcd);
+  }
 }
 /* touch screens: the footer's links and the Fulu tabs get a finger's height */
 @media (pointer: coarse) {
@@ -3427,6 +3513,29 @@ html:lang(zh-CN) .h-show-lines h3 {
     min-height: var(--touch);
   }
   .fp-tabs a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch);
+  }
+  /* links that stand alone (not in running text): their target grows to a
+     finger's height by padding that an equal negative margin takes back, so
+     nothing around them moves */
+  .i-more,
+  .not-found .fine button.link {
+    padding-block: 12px;
+    margin-block: -12px;
+  }
+  .f-row-title a {
+    display: inline-block;
+    padding-block: 8px;
+    margin-block: -8px;
+  }
+  /* (the page's contents list: rows a finger apart; its links stand close,
+     so here the rows open up) */
+  .fp-toc ol {
+    row-gap: 0;
+  }
+  .fp-toc a {
     display: inline-flex;
     align-items: center;
     min-height: var(--touch);
@@ -3613,6 +3722,20 @@ html:lang(zh-CN) .g-head h1 {
 .g-status p {
   margin: 0;
 }
+/* a file that could not be added: in red, and the box red when none could */
+.g-status p.g-failed {
+  color: var(--danger);
+}
+.g-status:is(.some-failed, .all-failed) {
+  background: var(--panel);
+}
+.g-status:is(.some-failed, .all-failed) .g-dot {
+  background: var(--danger);
+}
+.g-status.all-failed {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, var(--bg));
+}
 .g-dot {
   width: 9px;
   height: 9px;
@@ -3661,8 +3784,10 @@ html:lang(zh-CN) .g-head h1 {
   border-bottom: 1px solid var(--line);
   transition: background 0.2s ease;
 }
-.g-tile:hover {
-  background: color-mix(in srgb, var(--panel) 70%, transparent);
+@media (hover: hover) {
+  .g-tile:hover {
+    background: color-mix(in srgb, var(--panel) 70%, transparent);
+  }
 }
 .g-art {
   position: relative;
@@ -3704,8 +3829,10 @@ html:lang(zh-CN) .g-head h1 {
   text-overflow: ellipsis;
   transition: transform 0.25s ease;
 }
-.g-tile:hover .g-logo {
-  transform: scale(1.04);
+@media (hover: hover) {
+  .g-tile:hover .g-logo {
+    transform: scale(1.04);
+  }
 }
 .g-body {
   display: flex;
@@ -3757,8 +3884,10 @@ html:lang(zh-CN) .g-head h1 {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.g-remove:hover {
-  color: var(--danger);
+@media (hover: hover) {
+  .g-remove:hover {
+    color: var(--danger);
+  }
 }
 .g-meta-part {
   white-space: nowrap;
@@ -3849,10 +3978,12 @@ html:lang(zh-CN) .g-head h1 {
   background: transparent;
   color: var(--ink);
 }
-.g-add button:not(:disabled):hover {
-  border-color: var(--h-ink);
-  background: var(--h-lcd);
-  color: var(--h-ink);
+@media (hover: hover) {
+  .g-add button:not(:disabled):hover {
+    border-color: var(--h-ink);
+    background: var(--h-lcd);
+    color: var(--h-ink);
+  }
 }
 .g-add strong {
   font-size: 22px;
@@ -3992,10 +4123,12 @@ html:lang(zh-CN) .g-head h1 {
   color: var(--ink);
   border-color: var(--ink);
 }
-.f-btn-line:hover {
-  background: var(--h-lcd);
-  border-color: var(--h-lcd);
-  color: var(--h-ink);
+@media (hover: hover) {
+  .f-btn-line:hover {
+    background: var(--h-lcd);
+    border-color: var(--h-lcd);
+    color: var(--h-ink);
+  }
 }
 
 /* the numbers */
@@ -4468,16 +4601,20 @@ p.f-prose {
   padding-left: 22px;
   border-left: 1px solid var(--line);
 }
-.e-start:hover {
-  background: color-mix(in srgb, var(--h-lcd) 30%, transparent);
+@media (hover: hover) {
+  .e-start:hover {
+    background: color-mix(in srgb, var(--h-lcd) 30%, transparent);
+  }
 }
 .e-start.bell {
   background: var(--h-ink);
   color: var(--h-paper);
   padding-left: 22px;
 }
-.e-start.bell:hover {
-  background: #1b1d18;
+@media (hover: hover) {
+  .e-start.bell:hover {
+    background: #1b1d18;
+  }
 }
 .e-start .h-row-no {
   color: var(--muted);
@@ -4500,8 +4637,10 @@ p.f-prose {
   justify-self: start;
   font-size: 20px;
 }
-.e-start:hover .h-arrow {
-  transform: translateX(4px);
+@media (hover: hover) {
+  .e-start:hover .h-arrow {
+    transform: translateX(4px);
+  }
 }
 .e-projects {
   margin: 8px 0 0;
@@ -4706,8 +4845,10 @@ p.f-prose {
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
 }
-.fp-tabs a:hover {
-  color: var(--ink);
+@media (hover: hover) {
+  .fp-tabs a:hover {
+    color: var(--ink);
+  }
 }
 .fp-tabs a[aria-current="page"] {
   color: var(--ink);
@@ -4749,8 +4890,10 @@ p.f-prose {
   color: var(--muted);
   font: 500 12px var(--font-mono);
 }
-.fp-toc a:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .fp-toc a:hover {
+    text-decoration: underline;
+  }
 }
 .fp-section {
   scroll-margin-top: 72px;
@@ -4963,6 +5106,13 @@ p.f-prose {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
+}
+/* (on a phone the table scrolls sideways in its frame rather than squeezing
+   its columns to a word, or a few letters, a line) */
+@media (max-width: 760px) {
+  .fp-table {
+    min-width: 600px;
+  }
 }
 .fp-table th,
 .fp-table td {
@@ -5573,11 +5723,17 @@ p.f-prose {
   appearance: none;
   -webkit-appearance: none;
 }
-.e-side .group-add:hover,
 .e-side .group-add:focus-visible {
   border-color: var(--line);
   color: var(--accent);
   background: var(--panel);
+}
+@media (hover: hover) {
+  .e-side .group-add:hover {
+    border-color: var(--line);
+    color: var(--accent);
+    background: var(--panel);
+  }
 }
 .e-side select.group-add option {
   font: 14px/1.4 var(--font-sans);
@@ -5757,13 +5913,19 @@ p.f-prose {
   opacity: 0;
 }
 .e-tab.on .e-tab-close .x,
-.e-tab:hover .e-tab-close .x,
 .e-tab-close:focus-visible .x {
   opacity: 0.75;
 }
-.e-tab-close:hover .x {
-  opacity: 1;
-  color: var(--ink);
+@media (hover: hover) {
+  .e-tab:hover .e-tab-close .x {
+    opacity: 0.75;
+  }
+}
+@media (hover: hover) {
+  .e-tab-close:hover .x {
+    opacity: 1;
+    color: var(--ink);
+  }
 }
 .e-tab-close .d {
   color: var(--e-warn);
@@ -5772,13 +5934,21 @@ p.f-prose {
 .e-tab .e-tab-close.dirty .x {
   opacity: 0;
 }
-.e-tab .e-tab-close.dirty:hover .d,
 .e-tab .e-tab-close.dirty:focus-visible .d {
   opacity: 0;
 }
-.e-tab .e-tab-close.dirty:hover .x,
+@media (hover: hover) {
+  .e-tab .e-tab-close.dirty:hover .d {
+    opacity: 0;
+  }
+}
 .e-tab .e-tab-close.dirty:focus-visible .x {
   opacity: 1;
+}
+@media (hover: hover) {
+  .e-tab .e-tab-close.dirty:hover .x {
+    opacity: 1;
+  }
 }
 .e-panels {
   flex: 1;
@@ -5819,7 +5989,7 @@ p.f-prose {
   margin-right: auto;
 }
 /* a resource's views: "Visual | Text", as tall as No., Duplicate and Delete beside it */
-.res-view > header .view-switch > button {
+.res-view > header .view-switch.seg > button {
   min-height: calc(var(--control-h) - 2px);
 }
 
@@ -5878,7 +6048,10 @@ p.f-prose {
   background: var(--tint);
   color: var(--ink);
 }
+/* (the name keeps its room; a long detail gives way first, cut with …) */
 .palette .p-label {
+  flex: none;
+  max-width: 75%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5889,7 +6062,11 @@ p.f-prose {
   opacity: 0.6;
 }
 .palette .p-detail {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin-left: auto;
   color: var(--muted);
   font: 12px/1.4 var(--font-mono);
@@ -6051,8 +6228,10 @@ p.f-prose {
   color: var(--ink);
   text-align: left;
 }
-.p-count:hover {
-  border-color: var(--accent);
+@media (hover: hover) {
+  .p-count:hover {
+    border-color: var(--accent);
+  }
 }
 .p-count .n {
   grid-row: span 2;
