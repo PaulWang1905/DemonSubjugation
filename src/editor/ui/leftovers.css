@@ -46,7 +46,7 @@
 }
 .wz-difficulty.hard,
 .wz-diff.hard {
-  --wz-diff: #b7791f;
+  --wz-diff: var(--warn);
 }
 .wz-difficulty.too-hard,
 .wz-diff.too-hard {

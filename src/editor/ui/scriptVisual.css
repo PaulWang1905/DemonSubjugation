@@ -381,7 +381,8 @@
 }
 .sv-tools {
   position: absolute;
-  top: -12px;
+  /* on the card's top edge, clear of its first row of controls */
+  top: -26px;
   right: 8px;
   display: flex;
   gap: 2px;
@@ -429,6 +430,7 @@
   font-size: var(--fs-sm);
 }
 .sv-num {
+  min-height: var(--control-h-sm);
   padding: 2px 5px;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -482,6 +484,7 @@
 .sv .rp-btn {
   padding: 1px 7px;
   min-height: var(--control-h-sm);
+  font-size: inherit;
 }
 .sv-shop {
   display: flex;
@@ -725,7 +728,7 @@
   cursor: pointer;
 }
 .sv-palette-list li.at {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: var(--tint);
 }
 .sv-p-title {
   font-weight: 600;

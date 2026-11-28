@@ -276,8 +276,9 @@ footer {
 }
 .zoom-btn,
 .zoom-pct {
-  min-height: var(--control-h-sm);
-  min-width: var(--control-h-sm);
+  min-height: var(--control-h);
+  min-width: var(--control-h);
+  justify-content: center;
   padding: 0 8px;
   font-size: var(--fs-md);
 }
@@ -416,6 +417,9 @@ footer {
 }
 
 .keys {
+  /* (as wide as its keys: a grid would stretch it, opening a gap between a key's name and its keys) */
+  justify-self: start;
+  align-self: start;
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -629,7 +633,7 @@ footer {
 .kp-key {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 36px;
+  min-height: var(--touch);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -661,7 +665,7 @@ footer {
   padding: 4px calc(8px + env(safe-area-inset-right)) calc(2px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
 }
 .player.touch.sideways .kp-key {
-  min-height: 30px;
+  min-height: 36px;
 }
 
 .kp-ab {
@@ -720,6 +724,13 @@ footer {
 
 .toolbar button {
   white-space: nowrap;
+}
+/* ⛶ (full screen), the toolbar's last button: a square icon button */
+.toolbar > button.ghost:last-child {
+  min-width: var(--control-h);
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
 }
 
 @media (max-width: 560px), (orientation: landscape) and (max-height: 560px) {
@@ -882,6 +893,9 @@ footer {
   gap: 8px;
   margin-left: auto;
 }
+.topbar-actions button {
+  white-space: nowrap;
+}
 
 /* 中文 / EN: the site's language */
 .nav-lang {
@@ -902,13 +916,16 @@ footer {
   font-size: 18px;
 }
 
-/* phones: the links fold into a menu under the bar */
+/* phones and tablets: the links fold into a menu under the bar (they
+   need about 900 px beside the language switch and Play) */
 @media (max-width: 760px) {
   .topbar {
     margin: -12px -12px 8px;
     padding-left: 12px;
     padding-right: 12px;
   }
+}
+@media (max-width: 940px) {
   .nav-toggle {
     display: inline-flex;
   }
@@ -1128,12 +1145,6 @@ footer {
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 8px;
-}
-
-.seg {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
 }
 
 .map-body {
@@ -1856,7 +1867,6 @@ footer {
 
 .debug .seg {
   display: flex;
-  gap: 4px;
 }
 
 .debug-body {
@@ -2043,8 +2053,8 @@ html.playing-touch body {
 }
 
 .tb-btn {
-  width: 40px;
-  height: 36px;
+  width: var(--touch);
+  height: var(--touch);
   padding: 0;
   justify-content: center;
   font-size: 18px;
@@ -3407,6 +3417,21 @@ html:lang(zh-CN) .h-show-lines h3 {
 .footer-links button.link:hover {
   color: var(--h-lcd);
 }
+/* touch screens: the footer's links and the Fulu tabs get a finger's height */
+@media (pointer: coarse) {
+  .footer-links {
+    gap: 0 20px;
+  }
+  .footer-links a,
+  .footer-links button.link {
+    min-height: var(--touch);
+  }
+  .fp-tabs a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch);
+  }
+}
 .footer-brand strong {
   font-family: var(--font-mono);
   text-transform: uppercase;
@@ -3735,6 +3760,25 @@ html:lang(zh-CN) .g-head h1 {
 .g-remove:hover {
   color: var(--danger);
 }
+.g-meta-part {
+  white-space: nowrap;
+}
+/* the shelves' labels sit on the page, not on the dark hero */
+.g-shelf-head .h-kicker {
+  color: var(--muted);
+}
+/* a finger gets 40 px for the small text buttons too */
+@media (pointer: coarse) {
+  .g-close,
+  .g-remove,
+  .remote-linkbtn {
+    min-height: var(--touch);
+  }
+  .g-close {
+    min-width: var(--touch);
+    justify-content: center;
+  }
+}
 
 /* the engine switch: square segments, the chosen one inked */
 .g-engine.seg {
@@ -3746,9 +3790,9 @@ html:lang(zh-CN) .g-head h1 {
 .g-page .g-engine.seg > button {
   min-width: 0;
   justify-content: center;
-  padding: 0 6px;
+  padding: 0 4px;
   font: 500 11.5px/1.1 var(--font-mono);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
@@ -5774,7 +5818,10 @@ p.f-prose {
 .res-view > header h2 {
   margin-right: auto;
 }
-/* a resource's views: "Visual | Text" */
+/* a resource's views: "Visual | Text", as tall as No., Duplicate and Delete beside it */
+.res-view > header .view-switch > button {
+  min-height: calc(var(--control-h) - 2px);
+}
 
 /* the command palette */
 .palette-dialog {
@@ -5828,8 +5875,8 @@ p.f-prose {
   cursor: pointer;
 }
 .palette li.on {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--tint);
+  color: var(--ink);
 }
 .palette .p-label {
   min-width: 0;
@@ -5874,6 +5921,8 @@ p.f-prose {
 /* the project home */
 .p-home {
   display: grid;
+  /* (one column that never grows past the panel: a narrow window wraps the cards' contents) */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   padding: 18px 20px 24px;
   max-width: 1100px;

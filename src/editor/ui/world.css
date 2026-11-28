@@ -53,6 +53,10 @@
 .w-show .spacer {
   flex: 1;
 }
+/* (as tall as the Zoom menu beside it) */
+.w-show > button.small {
+  min-height: var(--control-h);
+}
 .w-show .field {
   display: inline-flex;
   gap: 6px;

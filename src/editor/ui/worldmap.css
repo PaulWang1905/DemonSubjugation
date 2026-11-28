@@ -51,7 +51,13 @@
 }
 .wmap-bar .seg button {
   min-width: 30px;
+  min-height: calc(var(--control-h-sm) - 2px);
   font-size: 15px;
+}
+@media (pointer: coarse) {
+  .wmap-bar .seg button {
+    min-height: calc(var(--touch) - 2px);
+  }
 }
 .wmap-zoom {
   min-width: 46px;

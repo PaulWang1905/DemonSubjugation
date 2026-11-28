@@ -195,7 +195,7 @@ export function GuidePanel({ archive, texts, version, notes, setNotes, onOpen, o
         <span className="muted small">{step ? `step ${g.step + 1} of ${STEPS.length}` : "done"}</span>
         <span className="spacer" />
         <button type="button" className="ghost icon" onClick={() => setFolded(true)} title="Fold the guide" aria-label="Fold the guide" aria-expanded="true">
-          ▁
+          −
         </button>
         <button type="button" className="ghost icon" onClick={close} title="Close the guide (the project home brings it back)" aria-label="Close the guide">
           ✕

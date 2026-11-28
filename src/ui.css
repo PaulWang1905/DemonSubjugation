@@ -28,14 +28,14 @@
   --bg: #f3f1ec;
   --panel: #ffffff;
   --ink: #1d1f23;
-  --muted: #6b6f78;
+  --muted: #62666e; /* 5.1:1 on --bg, 4.6:1 on the keys and tints (WCAG AA) */
   --line: #dedad2;
   --line-strong: #b9b4aa; /* control frames */
   --accent: #3f6b3a;
   --accent-ink: #ffffff;
   --danger: #a3382f;
   --danger-ink: #ffffff;
-  --warn: #a8661c;
+  --warn: #935812; /* AA as text on --bg and --panel */
   --tint: color-mix(in srgb, var(--accent) 13%, transparent); /* where you are */
   --hover: color-mix(in srgb, var(--ink) 6%, transparent);
   --focus: var(--accent);
@@ -372,7 +372,8 @@
   background: transparent;
   color: var(--muted);
 }
-.seg > * + * {
+/* a hairline between cells (after the cell reset above, which clears borders) */
+.seg > * + :is(*, button, .button, label) {
   border-left: 1px solid var(--line-strong);
 }
 .seg > :not(button, .button, label) {
@@ -477,10 +478,16 @@ button.chip:where(:hover:not(:disabled)) {
   :where(button, .button).icon {
     min-width: var(--touch);
   }
-  .seg > :is(button, .button, label) {
+  :where(button, .button).small,
+  :where(button, .button).icon.small {
+    min-height: var(--touch);
+    min-width: var(--touch);
+  }
+  .seg > :is(button, .button, label),
+  .seg.small > :is(button, .button, label) {
     min-height: calc(var(--touch) - 2px);
   }
   .chip {
-    min-height: 36px;
+    min-height: var(--touch);
   }
 }

@@ -652,8 +652,15 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
         <tbody>
           {dt.keys.map(([what, keys]) => (
             <tr key={what}>
-              <th>{what}</th>
-              <td>{keys}</td>
+              {/* (a note without keys spans the table, so it does not widen the first column) */}
+              {keys ? (
+                <>
+                  <th>{what}</th>
+                  <td>{keys}</td>
+                </>
+              ) : (
+                <th colSpan={2}>{what}</th>
+              )}
             </tr>
           ))}
         </tbody>

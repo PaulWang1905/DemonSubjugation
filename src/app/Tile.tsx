@@ -1,6 +1,6 @@
 // A tile of the Games page's library: an LCD cover with its number and the
 // name in pixel type, what it is, and what can be done with it.
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 export const Arrow = () => (
   <span className="h-arrow" aria-hidden="true">
@@ -16,7 +16,15 @@ export function Tile({ no, art, meta, title, children, className }: { no: number
         <span className="g-logo">{art}</span>
       </div>
       <div className="g-body">
-        <p className="h-meta">{meta}</p>
+        {/* (each part keeps together: a date does not break in two) */}
+        <p className="h-meta">
+          {meta.split(" · ").map((part, i) => (
+            <Fragment key={i}>
+              {i > 0 && " · "}
+              <span className="g-meta-part">{part}</span>
+            </Fragment>
+          ))}
+        </p>
         <h3 title={title}>{title}</h3>
         {children}
       </div>
