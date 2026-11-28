@@ -401,6 +401,41 @@ map of each game (about 1,900 frames a map, position off and on), map frames
 with no border went from 688-4,687 per game to 0 (异世大陆: 9 of 172,776).
 tests/wide-view-plain.test.ts and tests/wide-view-gam.test.ts (伏魔洞, 摩天顶).
 
+*Popups over the hero, screens being drawn, repeating patterns.* Three more
+the owner saw:
+- A popup over the hero on plain ground (怀旧终曲's 属性 submenu at 伏魔洞,
+  完美版's on 摩天顶) dropped the border: no patterned tile in sight and the
+  hero not whole (怀旧终曲 even clears the map's tiles around its menus).
+  Now, while the view is the one shown, the hero counts with a box over
+  part of him: every pixel of a walking picture that differs is inside a box
+  drawn on the screen (a black frame, with its shadow), and half his ink or
+  more is outside it. A page over the whole screen, a battle or a picture
+  has no hero there, and still drops the border by its second frame (the
+  frames to the drop, measured for battles, pages and pictures on both OSes,
+  are as before).
+- On the firmware the game's screen reaches the device's over two frames, so
+  at a battle's start one frame showed the border beside the battle's first
+  rows over the map. Now a screen where tiles that were the map's a frame ago
+  are neither the map's nor under a character shows the last frame again
+  (as a screen mid-step does, at most four frames); the border still goes
+  when it did. A popup's cursor moving changes no tile that was the map's
+  and shows at once.
+- 异世大陆's 精灵界 repeats its patterns: a view a tile off matched as many
+  patterned tiles, and the one with fewer of its own missing won, a tile
+  ahead of the screen. Of views with as many patterned tiles, the one more of
+  all the screen's tiles are now wins. (The survey's earlier "off-sync"
+  frames there were partly its own measure picking a view that looks the
+  same; it now counts only cells where the two views' tiles differ.)
+Walking every map of the six kit games and 异世大陆 again (Fulu, about 1,900
+frames a map, position off and on: 1.9 million frames), the frames showing
+the map with no border went from 145 to 0 and those with the border at
+another view than the middle from 290 to 0 (all in 异世大陆; the other games
+had none before or after), and the frames shown again as if mid-redraw from
+81 to 1.
+tests/wide-view-plain.test.ts (synthetic), tests/wide-view-gam.test.ts (the
+submenus) and tests/wide-view-walk.test.ts (精灵界, and a battle's start on
+both OSes).
+
 ## 13. F6: More text for `.gam` games (plan)
 
 **Goal.** FMJ React's More text option for `.gam` games on Fulu: Normal

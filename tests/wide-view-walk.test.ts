@@ -21,6 +21,9 @@ import { decodePic, WideView, type Pic } from "../src/bbk/wideView";
 import { readLibrary } from "../src/engine";
 import { DatLib, ResType } from "../src/engine/fmj/lib/DatLib";
 import { FuluDevice } from "../src/fulu/device";
+import { buildGam } from "../src/bbk/gamBuild";
+import { assemble } from "../src/editor/format/gut";
+import { findEntry, readLib, writeLib } from "../src/editor/format/lib";
 
 const GAMES = process.env.BBK_GAMES ?? "", FONTS = process.env.FMJ_DATA_DIR ?? "", FW = process.env.BBK_FIRMWARE ?? "", YISHI = process.env.BBK_YISHI ?? "";
 const path = (f: string) => (f === "异世大陆" ? YISHI : GAMES && join(GAMES, f));
@@ -77,25 +80,28 @@ function viewOf(lib: DatLib, px: Uint8Array, stride: number, x0: number, y0: num
 
 let firmware: Firmware | null = null;
 
+/** The device for `os` running `gam`. */
+function start(os: "fulu" | "firmware", gam: Uint8Array): { press(k: number): void; machine: Machine } {
+  if (os === "fulu") {
+    const d = new FuluDevice({ hzk16: new Uint8Array(readFileSync(join(FONTS, "HZK16"))), asc16: new Uint8Array(readFileSync(join(FONTS, "ASC16"))) });
+    d.launch(d.install(gam)!);
+    return d;
+  }
+  if (!firmware) {
+    firmware = { regions: {} };
+    for (const f of readdirSync(FW)) addFirmwareFile(firmware, f, new Uint8Array(readFileSync(join(FW, f))));
+  }
+  const d = new Device(firmware);
+  d.boot();
+  expect(d.launch(d.install(gam)!)).toBe(true);
+  return d;
+}
+
 describe.each(["fulu", "firmware"] as const)("%s", (os) => {
   describe.each(["伏魔记-1.3.gam", "英雄坛说.gam", "异世大陆"])("%s", (file) => {
     it.skipIf(!have(os, file))("keeps the border at the screen's view while walking", () => {
       const gam = new Uint8Array(readFileSync(path(file)));
-      let dev: { press(k: number): void; machine: Machine };
-      if (os === "fulu") {
-        const d = new FuluDevice({ hzk16: new Uint8Array(readFileSync(join(FONTS, "HZK16"))), asc16: new Uint8Array(readFileSync(join(FONTS, "ASC16"))) });
-        d.launch(d.install(gam)!);
-        dev = d;
-      } else {
-        if (!firmware) {
-          firmware = { regions: {} };
-          for (const f of readdirSync(FW)) addFirmwareFile(firmware, f, new Uint8Array(readFileSync(join(FW, f))));
-        }
-        const d = new Device(firmware);
-        d.boot();
-        expect(d.launch(d.install(gam)!)).toBe(true);
-        dev = d;
-      }
+      const dev = start(os, gam);
       const m = dev.machine, library = gam.subarray(findLib(gam)), lib = new DatLib(new Int8Array(library.buffer, library.byteOffset, library.byteLength));
       const kit = new KitCheats(m, readLibrary(library)), wide = new WideView(library), clock = new Clock();
       const input = new DeviceInput(() => dev, () => true, clock);
@@ -160,6 +166,174 @@ describe.each(["fulu", "firmware"] as const)("%s", (os) => {
       expect(onMap).toBeGreaterThan(frames / 2);
       expect(moved).toBeGreaterThan(4); // (the view moved)
       expect(problems.slice(0, 5)).toEqual([]);
+    }, 600_000);
+  });
+});
+
+// 异世大陆's 精灵界 (map 9-1): repeating patterns, where a view a tile or two
+// off matches most of the screen, and cells whose tile its tile set lacks.
+// The game starts there (its first script replaced by one that loads the map,
+// every cell walkable, no cell events) and walks about. On every frame that
+// shows the map the border shows, and the middle never shows another view
+// than the border was drawn at: no two cells or more of the middle are some
+// other view's where that view's tile and the drawn one's differ, unless as
+// many are the drawn one's.
+describe.each(["fulu", "firmware"] as const)("%s, 异世大陆's 精灵界", (os) => {
+  it.skipIf(!have(os, "异世大陆"))("keeps the border at the screen's view on repeating patterns", () => {
+    const original = new Uint8Array(readFileSync(YISHI));
+    const archive = readLib(original.subarray(findLib(original)));
+    findEntry(archive, 1, 1, 1)!.data = assemble(".gut 1 1\n.events 0\n  loadmap 9, 1, 20, 5\n  createactor 1, 4, 3\n  callback\n");
+    for (const e of archive.entries.filter((e) => e.resType === 2))
+      for (let i = 0; i < e.data[0x10] * e.data[0x11]; i++) (e.data[0x12 + i * 2] |= 0x80), (e.data[0x12 + i * 2 + 1] = 0);
+    const gam = buildGam(writeLib(archive), "wide", "fulu", original);
+    const dev = start(os, gam), m = dev.machine;
+    const library = gam.subarray(findLib(gam)), lib = new DatLib(new Int8Array(library.buffer, library.byteOffset, library.byteLength));
+    const kit = new KitCheats(m, readLibrary(library)), wide = new WideView(library), clock = new Clock();
+    const input = new DeviceInput(() => dev, () => true, clock);
+    const b = lib.bytes(ResType.MAP, 9, 1)!, tiles = decodePic(lib.bytes(ResType.TIL, 1, b[2] & 0xff))!, width = b[0x10] & 0xff;
+    const tile = (x: number, y: number) => (x < 0 || y < 0 || x >= width || y >= (b[0x11] & 0xff) ? -1 : b[0x12 + (y * width + x) * 2] & 0x7f);
+    const known = (t: number) => t >= 0 && t < tiles.frames.length;
+    const differ = (p: number, q: number) => p !== q && (!known(p) || !known(q) || tiles.frames[p].some((v, i) => v !== tiles.frames[q][i]));
+    const lcd = new Uint8Array(LCD_STRIDE * LCD_HEIGHT), [w, h] = WideView.size(2, 1), out = new Uint8Array(w * h);
+    /** Whether the cell (tx, ty) of the map area (from x0, y0 in a picture `stride` wide) shows tile t. */
+    const shows = (px: Uint8Array, stride: number, x0: number, y0: number, tx: number, ty: number, t: number) => {
+      if (!known(t)) return false;
+      const f = tiles.frames[t];
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if ((px[(y0 + ty * 16 + y) * stride + x0 + tx * 16 + x] ? 1 : 0) !== f[y * 16 + x]) return false;
+      return true;
+    };
+    /** How many cells of the frame's middle are view p's where view q's tile differs. */
+    const evidence = (p: KitMapView, q: KitMapView) => {
+      let n = 0;
+      for (let ty = 0; ty < 6; ty++)
+        for (let tx = 0; tx < 9; tx++) {
+          const a = tile(p.viewX + tx, p.viewY + ty);
+          if (differ(a, tile(q.viewX + tx, q.viewY + ty)) && shows(out, w, 32 + 8, 16, tx, ty, a)) n++;
+        }
+      return n;
+    };
+    const problems: string[] = [];
+    let frames = 0, onMap = 0, moved = 0, last = "";
+    const frame = () => {
+      m.run(CPU_HZ / 60);
+      kit.tick();
+      clock.advance(1000 / 60);
+      decodeLcd(m.ram, lcd);
+      const v = kit.mapView();
+      wide.compose(lcd, v, 2, 1, out);
+      frames++;
+      if (!v || v.mapType !== 9 || v.mapIndex !== 1) return;
+      // (the device's screen shows the map: of the views near the memory's, one with 6 patterned tiles in place)
+      const near: KitMapView[] = [];
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) near.push({ ...v, viewX: v.viewX + dx, viewY: v.viewY + dy });
+      const onScreen = near.some((n) => {
+        let k = 0;
+        for (let ty = 0; ty < 6; ty++)
+          for (let tx = 0; tx < 9; tx++) {
+            const t = tile(n.viewX + tx, n.viewY + ty);
+            if (known(t) && !tiles.plain[t] && shows(lcd, LCD_STRIDE, 8, 0, tx, ty, t)) k++;
+          }
+        return k >= 6;
+      });
+      if (!onScreen) return;
+      onMap++;
+      if (`${v.viewX},${v.viewY}` !== last) (moved++, (last = `${v.viewX},${v.viewY}`));
+      const d = wide.drawn;
+      if (!wide.showing || !d) return void problems.push(`frame ${frames}: the border blank with the map in the middle`);
+      for (const n of near) {
+        const a = evidence(n, d);
+        if (a >= 2 && a > evidence(d, n)) return void problems.push(`frame ${frames}: the middle shows ${n.viewX},${n.viewY}, the border ${d.viewX},${d.viewY} (memory ${v.viewX},${v.viewY})`);
+      }
+    };
+    const run = (s: number) => {
+      for (let n = Math.round(s * 60); n > 0; n--) frame();
+    };
+    const tap = (k: number, s: number) => (input.down(k), frame(), input.up(k), run(s));
+    run(3);
+    for (let i = 0; i < 2; i++) tap(Key.enter, 2);
+    for (let i = 0; i < 30 && !kit.ready(); i++) tap(Key.enter, 1);
+    kit.setSwitch("noRandomBattles", true);
+    run(1);
+    frames = onMap = 0;
+    problems.length = 0;
+    for (const [k, s] of [[Key.right, 2], [Key.down, 1], [Key.left, 4], [Key.up, 2], [Key.right, 4], [Key.down, 2], [Key.left, 2], [Key.up, 1]] as const) {
+      input.down(k);
+      run(s);
+      input.up(k);
+      run(0.3);
+    }
+    for (const k of [Key.right, Key.right, Key.left, Key.down, Key.up, Key.left]) tap(k, 0.4);
+    expect(onMap).toBeGreaterThan(frames / 2);
+    expect(moved).toBeGreaterThan(10);
+    expect(problems.slice(0, 5)).toEqual([]);
+  }, 600_000);
+});
+
+// A battle's start: on the firmware the game's screen reaches the device's
+// over two frames, so one frame is the map with the battle's first rows over
+// it. With the border shown, every frame's middle is a screen the device
+// showed for two frames or more (never one caught mid-draw), and the border
+// is gone within two frames of the screen first changing. Random battles on
+// 完美版's and 伏魔记 1.0's 摩天顶 (plain ground; 1.0 draws its map from x 7).
+describe.each(["fulu", "firmware"] as const)("%s, a battle's start", (os) => {
+  describe.each([
+    ["伏魔记完美版1.0.gam", 1, 9, 6, 4],
+    ["伏魔记-1.0.gam", 1, 9, 6, 4],
+  ] as const)("%s", (file, type, index, vx, vy) => {
+    it.skipIf(!have(os, file))("never shows the border beside a screen being drawn, and drops it as soon as before", () => {
+      const original = new Uint8Array(readFileSync(path(file)));
+      const archive = readLib(original.subarray(findLib(original)));
+      findEntry(archive, 1, 1, 1)!.data = assemble(`.gut 1 1\n.events 0\n  loadmap ${type}, ${index}, ${vx}, ${vy}\n  createactor 1, 4, 3\n  initfight 1, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0\n  fightenable\n  callback\n`);
+      const gam = buildGam(writeLib(archive), "wide", "fulu", original);
+      const dev = start(os, gam), m = dev.machine, library = gam.subarray(findLib(gam));
+      const kit = new KitCheats(m, readLibrary(library)), wide = new WideView(library), clock = new Clock();
+      const input = new DeviceInput(() => dev, () => true, clock);
+      const [w, h] = WideView.size(2, 1), out = new Uint8Array(w * h), lcd = new Uint8Array(LCD_STRIDE * LCD_HEIGHT);
+      const log: { lcd: Uint8Array; middle: Uint8Array; showing: boolean; combat: boolean }[] = [];
+      /** The map area of a screen, but for the hero's place (the firmware can catch his picture mid-draw too: no matter to the border). */
+      const area = (px: Uint8Array, stride: number, x0: number, y0: number) => {
+        const a = new Uint8Array(144 * 96);
+        for (let y = 0; y < 96; y++) for (let x = 0; x < 144; x++) if (x < 64 || x >= 80 || y < 16 || y >= 64) a[y * 144 + x] = px[(y0 + y) * stride + x0 + x] ? 1 : 0;
+        return a;
+      };
+      const frame = () => {
+        m.run(CPU_HZ / 60);
+        kit.tick();
+        clock.advance(1000 / 60);
+        decodeLcd(m.ram, lcd);
+        wide.compose(lcd, kit.mapView(), 2, 1, out);
+        // (the map area, from x 8, or 7 in 伏魔记 1.0)
+        const left = file === "伏魔记-1.0.gam" ? 7 : 8;
+        log.push({ lcd: area(lcd, LCD_STRIDE, left, 0), middle: area(out, w, 32 + left, 16), showing: wide.showing, combat: kit.inCombat() });
+      };
+      const run = (s: number) => {
+        for (let n = Math.round(s * 60); n > 0; n--) frame();
+      };
+      run(3);
+      for (let i = 0; i < 2; i++) (input.down(Key.enter), frame(), input.up(Key.enter), run(2));
+      for (let i = 0; i < 30 && !kit.ready(); i++) (input.down(Key.enter), frame(), input.up(Key.enter), run(1));
+      run(1);
+      log.length = 0;
+      for (let s = 0; s < 600 && !kit.inCombat(); s++) {
+        input.down(s % 2 ? Key.left : Key.right);
+        run(0.5);
+        input.up(s % 2 ? Key.left : Key.right);
+        run(0.2);
+      }
+      expect(kit.inCombat()).toBe(true);
+      run(2);
+      const same = (a: Uint8Array, b: Uint8Array) => a.every((v, i) => v === b[i]);
+      // the screens that stayed two frames or more
+      const steady = log.filter((l, i) => i > 0 && same(l.lcd, log[i - 1].lcd)).map((l) => l.lcd);
+      const combatAt = log.findIndex((l) => l.combat);
+      const torn = log.flatMap((l, i) => (l.showing && !steady.some((s) => same(s, l.middle)) ? [`frame ${i - combatAt} from the battle in memory`] : []));
+      expect(torn).toEqual([]);
+      // the battle (in the game's memory first): from the screen's first change, the border gone within two frames
+      let first = combatAt;
+      while (same(log[first - 1].lcd, log[first].lcd)) first++;
+      const off = log.findLastIndex((l) => l.showing) + 1;
+      expect(off - first).toBeLessThanOrEqual(2);
+      expect(log.slice(off).every((l) => !l.showing)).toBe(true);
     }, 600_000);
   });
 });

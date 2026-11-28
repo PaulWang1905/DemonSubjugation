@@ -11,18 +11,22 @@
 // top left is left out). On plain ground, with hardly a patterned tile in
 // sight, the plain tiles must be and the hero must stand in his place. Once
 // shown, it stays while the view is the same and some of the map still
-// shows (a popup menu over most of it, the hero beside it). Battles, menus over
-// the whole screen, scene pictures, or a build whose memory is not as
-// expected fail the check, and the frame then shows the device's whole
-// screen with a blank border.
+// shows (a popup menu over most of it, the hero beside it, or the hero with
+// a popup's box over part of him: 怀旧终曲's 属性 submenu even clears the
+// map's tiles around it). Battles, menus over the whole screen, scene
+// pictures, or a build whose memory is not as expected fail the check, and
+// the frame then shows the device's whole screen with a blank border (from
+// the second frame of a failed check).
 //
 // The border and the middle show the same moment. The game moves its view
 // in memory first and draws its screen some frames later (伏魔记 eight, 异世大陆
 // two or three), and on the firmware the drawing itself takes two or three
 // frames. So the border is drawn at the view the screen shows: the memory's,
 // or the one it showed last (with that moment's characters), or one between
-// them; a screen caught mid-redraw, part one view and part another, shows
-// the last frame again (border and middle) for at most HOLD frames.
+// them; a screen caught mid-redraw shows the last frame again (border and
+// middle) for at most HOLD frames: part one view and part another, or the
+// map with tiles that were the map's a frame ago now something else (on the
+// firmware, a battle's or a page's first rows over the map).
 
 import { DatLib, ResType } from "../engine/fmj/lib/DatLib";
 import type { KitMapView } from "./kitCheats";
@@ -43,6 +47,8 @@ const GRACE = 2;
 const HOLD = 4;
 /** Patterned tiles of each of two views, where the other has other tiles, that make a screen mid-redraw. */
 const TORN = 2;
+/** Tiles of the map in the last frame that are now neither the map's nor under a character, that make a screen mid-redraw. */
+const STRAY = 3;
 /** How far around the game's view the screen's is looked for, in tiles each way (it walks on before it draws, and can turn back). */
 const MAX_BEHIND = 2;
 /** For how many frames without the map the view shown last is still a candidate (past a battle, the memory's view is the screen's). */
@@ -62,6 +68,8 @@ interface Count {
   same: number;
   patterned: number;
   patterns: number;
+  /** (asked with `covered`) those not the library's nor covered. */
+  stray: number;
 }
 
 /** The hero's tile in the view, and how many black pixels a picture of it must have to tell (not a blank screen). */
@@ -92,6 +100,50 @@ function boxTop(lcd: Uint8Array): number | null {
   return BOX_BOTTOM - top >= BOX_MIN ? top : null;
 }
 
+/** Whether two screens are the same. */
+function sameScreen(a: Uint8Array, b: Uint8Array): boolean {
+  for (let i = 0, n = LCD_STRIDE * LCD_HEIGHT; i < n; i++) if ((a[i] ? 1 : 0) !== (b[i] ? 1 : 0)) return false;
+  return true;
+}
+
+const black = (lcd: Uint8Array, x: number, y: number) => x >= 0 && y >= 0 && x < LCD_STRIDE && y < LCD_HEIGHT && !!lcd[y * LCD_STRIDE + x];
+/** Whether the column x is black from y0 to y1; the row y from x0 to x1. */
+const blackColumn = (lcd: Uint8Array, x: number, y0: number, y1: number) => {
+  for (let y = y0; y <= y1; y++) if (!black(lcd, x, y)) return false;
+  return true;
+};
+const blackRow = (lcd: Uint8Array, y: number, x0: number, x1: number) => {
+  for (let x = x0; x <= x1; x++) if (!black(lcd, x, y)) return false;
+  return true;
+};
+/** A box drawn on the screen (a popup menu's): left, top, right, bottom, its frame black. */
+type Box = [number, number, number, number];
+/** The smallest box a popup can be, each way; how many corners boxAround() tries at most. */
+const BOX_SIDE = 8, BOX_WORK = 4000;
+/** A box's shadow: up to this many pixels right of it and below. */
+const SHADOW = 2;
+
+/** A box (a black frame, BOX_SIDE or more each way) on the screen around the point (x, y), its frame included, or null. */
+function boxAround(lcd: Uint8Array, x: number, y: number): Box | null {
+  // (its left side: a black column through y; its top: a black row from there past x; its right side and bottom close it;
+  // a screen mostly black, which has no popup, gives up after BOX_WORK tries)
+  let work = 0;
+  for (let l = x; l >= 0; l--) {
+    if (!black(lcd, l, y)) continue;
+    for (let t = y; t >= 0 && black(lcd, l, t); t--) {
+      for (let r = Math.max(x, l + BOX_SIDE - 1); r < LCD_STRIDE && black(lcd, r, t); r++) {
+        if (++work > BOX_WORK) return null;
+        if (!blackColumn(lcd, r, t, y) || !blackRow(lcd, t, l, r)) continue;
+        for (let b = Math.max(y, t + BOX_SIDE - 1); b < LCD_HEIGHT && black(lcd, l, b) && black(lcd, r, b); b++) {
+          if (++work > BOX_WORK) return null;
+          if (blackRow(lcd, b, l, r)) return [l, t, r, b];
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export class WideView {
   private readonly lib: DatLib;
   private readonly pics = new Map<string, Pic | null>();
@@ -108,6 +160,9 @@ export class WideView {
   private lastSize = "";
   /** Frames in a row shown again from `last`. */
   private held = 0;
+  /** The screen at the last call, and which of its tiles were stray() (map cells, y * 256 + x). */
+  private prev: Uint8Array | null = null;
+  private strays = new Set<number>();
   /** The view (and characters) the last frame's border was drawn at, or null for a blank border. */
   drawn: KitMapView | null = null;
 
@@ -129,7 +184,11 @@ export class WideView {
    */
   compose(lcd: Uint8Array, view: KitMapView | null, mx: number, my: number, out: Uint8Array): [number, number] {
     const [w, h] = WideView.size(mx, my), ox = TILE * mx, oy = TILE * my, size = `${w}x${h}`;
-    let at: KitMapView | null = null, torn = false;
+    let at: KitMapView | null = null, torn = false, changing = false;
+    // (whether the screen changed since the last call: a screen being drawn does)
+    const changed = !this.prev || !sameScreen(lcd, this.prev);
+    if (!this.prev) this.prev = new Uint8Array(LCD_STRIDE * LCD_HEIGHT);
+    this.prev.set(lcd.subarray(0, LCD_STRIDE * LCD_HEIGHT));
     if (view && this.map(view.mapType, view.mapIndex)) {
       const left = this.left ?? this.find(lcd, view);
       if (left !== null) {
@@ -141,21 +200,35 @@ export class WideView {
       // A popup menu can leave too little of the map in view to prove it. The
       // border stays while the view is the one it showed and the screen still
       // shows the map somewhere (one of its patterned tiles in place, or the
-      // hero); a battle, a page over the whole screen or a picture shows none.
+      // hero, whole or with a popup's box over part of him); a battle, a page
+      // over the whole screen or a picture shows none.
       const good = this.good;
       if (!at && !torn && this.showing && good && samePlace(good, view)) {
         const c = this.count(lcd, this.map(good.mapType, good.mapIndex)!, good, this.edge);
-        if (c.patterned >= 1 || this.hero(lcd, this.edge)) at = good;
+        if (c.patterned >= 1 || this.hero(lcd, this.edge) || this.hero(lcd, this.edge, true)) at = good;
       }
-    }
-    if (at && at !== this.good) this.good = { ...at, actors: at.actors.map((a) => ({ ...a })) };
-    this.fails = at ? 0 : this.fails + 1;
+      // A screen being drawn over a frame or two (the firmware copies it to
+      // the screen so): the map's tiles in part, and tiles that were the map's
+      // in the last frame now neither the map's nor under a character. It may
+      // be the first rows of a battle's screen, or a page clearing the screen:
+      // the last frame again. (A popup's cursor moving changes no tile that
+      // was the map's: it shows at once.)
+      if (at && changed) {
+        const stray = this.stray(lcd, at, this.edge);
+        let more = 0;
+        for (const c of stray) if (!this.strays.has(c)) more++;
+        changing = this.showing && this.held < HOLD && more >= STRAY;
+        this.strays = stray;
+      } else if (!at) this.strays = new Set();
+    } else this.strays = new Set();
     // a screen mid-redraw, or the first frame of a failed check: the last frame again
-    if (!at && this.showing && this.last && this.lastSize === size && (torn ? this.held < HOLD : this.fails < GRACE)) {
+    if (!changing) this.fails = at ? 0 : this.fails + 1;
+    if (this.showing && this.last && this.lastSize === size && (changing || (!at && (torn ? this.held < HOLD : this.fails < GRACE)))) {
       this.held++;
       out.set(this.last.subarray(0, w * h));
       return [ox, oy];
     }
+    if (at && at !== this.good) this.good = { ...at, actors: at.actors.map((a) => ({ ...a })) };
     this.held = 0;
     this.showing = !!at || (this.showing && this.fails < GRACE && !torn);
     const v = this.showing ? (at ?? this.good) : null;
@@ -229,8 +302,11 @@ export class WideView {
     const maps = views.map((v) => this.map(v.mapType, v.mapIndex));
     const counts = views.map((v, i) => (maps[i] ? this.count(lcd, maps[i]!, v, left) : null));
     let best = -1;
-    // (of equals, the one with fewer of its patterned tiles not on the screen: on plain ground, where the screen still shows the last view)
-    const better = (c: Count, b: Count) => c.patterned > b.patterned || (c.patterned === b.patterned && c.patterns - c.patterned < b.patterns - b.patterned);
+    // (of equals, the one more of the screen's tiles are, plain ones too: on plain ground, and on repeating
+    // patterns, where the screen still shows the last view; then the one with fewer of its patterned tiles not on the screen)
+    const better = (c: Count, b: Count) =>
+      c.patterned > b.patterned ||
+      (c.patterned === b.patterned && (c.same > b.same || (c.same === b.same && c.patterns - c.patterned < b.patterns - b.patterned)));
     counts.forEach((c, i) => c && (best < 0 || better(c, counts[best]!)) && (best = i));
     return { views, maps, counts, best };
   }
@@ -256,43 +332,94 @@ export class WideView {
     return null;
   }
 
+  /** The party members' walking pictures. */
+  private heroes(): Pic[] {
+    const pics: Pic[] = [];
+    for (let i = 1; i < 256; i++) {
+      const pic = this.pic(ResType.ACP, 1, i);
+      if (pic) pics.push(pic);
+      else if (i > 8) break; // (the pictures are numbered from 1, perhaps with gaps)
+    }
+    return pics;
+  }
+
   /**
    * Whether the hero stands in its place on the screen (the view's tile
    * (HERO_X, HERO_Y), the map area from x = `left`): one of the frames of a
-   * party member's walking picture, every one of its pixels.
+   * party member's walking picture, every one of its pixels; or, `boxed`,
+   * every one but those inside a box drawn over him (a popup menu's), with
+   * half of his ink or more outside it.
    */
-  private hero(lcd: Uint8Array, left: number): boolean {
-    for (let i = 1; i < 256; i++) {
-      const pic = this.pic(ResType.ACP, 1, i);
-      if (!pic) {
-        if (i > 8) break; // (the pictures are numbered from 1, perhaps with gaps)
-        continue;
-      }
+  private hero(lcd: Uint8Array, left: number, boxed = false): boolean {
+    for (const pic of this.heroes()) {
       const x0 = left + HERO_X * TILE, y0 = (HERO_Y + 1) * TILE - pic.h;
       if (y0 < 0 || x0 + pic.w > LCD_STRIDE) continue;
       next: for (const f of pic.frames) {
-        let ink = 0;
+        let ink = 0, all = 0;
+        const off: number[] = [];
         for (let y = 0; y < pic.h; y++)
           for (let x = 0; x < pic.w; x++) {
             const v = f[y * pic.w + x];
             if (v === 2) continue;
-            if ((lcd[(y0 + y) * LCD_STRIDE + x0 + x] ? 1 : 0) !== v) continue next;
-            ink += v;
+            all += v;
+            if ((lcd[(y0 + y) * LCD_STRIDE + x0 + x] ? 1 : 0) === v) ink += v;
+            else if (!boxed) continue next;
+            else off.push(x0 + x, y0 + y);
           }
-        if (ink >= MIN_INK) return true;
+        if (!boxed) {
+          if (ink >= MIN_INK) return true;
+          continue;
+        }
+        // (the pixels that differ: each inside a box or its shadow, and the boxes leave half of him or more in sight)
+        if (!off.length || ink < MIN_INK / 2 || ink * 2 < all) continue;
+        const boxes: Box[] = [];
+        for (let i = 0; i < off.length; i += 2) {
+          const [x, y] = [off[i], off[i + 1]];
+          if (boxes.some(([l, t, r, b]) => x >= l && x <= r + SHADOW && y >= t && y <= b + SHADOW)) continue;
+          let box: Box | null = null;
+          for (let d = 0; d <= 2 * SHADOW && !box; d++) for (let dy = 0; dy <= Math.min(d, SHADOW) && !box; dy++) if (d - dy <= SHADOW) box = boxAround(lcd, x - (d - dy), y - dy);
+          // (not a page over the whole map area)
+          if (!box || (box[0] <= left && box[2] >= left + COLS * TILE - 1 && box[1] <= 0 && box[3] >= ROWS * TILE - 1)) continue next;
+          boxes.push(box);
+        }
+        return true;
       }
     }
     return false;
   }
 
   /**
+   * The screen's map tiles that are neither the view's (`view`, the map area
+   * from x = `left`) nor where a character on it, or the hero, may stand over
+   * them (as count(), the tiles under a dialogue box or the hero's position
+   * left out): their cells on the map (y * 256 + x).
+   */
+  private stray(lcd: Uint8Array, view: KitMapView, left: number): Set<number> {
+    const map = this.map(view.mapType, view.mapIndex), stray = new Set<number>();
+    if (!map) return stray;
+    const covered = new Set<number>();
+    const cover = (x: number, y: number, w: number, h: number) => {
+      for (let ty = y - Math.ceil(h / TILE) + 1; ty <= y; ty++) for (let tx = x; tx < x + Math.max(1, Math.ceil(w / TILE)); tx++) covered.add(ty * 64 + tx);
+    };
+    for (const p of this.heroes()) cover(HERO_X, HERO_Y, p.w, p.h);
+    for (const v of [view, this.good])
+      for (const a of v?.actors ?? []) {
+        const pic = this.pic(ResType.ACP, a.type, a.res);
+        if (pic) cover(a.x - view.viewX, a.y - view.viewY, pic.w, pic.h);
+      }
+    this.count(lcd, map, view, left, undefined, (tx, ty) => covered.has(ty * 64 + tx) || (stray.add((view.viewY + ty) * 256 + view.viewX + tx), false));
+    return stray;
+  }
+
+  /**
    * How many of the screen's map tiles (the map area from x = `left`) are the
    * library's: all, and those with a pattern (a plain tile proves little).
    * With `not` (a view on the same map), only where that view's tile looks
-   * otherwise.
+   * otherwise. With `covered` (where a character may stand over a tile), how
+   * many are not the library's elsewhere.
    */
-  private count(lcd: Uint8Array, map: MapData, view: KitMapView, left: number, not?: KitMapView): Count {
-    const c: Count = { seen: 0, same: 0, patterned: 0, patterns: 0 };
+  private count(lcd: Uint8Array, map: MapData, view: KitMapView, left: number, not?: KitMapView, covered?: (tx: number, ty: number) => boolean): Count {
+    const c: Count = { seen: 0, same: 0, patterned: 0, patterns: 0, stray: 0 };
     // (the tiles a dialogue box covers say nothing)
     const box = boxTop(lcd), rows = box === null ? ROWS : Math.min(ROWS, Math.floor(box / TILE));
     const [pl, pt, pr, pb] = POSITION;
@@ -300,7 +427,7 @@ export class WideView {
       for (let tx = 0; tx < COLS; tx++) {
         const t = map.tile(view.viewX + tx, view.viewY + ty);
         if (t === MISSING) continue; // (what the game draws there is not known)
-        if (t < 0) return { seen: 0, same: 0, patterned: 0, patterns: 0 }; // (the view is always on the map)
+        if (t < 0) return { seen: 0, same: 0, patterned: 0, patterns: 0, stray: 0 }; // (the view is always on the map)
         // (nor those the hero's position covers)
         if (view.position && left + tx * TILE <= pr && left + tx * TILE + TILE > pl && ty * TILE <= pb && ty * TILE + TILE > pt) continue;
         const px = map.tiles.frames[t], plain = map.tiles.plain[t];
@@ -316,6 +443,7 @@ export class WideView {
         c.seen++;
         if (!plain) c.patterns++;
         if (same) (c.same++, plain || c.patterned++);
+        else if (covered && !covered(tx, ty)) c.stray++;
       }
     }
     return c;

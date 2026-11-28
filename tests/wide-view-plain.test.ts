@@ -163,3 +163,132 @@ describe("the wider view under the hero's position", () => {
     expect(wide.showing).toBe(false);
   });
 });
+
+// A popup menu over the hero on plain ground (怀旧终曲's 属性 submenu in
+// 伏魔洞, 完美版's on 摩天顶): no patterned tile in sight and the hero only in
+// part. The border stays while what differs of him is inside a box drawn on
+// the screen; a page over the whole screen still drops it at once.
+describe("the wider view with a popup over the hero on plain ground", () => {
+  /** A popup's box with "text" inside, over the left part of the hero (x 72-87, y 48-63), with a shadow right of it and below. */
+  const popup = (lcd: Uint8Array, right = 77) => {
+    box(lcd, 40, 20, right, 56);
+    for (let y = 24; y < 52; y += 4) for (let x = 44; x < right - 2; x += 3) lcd[y * LCD_STRIDE + x] = 1;
+    for (let y = 22; y <= 57; y++) lcd[y * LCD_STRIDE + right + 1] = 1;
+    for (let x = 42; x <= right + 1; x++) lcd[57 * LCD_STRIDE + x] = 1;
+    return lcd;
+  };
+
+  it("keeps the border while the popup covers part of the hero", () => {
+    const wide = new WideView(library), out = new Uint8Array(W * H);
+    wide.compose(screen(6, 5), view(6, 5), MX, MY, out);
+    expect(wide.showing).toBe(true);
+    const lcd = popup(screen(6, 5));
+    // (the hero is not whole: the first check alone would drop the border)
+    expect(lcd.subarray(48 * LCD_STRIDE + 72, 48 * LCD_STRIDE + 88)).not.toEqual(screen(6, 5).subarray(48 * LCD_STRIDE + 72, 48 * LCD_STRIDE + 88));
+    for (let i = 0; i < 8; i++) {
+      wide.compose(lcd, view(6, 5), MX, MY, out);
+      expect(wide.showing).toBe(true);
+    }
+    // the screen as it is, beside the border
+    for (let y = 0; y < LCD_HEIGHT; y++) for (let x = 8; x < 152; x++) expect(out[(16 * MY + y) * W + 16 * MX + x]).toBe(lcd[y * LCD_STRIDE + x]);
+    // closed: still there
+    wide.compose(screen(6, 5), view(6, 5), MX, MY, out);
+    expect(wide.showing).toBe(true);
+  });
+
+  it("drops it for a page over the whole screen, or a box over a screen that is not the map", () => {
+    for (const lcd of [page(), popup(page()), box(screen(6, 5), 0, 0, 159, 95), popup(screen(6, 5, { noHero: true }))]) {
+      const wide = new WideView(library), out = new Uint8Array(W * H);
+      wide.compose(screen(6, 5), view(6, 5), MX, MY, out);
+      wide.compose(lcd, view(6, 5), MX, MY, out);
+      wide.compose(lcd, view(6, 5), MX, MY, out);
+      expect(wide.showing).toBe(false);
+      expect(inked(out)).toBe(false);
+    }
+  });
+
+  it("does not keep it where the view moved", () => {
+    const wide = new WideView(library), out = new Uint8Array(W * H);
+    wide.compose(screen(6, 5), view(6, 5), MX, MY, out);
+    for (let i = 0; i < 3; i++) wide.compose(popup(screen(6, 5)), view(7, 5), MX, MY, out);
+    expect(wide.showing).toBe(false);
+  });
+});
+
+// On the firmware the game's screen reaches the device's over two frames: at
+// a battle's start one frame is the map with the battle's first rows over it.
+// That frame shows the last one again (as a screen mid-step does), and the
+// border still goes by the battle's second frame.
+describe("the wider view while the screen is being drawn", () => {
+  /** The battle's screen (dithered), its first `rows` pixel rows over the map. */
+  const battle = (rows = LCD_HEIGHT) => {
+    const lcd = screen(6, 5);
+    for (let y = 0; y < rows; y++) for (let x = 0; x < LCD_STRIDE; x++) lcd[y * LCD_STRIDE + x] = (x + y) & 1;
+    return lcd;
+  };
+  /** A view with patterned tiles in sight (outside the clearing). */
+  const patterned = (() => {
+    for (let vy = 0; vy + 6 <= 18; vy++)
+      for (let vx = 0; vx + 9 <= width; vx++) {
+        let n = 0;
+        for (let ty = 0; ty < 6; ty++) for (let tx = 0; tx < 9; tx++) n += tileAt(vx + tx, vy + ty) < tiles.frames.length && !tiles.plain[tileAt(vx + tx, vy + ty)] ? 1 : 0;
+        if (n >= 30) return [vx, vy] as const;
+      }
+    throw new Error("no patterned view");
+  })();
+
+  it("shows the last frame again while a battle's screen is drawn, and drops the border as soon as before", () => {
+    const wide = new WideView(library), out = new Uint8Array(W * H);
+    wide.compose(screen(6, 5), view(6, 5), MX, MY, out);
+    const before = out.slice();
+    // its first rows: the map (and the hero) still prove the view, but the screen is half drawn
+    wide.compose(battle(2), view(6, 5), MX, MY, out);
+    expect(out).toEqual(before);
+    expect(wide.showing).toBe(true);
+    // the whole battle: the last frame once more, then the device's screen alone
+    wide.compose(battle(), view(6, 5), MX, MY, out);
+    expect(out).toEqual(before);
+    wide.compose(battle(), view(6, 5), MX, MY, out);
+    expect(wide.showing).toBe(false);
+    expect(inked(out)).toBe(false);
+  });
+
+  it("shows a popup once it is drawn, and a change inside it at once", () => {
+    const [vx, vy] = patterned, v = view(vx, vy);
+    const wide = new WideView(library), out = new Uint8Array(W * H);
+    wide.compose(screen(vx, vy), v, MX, MY, out);
+    expect(wide.showing).toBe(true);
+    const menu = box(screen(vx, vy), 90, 4, 150, 60), half = screen(vx, vy);
+    half.set(menu.subarray(0, 30 * LCD_STRIDE));
+    // drawn over two frames: they show the last frame again; once the screen stays, it shows
+    const before = out.slice();
+    wide.compose(half, v, MX, MY, out);
+    expect(out).toEqual(before);
+    wide.compose(menu, v, MX, MY, out);
+    wide.compose(menu, v, MX, MY, out);
+    expect(out).not.toEqual(before);
+    for (let x = 90; x <= 150; x++) expect(out[(16 * MY + 60) * W + 16 * MX + x]).toBe(1);
+    expect(wide.showing).toBe(true);
+    // its cursor moves: shown at once
+    const moved = menu.slice();
+    for (let x = 100; x < 140; x++) moved[20 * LCD_STRIDE + x] = 1;
+    wide.compose(moved, v, MX, MY, out);
+    for (let x = 100; x < 140; x++) expect(out[(16 * MY + 20) * W + 16 * MX + x]).toBe(1);
+  });
+
+  it("never holds a screen that keeps changing for more than a few frames", () => {
+    const [vx, vy] = patterned, v = view(vx, vy);
+    const wide = new WideView(library), out = new Uint8Array(W * H);
+    wide.compose(screen(vx, vy), v, MX, MY, out);
+    let held = 0;
+    for (let i = 0; i < 10; i++) {
+      // (a box growing down the screen)
+      const lcd = box(screen(vx, vy), 90, 4, 150, 14 + 4 * i);
+      const before = out.slice();
+      wide.compose(lcd, v, MX, MY, out);
+      if (out.every((p, k) => p === before[k])) held++;
+    }
+    expect(held).toBeLessThanOrEqual(4);
+    expect(wide.showing).toBe(true);
+  });
+});

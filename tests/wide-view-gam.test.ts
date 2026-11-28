@@ -255,3 +255,58 @@ describe.each([
     expect(showing(1)).toBe(true);
   }, 300_000);
 });
+
+// A popup over the hero on plain ground (the owner's report): the 属性
+// submenu at 怀旧终曲's 伏魔洞 and on 完美版's 摩天顶 covers part of the hero
+// (and 怀旧终曲 clears the map's tiles around its menus). The border stays
+// while it is open; the status page it opens, over the whole screen, still
+// drops it at once (as a battle, after a frame or two).
+describe.each([
+  ["伏魔记怀旧终曲v1.0(原版精修).gam", 3, 1, 11, 23],
+  ["伏魔记完美版1.0.gam", 1, 9, 6, 4],
+] as const)("%s, the 属性 submenu at map %i-%i, %i, %i", (file, type, index, vx, vy) => {
+  it.skipIf(!have(file))("keeps the border while the submenu is open, and drops it for the page it opens", () => {
+    const d = new FuluDevice({ hzk16: new Uint8Array(readFileSync(join(FONTS, "HZK16"))), asc16: new Uint8Array(readFileSync(join(FONTS, "ASC16"))) });
+    const original = new Uint8Array(readFileSync(join(GAMES, file)));
+    const archive = readLib(original.subarray(findLib(original)));
+    findEntry(archive, 1, 1, 1)!.data = assemble(`.gut 1 1\n.events 0\n  loadmap ${type}, ${index}, ${vx}, ${vy}\n  createactor 1, 4, 3\n  callback\n`);
+    const gam = buildGam(writeLib(archive), "wide", "fulu", original);
+    d.launch(d.install(gam)!);
+    const library = gam.subarray(findLib(gam));
+    const kit = new KitCheats(d.machine, readLibrary(library)), wide = new WideView(library);
+    const lcd = new Uint8Array(LCD_STRIDE * LCD_HEIGHT), [w, h] = WideView.size(4, 2), frame = new Uint8Array(w * h);
+    const frames: { lcd: Uint8Array; showing: boolean }[] = [];
+    const run = (s: number) => {
+      for (let n = Math.round(s * 60); n > 0; n--) {
+        d.machine.run(CPU_HZ / 60);
+        decodeLcd(d.machine.ram, lcd);
+        wide.compose(lcd, kit.mapView(), 4, 2, frame);
+        frames.push({ lcd: lcd.slice(), showing: wide.showing });
+      }
+      return wide.showing;
+    };
+    run(3);
+    for (let i = 0; i < 2; i++) (d.press(Key.enter), run(2));
+    for (let i = 0; i < 30 && !kit.ready(); i++) (d.press(Key.enter), run(1));
+    expect(run(0.5)).toBe(true);
+    const map = lcd.slice();
+    d.press(Key.exit); // the game's menu
+    expect(run(1)).toBe(true);
+    d.press(Key.enter); // 属性: its submenu, over the hero
+    frames.length = 0;
+    run(1);
+    const open = frames.at(-1)!.lcd;
+    // (the hero not whole: the screen at his place, x 72-87, y 32-63, is not as on the map)
+    expect([...Array(32).keys()].some((y) => [...Array(16).keys()].some((x) => open[(32 + y) * LCD_STRIDE + 72 + x] !== map[(32 + y) * LCD_STRIDE + 72 + x]))).toBe(true);
+    expect(frames.every((f) => f.showing)).toBe(true);
+    d.press(Key.enter); // 状态: a page over the whole screen
+    frames.length = 0;
+    expect(run(1)).toBe(false);
+    // gone within two frames of the screen changing (its first may be the menu redrawn)
+    const first = frames.findIndex((f) => f.lcd.some((v, i) => v !== open[i]));
+    expect(first).toBeGreaterThanOrEqual(0);
+    expect(frames.findIndex((f) => !f.showing) - first).toBeLessThanOrEqual(2);
+    for (let i = 0; i < 3; i++) (d.press(Key.exit), run(1));
+    expect(run(1)).toBe(true);
+  }, 300_000);
+});
