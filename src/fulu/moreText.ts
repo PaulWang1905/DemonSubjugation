@@ -13,12 +13,12 @@
 //   game's own page layout worked out from it, the first line must be the
 //   one the game prints, or Fulu leaves the dialogue alone;
 // - the game's lines are not printed; when it waits for a key, Fulu draws
-//   its own box (as the JS engine's compact one: as tall as the page needs,
+//   its own box (as FMJ React's compact one: as tall as the page needs,
 //   the portrait at its top) with a page of small text;
 // - when the reader has seen Fulu's (fewer) pages, the game's remaining
 //   waits are answered with a key, and the game ends the dialogue as usual.
 //
-// Line breaking is the JS engine's (TextRender.drawWrapped). Fonts: the
+// Line breaking is FMJ React's (TextRender.drawWrapped). Fonts: the
 // player's bundled 12 and 10 px pixel fonts (HZK16 layout, GB2312 order).
 
 import { TextRender } from "../engine/fmj/graphics/TextRender";
@@ -41,7 +41,7 @@ const BOX_LEFT = 9, BOX_RIGHT = 0x95, BOX_BOTTOM = 0x5f, TOP_PLAIN = 0x37, TOP_P
  */
 const GUT_PC = 0x1aa0, GUT_BASE = 0x1aa2;
 const SHIFTS = [0, 2, -2, 1, -1, 3, -3, 4, -4, 5, -5, 6, -6, -7, -8, -9, -10];
-/** The JS engine's compact box: text from x 14 (44 beside the portrait) to 145, its last line ending at y 94. */
+/** FMJ React's compact box: text from x 14 (44 beside the portrait) to 145, its last line ending at y 94. */
 const LEFT = 14, LEFT_BESIDE = 44, RIGHT = 145, BOTTOM = 94;
 /** The bytes of a screen row (20 of 8 pixels). */
 const LCD_BYTES = 20;
@@ -198,7 +198,7 @@ export class MoreText {
     return this.portraits.get(n)!;
   }
 
-  /** Fulu's pages: each as tall as it needs (from the game's box's height), at most 4 lines at 12 px, 5 at 10 (as the JS engine's drawCompactSay). */
+  /** Fulu's pages: each as tall as it needs (from the game's box's height), at most 4 lines at 12 px, 5 at 10 (as FMJ React's drawCompactSay). */
   private layout(text: Int8Array, head: Pic | null): { from: number; lines: number }[] {
     const len = text.length - 1, out: { from: number; lines: number }[] = [];
     for (let from = 0; from < len && out.length < 64; ) {

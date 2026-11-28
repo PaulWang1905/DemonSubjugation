@@ -79,7 +79,7 @@ export class TextMarks {
  * it that something else now covers ([x0, y0, x1, y1) in the cell, stretched
  * to the cell's edges it nearly touches, since covers are rectangles; null
  * when the whole cell is intact). Null when none of its ink shows outside
- * that box. (As the JS engine's glyphVisibility.)
+ * that box. (As FMJ React's glyphVisibility.)
  */
 function shows(screen: Uint8Array, g: Glyph): { inverted: boolean; hidden: [number, number, number, number] | null } | null {
   const fit = (inverted: boolean) => {

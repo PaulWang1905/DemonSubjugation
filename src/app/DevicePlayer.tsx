@@ -106,7 +106,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const deviceRef = useRef<{ device: Device | FuluDevice; os: string } | null>(null);
-  // The hidden debug menu (hold the screen, as in the JS engine's player):
+  // The hidden debug menu (hold the screen, as in FMJ React's player):
   // the game's party, items and story for games made with BBK's RPG kit,
   // and the device's own tools for any program. The game is paused while it
   // is open; its switches are kept after every frame.
@@ -117,7 +117,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   // (known from the file before the device is on: the menus that depend on it are there from the
   // start, so the toolbar does not grow a row, and the page move, once the program runs)
   const hasMap = useMemo(() => !!game && findLib(new Uint8Array(game.data)) >= 0, [game]);
-  /** More text (F6, on Fulu): dialogues in 12 or 10 px text, the same setting as the JS engine's player. */
+  /** More text (F6, on Fulu): dialogues in 12 or 10 px text, the same setting as FMJ React's player. */
   const [textSize, setTextSize] = useState(() => Number(pref("textSize", "16")) as 16 | 12 | 10);
   const [mapView, setMapView] = useState<MapView>(() => mapViewOf(pref<string>("mapView", "normal")));
   const view = hasMap ? MAP_VIEWS[mapView] : MAP_VIEWS.normal;
@@ -153,7 +153,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const [paletteId, setPaletteId] = useState<string>(() => pref<string>("palette", "lcd"));
   const [effect, setEffect] = useState<ScreenEffect>(() => effectOf(pref<string>("effect", "none")));
   // Text on Fulu: the device's pixels, or HD (redrawn in a font at the
-  // screen's resolution). The same setting as the JS engine's player.
+  // screen's resolution). The same setting as FMJ React's player.
   const [text, setText] = useState<TextChoice>(() => readTextChoice((k) => pref(k, "") || null, false));
   const changeText = (look: TextChoice["look"], hdChinese = text.hdChinese) => {
     setText({ ...text, look, hdChinese });

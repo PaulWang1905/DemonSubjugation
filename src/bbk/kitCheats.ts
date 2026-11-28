@@ -1,5 +1,5 @@
 // The debug menu for a game made with BBK's RPG kit (RpgA100.eng: the 伏魔记
-// series, 英雄坛说): the JS engine's Cheats, read and written in the running
+// series, 英雄坛说): FMJ React's Cheats, read and written in the running
 // game's memory, with names from the fmj library the .gam carries.
 //
 // Where the kit's engine keeps what is from the C reconstruction of it (gitee
@@ -50,7 +50,7 @@ const ENEMY_LEVEL = 0x12, ENEMY_MAX_HP = 0x18, ENEMY_HP = 0x1a;
 /**
  * Where each stat is in a stats block, and its size in bytes. The block is a
  * copy of the character's record in the library from +$20, so these are the
- * JS engine's offsets (Player.setData) less $20; the game's own status page
+ * FMJ React's offsets (Player.setData) less $20; the game's own status page
  * shows the same (身法, 灵力, 幸运 at +$16-$18). (The reconstruction's
  * ActorStats names these bytes otherwise: +$01-$04 are 0 in every record.)
  */
