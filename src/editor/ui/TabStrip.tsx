@@ -2,13 +2,18 @@
 // (opened with a single click) is shown in italics and is replaced by the
 // next preview; a dot marks a script with text not applied yet. Each tab
 // shows its kind as an icon and its name in full while there is room; when
-// there is not, the long ones shrink to the same width (the full name and
-// kind are in the tooltip), and past that the strip scrolls.
+// there is not, the long ones shrink to the same width, never below about
+// ten letters (the full name and kind are in the tooltip), and past that the
+// strip scrolls: arrows at its ends, and "⌄ N more" at its end opens a menu
+// of every open tab with its full name and kind (arrow keys, Home/End and
+// typing a name's first letters move through it; Enter shows the tab).
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import "./authoring.css";
 import "./leftovers.css";
+import "./layout.css";
 import { KindIcon } from "./KindIcon";
-import { tabCap } from "./tabFit";
+import { hiddenTabs, moreLabel, tabCap } from "./tabFit";
+import { itemKeys, usePopupMenu } from "./popupMenu";
 import type { LibArchive } from "../format/lib";
 import { entryOf, entryTitle, HOME_TAB, kindLabel, type Tab } from "./workspace";
 
@@ -44,9 +49,19 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, lab
   }, [active, tabs.length]);
   // arrows at the ends when the tabs do not fit (they also shrink first)
   const [ends, setEnds] = useState({ left: false, right: false });
+  // the tabs out of sight (scrolled past or cut), counted on "⌄ N more"
+  const [hidden, setHidden] = useState<string[]>([]);
   const showEnds = () => {
     const el = strip.current;
-    if (el) setEnds({ left: el.scrollLeft > 1, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 });
+    if (!el) return;
+    setEnds({ left: el.scrollLeft > 1, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 });
+    const box = el.getBoundingClientRect();
+    const items = [...el.querySelectorAll<HTMLElement>(".e-tab")];
+    const out = hiddenTabs(
+      items.map((t) => t.getBoundingClientRect()),
+      { left: box.left, right: box.right },
+    ).map((i) => items[i].dataset.key ?? "");
+    setHidden((h) => (h.join("|") === out.join("|") ? h : out));
   };
   // tabs as wide as their names while they fit; past that the widest shrink to one width (tabFit.ts)
   // (when they do not all fit, the project home shows only its icon first)
@@ -82,11 +97,11 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, lab
     ro.observe(el);
     return () => ro.disconnect();
   }, [shown, archive, active]);
-  useLayoutEffect(showEnds, [cap, tight]);
+  useLayoutEffect(showEnds, [cap, tight, shown]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const el = strip.current;
     if (!el) return;
-    const update = () => setEnds({ left: el.scrollLeft > 1, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 });
+    const update = showEnds;
     update();
     el.addEventListener("scroll", update);
     const ro = new ResizeObserver(update);
@@ -95,7 +110,7 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, lab
       el.removeEventListener("scroll", update);
       ro.disconnect();
     };
-  }, [tabs.length]);
+  }, [tabs.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const scrollBy = (dir: 1 | -1) => strip.current?.scrollBy({ left: dir * Math.max(160, (strip.current?.clientWidth ?? 400) * 0.6), behavior: "smooth" });
 
   const focusTab = (i: number) => {
@@ -123,7 +138,7 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, lab
         const isDirty = dirty.has(t.key);
         const mark = marks.get(t.key);
         return (
-          <div key={t.key} className={`e-tab ${selected ? "on" : ""} ${t.pinned ? "" : "preview"} ${home ? "home" : ""}`} onAuxClick={(ev) => ev.button === 1 && !home && onClose(t.key)}>
+          <div key={t.key} data-key={t.key} className={`e-tab ${selected ? "on" : ""} ${t.pinned ? "" : "preview"} ${home ? "home" : ""}`} onAuxClick={(ev) => ev.button === 1 && !home && onClose(t.key)}>
             <button
               id={tabId(t.key)}
               role="tab"
@@ -181,6 +196,110 @@ export function TabStrip({ archive, projectName, tabs, active, dirty, marks, lab
           ›
         </button>
       )}
+      {hidden.length > 0 && (
+        <TabsMenu
+          tabs={tabs.map((t) => {
+            const home = t.key === HOME_TAB;
+            const e = home ? undefined : entryOf(archive, t.key);
+            return {
+              key: t.key,
+              name: home ? "Project" : e ? nameOf(t.key) : t.key,
+              kind: home ? `the project home · ${projectName}` : e ? `${kindLabel(e)} ${e.type}-${e.index}` : "",
+              icon: home ? null : (e ?? null),
+              dirty: dirty.has(t.key),
+              mark: marks.get(t.key),
+              hidden: hidden.includes(t.key),
+            };
+          })}
+          hiddenCount={hidden.length}
+          active={active}
+          onPick={(key) => {
+            onActivate(key);
+            requestAnimationFrame(() => document.getElementById(tabId(key))?.focus());
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+interface MenuTab {
+  key: string;
+  name: string;
+  /** Its kind and number ("map 1-1"), or what the home is. */
+  kind: string;
+  icon: { resType: number; type: number } | null;
+  dirty: boolean;
+  mark?: "error" | "warning";
+  /** Out of sight in the strip. */
+  hidden: boolean;
+}
+
+/** "⌄ N more": every open tab in a menu, with its full name and kind. */
+function TabsMenu({ tabs, hiddenCount, active, onPick }: { tabs: MenuTab[]; hiddenCount: number; active: string; onPick: (key: string) => void }) {
+  const m = usePopupMenu();
+  const label = moreLabel(hiddenCount);
+  const pick = (key: string) => {
+    m.close(false);
+    onPick(key);
+  };
+  return (
+    <>
+      <button
+        ref={m.button}
+        type="button"
+        className="e-tabs-more"
+        aria-haspopup="menu"
+        aria-expanded={m.open}
+        aria-controls={m.open ? "e-tabs-menu" : undefined}
+        aria-label={`${label} tabs: all ${tabs.length} open tabs`}
+        title={`All ${tabs.length} open tabs`}
+        onClick={m.toggle}
+        onKeyDown={(e) => {
+          if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !m.open) (e.preventDefault(), m.toggle());
+        }}
+      >
+        <svg className="e-tabs-more-chev" viewBox="0 0 10 6" width="10" height="6" aria-hidden="true">
+          <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span>{label}</span>
+      </button>
+      {m.open && (
+        <div ref={m.menu} id="e-tabs-menu" className="e-tabs-menu" role="menu" aria-label={`Open tabs (${tabs.length})`} style={m.style} onKeyDown={m.onKeyDown}>
+          {tabs.map((t) => (
+            <div
+              key={t.key}
+              role="menuitemradio"
+              aria-checked={t.key === active}
+              tabIndex={-1}
+              data-name={t.name}
+              className={`e-tabs-item${t.hidden ? " out" : ""}`}
+              onClick={() => pick(t.key)}
+              onKeyDown={itemKeys(() => pick(t.key))}
+            >
+              <span className="e-tabs-item-icon" aria-hidden="true">
+                {t.icon ? <KindIcon of={t.icon} className="e-tab-icon" /> : "⌂"}
+              </span>
+              <span className="e-tabs-item-name">{t.name}</span>
+              <span className="e-tabs-item-kind">{t.kind}</span>
+              {(t.mark || t.dirty) && (
+                <span className="e-tabs-item-state">
+                  {t.mark && (
+                    <span className={`mark ${t.mark}`} role="img" aria-label={t.mark === "error" ? "has an error" : "has a warning"}>
+                      !
+                    </span>
+                  )}
+                  {t.dirty && (
+                    <span className="e-tabs-item-dirty" role="img" aria-label="not applied yet">
+                      ●
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

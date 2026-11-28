@@ -1540,6 +1540,8 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
     </button>
   );
 
+  // (some people or exits are there, or lead there, only on some paths: the "?" key shows)
+  const maybeMarks = overlay.people.some((op) => op.placement.conditional) || overlay.cells.some((c) => c.exit && c.phrase.endsWith("?"));
   const stageClass = `w-stage${interactive ? "" : PAINTING.has(tool) ? " painting" : " placing"}`;
 
   return (
@@ -1653,18 +1655,6 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
             </div>
           </div>
           <p className="map-status small w-status">{status()}</p>
-          {(overlay.people.some((op) => op.placement.conditional) || overlay.cells.some((c) => c.exit && c.phrase.endsWith("?"))) && (
-            <p className="w-maybe-legend small muted">
-              <strong aria-hidden="true">?</strong> after a name or an exit: only on some paths. A story flag or a choice decides whether they are there, or where the
-              exit leads; click it to see which.
-            </p>
-          )}
-          {showReach && (
-            <p className="w-reach-legend small muted">
-              <span className="w-reach-swatch" aria-hidden="true" /> Shaded: where the player can never stand. The player keeps 4 tiles from the left and right edges, 3 from the top and 2 from
-              the bottom (the dashed box), and blocked tiles stop them. Exits, event tiles and people work when the player can stand on or next to them.
-            </p>
-          )}
         </div>
         <aside className="w-panel" aria-label="Details">
           {error && (
@@ -1697,6 +1687,23 @@ export function WorldView({ archive, entry, onChange, services }: ViewProps) {
             </p>
           )}
           {toolPanel() ?? selectionPanel()}
+          {/* (the keys to the map's marks, under the details: the map keeps the room) */}
+          {(showReach || maybeMarks) && (
+            <div className="w-legends">
+              {maybeMarks && (
+                <p className="w-maybe-legend small muted">
+                  <strong aria-hidden="true">?</strong> after a name or an exit: only on some paths. A story flag or a choice decides whether they are there, or where the
+                  exit leads; click it to see which.
+                </p>
+              )}
+              {showReach && (
+                <p className="w-reach-legend small muted">
+                  <span className="w-reach-swatch" aria-hidden="true" /> Shaded: where the player can never stand. The player keeps 4 tiles from the left and right edges, 3 from the top and 2 from
+                  the bottom (the dashed box), and blocked tiles stop them. Exits, event tiles and people work when the player can stand on or next to them.
+                </p>
+              )}
+            </div>
+          )}
         </aside>
       </div>
     </div>

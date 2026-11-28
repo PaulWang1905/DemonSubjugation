@@ -1,0 +1,321 @@
+/* The editor's layout around the views (ResourceView.tsx, views.tsx `fill`).
+
+   On a computer (over 800 px) the workspace already fills the window below
+   the site's bar and each tab's panel scrolls on its own. A view that is one
+   work area (a map's World and Tiles, a script's Visual and Text) is marked
+   `fill`: it takes the panel's height below its header, its work area grows
+   into the room left, and only the work area (and the column beside it)
+   scrolls, never the panel as well. When the window is too short for the
+   work area's least height, the panel scrolls as before. */
+
+/* ---- the map's Tiles view: the map's name, size and tileset sit at the top
+   of the column beside the map (on every width), so the map starts higher ---- */
+.map-body {
+  grid-template-areas: "left props" "left side";
+  grid-template-rows: auto 1fr;
+}
+.map-body > .map-left {
+  grid-area: left;
+}
+.map-body > .map-props {
+  grid-area: props;
+  margin: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  gap: 8px 10px;
+}
+.map-body > .map-props .field {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.map-body > .map-props .field:first-child {
+  flex: 1 1 100%;
+}
+.map-body > .map-props .field:first-child input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+}
+.map-body > .map-palette {
+  grid-area: side;
+  min-width: 0;
+}
+@media (max-width: 1000px) {
+  .map-body {
+    grid-template-areas: "props" "left" "side";
+    grid-template-rows: none;
+  }
+}
+
+@media (min-width: 801px) {
+  .e-panel > .res-view.fill {
+    box-sizing: border-box;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 10px;
+  }
+  .res-view.fill > * {
+    flex: none;
+  }
+  .res-view.fill > .res-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .res-view.fill > .res-body > * {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* -- map: Tiles -- */
+  .res-view.fill .map-editor {
+    display: flex;
+    flex-direction: column;
+  }
+  .res-view.fill .map-tools {
+    flex: none;
+  }
+  .res-view.fill .map-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-areas: "left props" "left side";
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .res-view.fill .map-left {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .res-view.fill .map-canvas {
+    flex: 1 1 auto;
+    min-height: 260px;
+    max-height: none;
+  }
+  .res-view.fill .map-status {
+    flex: none;
+  }
+  .res-view.fill .map-palette {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    /* (room for the tiles' focus rings) */
+    padding: 2px 4px 0 2px;
+    margin: -2px -4px 0 -2px;
+  }
+
+  /* -- map: World -- */
+  .res-view.fill .w-view {
+    min-height: 0;
+  }
+  .res-view.fill .w-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
+  }
+  .res-view.fill .w-left {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .res-view.fill .w-scroll {
+    flex: 1 1 auto;
+    max-height: none;
+  }
+  .res-view.fill .w-left > :not(.w-scroll) {
+    flex: none;
+  }
+  .res-view.fill .w-panel {
+    position: static;
+    max-height: none;
+    min-height: 0;
+    overscroll-behavior: contain;
+  }
+
+  /* -- script: Text -- */
+  .res-view.fill .script-editor {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .res-view.fill .script-main {
+    min-height: 0;
+  }
+  .res-view.fill .script-main > * {
+    flex: none;
+  }
+  .res-view.fill .script-main > .code {
+    flex: 1 1 auto;
+    min-height: 240px;
+  }
+  .res-view.fill .code .gutter,
+  .res-view.fill .script-main .code textarea {
+    height: 100%;
+    min-height: 0;
+  }
+  .res-view.fill .script-ref {
+    max-height: none;
+    min-height: 0;
+    overscroll-behavior: contain;
+  }
+
+  /* -- script: Visual: the events, the steps and the preview each scroll -- */
+  .res-view.fill .sv {
+    min-height: 0;
+  }
+  .res-view.fill .sv > * {
+    flex: none;
+  }
+  .res-view.fill .sv > .sv-problem-list {
+    max-height: 30%;
+    overflow: auto;
+  }
+  .res-view.fill .sv > .sv-grid {
+    flex: 1 1 auto;
+    min-height: 240px;
+    align-items: stretch;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .res-view.fill .sv-events,
+  .res-view.fill .sv-main,
+  .res-view.fill .sv-aside {
+    position: relative;
+    top: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    /* (room for focus rings inside the scrolling column) */
+    padding: 3px;
+    margin: -3px;
+  }
+}
+
+/* the World view's keys to the map's marks, under the details beside the map */
+.w-legends {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.w-legends p {
+  margin: 0;
+}
+
+/* ---- the tab strip's "⌄ N more" and its menu of every open tab (TabStrip.tsx) ---- */
+.e-tabs-more {
+  flex: none;
+  align-self: stretch;
+  min-height: 0;
+  gap: 4px;
+  padding: 0 12px 0 10px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--bg) 70%, var(--panel));
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  z-index: 1;
+}
+.e-tabs-more[aria-expanded="true"] {
+  background: var(--panel);
+}
+.e-tabs-more-chev {
+  flex: none;
+  color: var(--muted);
+}
+@media (hover: hover) {
+  .e-tabs-more:hover {
+    background: var(--panel);
+    color: var(--ink);
+    border-color: var(--line);
+  }
+}
+.e-tabs-menu {
+  position: fixed;
+  z-index: 60;
+  width: min(380px, calc(100vw - 16px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow-md);
+}
+.e-tabs-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-areas: "icon name state" "icon kind state";
+  gap: 0 8px;
+  align-items: center;
+  min-height: 40px;
+  padding: 5px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.e-tabs-item:focus-visible {
+  outline-offset: -2px;
+  background: var(--tint);
+}
+@media (hover: hover) {
+  .e-tabs-item:hover {
+    background: var(--tint);
+  }
+}
+.e-tabs-item[aria-checked="true"] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.e-tabs-item[aria-checked="true"] .e-tabs-item-name {
+  color: var(--accent);
+}
+.e-tabs-item-icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+.e-tabs-item-name {
+  grid-area: name;
+  font-weight: 600;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.e-tabs-item-kind {
+  grid-area: kind;
+  color: var(--muted);
+  font: 500 11px/1.4 var(--font-mono);
+  letter-spacing: 0.02em;
+}
+.e-tabs-item-state {
+  grid-area: state;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.e-tabs-item .mark {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  color: #fff;
+  font: 700 10px/1 var(--font-sans);
+}
+.e-tabs-item .mark.error {
+  background: var(--danger);
+}
+.e-tabs-item .mark.warning {
+  background: var(--e-warn);
+}
+.e-tabs-item-dirty {
+  color: var(--e-warn);
+  font-size: 10px;
+}

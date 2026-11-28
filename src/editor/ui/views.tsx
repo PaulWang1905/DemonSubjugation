@@ -25,7 +25,9 @@
 //   are not re-rendered while hidden. Global key handlers must check that
 //   the view is on screen (see undoKeys.ts: `anchor.offsetParent !== null`).
 // - The tab panel scrolls; its scroll position is kept per tab. A view need
-//   not fill the height.
+//   not fill the height. A view registered with `fill: true` is one work
+//   area: on a computer it gets the tab's height below the header (a flex
+//   column, layout.css) and scrolls inside itself, so the tab does not.
 // - Scripts: unapplied text lives in the editor (so it survives closing the
 //   view and is applied before a playtest). Read `services.draft` when the
 //   view is created and report every change with `services.setDraft(text)`,
@@ -134,6 +136,12 @@ export interface ViewDef {
   match: (e: { resType: number; type: number; index: number }) => boolean;
   /** Lower comes first in the switch; the first matching view is the default. Default 100. */
   order?: number;
+  /**
+   * The view is one work area (a map, the script's text, the steps) that
+   * fills the tab below its header and scrolls inside itself, rather than a
+   * page that scrolls with the tab (layout.css).
+   */
+  fill?: boolean;
   component: ComponentType<ViewProps>;
 }
 
@@ -226,14 +234,14 @@ function BytesView({ entry }: ViewProps) {
 // One line per view. Phase 2 adds e.g. "script.visual" (order 10, before
 // "script.text"), "map.world", "character.card" here.
 
-registerView({ id: "script.visual", label: "Visual", title: "The script's events as steps in plain words", order: 10, match: (e) => e.resType === 1, component: ScriptVisual });
-registerView({ id: "script.text", label: "Text", title: "The script as text", order: 50, match: (e) => e.resType === 1, component: ScriptTextView });
-registerView({ id: "map.tiles", label: "Tiles", title: "Paint tiles, walkable cells and map events", order: 50, match: (e) => e.resType === 2, component: MapTilesView });
+registerView({ id: "script.visual", label: "Visual", title: "The script's events as steps in plain words", order: 10, match: (e) => e.resType === 1, fill: true, component: ScriptVisual });
+registerView({ id: "script.text", label: "Text", title: "The script as text", order: 50, match: (e) => e.resType === 1, fill: true, component: ScriptTextView });
+registerView({ id: "map.tiles", label: "Tiles", title: "Paint tiles, walkable cells and map events", order: 50, match: (e) => e.resType === 2, fill: true, component: MapTilesView });
 registerView({ id: "record.card", label: "Card", title: "The record as a card: picture, key numbers, pickers, where it is used", order: 10, match: hasCard, component: CardView });
 registerView({ id: "record.gallery", label: "Compare", title: "Every record of its kind side by side, sorted by a number", order: 20, match: hasCard, component: GalleryView });
 registerView({ id: "form", label: "Fields", title: "Every field, as stored", order: 50, match: (e) => (e.resType === 3 || e.resType === 4 || e.resType === 6) && !!fieldsFor(e.resType, e.type), component: FormView });
 registerView({ id: "animation", label: "Animation", order: 50, match: (e) => e.resType === 5, component: AnimationView });
 registerView({ id: "pixels", label: "Pixels", title: "Draw the frames", order: 50, match: (e) => e.resType >= 7 && e.resType <= 11, component: PixelView });
 registerView({ id: "table", label: "Table", order: 50, match: (e) => e.resType === 12 && (e.type === 1 || e.type === 2), component: TableView });
-registerView({ id: "map.world", label: "World", title: "Who is on the map, exits and the start; place, move and paint", order: 10, match: (e) => e.resType === 2, component: WorldView });
+registerView({ id: "map.world", label: "World", title: "Who is on the map, exits and the start; place, move and paint", order: 10, match: (e) => e.resType === 2, fill: true, component: WorldView });
 registerView({ id: "bytes", label: "Bytes", title: "The raw bytes as stored in the game file", order: 1000, match: () => true, component: BytesView });

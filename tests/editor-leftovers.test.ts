@@ -251,7 +251,7 @@ describe("tabs that fit", () => {
     expect(tabCap([100, 120, 90], 400)).toBeNull();
     // 80 + 90 fit; the two widest share the rest evenly
     expect(tabCap([80, 200, 90, 300], 500)).toBe(165);
-    expect(tabCap([150, 150, 150, 150], 400)).toBe(100);
+    expect(tabCap([160, 160, 160, 160], 600)).toBe(150);
     // never below the smallest: the strip scrolls then
     expect(tabCap(new Array(12).fill(200), 600)).toBe(TAB_MIN);
   });

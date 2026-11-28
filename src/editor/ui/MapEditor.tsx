@@ -287,29 +287,6 @@ export function MapEditor({ archive, entry, onChange, notes, setNotes }: Props) 
         </label>
       </div>
 
-      <div className="map-props">
-        <label className="field">
-          Name
-          <input
-            value={map.name}
-            maxLength={12}
-            onChange={(e) => {
-              if (textCells(e.target.value) <= 12) commit({ ...map, name: e.target.value }, "name");
-            }}
-          />
-        </label>
-        <label className="field">
-          Size
-          <input type="number" defaultValue={map.width} key={`w${map.width}`} onBlur={(e) => resize(Number(e.target.value), map.height)} />×
-          <input type="number" defaultValue={map.height} key={`h${map.height}`} onBlur={(e) => resize(map.width, Number(e.target.value))} />
-        </label>
-        <label className="field">
-          Tileset
-          <input type="number" min={1} max={255} value={map.tileset} onChange={(e) => commit({ ...map, tileset: Math.max(1, Math.min(255, Number(e.target.value) || 1)) }, "tileset")} />
-        </label>
-        {error && <span className="error">{error}</span>}
-      </div>
-
       <div className="map-body">
         <div className="map-left">
           <div className="map-canvas">
@@ -340,6 +317,28 @@ export function MapEditor({ archive, entry, onChange, notes, setNotes }: Props) 
             />
           </div>
           <MapStatus map={map} at={hover} name={(t) => tileName(notes, map.tileset, t)} />
+        </div>
+        <div className="map-props" role="group" aria-label="The map">
+          <label className="field">
+            Name
+            <input
+              value={map.name}
+              maxLength={12}
+              onChange={(e) => {
+                if (textCells(e.target.value) <= 12) commit({ ...map, name: e.target.value }, "name");
+              }}
+            />
+          </label>
+          <label className="field">
+            Size
+            <input type="number" defaultValue={map.width} key={`w${map.width}`} onBlur={(e) => resize(Number(e.target.value), map.height)} />×
+            <input type="number" defaultValue={map.height} key={`h${map.height}`} onBlur={(e) => resize(map.width, Number(e.target.value))} />
+          </label>
+          <label className="field">
+            Tileset
+            <input type="number" min={1} max={255} value={map.tileset} onChange={(e) => commit({ ...map, tileset: Math.max(1, Math.min(255, Number(e.target.value) || 1)) }, "tileset")} />
+          </label>
+          {error && <span className="error">{error}</span>}
         </div>
         <div className="map-palette">
           <TilePalette tiles={tiles} tileset={map.tileset} tile={tile} onPick={setTile} walks={walks} notes={notes} setNotes={setNotes} paintWalk={paintWalk} onPaintWalk={setPaintWalk} />
