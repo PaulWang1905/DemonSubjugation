@@ -24,7 +24,9 @@
 // frames. So the border is drawn at the view the screen shows: the memory's,
 // or the one it showed last (with that moment's characters), or one between
 // them; a screen caught mid-redraw shows the last frame again (border and
-// middle) for at most HOLD frames: part one view and part another, or the
+// middle) for at most HOLD frames: part one view and part another (on plain
+// ground, where a tree's edge may be all that differs, the memory's view above
+// and the last one below, perhaps the line between them inside a tile), or the
 // map with tiles that were the map's a frame ago now something else (on the
 // firmware, a battle's or a page's first rows over the map).
 
@@ -194,7 +196,7 @@ export class WideView {
       if (left !== null) {
         this.edge = left;
         const r = this.pick(lcd, view, left);
-        if (r === "torn") torn = true;
+        if (r === "torn" || (changed && this.drawing(lcd, view, left))) torn = true;
         else at = r;
       }
       // A popup menu can leave too little of the map in view to prove it. The
@@ -287,6 +289,55 @@ export class WideView {
       for (let i = 0; i < views.length; i++)
         if (i !== best && maps[i] === maps[best] && this.count(lcd, maps[i]!, views[i], left, views[best]).patterned >= TORN) return "torn";
     return confirms(counts[best]!, () => this.hero(lcd, left)) ? views[best] : null;
+  }
+
+  /**
+   * Whether the screen (changed since the last call) is a step's redraw
+   * caught on its way down: the firmware copies the game's screen to the
+   * device's from the top over two or three frames, so the memory's view
+   * (`view`) shows above and the one shown last below, the line between them
+   * perhaps inside a row of tiles. Of the tiles where the two views differ:
+   * the memory's above (or, in the row the line crosses, the memory's in
+   * their top rows and the last's below them) and the last's below. On plain
+   * ground a tree's or a wall's edge is all that tells the two apart, one tile
+   * of each is enough: pick() asks for two patterned ones of each.
+   */
+  private drawing(lcd: Uint8Array, view: KitMapView, left: number): boolean {
+    const old = this.good;
+    if (!old || this.fails >= STALE || old.mapType !== view.mapType || old.mapIndex !== view.mapIndex || samePlace(old, view)) return false;
+    const map = this.map(view.mapType, view.mapIndex);
+    if (!map) return false;
+    const box = boxTop(lcd), rows = box === null ? ROWS : Math.min(ROWS, Math.floor(box / TILE));
+    const [pl, pt, pr, pb] = POSITION;
+    // (the lowest row with the memory's view, and the highest with the last's: the line between them)
+    let lowestNew = -1, highestOld = ROWS, split = false;
+    for (let ty = 0; ty < rows; ty++) {
+      for (let tx = 0; tx < COLS; tx++) {
+        const t = map.tile(view.viewX + tx, view.viewY + ty), o = map.tile(old.viewX + tx, old.viewY + ty);
+        if (t < 0 || o < 0) continue; // (past the map's edge or a tile the set lacks: not known)
+        if (view.position && left + tx * TILE <= pr && left + tx * TILE + TILE > pl && ty * TILE <= pb && ty * TILE + TILE > pt) continue;
+        const a = map.tiles.frames[t], b = map.tiles.frames[o];
+        // (how many of the tile's pixel rows from the top are the memory's; then whether the rest are the last's)
+        const row = (y: number, px: Uint8Array) => {
+          const at = (ty * TILE + y) * LCD_STRIDE + left + tx * TILE;
+          for (let x = 0; x < TILE; x++) if ((lcd[at + x] ? 1 : 0) !== px[y * TILE + x]) return false;
+          return true;
+        };
+        let k = 0;
+        while (k < TILE && row(k, a)) k++;
+        let rest = k;
+        while (rest < TILE && row(rest, b)) rest++;
+        if (rest < TILE) continue; // (neither: a character over it)
+        let newer = false, older = false;
+        for (let i = 0; i < TILE * TILE && !(newer && older); i++)
+          if (a[i] !== b[i]) (i < k * TILE ? (newer = true) : (older = true));
+        if (newer && older) split = true;
+        if (newer) lowestNew = Math.max(lowestNew, ty);
+        if (older) highestOld = Math.min(highestOld, ty);
+      }
+    }
+    // (one row of tiles crossed by the line, or the memory's rows all above the last's)
+    return lowestNew >= 0 && highestOld < ROWS && (split ? lowestNew <= highestOld : lowestNew < highestOld);
   }
 
   /** The views pick() looks at, with their maps and counts, and which most of the screen's patterned tiles are (-1 for none). */
