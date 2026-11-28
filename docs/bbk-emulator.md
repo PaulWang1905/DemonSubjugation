@@ -110,7 +110,7 @@ queued key is delivered only after the firmware has cleared ISR bit 7
 (overwriting lost keys in the 游戏 menu during testing). No key-release
 events (none in either emulator). The player (`src/app/deviceInput.ts`, for
 the keyboard and the on-screen keys alike) repeats a held arrow or page key
-every 90 ms after 300 ms, only once the program has read the last press
+every 100 ms after 250 ms (as FMJ React's player: `src/app/keyRepeat.ts`; the OS itself repeats nothing), only once the program has read the last press
 (`Machine.keysWaiting`), and takes back the unread repeats when the key is
 let go (`Machine.dropKey`). The keys printed beside others (删除 ←, 修改 ↑,
 查找 ↓, 插入 →, 帮助 中英符) are sent as the device's Shift ($2D) and that key,

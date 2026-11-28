@@ -887,7 +887,7 @@ Three rules, two in the player and one in Fulu, make input feel right
 without changing what a program sees.
 
 1. **Repeat only when read.** The player (`src/app/deviceInput.ts`)
-   repeats a held arrow or page key every 90 ms (after 300 ms) only while
+   repeats a held arrow or page key every 100 ms (after 250 ms; 90 and 300 before, `src/app/keyRepeat.ts`) only while
    `Machine.keysWaiting()` is false: the machine's queue is empty and the
    OS's ring is empty (`$2003` = `$2004`).
    Before this, repeats filled the 15-key ring while a walking step took

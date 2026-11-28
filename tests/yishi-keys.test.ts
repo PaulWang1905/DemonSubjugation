@@ -20,7 +20,7 @@ import { Key, keyCode, SECOND, type Press } from "../src/bbk/keys";
 import { decodeLcd, LCD_HEIGHT, LCD_STRIDE } from "../src/bbk/lcd";
 import { CPU_HZ, type Machine, type MachineState } from "../src/bbk/machine";
 import { Fulu } from "../src/fulu/fulu";
-import { DeviceInput, type InputDevice } from "../src/app/deviceInput";
+import { DeviceInput, shiftLatched, type InputDevice } from "../src/app/deviceInput";
 
 const FW = process.env.BBK_FIRMWARE ?? "";
 
@@ -173,6 +173,125 @@ describe.skipIf(!FW || !existsSync(FW) || !GAME)("异世大陆's keys, on Fulu a
       };
       // one step, or on and on: the view has moved further
       expect(walked(true).join()).not.toBe(walked(false).join());
+    }
+  });
+
+  it("the device's own Shift (the row's key) sets the GUI's latch, which the player shows; the next arrow is then its second meaning, on both", { timeout: 600_000 }, () => {
+    for (const d of [onFulu(MAP), onFirmware(MAP)]) {
+      const m = d.machine, at = keep(m);
+      expect(shiftLatched(m.ram)).toBe(false);
+      tap(d, Key.shift);
+      m.run(CPU_HZ * 0.3);
+      expect(shiftLatched(m.ram)).toBe(true);
+      // Shift and ← apart: 删除 opens the game's screen, as the row's 删除 does
+      const del = effect(d, Key.left);
+      back(m, at);
+      expect(apart(del, effect(d, SECOND.del))).toBe(0);
+      expect(del.pixels.length).toBeGreaterThan(600);
+      // pressed again, Shift lets go of the latch
+      tap(d, Key.shift);
+      m.run(CPU_HZ * 0.3);
+      tap(d, Key.shift);
+      m.run(CPU_HZ * 0.3);
+      expect(shiftLatched(m.ram)).toBe(false);
+      back(m, at);
+    }
+  });
+
+  // What the device does with an arrow held while continuous walking is on. The engine
+  // (_00214000_runMapLoop) toggles walking on every message of the same arrow: the first starts
+  // it, the next stops it. Its OS passes every key the keyboard sends as a new press: the keyboard
+  // interrupt (7:$764D) puts each code into the ring masked to six bits, with nothing to tell a
+  // repeat from a press, and repeats nothing itself. So a held arrow's repeats toggle walking on
+  // the firmware as they do with the player's repeats (DeviceInput); the player is left as it is.
+  it("with continuous walking on, each press of the arrow toggles walking, a held arrow's repeats too, on both", { timeout: 600_000 }, () => {
+    for (const d of [onFulu(MAP), onFirmware(MAP)]) {
+      const m = d.machine;
+      const at = keep(m);
+      /** Run `ms` of device time in 10 ms steps, the player's timers with it. */
+      const clock = { t: 0, q: [] as { at: number; f: () => void; id: number }[], n: 0 };
+      const timers = {
+        set: (f: () => void, ms: number) => (clock.q.push({ at: clock.t + ms, f, id: ++clock.n }), clock.n),
+        clear: (id: number) => void (clock.q = clock.q.filter((e) => e.id !== id)),
+      };
+      const run = (ms: number) => {
+        for (let k = 0; k < ms / 10; k++) {
+          m.run(CPU_HZ / 100);
+          clock.t += 10;
+          for (let due; (due = clock.q.find((e) => e.at <= clock.t)); ) {
+            clock.q.splice(clock.q.indexOf(due), 1);
+            due.f();
+          }
+        }
+      };
+      // (the presses the program gets: those sent, less a repeat taken back unread when the arrow is let go)
+      const sent: number[] = [];
+      const counting: InputDevice = {
+        press: (k) => (sent.push(k), d.press(k)),
+        machine: {
+          ram: m.ram,
+          keysWaiting: () => m.keysWaiting(),
+          dropKey: (k) => {
+            const waiting = m.keysWaiting();
+            m.dropKey(k);
+            if (waiting && !m.keysWaiting()) sent.pop();
+          },
+        },
+      };
+      const input = new DeviceInput(() => counting, () => true, timers);
+      /**
+       * Whether the hero walks on by itself: over the next 1.5 s its tile of the screen (4, 3)
+       * changes, as the view moves or, against a wall or a person, as its feet step in place.
+       */
+      const hero = () => {
+        const px = screen(m), out: number[] = [];
+        for (let y = 48; y < 64; y++) for (let x = 64; x < 80; x++) out.push(px[y * LCD_STRIDE + x]);
+        return out.join("");
+      };
+      const walksOn = () => {
+        let last = hero(), changes = 0;
+        for (let k = 0; k < 15; k++) {
+          run(100);
+          const now = hero();
+          if (now !== last) changes++;
+          last = now;
+        }
+        return changes > 0;
+      };
+      tap(d, Key.space);
+      run(300);
+      // a tap walks on; a second tap stops
+      input.down(Key.down);
+      input.up(Key.down);
+      run(300);
+      expect(walksOn()).toBe(true);
+      input.down(Key.down);
+      input.up(Key.down);
+      run(300);
+      expect(walksOn()).toBe(false);
+      // held: every repeat the program read was a press, and walking is on after it is let go
+      // when they were an odd number (on, off, on, ...), off when even
+      // (up and down in turn, to stay near; both an odd and an even number of presses come up)
+      const counts = new Set<number>();
+      for (const [holdMs, arrow] of [[700, Key.up], [800, Key.down], [900, Key.up], [1000, Key.down]]) {
+        sent.length = 0;
+        input.down(arrow);
+        run(holdMs);
+        input.up(arrow);
+        const presses = sent.length;
+        counts.add(presses % 2);
+        expect(presses).toBeGreaterThan(2);
+        run(300);
+        expect(walksOn(), `held ${holdMs} ms: ${presses} presses`).toBe(presses % 2 === 1);
+        // (stop it for the next)
+        if (presses % 2 === 1) {
+          input.down(arrow);
+          input.up(arrow);
+          run(300);
+        }
+      }
+      expect(counts.size).toBe(2);
+      back(m, at);
     }
   });
 

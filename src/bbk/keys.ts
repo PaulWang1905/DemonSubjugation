@@ -83,6 +83,8 @@ export const KEYBOARD: Record<string, Press> = {
   Tab: Key.input,
   ShiftLeft: Key.lang,
   ShiftRight: Key.lang,
+  // (the device's own Shift: the computer's Shift is 中英符, and ` is free, beside 1 and Tab)
+  Backquote: Key.shift,
   F1: SECOND.help,
   F2: SECOND.search,
   F3: SECOND.modify,

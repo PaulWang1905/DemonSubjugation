@@ -4,7 +4,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DeviceInput, REPEAT_DELAY, REPEAT_RATE, type InputDevice } from "../src/app/deviceInput";
+import { DeviceInput, REPEAT_DELAY, REPEAT_RATE, shiftLatched, type InputDevice } from "../src/app/deviceInput";
+import * as engineKeys from "../src/app/useEngineKeys";
 import { deviceKeys } from "../src/app/DeviceKeys";
 import { Key, KEYBOARD, keyCode, pressCodes, SECOND } from "../src/bbk/keys";
 import { KEY_CLASSES } from "../src/fulu/gui";
@@ -43,6 +44,11 @@ function rig(accepts: (k: number) => boolean = () => true) {
 }
 
 describe("DeviceInput", () => {
+  it("repeats held keys as FMJ React's player does: after 250 ms, then every 100 ms", () => {
+    expect([REPEAT_DELAY, REPEAT_RATE]).toEqual([250, 100]);
+    expect([engineKeys.REPEAT_DELAY, engineKeys.REPEAT_RATE]).toEqual([REPEAT_DELAY, REPEAT_RATE]);
+  });
+
   it("a tap sends its key once, and the press is kept when it is let go", () => {
     const r = rig();
     r.input.down(Key.enter);
@@ -119,9 +125,10 @@ describe("DeviceInput", () => {
 });
 
 describe("the 4988's keys", () => {
-  it("the on-screen row: R, Space, and 帮助 删除 修改 查找 插入 as on the device", () => {
+  it("the on-screen row: Shift, R, Space, and 帮助 删除 修改 查找 插入 as on the device", () => {
     const codes = Object.fromEntries(deviceKeys("zh").map((k) => [k.label, pressCodes(k.press)]));
     expect(codes).toEqual({
+      Shift: [Key.shift],
       R: [0x13],
       空格: [Key.space],
       帮助: [Key.shift, Key.lang],
@@ -130,7 +137,30 @@ describe("the 4988's keys", () => {
       查找: [Key.shift, Key.down],
       插入: [Key.shift, Key.right],
     });
-    expect(deviceKeys("en").map((k) => k.name)).toEqual(["R", "Space", "Help", "Delete", "Modify", "Search", "Insert"]);
+    expect(deviceKeys("en").map((k) => k.name)).toEqual(["Shift", "R", "Space", "Help", "Delete", "Modify", "Search", "Insert"]);
+    // (Shift is the latch the row shows as pressed while the GUI keeps it)
+    expect(deviceKeys("en").filter((k) => k.latch).map((k) => k.press)).toEqual([Key.shift]);
+  });
+
+  it("the device's own Shift: the row's key or the computer's ` sends it alone, once however long held; the computer's Shift is 中英符", () => {
+    expect(KEYBOARD.Backquote).toBe(Key.shift);
+    expect([KEYBOARD.ShiftLeft, KEYBOARD.ShiftRight]).toEqual([Key.lang, Key.lang]);
+    // (` was free: no other key is Shift)
+    expect(Object.entries(KEYBOARD).filter(([, p]) => p === Key.shift).map(([c]) => c)).toEqual(["Backquote"]);
+    const r = rig();
+    r.input.down(Key.shift);
+    r.read();
+    r.wait(2000);
+    r.input.up(Key.shift);
+    expect(r.sent).toEqual([Key.shift]);
+  });
+
+  it("shows the GUI's Shift latch ($2B27 bit 5)", () => {
+    const ram = new Uint8Array(0x8000);
+    ram[0x2b27] = 0x02;
+    expect(shiftLatched(ram)).toBe(false);
+    ram[0x2b27] = 0x22;
+    expect(shiftLatched(ram)).toBe(true);
   });
 
   it("the computer's F1, F2, F3, Insert and Backspace are 帮助, 查找, 修改, 插入 and 删除", () => {

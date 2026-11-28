@@ -8,9 +8,10 @@ import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 import { Keys, type Engine, type EngineKey } from "../engine";
 import { KEYMAP } from "./keys";
 
-/** Key repeat: first repeat after this long, then one every REPEAT_RATE ms. */
-const REPEAT_DELAY = 250;
-const REPEAT_RATE = 100;
+import { REPEAT_DELAY, REPEAT_RATE } from "./keyRepeat";
+
+/** Key repeat: the first after REPEAT_DELAY ms, then one every REPEAT_RATE ms, as in the 4988's player (keyRepeat.ts). */
+export { REPEAT_DELAY, REPEAT_RATE };
 const REPEATS = new Set<EngineKey>([Keys.UP, Keys.DOWN, Keys.LEFT, Keys.RIGHT, Keys.PAGEUP, Keys.PAGEDOWN]);
 
 export interface EngineKeyInput {

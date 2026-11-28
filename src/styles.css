@@ -676,6 +676,12 @@ footer {
   filter: brightness(0.85);
   transform: translateY(1px);
 }
+/* a latch that is set (the device's Shift): lit in the accent, which shows on the light page and in full screen alike */
+.kp-key[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
 /* sideways: the row runs under the screen and both sides */
 .player.touch.sideways .kp-more {
   grid-column: 1 / -1;
@@ -2455,6 +2461,10 @@ html.playing-touch body {
 .player.touch.fs:not(.sideways) .fs-exit {
   top: auto;
   bottom: calc(14px + env(safe-area-inset-bottom));
+}
+/* (the 4988's: the row of device keys is at the bottom; the button goes above it) */
+.player.touch.fs:not(.sideways):has(.kp-more) .fs-exit {
+  bottom: calc(var(--touch) + 22px + env(safe-area-inset-bottom));
 }
 
 /* the editor's note on small screens */

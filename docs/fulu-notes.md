@@ -682,7 +682,7 @@ dialogues that follow and walk the hero on. So when the program asks
 meanwhile are dropped. Measured in the six games: walking and menus ask at
 least every 250 ms; scenes, notices (真气不足!, 340 ms) and loading take
 longer. Waiting in GuiGetMsg is asking, so the key that ends a wait, however
-long, is kept; a held key's next repeat comes within 90 ms. Only on Fulu's own
+long, is kept; a held key's next repeat comes within 100 ms. Only on Fulu's own
 machine (not in the shadow run); the firmware keeps the device's behaviour.
 
 ## The keys printed beside others (异世大陆)
@@ -709,6 +709,16 @@ turns continuous walking on and off (an arrow then walks until pressed
 again); typing V, E, R shows the engine's version; in a battle R ends the
 choosing of commands (the last round's are used again). 帮助 ($26) is not
 read by the engine. tests/yishi-keys.test.ts presses each on both OSes.
+
+An arrow held while continuous walking is on: every message of the same
+arrow toggles walking (_00214000_runMapLoop: the same key as the one kept
+clears it), and the OS hands on every code the keyboard sends as a press
+(its keyboard interrupt, 7:$764D, masks it to six bits: a repeat looks like
+a press; the OS repeats nothing itself). So on the firmware a held arrow's
+repeats switch walking off and on, as they do with the player's repeats:
+the player is left as it is (tests/yishi-keys.test.ts). The device's own
+Shift is in the row of device keys and on the computer's ` key; the row
+shows it pressed while the GUI keeps the latch ($2B27 bit 5).
 
 ## Not Fulu: 伏魔记 1.3's RunErr:12
 

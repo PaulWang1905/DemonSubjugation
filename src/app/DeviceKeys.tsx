@@ -2,8 +2,10 @@
 // keypad: some programs need R, Space, or the keys printed beside the arrows
 // and 中英符 (删除 delete, 修改 modify, 查找 search, 插入 insert, 帮助 help),
 // which a phone has no keyboard for. Those are pressed as on the device:
-// Shift, then the key they are printed beside (DeviceInput). A key is held
-// while the finger is down, like the keypad's.
+// Shift, then the key they are printed beside (DeviceInput). Shift itself is
+// there too, for programs that read it on its own; it shows as pressed while
+// the OS's GUI keeps its latch. A key is held while the finger is down, like
+// the keypad's.
 import { useEffect, useRef, useState } from "react";
 import { Key, keyCode, SECOND, type Press } from "../bbk/keys";
 
@@ -13,12 +15,15 @@ export interface DeviceKey {
   label: string;
   /** Its name in the site's language, for screen readers and under the label. */
   name: string;
+  /** A latch (Shift): shown as pressed while it is set. */
+  latch?: boolean;
 }
 
 /** The keys in the row, in the site's language. */
 export function deviceKeys(lang: "en" | "zh"): DeviceKey[] {
   const en = lang === "en";
   return [
+    { press: Key.shift, label: "Shift", name: "Shift", latch: true },
     { press: keyCode("R"), label: "R", name: "R" },
     { press: Key.space, label: en ? "Space" : "空格", name: en ? "Space" : "空格" },
     { press: SECOND.help, label: "帮助", name: en ? "Help" : "帮助" },
@@ -45,9 +50,11 @@ interface Props {
   label: string;
   /** Show each key's name under its label (when the labels are not in the site's language). */
   names?: boolean;
+  /** Whether the device's Shift latch is set (the latch key shows as pressed). */
+  latched?: boolean;
 }
 
-export function DeviceKeys({ keys, onDown, onUp, label, names }: Props) {
+export function DeviceKeys({ keys, onDown, onUp, label, names, latched }: Props) {
   /** The key (its place in the row) each finger holds. */
   const pointers = useRef(new Map<number, number>());
   const [held, setHeld] = useState<ReadonlySet<number>>(new Set());
@@ -102,6 +109,7 @@ export function DeviceKeys({ keys, onDown, onUp, label, names }: Props) {
           className="kp-key"
           aria-label={k.name}
           data-held={held.has(i) || undefined}
+          aria-pressed={k.latch ? !!latched : undefined}
           onPointerDown={(e) => {
             e.preventDefault();
             try {

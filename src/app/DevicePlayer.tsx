@@ -3,13 +3,13 @@
 // from the OS's game menu. Without them it runs on Fulu (src/fulu), the
 // site's stand-in for the OS. Like the real device it stays as it was left
 // between visits.
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { BOOT_FRAMES, Device, FPS } from "../bbk/device";
 import { findLib } from "../bbk/gam";
 import { KitCheats } from "../bbk/kitCheats";
 import { missingRegions } from "../bbk/firmware";
 import { Key, KEYBOARD, type Press } from "../bbk/keys";
-import { DeviceInput } from "./deviceInput";
+import { DeviceInput, shiftLatched } from "./deviceInput";
 import { decodeLcd, LCD_HEIGHT, LCD_STRIDE, LCD_WIDTH } from "../bbk/lcd";
 import { WideView } from "../bbk/wideView";
 import { CPU_HZ } from "../bbk/machine";
@@ -114,7 +114,9 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   const kitRef = useRef<KitCheats | null>(null);
   /** The wider map view, for games made with the RPG kit (their library is in the .gam). */
   const wideRef = useRef<WideView | null>(null);
-  const [hasMap, setHasMap] = useState(false);
+  // (known from the file before the device is on: the menus that depend on it are there from the
+  // start, so the toolbar does not grow a row, and the page move, once the program runs)
+  const hasMap = useMemo(() => !!game && findLib(new Uint8Array(game.data)) >= 0, [game]);
   /** More text (F6, on Fulu): dialogues in 12 or 10 px text, the same setting as the JS engine's player. */
   const [textSize, setTextSize] = useState(() => Number(pref("textSize", "16")) as 16 | 12 | 10);
   const [mapView, setMapView] = useState<MapView>(() => mapViewOf(pref<string>("mapView", "normal")));
@@ -131,6 +133,9 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
   /** Whether the program on Fulu takes Chinese now (its input mode 4 or 8): the box for the computer's own input method shows. */
   const [chinese, setChinese] = useState(false);
   const chineseRef = useRef(false);
+  /** Whether the OS's GUI keeps its Shift latch now (the next key gives its second meaning). */
+  const [latched, setLatched] = useState(false);
+  const latchedRef = useRef(false);
   const typingBox = useRef<HTMLInputElement>(null);
   /** Storing the device failed (the browser's storage refused it): say so. */
   const notStored = (e: unknown) => {
@@ -272,7 +277,6 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
       kitRef.current = library ? new KitCheats(device.machine, readLibrary(library)) : null;
       wideRef.current = library ? new WideView(library) : null;
       if (device instanceof FuluDevice) device.fulu.moreText.library = library;
-      setHasMap(!!library);
       slots.current = [null, null, null, null];
       setOnFulu(!original);
       setStatus({ kind: "running" });
@@ -357,6 +361,9 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
         // on Fulu, Chinese input: the box for the computer's own input method
         const zh = d instanceof FuluDevice && d.chineseInput;
         if (zh !== chineseRef.current) setChinese((chineseRef.current = zh));
+        // the GUI's Shift latch: the row's Shift key shows it
+        const latch = shiftLatched(d.machine.ram);
+        if (latch !== latchedRef.current) setLatched((latchedRef.current = latch));
         // on Fulu, a program stops when it ends or needs what Fulu does not have yet; past the
         // latter the player can go on (and Fulu does by itself, for one the player went on past before)
         if (d instanceof FuluDevice && d.stopped && d.stopped !== shownStop.current) {
@@ -611,7 +618,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
           </select>
         </label>
       )}
-      {onFulu && hasMap && (
+      {onFuluOs && hasMap && (
         <label className="field" title={dt.moreTextTitle}>
           <span className="lbl">{pt.moreText}</span>
           <select
@@ -629,7 +636,7 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
           </select>
         </label>
       )}
-      {onFulu && (
+      {onFuluOs && (
         <label className="field" title={pt.textTitle}>
           <span className="lbl">{pt.text}</span>
           <select
@@ -717,6 +724,8 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
     </div>
   );
 
+  const canFullscreen = typeof document !== "undefined" && !!document.fullscreenEnabled;
+
   return (
     <div
       className={
@@ -736,6 +745,11 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
             ←
           </button>
           <span className="title">{title}</span>
+          {canFullscreen && (
+            <button className="tb-btn" onClick={toggleFullscreen} aria-label={pt.fullscreen} title={pt.fullscreen}>
+              ⛶
+            </button>
+          )}
           <button className="tb-btn" onClick={() => setOptionsOpen(true)} aria-label={pt.options} title={pt.options}>
             ⚙
           </button>
@@ -820,8 +834,8 @@ export function DevicePlayer({ game, os: wanted, onExit }: Props) {
           </form>
         )}
         {showPad && <Keypad onDown={(k) => keyDown(PAD_KEYS.get(k)!)} onUp={(k) => keyUp(PAD_KEYS.get(k)!)} labels={pt.keys} />}
-        {/* (the device's other keys some programs need: R, Space, 帮助, 删除, 查找, 插入) */}
-        {showPad && <DeviceKeys keys={deviceKeys(lang)} onDown={keyDown} onUp={keyUp} label={pt.keys.more} names={lang === "en"} />}
+        {/* (the device's other keys some programs need: Shift, R, Space, 帮助, 删除, 修改, 查找, 插入) */}
+        {showPad && <DeviceKeys keys={deviceKeys(lang)} onDown={keyDown} onUp={keyUp} label={pt.keys.more} names={lang === "en"} latched={latched} />}
       </div>
 
       {notice && (

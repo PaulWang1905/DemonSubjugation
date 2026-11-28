@@ -8,14 +8,17 @@
 // the latch is already set (and nothing is still to be read before the key),
 // the key alone gives its second meaning: a second Shift would clear it.
 import { Key, type Press } from "../bbk/keys";
+import { REPEAT_DELAY, REPEAT_RATE } from "./keyRepeat";
 
-/** Held keys repeat after this long, then every REPEAT_RATE ms. */
-export const REPEAT_DELAY = 300;
-export const REPEAT_RATE = 90;
+/** Held keys repeat after REPEAT_DELAY ms, then every REPEAT_RATE ms, as in FMJ React's player (keyRepeat.ts). */
+export { REPEAT_DELAY, REPEAT_RATE };
 /** The keys that repeat while held: the arrows and the page keys. */
 const REPEATS = new Set<number>([Key.up, Key.down, Key.left, Key.right, Key.pageUp, Key.pageDown]);
 /** The GUI's keyboard state, and its Shift latch. */
 const KEYBOARD_STATE = 0x2b27, LATCH = 0x20;
+
+/** Whether the GUI keeps its Shift latch (the next key gives its second meaning), on the firmware and on Fulu alike. */
+export const shiftLatched = (ram: Uint8Array): boolean => (ram[KEYBOARD_STATE] & LATCH) !== 0;
 
 /** What DeviceInput needs of a device (the firmware's or Fulu's). */
 export interface InputDevice {
