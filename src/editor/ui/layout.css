@@ -839,3 +839,15 @@
   display: block;
   height: 46dvh;
 }
+
+/* held sideways: the guide stands at the right, the map keeps the left */
+@media (max-height: 500px) {
+  .editor.compact .guide:not(.folded) {
+    left: auto;
+    width: min(320px, 40vw);
+    max-height: calc(100dvh - 24px);
+  }
+  .editor.compact:has(> .guide:not(.folded)) .e-panel::after {
+    display: none;
+  }
+}
