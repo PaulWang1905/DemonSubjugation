@@ -2331,6 +2331,14 @@ html.playing-touch body {
   width: 100%;
 }
 
+/* upright, the game screen above the sheet is not dimmed, so a palette or
+   effect chosen shows in its true colours */
+@media (orientation: portrait) {
+  .sheet {
+    background: linear-gradient(transparent var(--above, 0px), rgb(0 0 0 / 0.45) var(--above, 0px));
+  }
+}
+
 @media (orientation: landscape) {
   .sheet {
     align-items: center;
